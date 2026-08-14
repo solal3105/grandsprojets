@@ -148,12 +148,22 @@ Suivi : `select mail_status, count(*) from demo_leads group by 1;`
   l'argument de la carte à construire (`courte: true` dans l'événement `done`).
   Le vide, lui, reste un arrêt : aucune source exploitable, aucun projet
   attesté ou aucun projet situé envoient un `error` de motif `sans-projet`
-- **Aucun projet documenté n'est pas une panne** : l'écran d'échec rouge est
-  réservé aux vraies pannes. Le motif `sans-projet` mène à l'écran de fin dans
-  sa variante `done--vide` (loupe au lieu de la coche, ni bouton d'accès ni QR
-  code) où l'adresse est demandée sans être exigée, la sortie restant offerte
-  puisqu'aucun espace n'attend derrière. Le motif remonte à PostHog dans
-  `demo_generation_failed.reason`
+- **Plus aucun bandeau d'erreur** : le visiteur vient d'attendre trois minutes
+  devant sa commune, lui rendre une vignette rouge et un bouton
+  « Recommencer » (qui ne recommençait rien, il ramenait à la saisie) était la
+  pire fin possible. Les quatre issues qui n'ouvrent aucun espace convergent
+  vers l'écran de fin en `done--sans-espace` : ni bouton d'accès, ni QR code,
+  ni bandeau de chiffres, un emblème propre à chacune, l'adresse demandée sans
+  être exigée et la sortie offerte d'emblée. Elles se décrivent dans la table
+  `CONSTATS` de `demo.js`, jamais dans le code qui les affiche :
+  | motif | emblème | ce qu'on propose |
+  |---|---|---|
+  | `sans-projet` | loupe | préparer la carte avec vos documents |
+  | `quota` | horloge | recevoir la carte demain matin |
+  | `technique` | reprise | reprendre la carte de notre côté, ou réessayer |
+  Le motif remonte à PostHog dans `demo_generation_failed.reason`. Le message
+  technique du serveur (« Brouillon incomplet ») reste dans la console : il est
+  utile au développeur et illisible pour un maire
 - L'écran distingue ce qui est écarté faute d'emplacement vérifiable de ce qui
   est fusionné pour cause de doublon : les confondre revenait à mentir sur le
   motif du rejet. Sur une carte courte, ce décompte est tu : afficher cinq

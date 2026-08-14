@@ -23,7 +23,7 @@
        évite que cela se reproduise, mais seul un changement d'adresse déloge un
        fichier déjà en cache. À INCRÉMENTER à chaque modification de demo.css,
        demo.js ou map-fx.js. -->
-  <link rel="stylesheet" href="demo.css?v=8" />
+  <link rel="stylesheet" href="demo.css?v=9" />
   <script defer src="/modules/analytics.js" data-op-space="demo"></script>
 </head>
 <body>
@@ -104,24 +104,26 @@
            pendant qu'il reste des étapes à regarder. -->
       <p id="hud-notice" class="hud-notice" role="status" hidden></p>
 
-      <div id="hud-error" class="hud-error" hidden>
-        <p id="progress-error"></p>
-        <button id="btn-retry" class="btn btn--ghost">Recommencer</button>
-      </div>
     </section>
 
     <!-- Écran 3 : recensement terminé, l'espace attend -->
     <section id="screen-done" class="screen">
       <div id="done-card" class="done">
-        <!-- Deux emblèmes pour deux issues. La coche verte salue une carte
-             publiée ; la loupe dit que la recherche a été menée sans rien
-             trouver en ligne. Ce second cas n'est pas un échec, il ne porte
-             donc ni rouge ni croix. -->
-        <div class="done__check" aria-hidden="true">
+        <!-- Un emblème par issue, un seul montré à la fois. La coche verte
+             salue une carte publiée. Les trois autres disent qu'aucun espace
+             n'attend derrière, et aucun n'emprunte le vocabulaire de l'alerte :
+             il n'y a ici ni rouge, ni croix, ni bandeau d'erreur. -->
+        <div id="embleme-carte" class="done__embleme done__embleme--ok" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
         </div>
-        <div class="done__loupe" aria-hidden="true">
+        <div id="embleme-loupe" class="done__embleme done__embleme--sobre" aria-hidden="true" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.2-4.2"/></svg>
+        </div>
+        <div id="embleme-reprise" class="done__embleme done__embleme--sobre" aria-hidden="true" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/></svg>
+        </div>
+        <div id="embleme-demain" class="done__embleme done__embleme--sobre" aria-hidden="true" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.4l3.4 2"/></svg>
         </div>
         <!-- Le titre est fait de trois morceaux pour que le nom de la commune
              reste un noeud de texte à part : les deux issues s'écrivent en
@@ -190,7 +192,7 @@
   </main>
 
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
-  <script src="map-fx.js?v=8"></script>
-  <script src="demo.js?v=8"></script>
+  <script src="map-fx.js?v=9"></script>
+  <script src="demo.js?v=9"></script>
 </body>
 </html>

@@ -312,8 +312,8 @@ test.describe('Démo salon - cartes courtes', () => {
     await envoyer(page, { type: 'notice', message: "Nous n'avons trouvé que 2 projets documentés." });
     await expect(page.locator('#hud-notice')).toBeVisible();
     await expect(page.locator('#hud-notice')).toContainText('2 projets documentés');
-    // Rien n'est interrompu : ni bandeau d'erreur, ni changement d'écran
-    await expect(page.locator('#hud-error')).toBeHidden();
+    // Rien n'est interrompu : l'écran de fin n'est pas convoqué
+    await expect(page.locator('#screen-done')).not.toHaveClass(/is-active/);
     await expect(page.locator('#screen-progress')).toHaveClass(/is-active/);
   });
 
@@ -330,7 +330,8 @@ test.describe('Démo salon - cartes courtes', () => {
     await expect(page.locator('#done-detail')).toContainText('2 projets documentés dans les sources publiques');
     await expect(page.locator('#done-detail')).not.toContainText('publiés en');
     // La carte EXISTE : c'est une réussite, la coche et le titre ne changent pas
-    await expect(page.locator('#done-card')).not.toHaveClass(/done--vide/);
+    await expect(page.locator('#done-card')).not.toHaveClass(/done--sans-espace/);
+    await expect(page.locator('#embleme-carte')).toBeVisible();
     await expect(page.locator('#done-titre-apres')).toHaveText(' est prête');
   });
 
@@ -352,8 +353,10 @@ test.describe('Démo salon - cartes courtes', () => {
     await lancerFlux(page);
     await envoyer(page, SANS_PROJET);
     await expect(page.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
-    await expect(page.locator('#hud-error')).toBeHidden();
-    await expect(page.locator('#done-card')).toHaveClass(/done--vide/);
+    await expect(page.locator('#done-card')).toHaveClass(/done--sans-espace/);
+    // La loupe dit qu'on a cherché, la coche verte ne conviendrait pas ici
+    await expect(page.locator('#embleme-loupe')).toBeVisible();
+    await expect(page.locator('#embleme-carte')).toBeHidden();
     await expect(page.locator('#done-detail')).toContainText('ne documentent aujourd\'hui aucun projet');
     await expect(page.locator('#done-titre-apres')).toHaveText(' ne sont pas encore documentés en ligne');
     await expect(page.locator('#done-commune')).toHaveText('Oyonnax');
@@ -374,13 +377,35 @@ test.describe('Démo salon - cartes courtes', () => {
     await expect(page.locator('#done-stats')).toBeHidden();
   });
 
-  test('0.34.6 - une vraie panne garde l\'écran d\'échec et son bouton de reprise', async ({ page }) => {
+  /**
+   * Non-régression : une panne rendait au visiteur une vignette rouge et un
+   * bouton « Recommencer » qui ne recommençait rien, puisqu'il ramenait à la
+   * saisie. Elle lui propose désormais deux actions réelles.
+   */
+  test('0.34.6 - une panne technique propose une reprise et une adresse', async ({ page }) => {
     await lancerFlux(page);
-    await envoyer(page, { type: 'error', message: 'La génération a échoué.' });
-    await expect(page.locator('#hud-error')).toBeVisible();
-    await expect(page.locator('#btn-retry')).toBeVisible();
-    await expect(page.locator('#screen-progress')).toHaveClass(/is-active/);
-    await expect(page.locator('#done-card')).not.toHaveClass(/done--vide/);
+    await envoyer(page, { type: 'error', message: 'Brouillon incomplet : relancez la génération.' });
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await expect(page.locator('#embleme-reprise')).toBeVisible();
+    await expect(page.locator('#done-titre-apres')).toHaveText(" s'est interrompu");
+    // Le jargon du serveur reste dans la console, il ne s'affiche pas
+    await expect(page.locator('#done-detail')).not.toContainText('Brouillon');
+    await expect(page.locator('#done-detail')).toContainText("n'a pas pu terminer la carte");
+    // Deux actions réelles, plus un bouton qui ramenait à la case départ
+    await expect(page.locator('#lead-form')).toBeVisible();
+    await expect(page.locator('#btn-regen')).toHaveText('Réessayer cette commune');
+    await expect(page.locator('#btn-again')).toHaveText('Essayer une autre commune');
+    await expect(page.locator('#btn-open')).toBeHidden();
+  });
+
+  test('0.34.8 - le quota du jour propose de recevoir la carte demain', async ({ page }) => {
+    await lancerFlux(page);
+    await envoyer(page, { type: 'error', kind: 'quota', message: 'Le quota de démonstrations du jour est atteint.' });
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await expect(page.locator('#embleme-demain')).toBeVisible();
+    await expect(page.locator('#done-titre-apres')).toHaveText(' attendra demain');
+    await expect(page.locator('#done-detail')).toContainText('demain matin');
+    await expect(page.locator('#lead-form')).toBeVisible();
   });
 
   /**
@@ -391,10 +416,15 @@ test.describe('Démo salon - cartes courtes', () => {
     await lancerFlux(page);
     await envoyer(page, { type: 'notice', message: 'Deux projets seulement.' });
     await envoyer(page, SANS_PROJET);
-    await expect(page.locator('#done-card')).toHaveClass(/done--vide/);
+    await expect(page.locator('#done-card')).toHaveClass(/done--sans-espace/);
     await page.locator('#btn-again').click();
     await expect(page.locator('#screen-input')).toHaveClass(/is-active/);
-    await expect(page.locator('#done-card')).not.toHaveClass(/done--vide/);
+    await expect(page.locator('#done-card')).not.toHaveClass(/done--sans-espace/);
+    /* L'écran de fin est masqué à cet instant : c'est donc l'attribut qui fait
+       foi, pas la visibilité, qui serait fausse pour ses quatre emblèmes. */
+    await expect(page.locator('#embleme-carte')).not.toHaveAttribute('hidden', '');
+    await expect(page.locator('#embleme-loupe')).toHaveAttribute('hidden', '');
+    await expect(page.locator('#btn-again')).toHaveText('Autre commune');
     await expect(page.locator('#hud-notice')).toBeHidden();
     await expect(page.locator('#done-titre-apres')).toHaveText(' est prête');
     await expect(page.locator('#lead-submit')).toHaveText('Accéder');

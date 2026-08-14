@@ -4033,7 +4033,7 @@ export default async (req, context) => {
         if (phase !== 'analyse') {
           const global = await countToday(null, null);
           if (global >= MAX_GLOBAL_PER_DAY * 2) {
-            send({ type: 'error', message: 'Le quota de démonstrations du jour est atteint. Contactez-nous pour une démo guidée.' });
+            send({ type: 'error', kind: 'quota', message: 'Le quota de démonstrations du jour est atteint.' });
             clearInterval(heartbeat);
             controller.close();
             return;
@@ -4107,7 +4107,7 @@ export default async (req, context) => {
               && url.searchParams.get('k') === process.env.DEMO_KIOSK_KEY;
             const [byIp, global] = await Promise.all([countToday('ip_hash', ipHash), countToday(null, null)]);
             if (global >= MAX_GLOBAL_PER_DAY || (!kioskOk && byIp >= MAX_PER_IP_PER_DAY)) {
-              send({ type: 'error', message: 'Le quota de démonstrations du jour est atteint. Contactez-nous pour une démo guidée.' });
+              send({ type: 'error', kind: 'quota', message: 'Le quota de démonstrations du jour est atteint.' });
             } else {
               // Le run est ouvert AVANT le recensement : une commune introuvable
               // ou sans sources exploitables laisse ainsi une trace, alors

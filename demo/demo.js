@@ -410,15 +410,20 @@
   /* Remet l'écran de fin dans sa présentation par défaut, celle d'une carte
      publiée. Sans ce nettoyage, une commune dont le web ne dit rien laisserait
      son titre, sa loupe et ses libellés de formulaire à la commune suivante. */
+  const EMBLEMES = ['carte', 'loupe', 'reprise', 'demain'];
+
   function resetIssue() {
     sansProjet = false;
     const notice = $('hud-notice');
     if (notice) { notice.hidden = true; notice.textContent = ''; }
-    $('done-card').classList.remove('done--vide');
+    $('done-card').classList.remove('done--sans-espace');
+    EMBLEMES.forEach((e) => { $(`embleme-${e}`).hidden = e !== 'carte'; });
     $('done-titre-avant').textContent = 'La carte de ';
     $('done-titre-apres').textContent = ' est prête';
     $('lead-label').textContent = 'Votre adresse e-mail pour ouvrir cette carte';
     $('lead-submit').textContent = 'Accéder';
+    $('btn-regen').textContent = 'Refaire le recensement';
+    $('btn-again').textContent = 'Autre commune';
   }
 
   function onMediaItem(msg) {
@@ -567,7 +572,6 @@
     $('hud-commune').textContent = commune.nom;
     $('hud-logo').hidden = true;
     $('hud-logo').removeAttribute('src');
-    $('hud-error').hidden = true;
     resetIssue();
     show('progress');
 
@@ -844,17 +848,68 @@
      présentation. C'était le seul chemin qui laissait repartir un visiteur sans
      rien lui demander, alors que sa commune est précisément celle à qui une
      carte manque le plus. */
-  function onSansProjet(message) {
-    sansProjet = true;
+  /* Les issues qui n'ouvrent AUCUN espace. Elles partagent le même écran, la
+     même demande d'adresse et la même sortie : ce qui les distingue tient dans
+     cette table, jamais dans le code qui les affiche.
+
+     Aucune ne passe plus par un bandeau d'erreur. Le visiteur vient d'attendre
+     trois minutes devant sa commune : lui rendre une vignette rouge et un
+     bouton « Recommencer », qui ne recommençait d'ailleurs rien puisqu'il
+     ramenait à la saisie, était la pire fin possible. */
+  const CONSTATS = {
+    'sans-projet': {
+      embleme: 'loupe',
+      titreAvant: 'Les projets de ',
+      titreApres: ' ne sont pas encore documentés en ligne',
+      lead: 'Votre adresse e-mail pour que nous préparions votre carte',
+      relance: 'Refaire le recensement',
+      // Le texte vient du serveur : il nomme la commune et enchaîne sur l'offre
+      detail: null,
+    },
+    quota: {
+      embleme: 'demain',
+      titreAvant: 'Le recensement de ',
+      titreApres: ' attendra demain',
+      lead: 'Votre adresse e-mail pour recevoir la carte demain',
+      relance: 'Refaire le recensement',
+      detail: "Nous avons atteint notre nombre de générations pour aujourd'hui. "
+        + 'Laissez-nous votre adresse et nous lançons la carte demain matin, '
+        + 'puis nous vous envoyons son lien.',
+    },
+    technique: {
+      embleme: 'reprise',
+      titreAvant: 'Le recensement de ',
+      titreApres: " s'est interrompu",
+      lead: 'Votre adresse e-mail pour que nous reprenions la carte',
+      relance: 'Réessayer cette commune',
+      /* Le message du serveur parle de brouillons et de phases : c'est utile
+         dans la console, illisible pour un maire. On lui dit ce qui le
+         concerne, et ce qu'on lui propose. */
+      detail: "Notre machine n'a pas pu terminer la carte, et nous préférons ne rien vous montrer "
+        + "plutôt qu'un travail à moitié fait. Laissez-nous votre adresse et nous la reprendrons "
+        + "de notre côté, puis nous vous préviendrons dès qu'elle sera en ligne.",
+    },
+  };
+
+  /* Fin de parcours sans espace à ouvrir. Elle rejoint l'écran de fin dans une
+     autre présentation, au lieu de laisser le visiteur devant un constat sec :
+     c'était le seul chemin qui le laissait repartir sans qu'on lui demande
+     rien. */
+  function terminerSurUnConstat(motif, message) {
+    const c = CONSTATS[motif] || CONSTATS.technique;
+    sansProjet = motif === 'sans-projet';
     resetLead();
-    $('done-card').classList.add('done--vide');
-    $('done-titre-avant').textContent = 'Les projets de ';
+    $('done-card').classList.add('done--sans-espace');
+    EMBLEMES.forEach((e) => { $(`embleme-${e}`).hidden = e !== c.embleme; });
+    $('done-titre-avant').textContent = c.titreAvant;
     $('done-commune').textContent = currentCommune?.nom || '';
-    $('done-titre-apres').textContent = ' ne sont pas encore documentés en ligne';
-    $('done-detail').textContent = message;
+    $('done-titre-apres').textContent = c.titreApres;
+    $('done-detail').textContent = c.detail || message;
     $('done-stats').hidden = true;
     $('btn-regen').hidden = !currentCommune;
-    $('lead-label').textContent = 'Votre adresse e-mail pour que nous préparions votre carte';
+    $('btn-regen').textContent = c.relance;
+    $('btn-again').textContent = 'Essayer une autre commune';
+    $('lead-label').textContent = c.lead;
     $('lead-submit').textContent = 'Envoyer';
     /* Ici l'adresse est DEMANDÉE, elle n'est pas exigée. Aucun espace n'attend
        derrière, et retenir un visiteur devant une porte qui n'ouvre sur rien
@@ -870,26 +925,19 @@
 
   function onError(message, debug, kind) {
     if (debug) console.error('[demo-generate]', debug);
+    // Le message technique reste consultable, il ne s'affiche simplement plus
+    if (!CONSTATS[kind]) console.warn('[demo] fin technique :', message);
     window.OPAnalytics?.capture('demo_generation_failed', {
       municipality: currentCommune?.nom || null,
       municipality_insee: currentCommune?.code || null,
       phase: currentPhase || null,
       // Sans ce motif, l'analyse confond une panne technique avec une commune
       // dont le web public ne dit rien : deux situations sans rapport.
-      reason: kind || 'technique',
+      reason: CONSTATS[kind] ? kind : 'technique',
       resume_attempts: resumeTotal,
       kiosk: KIOSK,
     });
-    /* Aucune panne n'a eu lieu : ni bandeau rouge, ni croix, ni « Recommencer »
-       qui rejouerait la même recherche pour le même résultat. */
-    if (kind === 'sans-projet') { onSansProjet(message); return; }
-    $('progress-error').textContent = message;
-    $('hud-error').hidden = false;
-    $('hud-label').textContent = 'Génération interrompue';
-    $('hud-detail').textContent = '';
-    $('hud-icon').innerHTML = '<span class="hud-x">!</span>';
-    if (hasFx) { window.MapFX.scanStop(); window.MapFX.orbitStop(); }
-    if (KIOSK) redirectTimer = setTimeout(reset, 60000);
+    terminerSurUnConstat(CONSTATS[kind] ? kind : 'technique', message);
   }
 
   function reset() {
@@ -929,7 +977,6 @@
     if (!KIOSK) input.focus();
   }
 
-  $('btn-retry').addEventListener('click', reset);
   $('btn-again').addEventListener('click', reset);
   // Liaison unique : posée dans onDone(), elle s'empilait à chaque génération
   // et un seul clic émettait autant d'événements que de communes déjà jouées.
