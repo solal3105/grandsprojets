@@ -19,7 +19,7 @@ const {
   bboxOfContour, geometryExtentKm, extentAcceptable, geometryInBbox,
   centroidOf, haversineM, typeImageReel, looksLikeCode, estPageTremplin,
   collectPageLinks, unescapeBoamp, odonymesDe, distinctiveWords, essaisNominatim,
-  inChunks, lireFluxBorne, MAIRIE_BUDGET_MS, MAIRIE_OCTETS_MAX,
+  inChunks, lireFluxBorne, lireJson, MAIRIE_BUDGET_MS, MAIRIE_OCTETS_MAX,
   sansPrefixeGenerique, locationQueries, nomCoherent, rangStructurel, positionDansLaCommune,
   migrerEtatGeo, METHOD_LABELS, communeDuResultat,
   CARTE_COURTE, deLaCommune, messageSansProjet, messageCarteCourte,
@@ -801,6 +801,43 @@ test.describe('0.71 - Démo : un flux qui ne se termine jamais ne fige plus la c
     const { total, tronque } = await lireFluxBorne(lecteur, Date.now() + 5000, 500000);
     expect(tronque).toBe(false);
     expect(total).toBe(6);
+  });
+
+  /* Meme defaut sur les corps JSON, et il y etait PIRE : fetchWithTimeout
+     annule son minuteur des que les en-tetes arrivent, donc `r.json()` lisait
+     sans aucune borne, pas meme un abort. Ce sont les appels Supabase, geo,
+     annuaire, BOAMP et Commons qui passaient par la. */
+  test('0.71.4 - Un corps JSON qui ne se termine jamais lève au lieu de figer', async () => {
+    const bloc = new TextEncoder().encode('{"a":1');
+    let premier = true;
+    const r = {
+      body: {
+        getReader: () => ({
+          read() {
+            if (premier) { premier = false; return Promise.resolve({ done: false, value: bloc }); }
+            return new Promise(() => {});
+          },
+          cancel: () => Promise.resolve(),
+        }),
+      },
+    };
+    const t0 = Date.now();
+    await expect(lireJson(r, 500)).rejects.toThrow(/corps JSON interrompu/);
+    expect(Date.now() - t0).toBeLessThan(4000);
+  });
+
+  test('0.71.5 - Un corps JSON complet est décodé normalement', async () => {
+    const octets = new TextEncoder().encode('{"ville":"essai-villeurbanne","n":3}');
+    let i = 0;
+    const r = {
+      body: {
+        getReader: () => ({
+          read: () => Promise.resolve(i++ === 0 ? { done: false, value: octets } : { done: true }),
+          cancel: () => Promise.resolve(),
+        }),
+      },
+    };
+    await expect(lireJson(r, 5000)).resolves.toEqual({ ville: 'essai-villeurbanne', n: 3 });
   });
 
   /* Le plafond d'octets reste prioritaire : c'est lui qui sauvait Lyon. */

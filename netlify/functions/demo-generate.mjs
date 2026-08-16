@@ -272,6 +272,23 @@ async function lireFluxBorne(reader, finLecture, maxBytes) {
   return { chunks, total, tronque };
 }
 
+/* Corps JSON, borné lui aussi.
+
+   `fetchWithTimeout` annule son minuteur DES QUE LES EN-TETES ARRIVENT : passé
+   ce point, `r.json()` lit le corps sans aucune borne. Un serveur qui répond
+   puis fige son flux gèle donc l'invocation entière, exactement comme le gzip
+   jamais terminé de fetchCapped, mais sans même le garde-fou de l'abort.
+   Toute lecture de corps du fichier passe par ici. */
+async function lireJson(r, ms = FETCH_TIMEOUT_MS, maxBytes = 8000000) {
+  if (!r?.body) return r.json();
+  const { chunks, total, tronque } = await lireFluxBorne(r.body.getReader(), Date.now() + ms, maxBytes);
+  if (tronque) throw new Error(`corps JSON interrompu apres ${ms} ms (${total} o lus)`);
+  const buf = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) { buf.set(c, offset); offset += c.byteLength; }
+  return JSON.parse(new TextDecoder().decode(buf));
+}
+
 // Fetch borné en temps ET en octets pendant toute la lecture du corps
 // (fetchWithTimeout ne couvre que les en-têtes : un serveur lent ou une
 // réponse géante pouvait bloquer la fonction ou saturer la mémoire)
@@ -382,7 +399,7 @@ async function resolveCommune(insee) {
     `https://geo.api.gouv.fr/communes/${encodeURIComponent(insee)}?fields=nom,code,population,centre,departement,contour&geometry=contour`
   );
   if (!r.ok) return null;
-  return r.json();
+  return lireJson(r);
 }
 
 function bboxOfContour(contour) {
@@ -489,7 +506,7 @@ async function findMairie(insee, bbox = null) {
     url.searchParams.set('limit', '3');
     const r = await fetchWithTimeout(url.toString());
     if (!r.ok) return vide;
-    const data = await r.json();
+    const data = await lireJson(r);
     const records = data.results || [];
     /* La position est prise sur le PREMIER enregistrement qui en porte une ET
        qui tombe dans la commune, meme si c'est un autre que celui qui porte le
@@ -1460,7 +1477,7 @@ async function fetchBoamp(communeNom, departementCode, onFinding) {
     url.searchParams.set('select', 'objet,dateparution,url_avis,nature_libelle,nomacheteur,descripteur_libelle,type_marche,donnees');
     const r = await fetchWithTimeout(url.toString(), {}, 15000);
     if (!r.ok) return [];
-    const data = await r.json();
+    const data = await lireJson(r);
     const rows = (data.results || [])
       .map((rec) => ({
         title: String(rec.objet || '').slice(0, 240),
@@ -2091,7 +2108,7 @@ async function banGeocode(q, commune, bbox) {
     const u = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&citycode=${commune.code}&limit=1`;
     const r = await fetchWithTimeout(u);
     if (r.ok) {
-      const f = (await r.json()).features?.[0];
+      const f = (await lireJson(r)).features?.[0];
       /* type='municipality' est la commune ELLE-MEME : la BAN rend ce resultat
          des que la requete ne correspond a aucune adresse (« Différents
          bâtiments de la ville de », « Tassin et Lyon »). On obtenait alors le
@@ -2144,7 +2161,7 @@ async function nominatimLookup(q, commune, bbox) {
     if (!r.ok) console.warn(`[demo-generate] nominatim http=${r.status} pour "${q}"`);
     if (r.ok) {
       const commLc = commune.nom.toLowerCase().slice(0, 8);
-      for (const hit of await r.json()) {
+      for (const hit of await lireJson(r)) {
         const g = hit.geojson;
         if (!g || !geometryInBbox(g, bbox)) continue;
         /* La commune du resultat, lue dans le DETAIL d'adresse. Chercher le nom
@@ -2402,7 +2419,7 @@ async function commonsQuery(params) {
     const all = { action: 'query', format: 'json', prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: '1024', origin: '*', ...params };
     for (const [k, v] of Object.entries(all)) u.searchParams.set(k, String(v));
     const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
-    return r.ok ? commonsPagesToCandidates(await r.json()) : [];
+    return r.ok ? commonsPagesToCandidates(await lireJson(r)) : [];
   } catch { return []; }
 }
 
@@ -2638,7 +2655,7 @@ async function insertRows(table, rows, { returning = false, onConflict = null } 
     const t = await r.text().catch(() => '');
     throw new Error(`Insertion ${table} : ${r.status} ${t.slice(0, 200)}`);
   }
-  return returning ? r.json() : null;
+  return returning ? lireJson(r) : null;
 }
 
 async function deleteWhere(table, params) {
@@ -2687,7 +2704,7 @@ async function getInstance(where) {
   for (const [k, v] of Object.entries(where)) url.searchParams.set(k, `eq.${v}`);
   const r = await fetchWithTimeout(url.toString(), { headers: serviceHeaders() });
   if (!r.ok) return null;
-  const rows = await r.json();
+  const rows = await lireJson(r);
   return rows[0] || null;
 }
 
@@ -2739,7 +2756,7 @@ async function sweepStaleRuns() {
       }),
     });
     if (!r.ok) return;
-    const rows = await r.json().catch(() => []);
+    const rows = await lireJson(r).catch(() => []);
     if (rows.length) console.log(`[demo-generate] journal: ${rows.length} run(s) perime(s) clos en echec`);
   } catch (e) {
     console.warn('[demo-generate] journal: balayage impossible ::', e?.message);
@@ -4264,6 +4281,15 @@ export default async (req, context) => {
       } catch (err) {
         console.error(`[demo-generate] ERREUR phase=${phase} cible=${villeParam || insee} ::`, err?.stack || err?.message || err);
         runState.crashMessage = String(err?.message || err).slice(0, 300);
+        /* Le motif est consigne MEME quand la reprise reste possible.
+           Sans cela, une phase qui echoue laissait une ligne `running` muette,
+           impossible a distinguer d'un onglet ferme : c'est ce qui a rendu
+           Villeurbanne indechiffrable (5 tentatives, aucune erreur en base,
+           une heure a reconstituer ce qu'une colonne aurait dit). Le run n'est
+           pas CLOS ici, la reprise doit pouvoir aboutir ; on l'annote. */
+        if (runState.id) {
+          await patchRun(runState.id, { error_message: `phase=${phase} :: ${runState.crashMessage}` });
+        }
         // Anti-boucle : au-dela de MAX_PHASE_ATTEMPTS echecs sur une meme phase,
         // on declare l'instance en echec pour ne plus la relancer indefiniment
         let retryable = true;
@@ -4347,6 +4373,7 @@ export const _internals = {
   INSEE_RE,
   inChunks,
   lireFluxBorne,
+  lireJson,
   MAIRIE_BUDGET_MS,
   MAIRIE_OCTETS_MAX,
   isSafePublicUrl,
