@@ -83,17 +83,17 @@ const PDF_TEXT_CHARS = 6000;
 // fetchCapped tronque, et une image tronquee s'affiche amputee.
 const COVER_MAX_BYTES = 8000000;
 const FETCH_TIMEOUT_MS = 8000;
-/* Budget de la branche mairie, en millisecondes.
-   La collecte sur le site de la commune est la seule des trois sources dont le
-   cout depend du site d'en face, pas de la commune : un site bien fait (sitemap
-   complet, pages lourdes) donne PLUS de travail qu'un site pauvre. Mesure sur
-   Ploudalmezeau : sitemap de 319 adresses, pages de 190 Ko a 2,2 s, soit plus
-   de 24 s de telechargement, auxquelles s'ajoutent deux tris IA a 40 s de
-   plafond. L'invocation etait tuee a 60 s avec tout son contenu, et le journal
-   restait bloque en `running` puisque closeRun n'etait jamais atteint.
-   La presse et les marches publics, eux, avaient deja repondu : le recensement
-   doit continuer avec ce qui a ete collecte, pas mourir avec lui. */
-const MAIRIE_BUDGET_MS = 32000;
+/* Filet de securite de la branche mairie, en millisecondes.
+   Ce n'est PAS ce qui corrige les communes bloquees : la cause etait un flux
+   gzip jamais termine que l'abort ne debloquait pas (voir fetchCapped). Ce
+   budget ne couvre que le cas restant : un site dont les pages sont si
+   nombreuses et si lentes que la seule collecte epuiserait l'invocation.
+   Mesure sur Ploudalmezeau une fois la cause corrigee : la branche complete
+   tient en 34,6 s (18 pages lues). Le filet est donc pose au-dessus du normal
+   observe, pas dessous : a 32 s il rognait une collecte qui aboutit.
+   La presse et les marches publics repondent en 1 a 2 s et ne dependent pas de
+   la mairie : quand le filet se declenche, le recensement continue avec eux. */
+const MAIRIE_BUDGET_MS = 45000;
 /* Plafond d'octets de la branche mairie. Le nombre de pages ne dit rien du
    cout reel : 56 pages de 190 Ko font 10 Mo a telecharger, decouper et
    detourer, la ou 56 pages legeres n'en font pas 2. On borne donc ce qui pese
@@ -233,6 +233,45 @@ function isSafePublicUrl(u) {
   } catch { return false; }
 }
 
+/* Lecture d'un flux, bornee en TEMPS et en octets.
+
+   Sortie en fonction a part pour deux raisons. D'abord parce que c'est ici que
+   se jouait le blocage : `AbortController.abort()` NE DEBLOQUE PAS un
+   `reader.read()` deja en attente quand le serveur repond en gzip sans
+   content-length et ne termine jamais proprement son flux. La promesse de
+   read() reste pendante POUR TOUJOURS, ni le catch ni le finally de l'appelant
+   ne s'executent, et l'invocation entiere se fige. Mesure sur
+   www.ploudalmezeau.fr (Node 20) : en-tetes a 201 ms, abort a 8 s, puis plus
+   rien. La course ci-dessous est la seule borne reellement effective.
+
+   Ensuite parce que `fetchCapped` refuse par construction toute adresse locale
+   (garde anti-SSRF) : le cas ne serait pas atteignable depuis un test sans
+   affaiblir cette garde. Ici, un lecteur de flux se fabrique a la main.
+
+   Ce qui a deja ete lu est CONSERVE, comme au plafond d'octets : une page
+   tronquee reste exploitable, une invocation figee ne l'est pas. */
+async function lireFluxBorne(reader, finLecture, maxBytes) {
+  const chunks = [];
+  let total = 0;
+  let tronque = false;
+  while (true) {
+    const lu = await Promise.race([
+      reader.read(),
+      sleep(Math.max(0, finLecture - Date.now())).then(() => null),
+    ]);
+    if (!lu) {
+      tronque = true;
+      try { await reader.cancel(); } catch { /* flux déjà clos */ }
+      break;
+    }
+    if (lu.done) break;
+    chunks.push(lu.value);
+    total += lu.value.byteLength;
+    if (total >= maxBytes) { try { await reader.cancel(); } catch { /* flux déjà clos */ } break; }
+  }
+  return { chunks, total, tronque };
+}
+
 // Fetch borné en temps ET en octets pendant toute la lecture du corps
 // (fetchWithTimeout ne couvre que les en-têtes : un serveur lent ou une
 // réponse géante pouvait bloquer la fonction ou saturer la mémoire)
@@ -240,20 +279,13 @@ async function fetchCapped(url, opts = {}, ms = FETCH_TIMEOUT_MS, maxBytes = 500
   if (!isSafePublicUrl(url)) return null;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
+  const finLecture = Date.now() + ms;
   try {
     const r = await fetch(url, { ...opts, signal: ctrl.signal });
     // Revalide l'hôte final : une redirection a pu mener vers du privé
     if (!r.ok || !r.body || !isSafePublicUrl(r.url)) return null;
-    const reader = r.body.getReader();
-    const chunks = [];
-    let total = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      total += value.byteLength;
-      if (total >= maxBytes) { try { await reader.cancel(); } catch { /* flux déjà clos */ } break; }
-    }
+    const { chunks, total, tronque } = await lireFluxBorne(r.body.getReader(), finLecture, maxBytes);
+    if (tronque) console.warn(`[demo-generate] lecture interrompue apres ${ms} ms sur ${hostOf(url)} (${total} o lus)`);
     const buf = new Uint8Array(total);
     let offset = 0;
     for (const c of chunks) { buf.set(c, offset); offset += c.byteLength; }
@@ -4314,6 +4346,7 @@ export const config = { path: '/api/demo-generate' };
 export const _internals = {
   INSEE_RE,
   inChunks,
+  lireFluxBorne,
   MAIRIE_BUDGET_MS,
   MAIRIE_OCTETS_MAX,
   isSafePublicUrl,

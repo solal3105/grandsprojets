@@ -19,7 +19,7 @@ const {
   bboxOfContour, geometryExtentKm, extentAcceptable, geometryInBbox,
   centroidOf, haversineM, typeImageReel, looksLikeCode, estPageTremplin,
   collectPageLinks, unescapeBoamp, odonymesDe, distinctiveWords, essaisNominatim,
-  inChunks, MAIRIE_BUDGET_MS, MAIRIE_OCTETS_MAX,
+  inChunks, lireFluxBorne, MAIRIE_BUDGET_MS, MAIRIE_OCTETS_MAX,
   sansPrefixeGenerique, locationQueries, nomCoherent, rangStructurel, positionDansLaCommune,
   migrerEtatGeo, METHOD_LABELS, communeDuResultat,
   CARTE_COURTE, deLaCommune, messageSansProjet, messageCarteCourte,
@@ -732,11 +732,89 @@ test.describe('0.70 - Démo : la collecte mairie rend la main avant le mur d\'in
     expect(out).toEqual(vus);
   });
 
-  test('0.70.4 - Les budgets restent sous le mur d\'invocation de 60 s', () => {
-    // Une requete en vol peut depasser l'echeance de FETCH_TIMEOUT_MS (8 s).
-    // 32 s + 8 s laisse une marge franche avant le mur observe a 60 s.
-    expect(MAIRIE_BUDGET_MS).toBeLessThanOrEqual(40000);
+  /* Le filet doit rester AU-DESSUS du normal observe (34,6 s pour la branche
+     complete sur Ploudalmezeau) et SOUS le mur d'invocation de 60 s. Trop bas,
+     il rogne des collectes qui aboutissent ; trop haut, il ne protege plus. */
+  test('0.70.4 - Le filet est au-dessus du normal observé et sous le mur de 60 s', () => {
+    expect(MAIRIE_BUDGET_MS).toBeGreaterThan(35000);
+    expect(MAIRIE_BUDGET_MS).toBeLessThanOrEqual(50000);
     expect(MAIRIE_OCTETS_MAX).toBeGreaterThan(0);
+  });
+
+});
+
+/**
+ * 0.71 - La cause reelle des communes bloquees (non-regression).
+ *
+ * www.ploudalmezeau.fr repond en gzip sans content-length et ne termine jamais
+ * proprement son flux. Or `AbortController.abort()` NE DEBLOQUE PAS un
+ * `reader.read()` deja en attente dans ce cas : la promesse reste pendante pour
+ * toujours, ni le catch ni le finally ne s'executent, et TOUTE l'invocation se
+ * fige. Mesure Node 20 : en-tetes a 201 ms, abort a 8 s, puis plus rien.
+ *
+ * Lyon passait par accident : sa page fait 2,45 Mo, donc elle atteint le
+ * plafond d'octets et sort par `reader.cancel()` avant les 8 s. Ploudalmezeau
+ * fait 443 Ko, juste SOUS le plafond, donc la boucle attendait une fin de flux
+ * qui ne venait jamais. Une commune echouait donc parce que sa page etait
+ * legere, ce que personne n'aurait devine.
+ */
+test.describe('0.71 - Démo : un flux qui ne se termine jamais ne fige plus la collecte', () => {
+
+  /** Lecteur qui rend un bloc, puis ne se resout PLUS JAMAIS. C'est
+   *  exactement ce que fait un flux gzip que le serveur ne termine pas. */
+  const lecteurQuiSeFige = (bloc) => {
+    let premier = true;
+    return {
+      annule: false,
+      read() {
+        if (premier) { premier = false; return Promise.resolve({ done: false, value: bloc }); }
+        return new Promise(() => {}); // pendante pour toujours
+      },
+      cancel() { this.annule = true; return Promise.resolve(); },
+    };
+  };
+
+  test('0.71.1 - Une lecture pendante rend la main au délai imparti', async () => {
+    const bloc = new TextEncoder().encode('<html><body>Travaux</body></html>');
+    const lecteur = lecteurQuiSeFige(bloc);
+    const t0 = Date.now();
+    const { total, tronque, chunks } = await lireFluxBorne(lecteur, Date.now() + 600, 500000);
+    const ecoule = Date.now() - t0;
+    // Le point de non-regression : ca REND LA MAIN. Avant, jamais.
+    expect(ecoule).toBeGreaterThanOrEqual(550);
+    expect(ecoule).toBeLessThan(4000);
+    expect(tronque).toBe(true);
+    // Et ce qui a ete lu est CONSERVE, pas jete
+    expect(total).toBe(bloc.byteLength);
+    expect(new TextDecoder().decode(chunks[0])).toContain('Travaux');
+    // Le flux est referme, pas laisse ouvert
+    expect(lecteur.annule).toBe(true);
+  });
+
+  test('0.71.2 - Un flux qui se termine normalement n\'est pas marqué tronqué', async () => {
+    const blocs = [new TextEncoder().encode('abc'), new TextEncoder().encode('def')];
+    let i = 0;
+    const lecteur = {
+      read: () => Promise.resolve(i < blocs.length ? { done: false, value: blocs[i++] } : { done: true }),
+      cancel: () => Promise.resolve(),
+    };
+    const { total, tronque } = await lireFluxBorne(lecteur, Date.now() + 5000, 500000);
+    expect(tronque).toBe(false);
+    expect(total).toBe(6);
+  });
+
+  /* Le plafond d'octets reste prioritaire : c'est lui qui sauvait Lyon. */
+  test('0.71.3 - Le plafond d\'octets coupe avant le délai', async () => {
+    const gros = new Uint8Array(400);
+    const lecteur = {
+      annule: false,
+      read: () => Promise.resolve({ done: false, value: gros }),
+      cancel() { this.annule = true; return Promise.resolve(); },
+    };
+    const { total, tronque } = await lireFluxBorne(lecteur, Date.now() + 5000, 1000);
+    expect(tronque).toBe(false);
+    expect(total).toBeGreaterThanOrEqual(1000);
+    expect(lecteur.annule).toBe(true);
   });
 
 });
