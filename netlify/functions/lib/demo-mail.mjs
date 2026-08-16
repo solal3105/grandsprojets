@@ -22,6 +22,34 @@ const replyTo = () => String(process.env.DEMO_MAIL_REPLY_TO || '')
   .map((a) => a.trim())
   .filter(Boolean);
 
+/* Copie interne de chaque carte envoyée à un visiteur.
+
+   COPIE INVISIBLE, jamais en clair : mises en `to` ou en `cc`, ces quatre
+   adresses partiraient chez chaque visiteur de salon, qui verrait le carnet
+   d'adresses de l'équipe dans son message. Le visiteur ne doit voir que la
+   sienne.
+
+   Ce n'est pas une notification résumée mais le message EXACT reçu par le
+   visiteur : c'est ce qui permet de rappeler en sachant ce qu'il a sous les
+   yeux, lien compris.
+
+   Le code de service tapé dans le champ de l'adresse (`LEAD_BYPASS` dans
+   demo/demo.js) n'atteint jamais cette fonction : il ouvre l'espace sans
+   appeler /api/demo-lead, donc sans lead ni message. Aucune copie n'en part,
+   par construction et non par filtre.
+
+   `DEMO_MAIL_BCC` permet de changer la liste sans redéploiement. La variable
+   ABSENTE donne le repli ci-dessous, pour que la copie parte même sans
+   configuration ; la variable VIDE coupe la copie. Sans cette distinction, il
+   n'y aurait aucun moyen de la désactiver autrement qu'en touchant au code. */
+const BCC_DEFAUT = ['loic@vazy.app', 'solal.gendrin@gmail.com', 'solal@vazy.app', 'arnaud@vazy.app'];
+
+const bcc = () => {
+  const brut = process.env.DEMO_MAIL_BCC;
+  const liste = brut === undefined ? BCC_DEFAUT : String(brut).split(',');
+  return liste.map((a) => a.trim()).filter(Boolean);
+};
+
 /* ─── Le message ───────────────────────────────────────────────────────────
 
    Trois choses, dans cet ordre : le lien qu'on a promis, ce qu'est vraiment
@@ -175,9 +203,10 @@ export async function envoyerMessageDemo({ email, communeNom, spaceUrl, projects
     html: corpsHtml(donnees),
     from: from(),
     replyTo: replyTo(),
+    bcc: bcc(),
   });
   if (resultat.status === 'envoye') {
-    console.log(`[demo-mail] message envoyé pour ${communeNom || 'commune inconnue'}`);
+    console.log(`[demo-mail] message envoyé pour ${communeNom || 'commune inconnue'} (${bcc().length} copie(s) interne(s))`);
   }
   return resultat;
 }

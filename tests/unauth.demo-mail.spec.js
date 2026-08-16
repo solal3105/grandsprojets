@@ -33,6 +33,7 @@ const envReel = {
   BREVO_API_KEY: process.env.BREVO_API_KEY,
   DEMO_MAIL_REPLY_TO: process.env.DEMO_MAIL_REPLY_TO,
   DEMO_MAIL_FROM: process.env.DEMO_MAIL_FROM,
+  DEMO_MAIL_BCC: process.env.DEMO_MAIL_BCC,
 };
 
 /** Remplace `fetch` et rend les appels captés, corps déjà décodé. */
@@ -52,6 +53,9 @@ function interceptor({ ok = true } = {}) {
 test.beforeEach(() => {
   delete process.env.BREVO_API_KEY;
   delete process.env.DEMO_MAIL_FROM;
+  // Absente : c'est le repli en dur qui doit s'appliquer, comme en production
+  // tant que rien n'est configuré chez Netlify.
+  delete process.env.DEMO_MAIL_BCC;
   process.env.RESEND_API_KEY = 'cle-de-test';
 });
 
@@ -164,5 +168,64 @@ test.describe('Démo salon - message au visiteur', () => {
 
     expect(res.status).toBe('echec');
     expect(appels).toHaveLength(0);
+  });
+
+  /* Copie interne de chaque carte partie chez un visiteur.
+     Le point sensible n'est pas qu'elle parte, c'est qu'elle parte INVISIBLE :
+     en `to` ou en `cc`, chaque visiteur de salon recevrait le carnet d'adresses
+     de l'équipe dans son message. */
+  test('0.34.9 - l\'équipe est en copie invisible, le visiteur reste seul destinataire', async () => {
+    const appels = interceptor();
+
+    await envoyerMessageDemo(DONNEES);
+
+    const corps = appels[0].corps;
+    expect(corps.to).toEqual([DONNEES.email]);
+    expect(corps.bcc).toEqual([
+      'loic@vazy.app', 'solal.gendrin@gmail.com', 'solal@vazy.app', 'arnaud@vazy.app',
+    ]);
+    // Aucune adresse interne ne doit apparaître là où le visiteur la verrait
+    expect(corps.cc).toBeUndefined();
+    for (const interne of corps.bcc) {
+      expect(corps.to).not.toContain(interne);
+      expect(corps.text).not.toContain(interne);
+      expect(corps.html).not.toContain(interne);
+    }
+  });
+
+  test('0.34.10 - DEMO_MAIL_BCC remplace la liste sans redéploiement', async () => {
+    process.env.DEMO_MAIL_BCC = ' nouveau@vazy.app , autre@vazy.app ';
+    const appels = interceptor();
+
+    await envoyerMessageDemo(DONNEES);
+
+    expect(appels[0].corps.bcc).toEqual(['nouveau@vazy.app', 'autre@vazy.app']);
+  });
+
+  test('0.34.11 - DEMO_MAIL_BCC vide coupe la copie interne', async () => {
+    process.env.DEMO_MAIL_BCC = '';
+    const appels = interceptor();
+
+    await envoyerMessageDemo(DONNEES);
+
+    // Pas de champ bcc du tout, plutôt qu'une liste vide que Resend refuserait
+    expect(appels[0].corps.bcc).toBeUndefined();
+    expect(appels[0].corps.to).toEqual([DONNEES.email]);
+  });
+
+  test('0.34.12 - Brevo reçoit la copie au format qu\'il attend', async () => {
+    delete process.env.RESEND_API_KEY;
+    process.env.BREVO_API_KEY = 'cle-brevo-de-test';
+    const appels = interceptor();
+
+    await envoyerMessageDemo(DONNEES);
+
+    expect(appels[0].url).toBe('https://api.brevo.com/v3/smtp/email');
+    // Brevo veut des objets { email }, pas des chaînes comme Resend
+    expect(appels[0].corps.bcc).toEqual([
+      { email: 'loic@vazy.app' }, { email: 'solal.gendrin@gmail.com' },
+      { email: 'solal@vazy.app' }, { email: 'arnaud@vazy.app' },
+    ]);
+    expect(appels[0].corps.to).toEqual([{ email: DONNEES.email }]);
   });
 });
