@@ -83,6 +83,22 @@ const PDF_TEXT_CHARS = 6000;
 // fetchCapped tronque, et une image tronquee s'affiche amputee.
 const COVER_MAX_BYTES = 8000000;
 const FETCH_TIMEOUT_MS = 8000;
+/* Budget de la branche mairie, en millisecondes.
+   La collecte sur le site de la commune est la seule des trois sources dont le
+   cout depend du site d'en face, pas de la commune : un site bien fait (sitemap
+   complet, pages lourdes) donne PLUS de travail qu'un site pauvre. Mesure sur
+   Ploudalmezeau : sitemap de 319 adresses, pages de 190 Ko a 2,2 s, soit plus
+   de 24 s de telechargement, auxquelles s'ajoutent deux tris IA a 40 s de
+   plafond. L'invocation etait tuee a 60 s avec tout son contenu, et le journal
+   restait bloque en `running` puisque closeRun n'etait jamais atteint.
+   La presse et les marches publics, eux, avaient deja repondu : le recensement
+   doit continuer avec ce qui a ete collecte, pas mourir avec lui. */
+const MAIRIE_BUDGET_MS = 32000;
+/* Plafond d'octets de la branche mairie. Le nombre de pages ne dit rien du
+   cout reel : 56 pages de 190 Ko font 10 Mo a telecharger, decouper et
+   detourer, la ou 56 pages legeres n'en font pas 2. On borne donc ce qui pese
+   vraiment, pas ce qui se compte. */
+const MAIRIE_OCTETS_MAX = 12000000;
 const UA = { 'User-Agent': 'Mozilla/5.0 (compatible; OpenProjetsDemo/1.0; +https://openprojets.com/demo/)' };
 
 const CATEGORIES = {
@@ -310,9 +326,18 @@ function hostOf(u) {
   try { return new URL(u).host.replace(/^www\./, ''); } catch { return ''; }
 }
 
-async function inChunks(items, size, worker) {
+/* Les lots s'enchainent EN SERIE : un lot lent retarde tous les suivants. Sur
+   un site dont chaque page pese 190 Ko et repond en 2 s, dix lots de six
+   suffisaient a depasser a eux seuls le mur d'invocation. `echeance` arrete la
+   serie proprement et rend ce qui a deja ete collecte, au lieu de laisser
+   l'invocation se faire tuer avec tout son travail. */
+async function inChunks(items, size, worker, echeance = Infinity) {
   const out = [];
   for (let i = 0; i < items.length; i += size) {
+    if (Date.now() >= echeance) {
+      console.warn(`[demo-generate] echeance atteinte : ${items.length - i} element(s) sur ${items.length} non traites`);
+      break;
+    }
     out.push(...await Promise.all(items.slice(i, i + size).map(worker)));
   }
   return out;
@@ -836,13 +861,19 @@ const LIENS_SCHEMA = {
    qui rend le rappel utilisable. */
 const LIENS_LOT_MAX = 120;
 
-async function choisirLiensParIa(liens, communeNom, max, contexte) {
+async function choisirLiensParIa(liens, communeNom, max, contexte, echeance = Infinity) {
   if (!liens.length) return [];
+  /* Passe l'echeance, on ne demande plus rien au modele : un seul appel vaut
+     40 s de plafond, soit plus que tout le budget restant. Le classement
+     structurel rend un choix immediat, moins fin mais gratuit en temps. */
+  if (Date.now() >= echeance) {
+    return [...liens].sort((a, b) => rangStructurel(b) - rangStructurel(a)).slice(0, max);
+  }
   if (liens.length <= LIENS_LOT_MAX) return choisirDansUnLot(liens, communeNom, max, contexte);
 
   const lots = [];
   for (let i = 0; i < liens.length; i += LIENS_LOT_MAX) lots.push(liens.slice(i, i + LIENS_LOT_MAX));
-  const parLot = await inChunks(lots, 4, (lot) => choisirDansUnLot(lot, communeNom, max, contexte));
+  const parLot = await inChunks(lots, 4, (lot) => choisirDansUnLot(lot, communeNom, max, contexte), echeance);
 
   /* Fusion en tourniquet : le premier choix de chaque lot, puis le deuxieme de
      chacun, et ainsi de suite. Aucun lot ne peut monopoliser les places, et
@@ -956,14 +987,16 @@ function extractPageBlocks(html, baseUrl) {
 }
 
 // Télécharge un lot de pages en parallèle et les verse dans `out`
-async function fetchPages(links, out, onFinding) {
+async function fetchPages(links, out, onFinding, echeance = Infinity) {
   const fetched = await inChunks(links, 6, async (link) => {
+    if ((out.octets || 0) >= MAIRIE_OCTETS_MAX) { out.tronque = true; return null; }
     const page = await fetchCapped(link.url, { headers: UA }, 6000, 400000);
     if (!page) return null;
+    out.octets = (out.octets || 0) + (page.data?.length || 0);
     // Texte COMPLET a ce stade : la troncature n'intervient qu'apres le retrait
     // du gabarit, sinon on couperait dans le menu et pas dans le contenu.
     return { link, page, text: stripHtml(page.data).slice(0, PAGE_TEXT_BRUT_CHARS) };
-  });
+  }, echeance);
   for (const sp of fetched) {
     if (!sp) continue;
     collectPdfLinks(sp.page.data, sp.page.url, out.pdfs);
@@ -1065,8 +1098,8 @@ function findSiteLogo(html, baseUrl) {
   return retenus;
 }
 
-async function inspectMairieSite(siteUrl, communeNom, onFinding) {
-  const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], bloque: false };
+async function inspectMairieSite(siteUrl, communeNom, onFinding, echeance = Infinity) {
+  const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], bloque: false, tronque: false, octets: 0 };
   const home = await fetchCapped(siteUrl, { headers: UA }, FETCH_TIMEOUT_MS, 500000);
   if (!home) return out;
   /* Le site renvoie une page-tremplin au lieu de son contenu : inutile
@@ -1139,7 +1172,10 @@ async function inspectMairieSite(siteUrl, communeNom, onFinding) {
   collectPageLinks(html, finalUrl, finalUrl.host, links);
   const depuisAccueil = links.length;
 
-  const sitemap = await fetchSitemapUrls(home.url);
+  /* Le sitemap n'est un gain que s'il reste du temps pour ouvrir ce qu'il
+     revele : sans budget, il ne ferait qu'allonger la liste de candidats d'un
+     tri IA qu'on ne pourra pas honorer. */
+  const sitemap = Date.now() >= echeance ? [] : await fetchSitemapUrls(home.url);
   if (sitemap.length) {
     const connus = new Set(links.map((l) => l.url));
     const duSitemap = sitemap
@@ -1164,9 +1200,10 @@ async function inspectMairieSite(siteUrl, communeNom, onFinding) {
 
   const aOuvrir = await choisirLiensParIa(
     links, communeNom, MAIRIE_PAGES,
-    "Voici les liens de la page d'accueil du site officiel, complétés par les adresses publiées dans son sitemap. Pour ces dernières, l'intitulé est tiré de l'adresse elle-même."
+    "Voici les liens de la page d'accueil du site officiel, complétés par les adresses publiées dans son sitemap. Pour ces dernières, l'intitulé est tiré de l'adresse elle-même.",
+    echeance
   );
-  const seed = await fetchPages(aOuvrir, out, onFinding);
+  const seed = await fetchPages(aOuvrir, out, onFinding, echeance);
 
   /* Second niveau. Une page « Travaux », « Grands projets » ou « Actualites »
      n'est souvent qu'un SOMMAIRE : sur Vannes elle liste 14 operations en
@@ -1189,13 +1226,20 @@ async function inspectMairieSite(siteUrl, communeNom, onFinding) {
     sommaires++;
     for (const l of propres) { vus.add(l.url); enfants.push(l); }
   }
-  if (enfants.length) {
+  /* Le second niveau est un BONUS : il affine une collecte qui tient deja
+     debout. Passe l'echeance, on le saute entierement plutot que de risquer
+     l'invocation, et le premier niveau part tel quel. */
+  if (enfants.length && Date.now() < echeance) {
     console.log(`[demo-generate] ${sommaires} sommaire(s), ${enfants.length} page(s) fille(s) reperee(s)`);
     const fillesAOuvrir = await choisirLiensParIa(
       enfants, communeNom, MAIRIE_PAGES_ENFANTS,
-      'Voici les entrées listées par les pages de sommaire déjà ouvertes. Chaque entrée est un contenu propre du site, pas une rubrique de menu.'
+      'Voici les entrées listées par les pages de sommaire déjà ouvertes. Chaque entrée est un contenu propre du site, pas une rubrique de menu.',
+      echeance
     );
-    await fetchPages(fillesAOuvrir, out, onFinding);
+    await fetchPages(fillesAOuvrir, out, onFinding, echeance);
+  } else if (enfants.length) {
+    out.tronque = true;
+    console.warn(`[demo-generate] echeance atteinte : second niveau saute (${enfants.length} page(s) fille(s) non ouvertes)`);
   }
 
   /* Retrait du gabarit, une fois TOUTES les pages du site collectees : il faut
@@ -2593,6 +2637,10 @@ async function countToday(filterCol, filterVal) {
   const url = new URL(`${SUPABASE_URL}/rest/v1/demo_runs`);
   url.searchParams.set('select', 'id');
   url.searchParams.set('started_at', `gte.${today}`);
+  // Les runs que la plateforme a interrompus ne sont pas des tentatives du
+  // visiteur : voir RUN_PHASE_INTERROMPU. Le `is.null` est indispensable, un
+  // `neq` seul ecarterait aussi toutes les lignes sans phase.
+  url.searchParams.set('or', `(phase.is.null,phase.neq.${RUN_PHASE_INTERROMPU})`);
   if (filterCol) url.searchParams.set(filterCol, `eq.${filterVal}`);
   const r = await fetchWithTimeout(url.toString(), {
     headers: { ...serviceHeaders(), Prefer: 'count=exact', Range: '0-0' },
@@ -2624,6 +2672,47 @@ async function getInstance(where) {
 
    Règle : la télémétrie ne casse JAMAIS la démo. Tout est en try/catch, un
    journal indisponible ne doit pas coûter une génération. */
+
+/* Une invocation tuee en vol (mur de duree, coupure reseau) n'atteint jamais
+   closeRun : sa ligne reste `running` pour toujours et le journal ment, en
+   melangeant les onglets fermes en cours de route et les generations que la
+   plateforme a interrompues. Balayage a l'ouverture de chaque generation, sur
+   les lignes assez vieilles pour qu'aucune invocation ne puisse encore les
+   tenir. Comme tout le journal : jamais bloquant. */
+const RUN_PERIME_MIN = 10;
+/* Marqueur des runs clos par le balayage. Il sert AUSSI de filtre au quota :
+   une invocation tuee par la plateforme n'a rien consomme (zero appel modele)
+   et n'est pas une tentative de plus du visiteur, c'est la MEME tentative que
+   le navigateur relance tout seul. La compter revenait a punir le visiteur
+   d'une panne interne : huit relances automatiques sur une commune brulaient
+   la moitie du quota d'une adresse IP. Le garde-fou anti-abus reste entier :
+   les tentatives reelles, elles, comptent toujours. */
+const RUN_PHASE_INTERROMPU = 'interrompu';
+
+async function sweepStaleRuns() {
+  try {
+    const limite = new Date(Date.now() - RUN_PERIME_MIN * 60000).toISOString();
+    const url = new URL(`${SUPABASE_URL}/rest/v1/demo_runs`);
+    url.searchParams.set('status', 'eq.running');
+    url.searchParams.set('started_at', `lt.${limite}`);
+    const r = await fetchWithTimeout(url.toString(), {
+      method: 'PATCH',
+      headers: { ...serviceHeaders(), Prefer: 'return=representation' },
+      body: JSON.stringify({
+        status: 'failed',
+        phase: RUN_PHASE_INTERROMPU,
+        error_message: 'generation interrompue : invocation terminee avant la fin de la phase',
+        ended_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
+    });
+    if (!r.ok) return;
+    const rows = await r.json().catch(() => []);
+    if (rows.length) console.log(`[demo-generate] journal: ${rows.length} run(s) perime(s) clos en echec`);
+  } catch (e) {
+    console.warn('[demo-generate] journal: balayage impossible ::', e?.message);
+  }
+}
 
 async function createRun(fields) {
   try {
@@ -2672,7 +2761,7 @@ async function closeRun(runId, status, { phase, error, projectsCount, startedAt 
    voyage via demo_instances.payload) ; en local sans clé service, ils
    s'enchaînent dans la même invocation pour garder la démo visuelle. */
 
-async function coreSources(send, step, insee) {
+async function coreSources(send, step, insee, runState) {
   const finding = (f) => send({ type: 'finding', ...f });
 
   step('resolve', 'start', 'Recherche de la commune');
@@ -2681,12 +2770,18 @@ async function coreSources(send, step, insee) {
     send({ type: 'error', message: 'Commune introuvable. Vérifiez la saisie.' });
     return null;
   }
+  /* Le nom est inscrit au journal DES QU'IL EST CONNU, sans attendre la fin du
+     recensement. Ecrit seulement a la sortie de la phase, il manquait a toutes
+     les tentatives interrompues en route : le journal accumulait des lignes a
+     commune vide, impossibles a rattacher a quoi que ce soit. */
+  if (runState?.id) await patchRun(runState.id, { commune_nom: commune.nom });
   const bbox = bboxOfContour(commune.contour);
   step('resolve', 'done', 'Commune reconnue',
     `${commune.nom} · ${commune.departement?.nom || ''} · ${(commune.population || 0).toLocaleString('fr-FR')} habitants`);
 
   // Les trois collectes sont independantes (presse/BOAMP ne dependent pas de la
   // mairie) : menees en parallele pour ne pas additionner leurs latences
+  const echeanceMairie = Date.now() + MAIRIE_BUDGET_MS;
   step('mairie', 'start', 'Visite du site officiel de la mairie');
   step('news', 'start', 'Lecture de la presse locale');
   step('boamp', 'start', 'Consultation des marchés publics (BOAMP)');
@@ -2703,7 +2798,7 @@ async function coreSources(send, step, insee) {
         step('mairie', 'skip', 'Site officiel de la mairie', "non renseigné dans l'annuaire officiel");
         return { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], position };
       }
-      const m = await inspectMairieSite(site, commune.nom, finding);
+      const m = await inspectMairieSite(site, commune.nom, finding, echeanceMairie);
       m.position = position;
       /* Site protege contre la lecture automatique : on le dit franchement,
          plutot que de laisser croire a une commune sans projets. La generation
@@ -2713,9 +2808,13 @@ async function coreSources(send, step, insee) {
           `${m.host} bloque la lecture automatique · recensement poursuivi sur la presse et les marchés publics`);
         return m;
       }
-      // Identité visuelle et lecture des PDF en parallèle : deux travaux
-      // indépendants qui ne doivent pas s'additionner dans la durée de la phase
-      const [identite, pdfsLus] = await Promise.all([
+      /* Identité visuelle et lecture des PDF en parallèle : deux travaux
+         indépendants qui ne doivent pas s'additionner dans la durée de la phase.
+         Passé l'échéance, les deux sont sautés : ce sont des finitions, et
+         `m.logoUrl` porte déjà le meilleur candidat du scoring texte. */
+      const enRetard = Date.now() >= echeanceMairie;
+      if (enRetard) m.tronque = true;
+      const [identite, pdfsLus] = enRetard ? [null, []] : await Promise.all([
         (m.logoCandidats || []).length ? choisirLogoEtCouleur(m.logoCandidats) : Promise.resolve(null),
         readMairiePdfs(m.pdfs || []),
       ]);
@@ -2734,6 +2833,9 @@ async function coreSources(send, step, insee) {
       if (m.pages.length > 1) bits.push(`${m.pages.length - 1} page(s) projets lue(s)`);
       if (pdfsLus.length) bits.push(`${pdfsLus.length} document(s) PDF lu(s)`);
       else if (m.pdfs.length) bits.push(`${m.pdfs.length} document(s) officiel(s)`);
+      // Une collecte ecourtee se DIT : sans cela, un site trop riche pour le
+      // budget rendait une carte maigre sans que rien ne l'explique.
+      if (m.tronque) bits.push('site très riche : lecture écourtée pour tenir le temps imparti');
       step('mairie', m.host ? 'done' : 'skip', 'Site officiel de la mairie', bits.join(' · ') || 'non exploitable');
       return m;
     })(),
@@ -3527,7 +3629,7 @@ async function runSources(send, step, insee, ipHash, runState) {
   // cumulerTokens n'était appelé que par runPhase : la phase sources, qui
   // consomme pourtant de l'IA (choix du logo, tri des marchés), n'était jamais
   // comptée et le journal sous-estimait la dépense de toute une étape.
-  const state = cumulerTokens(await coreSources(send, step, insee));
+  const state = cumulerTokens(await coreSources(send, step, insee, runState));
   if (!state) return;
   // Le run voyage dans le brouillon : les cinq invocations suivantes sont des
   // processus distincts, c'est le seul fil qui les relie a la meme generation.
@@ -4105,6 +4207,9 @@ export default async (req, context) => {
             const ipHash = (await sha256Hex(context?.ip || 'inconnu')).slice(0, 24);
             const kioskOk = process.env.DEMO_KIOSK_KEY
               && url.searchParams.get('k') === process.env.DEMO_KIOSK_KEY;
+            // Avant de compter : le journal doit dire la verite sur les runs
+            // qu'aucune invocation ne tient plus.
+            await sweepStaleRuns();
             const [byIp, global] = await Promise.all([countToday('ip_hash', ipHash), countToday(null, null)]);
             if (global >= MAX_GLOBAL_PER_DAY || (!kioskOk && byIp >= MAX_PER_IP_PER_DAY)) {
               send({ type: 'error', kind: 'quota', message: 'Le quota de démonstrations du jour est atteint.' });
@@ -4208,6 +4313,9 @@ export const config = { path: '/api/demo-generate' };
  */
 export const _internals = {
   INSEE_RE,
+  inChunks,
+  MAIRIE_BUDGET_MS,
+  MAIRIE_OCTETS_MAX,
   isSafePublicUrl,
   slugify,
   stripHtml,

@@ -19,6 +19,7 @@ const {
   bboxOfContour, geometryExtentKm, extentAcceptable, geometryInBbox,
   centroidOf, haversineM, typeImageReel, looksLikeCode, estPageTremplin,
   collectPageLinks, unescapeBoamp, odonymesDe, distinctiveWords, essaisNominatim,
+  inChunks, MAIRIE_BUDGET_MS, MAIRIE_OCTETS_MAX,
   sansPrefixeGenerique, locationQueries, nomCoherent, rangStructurel, positionDansLaCommune,
   migrerEtatGeo, METHOD_LABELS, communeDuResultat,
   CARTE_COURTE, deLaCommune, messageSansProjet, messageCarteCourte,
@@ -681,6 +682,61 @@ test.describe('0.69 - Démo : les textes de la rareté', () => {
     for (const mot of ['impossible', 'échec', 'pas assez']) {
       expect(m.toLowerCase(), mot).not.toContain(mot);
     }
+  });
+
+});
+
+/**
+ * 0.70 - Echeance de la collecte mairie (non-regression).
+ *
+ * Ploudalmezeau (INSEE 29178) ne generait JAMAIS : son site publie un sitemap
+ * de 319 adresses et des pages de 190 Ko a 2,2 s. Les lots de `inChunks`
+ * s'enchainant en serie, la seule collecte mairie depassait le mur des 60 s
+ * d'invocation. La fonction etait tuee avant `closeRun`, la ligne `demo_runs`
+ * restait en `running` a commune vide, et le navigateur relançait tout seul :
+ * 26 lignes mortes pour une commune, sur deux sessions.
+ *
+ * Lyon passait parce que son site n'expose AUCUN sitemap : moins de candidats,
+ * donc une collecte plus courte. La generation dependait donc de la pauvrete du
+ * site d'en face, ce qui est exactement l'inverse de l'effet recherche.
+ */
+test.describe('0.70 - Démo : la collecte mairie rend la main avant le mur d\'invocation', () => {
+
+  test('0.70.1 - Sans échéance, tous les lots sont traités', async () => {
+    const vus = [];
+    const out = await inChunks([1, 2, 3, 4, 5], 2, async (n) => { vus.push(n); return n * 2; });
+    expect(vus).toEqual([1, 2, 3, 4, 5]);
+    expect(out).toEqual([2, 4, 6, 8, 10]);
+  });
+
+  test('0.70.2 - Une échéance déjà dépassée n\'ouvre aucun lot', async () => {
+    const vus = [];
+    const out = await inChunks([1, 2, 3], 2, async (n) => { vus.push(n); return n; }, Date.now() - 1);
+    expect(vus).toEqual([]);
+    expect(out).toEqual([]);
+  });
+
+  /* Le point qui compte : ce qui a deja ete collecte est RENDU, au lieu de
+     disparaitre avec l'invocation tuee. */
+  test('0.70.3 - L\'échéance atteinte en cours de série rend les lots déjà faits', async () => {
+    const echeance = Date.now() + 120;
+    const vus = [];
+    const out = await inChunks([1, 2, 3, 4, 5, 6], 2, async (n) => {
+      vus.push(n);
+      await new Promise((r) => setTimeout(r, 80));
+      return n;
+    }, echeance);
+    // Premier lot sous l'echeance, second lot la franchit, le reste est coupe
+    expect(vus.length).toBeGreaterThanOrEqual(2);
+    expect(vus.length).toBeLessThan(6);
+    expect(out).toEqual(vus);
+  });
+
+  test('0.70.4 - Les budgets restent sous le mur d\'invocation de 60 s', () => {
+    // Une requete en vol peut depasser l'echeance de FETCH_TIMEOUT_MS (8 s).
+    // 32 s + 8 s laisse une marge franche avant le mur observe a 60 s.
+    expect(MAIRIE_BUDGET_MS).toBeLessThanOrEqual(40000);
+    expect(MAIRIE_OCTETS_MAX).toBeGreaterThan(0);
   });
 
 });
