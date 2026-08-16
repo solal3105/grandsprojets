@@ -19,7 +19,7 @@ const {
   bboxOfContour, geometryExtentKm, extentAcceptable, geometryInBbox,
   centroidOf, haversineM, typeImageReel, looksLikeCode, estPageTremplin,
   collectPageLinks, unescapeBoamp, odonymesDe, distinctiveWords, essaisNominatim,
-  inChunks, lireFluxBorne, lireJson, MAIRIE_BUDGET_MS, MAIRIE_OCTETS_MAX,
+  inChunks, lireFluxBorne, lireJson, corpsJson, MAIRIE_BUDGET_MS, MAIRIE_OCTETS_MAX,
   sansPrefixeGenerique, locationQueries, nomCoherent, rangStructurel, positionDansLaCommune,
   migrerEtatGeo, METHOD_LABELS, communeDuResultat,
   CARTE_COURTE, deLaCommune, messageSansProjet, messageCarteCourte,
@@ -842,6 +842,7 @@ test.describe('0.71 - Démo : un flux qui ne se termine jamais ne fige plus la c
 
   /* Le plafond d'octets reste prioritaire : c'est lui qui sauvait Lyon. */
   test('0.71.3 - Le plafond d\'octets coupe avant le délai', async () => {
+
     const gros = new Uint8Array(400);
     const lecteur = {
       annule: false,
@@ -852,6 +853,45 @@ test.describe('0.71 - Démo : un flux qui ne se termine jamais ne fige plus la c
     expect(tronque).toBe(false);
     expect(total).toBeGreaterThanOrEqual(1000);
     expect(lecteur.annule).toBe(true);
+  });
+
+});
+
+/**
+ * 0.72 - L'octet NUL rejete par PostgreSQL (non-regression).
+ *
+ * Villeurbanne collectait parfaitement (32 pages, 17 avis, 22 articles) puis
+ * mourait a l'ECRITURE : une de ses pages contient U+0000, que PostgreSQL
+ * refuse dans `text` comme dans `jsonb` (SQLSTATE 22P05). Un seul NUL faisait
+ * rejeter tout l'insert du brouillon en 400, cinq tentatives de suite.
+ */
+test.describe('0.72 - Demo : un octet NUL ne fait plus echouer l\'ecriture', () => {
+
+  test('0.72.1 - Le NUL est retire a toutes les profondeurs', () => {
+    const etat = {
+      commune: { nom: 'Villeurbanne\u0000' },
+      mairie: { pages: [{ text: 'Travaux\u0000 rue du Progres' }, { text: 'sain' }] },
+      liste: ['a\u0000b', { profond: { encore: '\u0000\u0000x' } }],
+    };
+    const json = corpsJson(etat);
+    expect(json).not.toContain('\\u0000');
+    const relu = JSON.parse(json);
+    expect(relu.commune.nom).toBe('Villeurbanne');
+    expect(relu.mairie.pages[0].text).toBe('Travaux rue du Progres');
+    expect(relu.liste[0]).toBe('ab');
+    expect(relu.liste[1].profond.encore).toBe('x');
+  });
+
+  test('0.72.2 - Le contenu legitime est intact, accents et emoji compris', () => {
+    const etat = { titre: 'Rénovation de la médiathèque', note: 'coût : 3 M€', emoji: '🚧' };
+    expect(JSON.parse(corpsJson(etat))).toEqual(etat);
+  });
+
+  /* Une chaine qui CONTIENT le texte « u0000 » sans NUL reel ne doit pas etre
+     amputee : le remplacement porte sur l'echappement, pas sur les caracteres. */
+  test('0.72.3 - La sequence litterale u0000 dans un texte est preservee', () => {
+    const etat = { doc: 'le code u0000 figure dans la doc' };
+    expect(JSON.parse(corpsJson(etat)).doc).toBe('le code u0000 figure dans la doc');
   });
 
 });

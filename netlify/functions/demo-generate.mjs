@@ -208,6 +208,23 @@ function serviceHeaders() {
   return { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
 }
 
+/* Corps JSON destiné à PostgreSQL, débarrassé de l'octet NUL.
+
+   PostgreSQL refuse U+0000 dans `text` comme dans `jsonb` : SQLSTATE 22P05,
+   « cannot be converted to text ». Or une page de mairie en ramène : relevé
+   sur www.villeurbanne.fr, un seul NUL dans le texte collecté faisait rejeter
+   TOUT l'insert du brouillon en 400. La collecte était bonne, les 32 pages
+   étaient lues, et la génération mourait à l'écriture, sans rien laisser.
+
+   Le nettoyage se fait sur la chaîne SERIALISEE : JSON.stringify échappe le
+   NUL en six caracteres ASCII, donc un seul remplacement couvre tous les
+   champs, a toutes les profondeurs, pour toutes les tables, sans parcourir
+   l'objet. Le faire champ par champ laisserait passer le prochain.
+
+   Ne jamais ecrire d'octet NUL litteral dans ce commentaire : il rendrait le
+   fichier binaire pour grep et les outils de diff. */
+const corpsJson = (valeur) => JSON.stringify(valeur).replace(/\\u0000/g, '');
+
 async function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
@@ -2649,7 +2666,7 @@ async function insertRows(table, rows, { returning = false, onConflict = null } 
       ...serviceHeaders(),
       Prefer: `resolution=merge-duplicates${returning ? ',return=representation' : ''}`,
     },
-    body: JSON.stringify(rows),
+    body: corpsJson(rows),
   });
   if (!r.ok) {
     const t = await r.text().catch(() => '');
@@ -2669,7 +2686,7 @@ async function updateInstance(ville, patch) {
   const r = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/demo_instances?ville=eq.${encodeURIComponent(ville)}`, {
     method: 'PATCH',
     headers: serviceHeaders(),
-    body: JSON.stringify(patch),
+    body: corpsJson(patch),
   });
   if (!r.ok) throw new Error(`Mise à jour demo_instances : ${r.status}`);
 }
@@ -2747,7 +2764,7 @@ async function sweepStaleRuns() {
     const r = await fetchWithTimeout(url.toString(), {
       method: 'PATCH',
       headers: { ...serviceHeaders(), Prefer: 'return=representation' },
-      body: JSON.stringify({
+      body: corpsJson({
         status: 'failed',
         phase: RUN_PHASE_INTERROMPU,
         error_message: 'generation interrompue : invocation terminee avant la fin de la phase',
@@ -2779,7 +2796,7 @@ async function patchRun(runId, patch) {
     const r = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/demo_runs?id=eq.${encodeURIComponent(runId)}`, {
       method: 'PATCH',
       headers: serviceHeaders(),
-      body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }),
+      body: corpsJson({ ...patch, updated_at: new Date().toISOString() }),
     });
     if (!r.ok) console.warn(`[demo-generate] journal: mise à jour ${r.status}`);
   } catch (e) {
@@ -4374,6 +4391,7 @@ export const _internals = {
   inChunks,
   lireFluxBorne,
   lireJson,
+  corpsJson,
   MAIRIE_BUDGET_MS,
   MAIRIE_OCTETS_MAX,
   isSafePublicUrl,
