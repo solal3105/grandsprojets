@@ -161,6 +161,11 @@ test.describe('Démo salon - relance depuis l\'écran', () => {
   /* L'adresse CONDITIONNE l'accès à l'espace : les actions ne sont découvertes
      qu'une fois une adresse valide envoyée. */
   test('0.33.0 - l\'adresse est exigée avant de donner accès à l\'espace', async ({ page }) => {
+    /* Le seul test du fichier à enchaîner trois soumissions après un parcours
+       complet jusqu'à l'écran de fin : ~49 s en local contre 60 s de budget,
+       et il bascule dès que la machine est chargée. Aucune assertion ne tombe,
+       c'est le budget qui manque. */
+    test.setTimeout(120_000);
     await page.route('**/api/demo-lead', (route) => route.fulfill({
       status: 200, contentType: 'application/json', body: '{"ok":true,"mailed":true}',
     }));
@@ -428,5 +433,102 @@ test.describe('Démo salon - cartes courtes', () => {
     await expect(page.locator('#hud-notice')).toBeHidden();
     await expect(page.locator('#done-titre-apres')).toHaveText(' est prête');
     await expect(page.locator('#lead-submit')).toHaveText('Accéder');
+  });
+});
+
+/**
+ * Le kiosque s'affiche en CLAIR par défaut (fond OSM standard) et le sombre
+ * reste disponible derrière l'interrupteur de la page. Le choix est retenu par
+ * écran (localStorage) : il survit au rechargement, ce qui compte pour un
+ * écran de salon qui repasse sans cesse par l'accueil.
+ *
+ * Section : 0.35 - Thème d'affichage
+ */
+test.describe('Démo salon - thème d\'affichage', () => {
+  test('0.35.1 - le kiosque s\'ouvre en clair par défaut', async ({ page }) => {
+    await page.goto('/demo/', { waitUntil: 'domcontentloaded' });
+    // Le clair est l'ABSENCE d'attribut : c'est lui le défaut, pas une valeur posée
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('#theme-toggle')).toBeVisible();
+    await expect(page.locator('#theme-toggle')).toHaveAttribute('aria-label', 'Passer en mode sombre');
+  });
+
+  test('0.35.2 - l\'interrupteur bascule en sombre et le choix survit au rechargement', async ({ page }) => {
+    await page.goto('/demo/', { waitUntil: 'domcontentloaded' });
+    await page.locator('#theme-toggle').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('#theme-toggle')).toHaveAttribute('aria-label', 'Passer en mode clair');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+
+  test('0.35.3 - un second appui revient au clair, durablement', async ({ page }) => {
+    await page.goto('/demo/', { waitUntil: 'domcontentloaded' });
+    await page.locator('#theme-toggle').click();
+    await page.locator('#theme-toggle').click();
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'dark');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'dark');
+  });
+});
+
+/**
+ * Le bandeau de marque coiffe l'écran de saisie, où il est le seul repère
+ * visuel. Dès la génération lancée, le HUD prend le haut de l'écran et le logo
+ * se retrouvait DERRIÈRE l'interface : présent, illisible, encombrant.
+ *
+ * Section : 0.36 - Bandeau de marque
+ */
+test.describe('Démo salon - bandeau de marque', () => {
+  const COMMUNE = { nom: 'Oyonnax', code: '01283', population: 22000, centre: { type: 'Point', coordinates: [5.655, 46.257] } };
+
+  // Même double de flux SSE que les sections 0.33 et 0.34 : aucune vraie
+  // génération n'est lancée ici, et aucun appel à OpenAI.
+  async function lancerFlux(page) {
+    await page.addInitScript(() => {
+      class FauxEventSource {
+        constructor(url) {
+          this.url = url;
+          window.__sse = this;
+        }
+        close() { /* le double ne tient aucune connexion */ }
+      }
+      window.EventSource = FauxEventSource;
+      window.__envoyer = (o) => window.__sse?.onmessage?.({ data: JSON.stringify(o) });
+    });
+    await page.route('**/geo.api.gouv.fr/**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(route.request().url().includes('communes?nom=') ? [COMMUNE] : COMMUNE),
+    }));
+    await page.route('**/api.qrserver.com/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: '' }));
+    await page.goto('/demo/', { waitUntil: 'domcontentloaded' });
+    await page.locator('#commune-input').fill('Oyonnax');
+    await page.locator('#suggestions li').first().click();
+    await page.waitForFunction(() => window.__sse);
+  }
+
+  test('0.36.1 - le logo coiffe l\'écran de saisie', async ({ page }) => {
+    await page.goto('/demo/', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#kiosk-brand')).toBeVisible();
+  });
+
+  /* Non-régression : masquer par `hidden` ne suffit pas si le CSS garde son
+     `display: flex` - c'est le piège documenté du projet. */
+  test('0.36.2 - il disparaît dès la génération lancée', async ({ page }) => {
+    await lancerFlux(page);
+    await expect(page.locator('#screen-progress')).toHaveClass(/is-active/);
+    await expect(page.locator('#kiosk-brand')).toBeHidden();
+  });
+
+  test('0.36.3 - il reste absent sur l\'écran de fin', async ({ page }) => {
+    await lancerFlux(page);
+    await page.evaluate(() => window.__envoyer({
+      type: 'done', url: '/?city=essai-oyonnax', ville: 'essai-oyonnax',
+      communeNom: 'Oyonnax', communeInsee: '01283', projectsCount: 12,
+      stats: { sources: 20, verified: 12, precise: 10, illustrated: 6 },
+    }));
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await expect(page.locator('#kiosk-brand')).toBeHidden();
   });
 });

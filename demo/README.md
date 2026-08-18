@@ -31,6 +31,22 @@ quinze lignes plausibles. Une illustration n'est retenue que si elle provient du
 bloc de page consacré au projet ; à défaut, une photo générique du type
 d'ouvrage est proposée, explicitement créditée comme telle.
 
+## Thème d'affichage
+
+L'écran s'affiche **en clair par défaut** : verre blanc, fond **Voyager**
+(vectoriel, données OpenStreetMap) repeint « papier lumineux ». Le sombre
+d'origine (verre sombre, dark-matter repeint « navy tech ») reste disponible
+derrière l'interrupteur soleil/lune en haut à droite : c'est la commande de
+celui qui tient le stand, retenue par écran (`localStorage`, clé
+`demo-theme`), jamais par visiteur. La bascule marche à tout moment, y
+compris en pleine génération : la scène (relief, bâtiments, contour,
+emprises, faisceaux) est rejouée sur le nouveau fond. Le raster OSM standard
+a été essayé pour le jour et abandonné : flou dès que la caméra tourne ou
+s'incline, et impossible à repeindre. Techniquement : `theme.js` pose
+`data-theme` sur `<html>` avant le premier rendu, `demo.css` n'a que des
+jetons de thème, `map-fx.js` porte les deux fonds et leurs repeintures dans
+sa table `THEMES`.
+
 ## URLs
 
 - `/demo/` : écran de saisie (autocomplétion officielle geo.api.gouv.fr)
@@ -304,6 +320,23 @@ netlify dev --port 3001
   inspecter quand la clé service Supabase manque et que la phase de création
   est court-circuitée
 
+**La clé service Supabase n'arrive JAMAIS par `netlify dev`** : la variable
+`SUPABASE_SERVICE_ROLE_KEY` est bien déclarée chez Netlify, mais le CLI ne
+transmet pas sa valeur au contexte local (valeur secrète), elle arrive vide.
+Conséquences en local : une commune déjà générée est REGÉNÉRÉE au lieu
+d'ouvrir son espace (l'idempotence lit `demo_instances` avec cette clé), le
+journal `demo_runs` ne s'écrit pas, et la génération se termine sur « la
+création de l'espace est désactivée ici » après avoir payé toute l'analyse.
+Un avertissement l'annonce désormais dès le départ, à l'écran et dans les
+logs. Pour retrouver le comportement de production : copier la clé (tableau
+de bord Supabase, ou `netlify env:get SUPABASE_SERVICE_ROLE_KEY`) dans un
+fichier `.env` à la racine (ignoré par git), que `netlify dev` charge tout
+seul :
+
+```bash
+SUPABASE_SERVICE_ROLE_KEY=<la clé service>
+```
+
 ## Désinstallation complète
 
 1. Supprimer le dossier `demo/`
@@ -323,7 +356,9 @@ netlify dev --port 3001
    `drop table demo_leads;` (référence demo_runs), `drop table demo_runs;`,
    `drop table demo_instances;` et vider le dossier `uploads/demo/` +
    `uploads/branding/essai-*` du storage
-5. Supprimer le spec `tests/unauth.demo.spec.js` et la migration
+5. Supprimer les specs `tests/unauth.demo.spec.js`,
+   `tests/unauth.demo-generate.spec.js`, `tests/unauth.demo-mail.spec.js` et
+   `tests/unauth.demo-visuel.spec.js`, ainsi que la migration
    `supabase/migrations/20260728000000_demo_runs_et_leads.sql`
 
 ## Dépendance externe

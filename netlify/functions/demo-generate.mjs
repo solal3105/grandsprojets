@@ -4271,6 +4271,15 @@ export default async (req, context) => {
               await deleteWhere('demo_instances', { ville: `eq.${already.ville}` });
             }
             const ipHash = (await sha256Hex(context?.ip || 'inconnu')).slice(0, 24);
+            /* Sans clé service (netlify dev ne transmet pas les valeurs
+               secrètes), cette invocation ne peut ni voir qu'une commune a déjà
+               son espace (l'idempotence est aveugle : on regénère), ni créer
+               l'espace en fin de parcours. Le dire MAINTENANT : découvert après
+               trois minutes d'analyse, ce mode local passe pour une panne. */
+            if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+              console.warn('[demo-generate] clé service Supabase absente : idempotence et création d\'espace désactivées (poser SUPABASE_SERVICE_ROLE_KEY dans .env pour retrouver le comportement de production)');
+              send({ type: 'notice', message: 'Mode local sans clé service Supabase : le recensement va se dérouler en entier, mais aucun espace ne sera créé à la fin.' });
+            }
             const kioskOk = process.env.DEMO_KIOSK_KEY
               && url.searchParams.get('k') === process.env.DEMO_KIOSK_KEY;
             // Avant de compter : le journal doit dire la verite sur les runs

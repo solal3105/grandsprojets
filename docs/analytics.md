@@ -85,6 +85,7 @@ rejoués. Il n'y a donc pas d'ordre d'initialisation à respecter.
 | `demo_generation_failed` | demo | Où le tunnel casse, et à quelle phase |
 | `demo_lead_submitted` | demo | La conversion de la démo salon |
 | `demo_space_opened` | demo | Le visiteur ouvre-t-il l'espace généré |
+| `demo_theme_toggled` | demo | Le stand préfère-t-il montrer la démo en clair ou en sombre |
 | `contact_request_submitted` | home | La conversion du site vitrine, par `referrer` |
 | `contact_request_failed` | home | Les demandes perdues sur erreur technique |
 | `login_link_sent` | login | Les connexions demandées |

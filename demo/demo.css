@@ -1,8 +1,11 @@
 /* ============================================================================
    ÉCRAN DÉMO SALON - /demo/
-   Scène sombre plein écran : le globe WebGL (map-fx.js) vit derrière, les
-   écrans flottent au-dessus. --accent bascule sur la couleur de la commune
-   dès que le site de la mairie est lu. Sans WebGL, fond dégradé statique.
+   Scène plein écran : la carte WebGL (map-fx.js) vit derrière, les écrans
+   flottent au-dessus. Deux thèmes : le CLAIR est le défaut (verre blanc sur
+   fond OSM standard), le sombre est servi par html[data-theme='dark'], qui
+   redéfinit les jetons ci-dessous - aucune couleur de thème n'est posée en
+   dur plus bas. --accent bascule sur la couleur de la commune dès que le site
+   de la mairie est lu. Sans WebGL, fond dégradé statique.
    ============================================================================ */
 
 :root {
@@ -12,14 +15,62 @@
   --text: #4a4a55;
   --border: rgba(16, 16, 20, 0.09);
   --ok: #22c583;
+
+  /* Thème clair (défaut) : la scène et le verre. Le bloc [data-theme='dark']
+     plus bas redéfinit ces mêmes jetons, et RIEN d'autre. */
+  --scene-glow: #eef3f9;             /* repli sans WebGL : coeur du dégradé */
+  --scene-base: #d8e2ee;             /* repli sans WebGL : bord du dégradé */
+  --scrim-strong: rgba(244, 248, 252, 0.9);
+  --scrim-mid: rgba(244, 248, 252, 0.55);
+  --on-scene: var(--ink);            /* texte posé directement sur la carte */
+  --on-scene-soft: #3d3d49;
+  --on-scene-faint: #5d5d6b;
+  --title-halo: rgba(255, 255, 255, 0.85);
+  --glass-tint: #ffffff;             /* teinte des panneaux de verre (alpha par composant) */
+  --glass-border: rgba(16, 16, 20, 0.12);
+  --glass-shimmer: rgba(255, 255, 255, 0.95);
+  --glass-shadow: rgba(0, 0, 0, 0.28);
+  --on-glass: var(--ink);            /* texte posé sur le verre */
+  --on-glass-strong: #2a2a33;        /* presque aussi appuyé que --on-glass (étapes faites) */
+  --on-glass-soft: #4a4a55;
+  --on-glass-faint: #71717e;
+  --track: rgba(16, 16, 20, 0.14);   /* traits de liaison du stepper */
+  --dot-bg: #ffffff;
+  --dot-border: rgba(16, 16, 20, 0.2);
+  --input-border: rgba(16, 16, 20, 0.1);
+  --input-shadow: rgba(0, 0, 0, 0.25);
+}
+
+html[data-theme='dark'] {
+  --scene-glow: #17203a;
+  --scene-base: #0a0d16;
+  --scrim-strong: rgba(5, 8, 16, 0.88);
+  --scrim-mid: rgba(5, 8, 16, 0.55);
+  --on-scene: #fff;
+  --on-scene-soft: rgba(255, 255, 255, 0.82);
+  --on-scene-faint: rgba(215, 226, 250, 0.62);
+  --title-halo: rgba(0, 0, 0, 0.65);
+  --glass-tint: #090d18;
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-shimmer: rgba(255, 255, 255, 0.12);
+  --glass-shadow: rgba(0, 0, 0, 0.8);
+  --on-glass: #fff;
+  --on-glass-strong: rgba(255, 255, 255, 0.82);
+  --on-glass-soft: rgba(255, 255, 255, 0.65);
+  --on-glass-faint: rgba(255, 255, 255, 0.52);
+  --track: rgba(255, 255, 255, 0.16);
+  --dot-bg: rgba(20, 26, 42, 0.95);
+  --dot-border: rgba(255, 255, 255, 0.2);
+  --input-border: rgba(255, 255, 255, 0.25);
+  --input-shadow: rgba(0, 0, 0, 0.65);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
-  background: radial-gradient(1200px 800px at 70% 20%, #17203a, #0a0d16 70%);
-  color: #fff;
+  background: radial-gradient(1200px 800px at 70% 20%, var(--scene-glow), var(--scene-base) 70%);
+  color: var(--on-scene);
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -41,10 +92,43 @@ body:not(.has-map) #map { display: none; }
 .kiosk > * { pointer-events: auto; }
 
 .kiosk__brand { display: flex; justify-content: center; margin-bottom: 2.5vh; }
+/* Règle du projet : un composant piloté par `hidden` doit le déclarer,
+   sinon `display: flex` continue de gagner. */
+.kiosk__brand[hidden] { display: none; }
 .kiosk__logo {
   height: clamp(56px, 8vh, 88px);
-  filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.7));
+  filter: drop-shadow(0 6px 22px var(--glass-shadow));
 }
+/* Deux encres du même logo : le CSS montre celle du thème actif */
+.kiosk__logo--dark { display: none; }
+html[data-theme='dark'] .kiosk__logo--light { display: none; }
+html[data-theme='dark'] .kiosk__logo--dark { display: block; }
+
+/* ─── Interrupteur clair/sombre : commande de celui qui tient le stand ─── */
+.theme-toggle {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 8;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--on-glass);
+  background: color-mix(in srgb, var(--glass-tint) 80%, transparent);
+  backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  box-shadow: 0 14px 40px -12px var(--glass-shadow), inset 0 1.5px 0 var(--glass-shimmer);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.theme-toggle:hover { transform: scale(1.08); }
+.theme-toggle svg { width: 20px; height: 20px; }
+/* L'icône annonce la destination : lune en clair, soleil en sombre */
+.theme-toggle__sun { display: none; }
+html[data-theme='dark'] .theme-toggle__moon { display: none; }
+html[data-theme='dark'] .theme-toggle__sun { display: block; }
 
 .screen { display: none; flex-direction: column; align-items: center; text-align: center; flex: 1; animation: screenIn 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
 .screen.is-active { display: flex; }
@@ -59,7 +143,7 @@ body:not(.has-map) #map { display: none; }
   content: '';
   position: fixed;
   inset: 0;
-  background: radial-gradient(ellipse 62% 58% at 50% 44%, rgba(5, 8, 16, 0.88), rgba(5, 8, 16, 0.55) 55%, transparent 78%);
+  background: radial-gradient(ellipse 62% 58% at 50% 44%, var(--scrim-strong), var(--scrim-mid) 55%, transparent 78%);
   pointer-events: none;
   z-index: -1;
 }
@@ -70,8 +154,8 @@ body:not(.has-map) #map { display: none; }
   line-height: 1.04;
   letter-spacing: -0.02em;
   font-weight: 700;
-  color: #fff;
-  text-shadow: 0 6px 40px rgba(0, 0, 0, 0.65);
+  color: var(--on-scene);
+  text-shadow: 0 6px 40px var(--title-halo);
 }
 .accent { color: var(--accent); transition: color 0.6s ease; }
 .kiosk__title .accent { text-shadow: 0 0 44px color-mix(in srgb, var(--accent) 60%, transparent); }
@@ -81,8 +165,8 @@ body:not(.has-map) #map { display: none; }
   max-width: 680px;
   font-size: clamp(1.05rem, 1.7vw, 1.3rem);
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.82);
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
+  color: var(--on-scene-soft);
+  text-shadow: 0 2px 16px var(--title-halo);
 }
 
 .search { position: relative; width: min(680px, 92vw); margin-top: 5vh; }
@@ -93,18 +177,18 @@ body:not(.has-map) #map { display: none; }
   font-size: clamp(1.35rem, 2.7vw, 2rem);
   font-weight: 600;
   padding: clamp(20px, 2.8vh, 28px) 32px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  border: 2px solid var(--input-border);
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.96);
   color: var(--ink);
   outline: none;
-  box-shadow: 0 30px 90px -18px rgba(0, 0, 0, 0.65), 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: 0 30px 90px -18px var(--input-shadow), 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent);
   transition: box-shadow 0.3s ease, border-color 0.3s ease;
   animation: inputBreath 3.2s ease-in-out infinite;
 }
 @keyframes inputBreath {
-  0%, 100% { box-shadow: 0 30px 90px -18px rgba(0, 0, 0, 0.65), 0 0 0 6px color-mix(in srgb, var(--accent) 14%, transparent); }
-  50% { box-shadow: 0 30px 90px -18px rgba(0, 0, 0, 0.65), 0 0 0 14px color-mix(in srgb, var(--accent) 7%, transparent); }
+  0%, 100% { box-shadow: 0 30px 90px -18px var(--input-shadow), 0 0 0 6px color-mix(in srgb, var(--accent) 14%, transparent); }
+  50% { box-shadow: 0 30px 90px -18px var(--input-shadow), 0 0 0 14px color-mix(in srgb, var(--accent) 7%, transparent); }
 }
 .search__input:focus { border-color: var(--accent); animation: none; }
 .search__input::placeholder { color: #8b8b96; font-weight: 500; }
@@ -116,7 +200,7 @@ body:not(.has-map) #map { display: none; }
   list-style: none;
   background: rgba(255, 255, 255, 0.97);
   border-radius: 20px;
-  box-shadow: 0 34px 90px -20px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 34px 90px -20px var(--glass-shadow);
   overflow: hidden;
   z-index: 10;
   text-align: left;
@@ -146,7 +230,7 @@ body:not(.has-map) #map { display: none; }
   position: fixed;
   top: 0; left: 0; right: 0;
   height: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--on-scene) 9%, transparent);
   z-index: 5;
 }
 .topline span {
@@ -171,12 +255,12 @@ body:not(.has-map) #map { display: none; }
   align-items: flex-start;
   gap: 0;
   list-style: none;
-  background: rgba(9, 13, 24, 0.8);
+  background: color-mix(in srgb, var(--glass-tint) 80%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--glass-border);
   border-radius: 999px;
   padding: 12px 30px 14px;
-  box-shadow: 0 24px 70px -18px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 70px -18px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
   max-width: 94vw;
 }
 .step {
@@ -196,7 +280,7 @@ body:not(.has-map) #map { display: none; }
   right: 50%;
   width: 100%;
   height: 2px;
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--track);
   z-index: 0;
 }
 .step:first-child::before { display: none; }
@@ -212,16 +296,16 @@ body:not(.has-map) #map { display: none; }
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
   font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.55);
-  background: rgba(20, 26, 42, 0.95);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: var(--on-glass-faint);
+  background: var(--dot-bg);
+  border: 2px solid var(--dot-border);
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .step__label {
   font-family: 'Space Grotesk', sans-serif;
   font-size: 0.82rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--on-glass-faint);
   white-space: nowrap;
   transition: color 0.4s ease;
 }
@@ -232,7 +316,7 @@ body:not(.has-map) #map { display: none; }
   box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 22px color-mix(in srgb, var(--accent) 60%, transparent);
   animation: stepPulse 1.6s ease-in-out infinite;
 }
-.step.is-current .step__label { color: #fff; font-weight: 600; }
+.step.is-current .step__label { color: var(--on-glass); font-weight: 600; }
 .step.is-done .step__dot {
   color: transparent;
   background: var(--ok);
@@ -246,7 +330,9 @@ body:not(.has-map) #map { display: none; }
   border-bottom: 2.4px solid #fff;
   transform: translateY(-1px) rotate(-45deg);
 }
-.step.is-done .step__label { color: rgba(255, 255, 255, 0.82); }
+/* Les étapes FAITES restent presque aussi lisibles que l'étape en cours : le
+   stepper se lit à 3 mètres, fait/en cours/à venir doivent rester trois tons */
+.step.is-done .step__label { color: var(--on-glass-strong); }
 @keyframes stepPulse {
   0%, 100% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 20%, transparent), 0 0 20px color-mix(in srgb, var(--accent) 55%, transparent); }
   50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 8%, transparent), 0 0 30px color-mix(in srgb, var(--accent) 70%, transparent); }
@@ -262,12 +348,12 @@ body:not(.has-map) #map { display: none; }
   display: flex;
   align-items: center;
   gap: 16px;
-  background: rgba(9, 13, 24, 0.82);
+  background: color-mix(in srgb, var(--glass-tint) 82%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--glass-border);
   border-radius: 999px;
   padding: 13px 26px 13px 18px;
-  box-shadow: 0 24px 70px -18px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 70px -18px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
   max-width: min(760px, 92vw);
   animation: pillIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -279,17 +365,17 @@ body:not(.has-map) #map { display: none; }
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 600;
   font-size: clamp(1rem, 1.6vw, 1.25rem);
-  color: #fff;
+  color: var(--on-glass);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.hud-pill__detail { font-size: 0.85rem; color: rgba(255, 255, 255, 0.65); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud-pill__detail { font-size: 0.85rem; color: var(--on-glass-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hud-pill__city {
   display: flex;
   align-items: center;
   gap: 10px;
-  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  border-left: 1px solid var(--glass-border);
   padding-left: 16px;
 }
 /* Logo scrapé de la mairie, posé à côté du nom de la commune */
@@ -352,9 +438,9 @@ body:not(.has-map) #map { display: none; }
   display: flex;
   align-items: baseline;
   gap: 8px;
-  background: rgba(9, 13, 24, 0.78);
+  background: color-mix(in srgb, var(--glass-tint) 78%, transparent);
   backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.13);
+  border: 1px solid var(--glass-border);
   border-radius: 12px;
   padding: 8px 14px;
   animation: findingIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -370,7 +456,7 @@ body:not(.has-map) #map { display: none; }
 }
 .counter__n.is-bump { animation: bump 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes bump { 50% { transform: scale(1.35); } }
-.counter__l { font-size: 0.72rem; color: rgba(255, 255, 255, 0.65); letter-spacing: 0.02em; }
+.counter__l { font-size: 0.72rem; color: var(--on-glass-soft); letter-spacing: 0.02em; }
 
 /* Ticker : UNE trouvaille à la fois, grande et lisible */
 .ticker {
@@ -382,28 +468,28 @@ body:not(.has-map) #map { display: none; }
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(9, 13, 24, 0.84);
+  background: color-mix(in srgb, var(--glass-tint) 84%, transparent);
   backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--glass-border);
   border-radius: 999px;
   padding: 12px 24px;
   max-width: min(880px, 94vw);
   min-height: 48px;
-  box-shadow: 0 20px 60px -18px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 60px -18px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
   pointer-events: none;
 }
 .ticker__icon { width: 21px; height: 21px; color: var(--accent); flex-shrink: 0; }
 .ticker__icon svg { width: 100%; height: 100%; }
 .ticker__icon img { width: 21px; height: 21px; border-radius: 5px; }
 .ticker__text {
-  color: #fff;
+  color: var(--on-glass);
   font-size: 0.98rem;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ticker__meta { font-size: 0.8rem; color: rgba(255, 255, 255, 0.55); white-space: nowrap; flex-shrink: 0; }
+.ticker__meta { font-size: 0.8rem; color: var(--on-glass-faint); white-space: nowrap; flex-shrink: 0; }
 .ticker.is-swap .ticker__text, .ticker.is-swap .ticker__meta, .ticker.is-swap .ticker__icon {
   animation: tickerIn 0.35s ease;
 }
@@ -412,13 +498,14 @@ body:not(.has-map) #map { display: none; }
 
 /* Sonar de recensement : anneaux concentriques qui se propagent depuis la
    commune (remplace l'ancien balayage conique). Trois anneaux décalés + un
-   coeur pulsé, mix-blend screen pour se fondre dans la carte sombre. */
+   coeur pulsé. Le fondu « screen » n'a de sens que sur la carte sombre : sur
+   le fond OSM clair, il éteindrait les anneaux. */
 .fx-sonar {
   position: relative;
   width: 0; height: 0;
   pointer-events: none;
-  mix-blend-mode: screen;
 }
+html[data-theme='dark'] .fx-sonar { mix-blend-mode: screen; }
 .fx-sonar span {
   position: absolute;
   left: 0; top: 0;
@@ -476,8 +563,8 @@ body:not(.has-map) #map { display: none; }
 .fx-photo.is-small img { width: 44px; height: 32px; opacity: 0.9; }
 @keyframes photoIn { 0% { transform: scale(0) translateY(-30px); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
 
-/* Avertissement de carte courte. Même verre sombre que le ticker, mais teinté
-   de la couleur de la commune plutôt que du rouge de l'erreur : la génération
+/* Avertissement de carte courte. Même verre que le ticker, mais teinté de la
+   couleur de la commune plutôt que du rouge de l'erreur : la génération
    continue, rien n'est interrompu. Il se pose au-dessus du ticker, qui reste
    lisible, et accompagne le visiteur jusqu'à l'écran de fin. */
 .hud-notice[hidden] { display: none; }
@@ -490,15 +577,15 @@ body:not(.has-map) #map { display: none; }
   margin: 0;
   max-width: min(720px, 92vw);
   padding: 14px 26px;
-  background: rgba(9, 13, 24, 0.86);
+  background: color-mix(in srgb, var(--glass-tint) 86%, transparent);
   backdrop-filter: blur(16px) saturate(140%);
   border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   border-radius: 20px;
-  color: rgba(233, 240, 255, 0.94);
+  color: var(--on-glass);
   font-size: 0.95rem;
   line-height: 1.55;
   text-align: center;
-  box-shadow: 0 22px 60px -20px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 22px 60px -20px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
   animation: tickerIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -512,7 +599,7 @@ body:not(.has-map) #map { display: none; }
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 30px;
   padding: clamp(28px, 4.5vh, 48px) clamp(26px, 4vw, 56px);
-  box-shadow: 0 44px 120px -26px rgba(0, 0, 0, 0.78);
+  box-shadow: 0 44px 120px -26px var(--glass-shadow);
   color: var(--ink);
   display: flex;
   flex-direction: column;
@@ -813,19 +900,19 @@ body:not(.has-map) #map { display: none; }
 
 /* Étiquette du projet : lisible sur la carte, se replie ensuite */
 .fx-pin-label {
-  background: rgba(9, 13, 24, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--glass-tint) 85%, transparent);
+  border: 1px solid var(--glass-border);
   border-radius: 10px;
   padding: 6px 12px;
   font-family: 'Inter', sans-serif;
   font-size: 0.8rem;
   font-weight: 500;
-  color: #fff;
+  color: var(--on-glass);
   white-space: nowrap;
   max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 10px 30px -10px var(--glass-shadow);
   animation: findingIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   transition: opacity 0.7s ease, max-width 0.7s ease, padding 0.7s ease;
 }
@@ -875,12 +962,12 @@ body:not(.has-map) #map { display: none; }
   margin: 0;
   width: min(680px, 90vw);
   padding: 16px 22px 13px;
-  background: rgba(9, 13, 24, 0.78);
+  background: color-mix(in srgb, var(--glass-tint) 78%, transparent);
   backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--glass-border);
   border-left: 3px solid var(--accent, #ff4d6a);
   border-radius: 14px;
-  box-shadow: 0 24px 70px -20px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 70px -20px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
   pointer-events: none;
   opacity: 0;
   transform: translate(-50%, 14px) scale(0.98);
@@ -891,7 +978,7 @@ body:not(.has-map) #map { display: none; }
   margin: 0;
   font-size: 16.5px;
   line-height: 1.5;
-  color: #eaf0ff;
+  color: var(--on-glass);
   font-style: italic;
   letter-spacing: 0.1px;
 }
@@ -913,7 +1000,7 @@ body:not(.has-map) #map { display: none; }
   z-index: 5;
   margin: 0;
   font-size: 12.5px;
-  color: rgba(215, 226, 250, 0.62);
+  color: var(--on-scene-faint);
   letter-spacing: 0.02em;
   pointer-events: none;
   text-align: center;
@@ -939,13 +1026,13 @@ body:not(.has-map) #map { display: none; }
   font-family: 'Space Grotesk', system-ui, sans-serif;
   font-size: clamp(22px, 3.4vw, 40px);
   font-weight: 600;
-  color: #fff;
-  background: rgba(9, 13, 24, 0.62);
+  color: var(--on-glass);
+  background: color-mix(in srgb, var(--glass-tint) 62%, transparent);
   backdrop-filter: blur(18px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--glass-border);
   border-radius: 16px;
-  box-shadow: 0 30px 80px -24px rgba(0, 0, 0, 0.9), inset 0 1.5px 0 rgba(255, 255, 255, 0.14);
-  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 30px 80px -24px var(--glass-shadow), inset 0 1.5px 0 var(--glass-shimmer);
+  text-shadow: 0 2px 24px var(--title-halo);
 }
 
 @media (prefers-reduced-motion: reduce) {

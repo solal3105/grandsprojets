@@ -8,13 +8,107 @@
    (jamais de plongée dans le relief), emprises réelles embrasées, photos
    posées sur la carte, final en vue d'ensemble.
 
+   Deux fonds de carte, un par thème, tous deux VECTORIELS (données
+   OpenStreetMap, même famille Carto) : Voyager repeint « papier lumineux »
+   le jour, dark-matter repeint « navy tech » la nuit. Le raster OSM a été
+   essayé pour le jour et abandonné : il se rééchantillonne en bouillie à la
+   moindre rotation ou inclinaison, et ne peut recevoir aucune direction
+   artistique. La scène (ciel, relief, bâtiments, points de villes) est
+   reconstruite à chaque changement de style, et le contour, les emprises et
+   les faisceaux déjà posés sont rejoués : la bascule marche même en pleine
+   génération.
+
    Relief 3D : terrain Terrarium + ombrage + bâtiments extrudés.
    Sans WebGL, init() rend false : l'écran retombe sur le fond statique.
    ============================================================================ */
 (() => {
   'use strict';
 
-  const STYLE_URL = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+  /* Tout ce qui distingue les deux fonds tient dans cette table : le style,
+     sa REPEINTURE en scène, le ciel, l'ombrage du relief, les bâtiments et le
+     coeur des points de villes. Le reste de la scène est commun. Les deux
+     styles Carto embarquent la même source vectorielle « carto » : les
+     bâtiments 3D se lèvent au même zoom, jour et nuit. */
+  const THEMES = {
+    light: {
+      style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+      /* Direction artistique « papier lumineux » : Voyager est déjà en
+         couleur, on tamise seulement le bavardage des étiquettes et on assoit
+         l'eau, pour que les volumes et la couleur de la commune restent les
+         vedettes. Le pendant exact de la repeinture navy de la nuit. */
+      repaint(layer) {
+        if (layer.type === 'fill' && /water/i.test(layer.id)) {
+          map.setPaintProperty(layer.id, 'fill-color', '#a6c9dc');
+        } else if (layer.type === 'symbol') {
+          map.setPaintProperty(layer.id, 'text-halo-color', '#ffffff');
+          map.setPaintProperty(layer.id, 'text-opacity', 0.92);
+        }
+      },
+      sky: {
+        'sky-color': '#9cc6f7',
+        'horizon-color': '#e8f1fb',
+        'fog-color': '#e8f1fb',
+        'sky-horizon-blend': 0.6,
+        'horizon-fog-blend': 0.7,
+        'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 6, 0.4, 9, 0],
+      },
+      hillshade: {
+        'hillshade-shadow-color': '#6f6757',
+        'hillshade-highlight-color': '#ffffff',
+        'hillshade-accent-color': '#d8cfc0',
+        'hillshade-exaggeration': 0.5,
+      },
+      buildings: {
+        source: 'carto',
+        minzoom: 13,
+        color: '#cbc0af',
+        opacity: 0.8,
+      },
+      dotCore: '#b32945',
+    },
+    dark: {
+      style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+      // Repeinture « navy tech » : le dark-matter d'origine est presque
+      // noir ; on éclaircit routes, bâtiments et eau, on tamise les labels
+      repaint(layer) {
+        if (layer.type === 'background') {
+          map.setPaintProperty(layer.id, 'background-color', '#0a1120');
+        } else if (layer.type === 'fill') {
+          if (/water/i.test(layer.id)) map.setPaintProperty(layer.id, 'fill-color', '#0d2b4d');
+          else if (/building/i.test(layer.id)) map.setPaintProperty(layer.id, 'fill-color', '#20345c');
+          else map.setPaintProperty(layer.id, 'fill-color', '#0f1a30');
+        } else if (layer.type === 'line') {
+          map.setPaintProperty(layer.id, 'line-color', /minor|service|tunnel|path|track/i.test(layer.id) ? '#26405f' : '#3d6291');
+        } else if (layer.type === 'symbol') {
+          map.setPaintProperty(layer.id, 'text-color', '#6c81a8');
+          map.setPaintProperty(layer.id, 'text-halo-color', '#0a1120');
+          map.setPaintProperty(layer.id, 'text-opacity', 0.75);
+        }
+      },
+      sky: {
+        'sky-color': '#0a1730',
+        'horizon-color': '#2a5aa0',
+        'fog-color': '#0a1730',
+        'sky-horizon-blend': 0.6,
+        'horizon-fog-blend': 0.7,
+        'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 6, 0.4, 9, 0],
+      },
+      hillshade: {
+        'hillshade-shadow-color': '#040910',
+        'hillshade-highlight-color': '#3d5f96',
+        'hillshade-accent-color': '#0d1a30',
+        'hillshade-exaggeration': 0.55,
+      },
+      buildings: {
+        source: 'carto',
+        minzoom: 13,
+        color: '#28436f',
+        opacity: 0.72,
+      },
+      dotCore: '#ffd9e0',
+    },
+  };
+
   const FRANCE_A = { center: [2.6, 46.4], zoom: 5.15, pitch: 22, bearing: 0 };
   const FRANCE_B = { center: [3.4, 45.4], zoom: 5.75, pitch: 40, bearing: -7 };
 
@@ -42,6 +136,9 @@
   let ok = false;
   const DEFAULT_ACCENT = '#ff4d6a';
   let accent = DEFAULT_ACCENT;
+  // Le thème est décidé par theme.js AVANT le chargement de ce script :
+  // l'attribut posé sur <html> est la seule source de vérité au démarrage.
+  let theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
   let rafId = null;
   let mode = 'off'; // off | attract | focus | orbit
   let attractTimer = null;
@@ -49,8 +146,6 @@
   let markers = [];
   let photoMarkers = [];
   let scanMarker = null;
-  let shapeCount = 0;
-  let arcCount = 0;
   let projectCoords = [];
   let communeCenter = null;
   // Point d'ou partent le radar et les arcs : la mairie des qu'on la connait,
@@ -58,6 +153,16 @@
   let sourceOrigin = null;
   let reframePending = false;
   let recentrePending = false;
+
+  /* Registre de la génération en cours, pour REJOUER la scène sur un style
+     neuf : un setStyle repart d'une feuille blanche, seuls les marqueurs DOM
+     (épingles, photos, sonar) survivent d'eux-mêmes. */
+  let contourData = null;
+  let shapes = [];   // emprises posées : { id, geometry }
+  let beams = [];    // faisceaux ponctuels : { id, lng, lat }
+  let shapeCount = 0;
+  let beamCount = 0;
+  let arcCount = 0;
 
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -73,8 +178,6 @@
     presse: '#a78bfa',   // presse
     document: '#60a5fa', // PDF officiel
   };
-  let volumeLayers = [];
-  let beamCount = 0;
 
   // Petit disque geodesique, en degres, pour extruder un faisceau au-dessus
   // d'un projet ponctuel (la longitude est corrigee de la latitude)
@@ -97,13 +200,19 @@
     );
   }
 
-  /* Faisceau vertical au-dessus d'un projet ponctuel. Deux volumes concentriques
-     translucides montent ensemble : le noyau donne l'intensite, la gaine le
-     halo. Sans cela, une adresse restait une punaise plate au milieu de reliefs
-     et de batiments en volume. */
+  /* Faisceau vertical au-dessus d'un projet ponctuel. Un volume translucide
+     monte de terre : sans lui, une adresse restait une punaise plate au milieu
+     de reliefs et de batiments en volume. */
   function beamAt(lng, lat) {
     if (!map) return;
     const id = `fx-beam-${beamCount++}`;
+    beams.push({ id, lng, lat });
+    addBeamLayers(id, lng, lat, false);
+  }
+
+  /* `instant` : lors d'un rejeu (changement de style), le volume est posé à sa
+     hauteur finale, sans transition - la montée animée a déjà eu lieu. */
+  function addBeamLayers(id, lng, lat, instant) {
     try {
       map.addSource(id, { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: discAround(lng, lat, BEAM_RADIUS_M) } });
       map.addLayer({
@@ -111,15 +220,78 @@
         paint: {
           'fill-extrusion-color': accent,
           'fill-extrusion-opacity': 0.5,
-          'fill-extrusion-height': 0,
+          'fill-extrusion-height': instant ? PROJECT_VOLUME_M * 1.5 : 0,
           'fill-extrusion-height-transition': { duration: 1200, delay: 100 },
         },
       });
-      requestAnimationFrame(() => {
-        try { map.setPaintProperty(`${id}-core`, 'fill-extrusion-height', PROJECT_VOLUME_M * 1.5); } catch { /* retiree */ }
-      });
-      volumeLayers.push(`${id}-core`);
+      if (!instant) {
+        requestAnimationFrame(() => {
+          try { map.setPaintProperty(`${id}-core`, 'fill-extrusion-height', PROJECT_VOLUME_M * 1.5); } catch { /* retiree */ }
+        });
+      }
     } catch { /* style occupe : le projet garde son epingle */ }
+  }
+
+  /* Emprise d'un projet : elle SORT DE TERRE. Un volume extrude monte de 0 a
+     sa hauteur en une seconde, ce qui donne au projet une presence physique
+     dans le relief plutot qu'une tache de couleur. Le contour lumineux reste,
+     il porte la lecture au sol. */
+  function addShapeLayers(id, geometry, instant) {
+    try {
+      map.addSource(id, { type: 'geojson', data: { type: 'Feature', geometry, properties: {} } });
+      if (/Polygon/.test(geometry.type)) {
+        map.addLayer({
+          id: `${id}-fill`, type: 'fill', source: id,
+          paint: { 'fill-color': accent, 'fill-opacity': instant ? 0.22 : 0, 'fill-opacity-transition': { duration: 900 } },
+        });
+        map.addLayer({
+          id: `${id}-3d`, type: 'fill-extrusion', source: id,
+          paint: {
+            'fill-extrusion-color': accent,
+            'fill-extrusion-opacity': 0.42,
+            'fill-extrusion-height': instant ? PROJECT_VOLUME_M : 0,
+            'fill-extrusion-base': 0,
+            'fill-extrusion-height-transition': { duration: 1100, delay: 120 },
+          },
+        });
+        if (!instant) {
+          requestAnimationFrame(() => {
+            try {
+              map.setPaintProperty(`${id}-fill`, 'fill-opacity', 0.22);
+              map.setPaintProperty(`${id}-3d`, 'fill-extrusion-height', PROJECT_VOLUME_M);
+            } catch { /* couche retiree */ }
+          });
+        }
+      }
+      map.addLayer({
+        id: `${id}-line`, type: 'line', source: id,
+        paint: {
+          'line-color': accent, 'line-width': /Line/.test(geometry.type) ? 5 : 2.5,
+          'line-blur': 1.5, 'line-opacity': instant ? 0.95 : 0, 'line-opacity-transition': { duration: 900 },
+        },
+      });
+      if (!instant) {
+        requestAnimationFrame(() => {
+          try { map.setPaintProperty(`${id}-line`, 'line-opacity', 0.95); } catch { /* couche retiree */ }
+        });
+      }
+    } catch { /* la géométrie tombera en épingle */ }
+  }
+
+  function addContourLayers() {
+    if (!contourData) return;
+    try {
+      if (map.getSource('fx-contour')) return;
+      map.addSource('fx-contour', { type: 'geojson', data: { type: 'Feature', geometry: contourData, properties: {} } });
+      map.addLayer({
+        id: 'fx-contour-glow', type: 'line', source: 'fx-contour',
+        paint: { 'line-color': accent, 'line-width': 12, 'line-blur': 10, 'line-opacity': 0.3 },
+      });
+      map.addLayer({
+        id: 'fx-contour', type: 'line', source: 'fx-contour',
+        paint: { 'line-color': accent, 'line-width': 1.6, 'line-opacity': 0.95 },
+      });
+    } catch { /* style pas encore prêt */ }
   }
 
   function supportsWebGL() {
@@ -127,6 +299,80 @@
       const c = document.createElement('canvas');
       return !!(c.getContext('webgl2') || c.getContext('webgl'));
     } catch { return false; }
+  }
+
+  /* ─── Construction de la scène sur le style courant ───
+     Appelée à chaque `style.load` : au démarrage, puis à chaque bascule de
+     thème (setStyle avec diff: false garantit l'événement). */
+
+  function buildScene() {
+    const t = THEMES[theme];
+
+    try { map.setProjection({ type: 'globe' }); } catch { /* projection plane : très bien aussi */ }
+    try { map.setSky(t.sky); } catch { /* sky non supporté : sans gravité */ }
+
+    // Repeinture du style en scène, propre à chaque thème (voir THEMES)
+    for (const layer of map.getStyle().layers) {
+      try { t.repaint(layer); } catch { /* propriété absente sur cette couche */ }
+    }
+
+    // Relief 3D : terrain mondial (tuiles Terrarium AWS, libres) + ombrage
+    try {
+      map.addSource('fx-dem', {
+        type: 'raster-dem',
+        tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+        encoding: 'terrarium',
+        tileSize: 256,
+        maxzoom: 14,
+        attribution: 'Terrain: Mapzen/AWS',
+      });
+      map.setTerrain({ source: 'fx-dem', exaggeration: 1.12 });
+      map.addLayer({ id: 'fx-hillshade', type: 'hillshade', source: 'fx-dem', paint: t.hillshade });
+    } catch { /* relief indisponible : carte plate */ }
+
+    // Bâtiments en 3D au niveau rue (source « carto » embarquée par le style)
+    try {
+      const firstSymbol = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
+      map.addLayer({
+        id: 'fx-3d-buildings',
+        type: 'fill-extrusion',
+        source: t.buildings.source,
+        'source-layer': 'building',
+        minzoom: t.buildings.minzoom,
+        paint: {
+          'fill-extrusion-color': t.buildings.color,
+          'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
+          'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+          'fill-extrusion-opacity': t.buildings.opacity,
+        },
+      }, firstSymbol);
+    } catch { /* extrusions indisponibles : sans gravité */ }
+
+    try {
+      map.addSource('fx-dots', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: CITY_DOTS.map((c) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: {} })) },
+      });
+      map.addLayer({
+        id: 'fx-dots-halo', type: 'circle', source: 'fx-dots',
+        paint: { 'circle-radius': 9, 'circle-color': accent, 'circle-blur': 1, 'circle-opacity': 0.35 },
+      });
+      map.addLayer({
+        id: 'fx-dots', type: 'circle', source: 'fx-dots',
+        paint: { 'circle-radius': 3, 'circle-color': t.dotCore, 'circle-opacity': 0.9 },
+      });
+    } catch { /* points décoratifs : sans gravité */ }
+
+    document.body.classList.add('has-map');
+    replayScene();
+  }
+
+  /* Rejoue les éléments de la génération en cours sur un style neuf, aux
+     valeurs finales : la bascule de thème ne doit pas rejouer le spectacle. */
+  function replayScene() {
+    addContourLayers();
+    for (const s of shapes) addShapeLayers(s.id, s.geometry, true);
+    for (const b of beams) addBeamLayers(b.id, b.lng, b.lat, true);
   }
 
   /* ─── Boucle d'animation : pulsations, orbite ─── */
@@ -169,10 +415,13 @@
       try {
         map = new maplibregl.Map({
           container: 'map',
-          style: STYLE_URL,
+          style: THEMES[theme].style,
           ...FRANCE_A,
           interactive: false,
-          attributionControl: false, // pastille de credits masquee sur le kiosque
+          /* Les credits restent AFFICHES (discretement, voir demo.css) :
+             Carto comme OpenStreetMap exigent une attribution visible. La
+             masquer exposerait le kiosque a un blocage des tuiles. */
+          attributionControl: { compact: false },
           fadeDuration: 200,
         });
 
@@ -197,96 +446,8 @@
           if (reframePending) { reframePending = false; recentrePending = false; MapFX.reframe(); }
           else if (recentrePending) MapFX.recentrerSurMairie();
         });
-        map.on('style.load', () => {
-          try { map.setProjection({ type: 'globe' }); } catch { /* projection plane : très bien aussi */ }
-
-          try {
-            map.setSky({
-              'sky-color': '#0a1730',
-              'horizon-color': '#2a5aa0',
-              'fog-color': '#0a1730',
-              'sky-horizon-blend': 0.6,
-              'horizon-fog-blend': 0.7,
-              'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 6, 0.4, 9, 0],
-            });
-          } catch { /* sky non supporté : sans gravité */ }
-
-          // Recoloration « navy tech » : le dark-matter d'origine est presque
-          // noir ; on éclaircit routes, bâtiments et eau, on tamise les labels
-          for (const layer of map.getStyle().layers) {
-            try {
-              if (layer.type === 'background') {
-                map.setPaintProperty(layer.id, 'background-color', '#0a1120');
-              } else if (layer.type === 'fill') {
-                if (/water/i.test(layer.id)) map.setPaintProperty(layer.id, 'fill-color', '#0d2b4d');
-                else if (/building/i.test(layer.id)) map.setPaintProperty(layer.id, 'fill-color', '#20345c');
-                else map.setPaintProperty(layer.id, 'fill-color', '#0f1a30');
-              } else if (layer.type === 'line') {
-                map.setPaintProperty(layer.id, 'line-color', /minor|service|tunnel|path|track/i.test(layer.id) ? '#26405f' : '#3d6291');
-              } else if (layer.type === 'symbol') {
-                map.setPaintProperty(layer.id, 'text-color', '#6c81a8');
-                map.setPaintProperty(layer.id, 'text-halo-color', '#0a1120');
-                map.setPaintProperty(layer.id, 'text-opacity', 0.75);
-              }
-            } catch { /* propriété absente sur cette couche */ }
-          }
-
-          // Relief 3D : terrain mondial (tuiles Terrarium AWS, libres) + ombrage
-          try {
-            map.addSource('fx-dem', {
-              type: 'raster-dem',
-              tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-              encoding: 'terrarium',
-              tileSize: 256,
-              maxzoom: 14,
-              attribution: 'Terrain: Mapzen/AWS',
-            });
-            map.setTerrain({ source: 'fx-dem', exaggeration: 1.12 });
-            map.addLayer({
-              id: 'fx-hillshade',
-              type: 'hillshade',
-              source: 'fx-dem',
-              paint: {
-                'hillshade-shadow-color': '#040910',
-                'hillshade-highlight-color': '#3d5f96',
-                'hillshade-accent-color': '#0d1a30',
-                'hillshade-exaggeration': 0.55,
-              },
-            });
-          } catch { /* relief indisponible : carte plate */ }
-
-          // Bâtiments en 3D au niveau rue
-          try {
-            const firstSymbol = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
-            map.addLayer({
-              id: 'fx-3d-buildings',
-              type: 'fill-extrusion',
-              source: 'carto',
-              'source-layer': 'building',
-              minzoom: 13,
-              paint: {
-                'fill-extrusion-color': '#28436f',
-                'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
-                'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-                'fill-extrusion-opacity': 0.72,
-              },
-            }, firstSymbol);
-          } catch { /* extrusions indisponibles : sans gravité */ }
-
-          map.addSource('fx-dots', {
-            type: 'geojson',
-            data: { type: 'FeatureCollection', features: CITY_DOTS.map((c) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: {} })) },
-          });
-          map.addLayer({
-            id: 'fx-dots-halo', type: 'circle', source: 'fx-dots',
-            paint: { 'circle-radius': 9, 'circle-color': accent, 'circle-blur': 1, 'circle-opacity': 0.35 },
-          });
-          map.addLayer({
-            id: 'fx-dots', type: 'circle', source: 'fx-dots',
-            paint: { 'circle-radius': 3, 'circle-color': '#ffd9e0', 'circle-opacity': 0.9 },
-          });
-          document.body.classList.add('has-map');
-        });
+        // `style.load` se déclenche au démarrage ET à chaque bascule de thème
+        map.on('style.load', buildScene);
         rafId = requestAnimationFrame(loop);
         ok = true;
         MapFX.ok = true;
@@ -294,6 +455,34 @@
       } catch {
         return false;
       }
+    },
+
+    /* Bascule jour/nuit demandée par l'écran (theme.js). Le style repart de
+       zéro (`diff: false` garantit un `style.load`), buildScene reconstruit la
+       scène et rejoue la génération en cours ; les marqueurs DOM (épingles,
+       photos, sonar) survivent d'eux-mêmes au changement de style.
+
+       Un style déclaré par URL (le sombre) est TÉLÉCHARGÉ AVANT d'être posé :
+       passer l'URL à setStyle retirerait le style courant avant le fetch, et
+       un échec réseau (wifi de salon) laisserait une carte entièrement vide.
+       Ici, l'échec laisse simplement le fond actuel en place, et le JSON
+       obtenu est mis en cache pour rendre les bascules suivantes instantanées. */
+    setTheme(next) {
+      const t = next === 'dark' ? 'dark' : 'light';
+      if (!ok || t === theme) return;
+      theme = t;
+      const style = THEMES[t].style;
+      if (typeof style === 'string') {
+        fetch(style)
+          .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`style ${r.status}`))))
+          .then((json) => {
+            THEMES[t].style = json;
+            if (theme === t) map.setStyle(json, { diff: false });
+          })
+          .catch(() => console.warn('[demo] style du theme sombre injoignable, fond conserve'));
+        return;
+      }
+      try { map.setStyle(style, { diff: false }); } catch { /* style conservé */ }
     },
 
     setAccent(color) {
@@ -334,21 +523,8 @@
 
     drawContour(contourGeojson) {
       if (!ok || !contourGeojson) return;
-      const apply = () => {
-        try {
-          if (map.getSource('fx-contour')) return;
-          map.addSource('fx-contour', { type: 'geojson', data: { type: 'Feature', geometry: contourGeojson, properties: {} } });
-          map.addLayer({
-            id: 'fx-contour-glow', type: 'line', source: 'fx-contour',
-            paint: { 'line-color': accent, 'line-width': 12, 'line-blur': 10, 'line-opacity': 0.3 },
-          });
-          map.addLayer({
-            id: 'fx-contour', type: 'line', source: 'fx-contour',
-            paint: { 'line-color': accent, 'line-width': 1.6, 'line-opacity': 0.95 },
-          });
-        } catch { /* style pas encore prêt */ }
-      };
-      map.isStyleLoaded() ? apply() : map.once('idle', apply);
+      contourData = contourGeojson;
+      map.isStyleLoaded() ? addContourLayers() : map.once('idle', addContourLayers);
     },
 
     /* Position de la MAIRIE, telle que l'annuaire officiel la donne. Le radar
@@ -443,46 +619,10 @@
       if (!ok) return;
       projectCoords.push([lng, lat]);
 
-      /* L'emprise ne s'allume plus a plat : elle SORT DE TERRE. Un volume
-         extrude monte de 0 a sa hauteur en une seconde, ce qui donne au projet
-         une presence physique dans le relief plutot qu'une tache de couleur.
-         Le contour lumineux reste, il porte la lecture au sol. */
       if (geometry && geometry.type !== 'Point') {
         const id = `fx-shape-${shapeCount++}`;
-        try {
-          map.addSource(id, { type: 'geojson', data: { type: 'Feature', geometry, properties: {} } });
-          if (/Polygon/.test(geometry.type)) {
-            map.addLayer({
-              id: `${id}-fill`, type: 'fill', source: id,
-              paint: { 'fill-color': accent, 'fill-opacity': 0, 'fill-opacity-transition': { duration: 900 } },
-            });
-            map.addLayer({
-              id: `${id}-3d`, type: 'fill-extrusion', source: id,
-              paint: {
-                'fill-extrusion-color': accent,
-                'fill-extrusion-opacity': 0.42,
-                'fill-extrusion-height': 0,
-                'fill-extrusion-base': 0,
-                'fill-extrusion-height-transition': { duration: 1100, delay: 120 },
-              },
-            });
-            requestAnimationFrame(() => {
-              try {
-                map.setPaintProperty(`${id}-fill`, 'fill-opacity', 0.22);
-                map.setPaintProperty(`${id}-3d`, 'fill-extrusion-height', PROJECT_VOLUME_M);
-              } catch { /* couche retiree */ }
-            });
-            volumeLayers.push(`${id}-3d`);
-          }
-          map.addLayer({
-            id: `${id}-line`, type: 'line', source: id,
-            paint: {
-              'line-color': accent, 'line-width': /Line/.test(geometry.type) ? 5 : 2.5,
-              'line-blur': 1.5, 'line-opacity': 0, 'line-opacity-transition': { duration: 900 },
-            },
-          });
-          requestAnimationFrame(() => map.setPaintProperty(`${id}-line`, 'line-opacity', 0.95));
-        } catch { /* la géométrie tombera en épingle */ }
+        shapes.push({ id, geometry });
+        addShapeLayers(id, geometry, false);
       } else {
         // Projet ponctuel : pas d'emprise a lever, donc un FAISCEAU vertical
         // pour qu'il ait lui aussi du volume et se voie de loin en vue inclinee
@@ -623,7 +763,7 @@
       });
     },
 
-    // Retour à l'accueil : on nettoie la scène
+    // Retour à l'accueil : on nettoie la scène (et le registre de rejeu)
     reset() {
       if (!ok) return;
       this.scanStop();
@@ -636,21 +776,23 @@
       projectCoords = [];
       communeCenter = null;
       sourceOrigin = null;
-      for (let i = 0; i < shapeCount; i++) {
+      for (const s of shapes) {
         // '-3d' inclus : sans lui, les volumes de la commune precedente
         // restaient plantes dans le paysage au passage a la suivante
         for (const suffix of ['-fill', '-line', '-3d']) {
-          try { if (map.getLayer(`fx-shape-${i}${suffix}`)) map.removeLayer(`fx-shape-${i}${suffix}`); } catch { /* absente */ }
+          try { if (map.getLayer(`${s.id}${suffix}`)) map.removeLayer(`${s.id}${suffix}`); } catch { /* absente */ }
         }
-        try { if (map.getSource(`fx-shape-${i}`)) map.removeSource(`fx-shape-${i}`); } catch { /* absente */ }
+        try { if (map.getSource(s.id)) map.removeSource(s.id); } catch { /* absente */ }
       }
+      shapes = [];
       shapeCount = 0;
-      for (let i = 0; i < beamCount; i++) {
-        try { if (map.getLayer(`fx-beam-${i}-core`)) map.removeLayer(`fx-beam-${i}-core`); } catch { /* absente */ }
-        try { if (map.getSource(`fx-beam-${i}`)) map.removeSource(`fx-beam-${i}`); } catch { /* absente */ }
+      for (const b of beams) {
+        try { if (map.getLayer(`${b.id}-core`)) map.removeLayer(`${b.id}-core`); } catch { /* absente */ }
+        try { if (map.getSource(b.id)) map.removeSource(b.id); } catch { /* absente */ }
       }
+      beams = [];
       beamCount = 0;
-      volumeLayers = [];
+      contourData = null;
       for (const id of ['fx-contour', 'fx-contour-glow']) {
         try { if (map.getLayer(id)) map.removeLayer(id); } catch { /* absente */ }
       }

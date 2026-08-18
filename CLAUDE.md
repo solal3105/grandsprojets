@@ -210,6 +210,7 @@ setTimeout(hide, 250); // fallback headless
 - **Villes** : nécessite un compte global-admin (non configuré)
 - **Draw tools** : WebGL requis (MapLibre en headless)
 - **Diagnostic terrain - rendu carte, lasso, flux IA** : WebGL requis ; le dock (CRUD des couches, wizard) est volontairement indépendant de la carte et se teste sans WebGL
+- **Démo salon - scène WebGL** : fond de carte, rejeu de scène à la bascule de thème (`MapFX.setTheme`) - WebGL requis ; l'attribut `data-theme`, l'interrupteur et sa persistance se testent sans (section 0.35)
 - **Drag-drop reorder** : interactions Playwright DnD complexes
 - **SSO Phaos** : l'échange de token Azure B2C réel (l'intégration iframe est testée avec token factice dans `unauth.phaos-iframe.spec.js`)
 

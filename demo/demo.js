@@ -14,6 +14,7 @@
   const screens = { input: $('screen-input'), progress: $('screen-progress'), done: $('screen-done') };
   const input = $('commune-input');
   const suggestionsEl = $('suggestions');
+  const brand = $('kiosk-brand');
   const URL_PARAMS = new URLSearchParams(window.location.search);
   const KIOSK = URL_PARAMS.get('kiosk') === '1';
   const KIOSK_KEY = URL_PARAMS.get('k') || '';
@@ -47,6 +48,10 @@
   const show = (name) => {
     Object.values(screens).forEach((s) => s.classList.remove('is-active'));
     screens[name].classList.add('is-active');
+    /* Le bandeau de marque n'a de place que sur l'écran de saisie : dès la
+       génération lancée, le HUD occupe le haut de l'écran et le logo se
+       retrouve derrière l'interface au lieu de la coiffer. */
+    if (brand) brand.hidden = name !== 'input';
   };
 
   const escapeHtml = (s) => String(s || '').replace(/[&<>"']/g, (c) => (
