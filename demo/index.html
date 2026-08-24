@@ -26,8 +26,8 @@
        demo.js, map-fx.js ou theme.js. -->
   <!-- Thème AVANT la feuille de style : l'attribut data-theme est posé avant
        le premier rendu, aucun éclair de mauvais thème -->
-  <script src="theme.js?v=11"></script>
-  <link rel="stylesheet" href="demo.css?v=11" />
+  <script src="theme.js?v=12"></script>
+  <link rel="stylesheet" href="demo.css?v=12" />
   <script defer src="/modules/analytics.js" data-op-space="demo"></script>
 </head>
 <body>
@@ -60,49 +60,59 @@
     <section id="screen-progress" class="screen screen--hud">
       <div id="topline" class="topline" aria-hidden="true"><span id="topline-fill"></span></div>
 
-      <!-- Stepper : les 5 phases du recensement, pour lire d'un coup d'oeil
-           ou on en est et ce qui vient -->
-      <ol id="stepper" class="stepper" aria-hidden="true">
-        <li class="step" data-stage="0"><span class="step__dot">1</span><span class="step__label">Sources</span></li>
-        <li class="step" data-stage="1"><span class="step__dot">2</span><span class="step__label">Analyse IA</span></li>
-        <li class="step" data-stage="2"><span class="step__dot">3</span><span class="step__label">Localisation</span></li>
-        <li class="step" data-stage="3"><span class="step__dot">4</span><span class="step__label">Illustrations</span></li>
-        <li class="step" data-stage="4"><span class="step__dot">5</span><span class="step__label">Espace</span></li>
-      </ol>
-
-      <div id="hud-pill" class="hud-pill">
-        <span id="hud-icon" class="hud-pill__icon"><span class="spinner"></span></span>
-        <span class="hud-pill__texts">
-          <span id="hud-label" class="hud-pill__label">Préparation...</span>
-          <span id="hud-detail" class="hud-pill__detail"></span>
-        </span>
-        <span class="hud-pill__city">
-          <img id="hud-logo" class="hud-pill__logo" alt="" hidden />
-          <span id="hud-commune" class="hud-pill__commune"></span>
-        </span>
+      <!-- L'en-tête : une seule barre. Les 5 phases du recensement, l'action
+           de phase en cours, l'identité de la commune. Il ne change qu'aux
+           changements d'étape - l'instantané, lui, vit dans l'établi du bas. -->
+      <!-- L'identité de la commune : au-dessus de la barre, le logo en avant -->
+      <div id="city-badge" class="city-badge" hidden>
+        <img id="hud-logo" class="city-badge__logo" alt="" hidden />
+        <span id="hud-commune" class="city-badge__name"></span>
       </div>
 
-      <!-- La preuve : la phrase exacte relevée dans la source qui atteste le
-           projet. C'est ce qui distingue un recensement d'une génération. -->
-      <figure id="quote" class="quote" hidden>
-        <blockquote id="quote-text" class="quote__text"></blockquote>
-        <figcaption id="quote-media" class="quote__media"></figcaption>
-      </figure>
-
-      <!-- Ce que l'on refuse d'afficher, faute de preuve suffisante -->
-      <p id="rejected" class="rejected" hidden></p>
+      <header id="hud" class="hud">
+        <ol id="stepper" class="stepper" aria-hidden="true">
+          <li class="step" data-stage="0"><span class="step__dot">1</span><span class="step__label">Sources</span></li>
+          <li class="step" data-stage="1"><span class="step__dot">2</span><span class="step__label">Analyse IA</span></li>
+          <li class="step" data-stage="2"><span class="step__dot">3</span><span class="step__label">Localisation</span></li>
+          <li class="step" data-stage="3"><span class="step__dot">4</span><span class="step__label">Illustrations</span></li>
+          <li class="step" data-stage="4"><span class="step__dot">5</span><span class="step__label">Espace</span></li>
+        </ol>
+        <span class="hud__sep" aria-hidden="true"></span>
+        <span id="hud-icon" class="hud__icon"><span class="spinner"></span></span>
+        <span class="hud__texts">
+          <span id="hud-label" class="hud__label">Préparation...</span>
+          <span id="hud-detail" class="hud__detail"></span>
+        </span>
+      </header>
 
       <!-- Titre du projet survolé pendant le survol final -->
       <div id="flyover" class="flyover" hidden>
         <span id="flyover-title" class="flyover__title"></span>
       </div>
 
-      <!-- Compteurs cumulés du recensement + ticker : une seule ligne lisible -->
-      <div id="counters" class="counters" aria-hidden="true"></div>
-      <div id="ticker" class="ticker" aria-live="polite">
-        <span id="ticker-icon" class="ticker__icon"></span>
-        <span id="ticker-text" class="ticker__text"></span>
-        <span id="ticker-meta" class="ticker__meta"></span>
+      <!-- L'établi : tout le bas d'écran en un seul panneau cohérent.
+           Rangée 1, le fil de ce que la machine fait à l'instant. Rangée 2,
+           la MAIN de cartes : chaque projet repéré tombe et prend sa place
+           dans une main qui s'étale puis se resserre à mesure qu'elle
+           grossit ; au survol une carte sort de la main. À la vérification
+           les doublons sont jetés, à la localisation chaque carte s'envole
+           vers son point sur la carte. Rangée 3, le compte des projets
+           repérés, les compteurs du recensement et ce que l'on refuse. -->
+      <div id="bench" class="bench">
+        <!-- Le plateau : la seule voix de l'écran. Une information à la fois,
+             cadencée pour être lue - l'activité de l'instant, ou la PREUVE :
+             la phrase exacte relevée dans la source, dévoilée par balayage,
+             prioritaire et affichée plus longtemps. -->
+        <div id="stage" class="bench__stage" aria-live="polite">
+          <span id="stage-icon" class="bench__stage-icon"></span>
+          <span class="bench__stage-body">
+            <span id="stage-text" class="bench__stage-text"></span>
+            <span id="stage-meta" class="bench__stage-meta"></span>
+          </span>
+        </div>
+        <div id="hand" class="bench__hand" aria-live="polite">
+          <span id="hand-more" class="bench__more" hidden>+0</span>
+        </div>
       </div>
 
       <!-- Avertissement de carte courte. Il n'emprunte RIEN au vocabulaire de
@@ -207,7 +217,7 @@
   </button>
 
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
-  <script src="map-fx.js?v=11"></script>
-  <script src="demo.js?v=11"></script>
+  <script src="map-fx.js?v=12"></script>
+  <script src="demo.js?v=12"></script>
 </body>
 </html>

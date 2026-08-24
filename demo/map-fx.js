@@ -613,6 +613,17 @@
     orbitStart() { if (ok && mode !== 'orbit') mode = 'orbit'; },
     orbitStop() { if (ok && mode === 'orbit') mode = 'focus'; },
 
+    /* Position ÉCRAN d'un point géographique, en pixels de la fenêtre : la
+       colonne de récolte s'en sert pour faire voler une mini-fiche jusqu'à
+       son emplacement réel sur la carte au moment de la localisation. */
+    screenPos({ lng, lat }) {
+      if (!ok || !Number.isFinite(lng)) return null;
+      try {
+        const p = map.project([lng, lat]);
+        return { x: p.x, y: p.y };
+      } catch { return null; }
+    },
+
     // Un projet localisé : emprise embrasée, épingle étiquetée, et la caméra
     // vient le voir (file d'attente : un vol après l'autre)
     addProject({ lat, lng, geometry, precise, title }) {

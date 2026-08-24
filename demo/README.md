@@ -6,6 +6,31 @@ mairie (logo, couleur, pages projets, texte des PDF officiels), site de
 l'intercommunalité (pages qui nomment la commune), presse locale (articles lus
 un par un), marchés publics de travaux (BOAMP, avis complet).
 
+## L'écran de génération : trois zones, une seule voix
+
+L'écran a été refondu après un constat simple : quatre éléments parlaient en
+même temps de quatre projets différents, et l'ensemble était illisible. La
+règle est désormais une hiérarchie fixe, apprise en dix secondes :
+
+1. **L'en-tête** (une seule barre) : les cinq phases, l'action de phase en
+   cours, l'identité de la commune. Il ne change qu'aux changements d'étape.
+2. **La carte** : la scène. Sonar, épingles, emprises, photos - rien d'autre
+   ne s'y superpose.
+3. **L'établi** (un seul panneau, en bas) : trois rangées. Le PLATEAU, seule
+   voix de l'écran, montre une information à la fois, cadencée pour être lue -
+   soit l'activité de l'instant (page lue, projet placé, article rédigé), soit
+   la PREUVE, la phrase exacte relevée dans la source, dévoilée par balayage,
+   prioritaire et affichée plus longtemps. La MAIN de cartes : chaque projet
+   repéré tombe en carte et prend sa place dans une main qui se resserre à
+   mesure qu'elle grossit ; les doublons sont jetés à la vérification, chaque
+   carte s'envole vers son point à la localisation, les sans-adresse partent
+   au rebut. Le PIED : le compte des projets repérés, quatre compteurs
+   (sources, vérifiés, localisés, illustrés) et ce que l'on refuse.
+
+Les activités ne s'empilent jamais : la plus récente remplace celle qui
+attendait, donc une rafale de cinq pages ne fait clignoter qu'un titre. Un
+changement de phase vide le plateau : il parle toujours de la phase en cours.
+
 ## Le site est exploré page par page
 
 C'est le cœur du système, et il a changé. On lisait auparavant un nombre fixe de

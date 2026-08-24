@@ -1319,7 +1319,10 @@ async function fetchLocalNews(communeNom, departement, onFinding) {
      obtient les adresses reelles via la recherche web d'OpenAI et lit chaque
      article un par un. */
   for (const item of items.slice(0, NEWS_ANNONCES)) {
-    onFinding?.({ kind: 'article', title: item.title.replace(/ - [^-]+$/, ''), domain: item.source || hostOf(item.sourceUrl || item.link), date: item.date });
+    /* `annonce` et non `article` : ces titres sont des signaux vus dans les
+       flux, pas des articles LUS. Le compteur d'articles lus appartient a
+       l'etage presse, qui ouvre reellement les pages. */
+    onFinding?.({ kind: 'annonce', title: item.title.replace(/ - [^-]+$/, ''), domain: item.source || hostOf(item.sourceUrl || item.link), date: item.date });
   }
   return items;
 }
@@ -1907,11 +1910,18 @@ async function chercherLaPresse(commune, epciNom, mairieHost) {
   const { annotations } = texteEtCitations(data);
   const vus = new Set();
   const articles = [];
+  /* Le site de la commune et ses sous-domaines ne sont pas de la presse : la
+     mairie est deja lue par l'exploration, et malgre la consigne le moteur de
+     recherche cite volontiers villeurbanne.fr ou un sous-domaine municipal
+     (releve sur Villeurbanne). La comparaison ignore le prefixe www. */
+  const domaineMairie = String(mairieHost || '').replace(/^www\./, '');
   for (const a of annotations) {
     const url = String(a?.url || '');
     if (!/^https?:\/\//i.test(url) || HORS_PRESSE.test(url)) continue;
     const hote = hostOf(url);
-    if (!hote || hote === mairieHost) continue;
+    if (!hote) continue;
+    const nu = hote.replace(/^www\./, '');
+    if (domaineMairie && (nu === domaineMairie || nu.endsWith(`.${domaineMairie}`))) continue;
     const cle = normaliserUrl(url);
     if (vus.has(cle)) continue;
     vus.add(cle);
@@ -1962,7 +1972,7 @@ async function moissonnerLaPresse(send, step, state) {
         p.origine = 'presse';
         p.sources = [{ url: p.source_url, type: 'presse' }];
         recolte.push(p);
-        send({ type: 'ai-item', phase: 'ai1', title: p.title });
+        send({ type: 'ai-item', phase: 'ai1', title: p.title, quote: (p.evidence_quote || '').slice(0, 220), domain: hostOf(p.source_url) });
       }
       send({ type: 'finding', kind: 'article', title: a.title || hoteLisible(page.url), domain: hostOf(page.url) });
     } catch (e) {
@@ -3577,9 +3587,10 @@ async function coreExplore(send, step, state) {
        versait au corpus. Le gabarit ne s'y applique pas, il en est la source. */
     try {
       const luAccueil = await lirePage(commune, { url: `https://${mairie.host}/`, title: 'Accueil du site de la mairie', text: mairie.accueilTexte || '' }, []);
+      send({ type: 'finding', kind: 'page', title: 'Accueil du site de la mairie', domain: mairie.host });
       for (const pr of luAccueil.projets) {
         explo.bruts.push(pr);
-        send({ type: 'ai-item', phase: 'ai1', title: pr.title });
+        send({ type: 'ai-item', phase: 'ai1', title: pr.title, quote: (pr.evidence_quote || '').slice(0, 220), domain: hostOf(pr.source_url) });
       }
       explo.pagesLues++;
     } catch (e) {
@@ -3699,6 +3710,10 @@ async function coreExplore(send, step, state) {
     for (const r of resultats) {
       if (!r || r.echec || r.ecartee) continue;
       explo.pagesLues++;
+      /* Une trouvaille PAR page lue : le compteur de sources de l'ecran dit
+         le vrai compte (il comptait une vague de cinq pour une), et le fil
+         montre chaque page ouverte au lieu d'un cumul. */
+      send({ type: 'finding', kind: 'page', title: r.candidate.label || r.page.url, domain: hostOf(r.page.url) });
       if ((explo.echantillons = explo.echantillons || []).length < GABARIT_ECHANTILLONS) {
         explo.echantillons.push(r.echantillon);
       }
@@ -3718,7 +3733,7 @@ async function coreExplore(send, step, state) {
           p.sources = [{ url: p.source_url, type: 'intercommunalite' }];
         }
         explo.bruts.push(p);
-        send({ type: 'ai-item', phase: 'ai1', title: p.title });
+        send({ type: 'ai-item', phase: 'ai1', title: p.title, quote: (p.evidence_quote || '').slice(0, 220), domain: hostOf(p.source_url) });
       }
       /* Les liens que cette page recommande. La priorite ne decide plus de ce
          qu'on lira - la file est destinee a etre videe - seulement de l'ordre :
@@ -3752,7 +3767,6 @@ async function coreExplore(send, step, state) {
       }
       if (!state.mairie.urls.includes(r.page.url)) state.mairie.urls.push(r.page.url);
     }
-    send({ type: 'finding', kind: 'page', title: `${explo.pagesLues} page(s) lue(s), ${explo.bruts.length} projet(s)`, domain: mairie.host });
   }
 
   /* Les echecs retournent en file MAINTENANT, hors de la fenetre de coupure
@@ -5465,8 +5479,9 @@ export default async (req, context) => {
                l'espace en fin de parcours. Le dire MAINTENANT : découvert après
                trois minutes d'analyse, ce mode local passe pour une panne. */
             if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+              // L'ecran reste muet sur ce mode : seul le journal en parle,
+              // et le message de fin explique pourquoi aucun espace n'existe
               console.warn('[demo-generate] clé service Supabase absente : idempotence et création d\'espace désactivées (poser SUPABASE_SERVICE_ROLE_KEY dans .env pour retrouver le comportement de production)');
-              send({ type: 'notice', message: 'Mode local sans clé service Supabase : le recensement va se dérouler en entier, mais aucun espace ne sera créé à la fin.' });
             }
             const kioskOk = process.env.DEMO_KIOSK_KEY
               && url.searchParams.get('k') === process.env.DEMO_KIOSK_KEY;

@@ -245,38 +245,30 @@ html[data-theme='dark'] .theme-toggle__sun { display: block; }
 /* Stepper : les 5 phases, colonne vertébrale de la linéarité du chargement.
    Lu d'un coup d'oeil : ce qui est fait (coché), l'étape en cours (accent
    pulsé), ce qui reste (grisé). */
+/* Le stepper vit DANS la barre d'en-tête : pas de verre propre */
 .stepper {
-  position: fixed;
-  top: 22px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 6;
   display: flex;
   align-items: flex-start;
   gap: 0;
   list-style: none;
-  background: color-mix(in srgb, var(--glass-tint) 80%, transparent);
-  backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid var(--glass-border);
-  border-radius: 999px;
-  padding: 12px 30px 14px;
-  box-shadow: 0 24px 70px -18px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
-  max-width: 94vw;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
 }
 .step {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 0 clamp(18px, 3.4vw, 42px);
+  gap: 5px;
+  padding: 0 clamp(10px, 1.6vw, 22px);
   flex: 0 0 auto;
 }
 /* Trait de liaison entre deux pastilles, rempli quand l'étape est atteinte */
 .step::before {
   content: '';
   position: absolute;
-  top: 15px;
+  top: 13px;
   right: 50%;
   width: 100%;
   height: 2px;
@@ -289,7 +281,7 @@ html[data-theme='dark'] .theme-toggle__sun { display: block; }
 .step__dot {
   position: relative;
   z-index: 1;
-  width: 30px; height: 30px;
+  width: 26px; height: 26px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -303,7 +295,7 @@ html[data-theme='dark'] .theme-toggle__sun { display: block; }
 }
 .step__label {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   font-weight: 500;
   color: var(--on-glass-faint);
   white-space: nowrap;
@@ -339,12 +331,51 @@ html[data-theme='dark'] .theme-toggle__sun { display: block; }
 }
 
 /* Pilule de statut : l'action en cours, sous le stepper, lisible à 3 mètres */
-.hud-pill {
+/* L'identité de la commune : au-dessus de la barre, le logo en avant */
+.city-badge {
   position: fixed;
-  top: 114px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 5;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 20px 7px 9px;
+  background: color-mix(in srgb, var(--glass-tint) 82%, transparent);
+  backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  box-shadow: 0 18px 50px -16px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
+  animation: pillIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.city-badge[hidden] { display: none; }
+.city-badge__logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #fff;
+  padding: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.city-badge__logo[hidden] { display: none; }
+.city-badge__name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 1.08rem;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* L'en-tête : UNE barre - les phases et l'action de phase en cours */
+.hud {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -352,51 +383,26 @@ html[data-theme='dark'] .theme-toggle__sun { display: block; }
   backdrop-filter: blur(18px) saturate(140%);
   border: 1px solid var(--glass-border);
   border-radius: 999px;
-  padding: 13px 26px 13px 18px;
+  padding: 11px 24px 12px 20px;
   box-shadow: 0 24px 70px -18px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
-  max-width: min(760px, 92vw);
+  max-width: 96vw;
   animation: pillIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes pillIn { from { opacity: 0; transform: translate(-50%, -18px); } to { opacity: 1; transform: translate(-50%, 0); } }
-
-.hud-pill__icon { width: 34px; height: 34px; display: grid; place-items: center; flex-shrink: 0; }
-.hud-pill__texts { display: flex; flex-direction: column; min-width: 0; }
-.hud-pill__label {
+.hud__sep { width: 1px; align-self: stretch; background: var(--glass-border); }
+.hud__icon { width: 30px; height: 30px; display: grid; place-items: center; flex-shrink: 0; }
+.hud__texts { display: flex; flex-direction: column; min-width: 0; max-width: 340px; }
+.hud__label {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 600;
-  font-size: clamp(1rem, 1.6vw, 1.25rem);
+  font-size: 1.02rem;
   color: var(--on-glass);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.hud-pill__detail { font-size: 0.85rem; color: var(--on-glass-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hud-pill__city {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-left: 1px solid var(--glass-border);
-  padding-left: 16px;
-}
-/* Logo scrapé de la mairie, posé à côté du nom de la commune */
-.hud-pill__logo {
-  width: 30px;
-  height: 30px;
-  object-fit: contain;
-  border-radius: 7px;
-  background: #fff;
-  padding: 3px;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.45);
-  animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.hud-pill__logo[hidden] { display: none; }
-.hud-pill__commune {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--accent);
-  white-space: nowrap;
-}
+.hud__detail { font-size: 0.8rem; color: var(--on-glass-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 
 .spinner {
   width: 20px; height: 20px;
@@ -420,80 +426,96 @@ html[data-theme='dark'] .theme-toggle__sun { display: block; }
 .hud-check svg { width: 14px; height: 14px; }
 @keyframes pop { from { transform: scale(0.3); } to { transform: scale(1); } }
 
-/* Compteurs cumulés du recensement : lisibles, façon salle de contrôle */
-.counters {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 92px;
-  z-index: 5;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: center;
-  max-width: 94vw;
-  pointer-events: none;
-}
-.counter {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  background: color-mix(in srgb, var(--glass-tint) 78%, transparent);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  padding: 8px 14px;
-  animation: findingIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.counter__n {
-  font-family: 'Space Grotesk', monospace;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  font-size: 1.25rem;
-  color: var(--accent);
-  line-height: 1;
-  text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 60%, transparent);
-}
-.counter__n.is-bump { animation: bump 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
-@keyframes bump { 50% { transform: scale(1.35); } }
-.counter__l { font-size: 0.72rem; color: var(--on-glass-soft); letter-spacing: 0.02em; }
-
-/* Ticker : UNE trouvaille à la fois, grande et lisible */
-.ticker {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 30px;
-  z-index: 5;
+/* Le plateau : la seule voix de l'écran. Mode activité par défaut, mode
+   preuve (citation dévoilée par balayage) prioritaire et plus posé. */
+.bench__stage {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
+  /* Icône et texte forment UN bloc, centré : séparés, l'icône flottait au
+     bord gauche pendant que le texte se centrait (relevé en maquette) */
+  justify-content: center;
   gap: 12px;
-  background: color-mix(in srgb, var(--glass-tint) 84%, transparent);
-  backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid var(--glass-border);
-  border-radius: 999px;
-  padding: 12px 24px;
-  max-width: min(880px, 94vw);
-  min-height: 48px;
-  box-shadow: 0 20px 60px -18px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
+  min-height: 46px;
+  padding: 6px 14px;
+  border-radius: 12px;
+  border-left: 3px solid transparent;
   pointer-events: none;
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
-.ticker__icon { width: 21px; height: 21px; color: var(--accent); flex-shrink: 0; }
-.ticker__icon svg { width: 100%; height: 100%; }
-.ticker__icon img { width: 21px; height: 21px; border-radius: 5px; }
-.ticker__text {
+.bench__stage-icon { width: 21px; height: 21px; color: var(--accent); flex-shrink: 0; }
+.bench__stage-icon svg { width: 100%; height: 100%; }
+.bench__stage-icon img { width: 21px; height: 21px; border-radius: 5px; }
+.bench__stage-body { display: flex; flex-direction: column; min-width: 0; flex: 0 1 auto; text-align: left; }
+.bench__stage-text {
   color: var(--on-glass);
-  font-size: 0.98rem;
+  font-size: 0.96rem;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ticker__meta { font-size: 0.8rem; color: var(--on-glass-faint); white-space: nowrap; flex-shrink: 0; }
-.ticker.is-swap .ticker__text, .ticker.is-swap .ticker__meta, .ticker.is-swap .ticker__icon {
+.bench__stage-meta { margin-top: 1px; font-size: 0.78rem; color: var(--on-glass-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bench__stage.is-swap .bench__stage-body, .bench__stage.is-swap .bench__stage-icon {
   animation: tickerIn 0.35s ease;
 }
 @keyframes tickerIn { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+
+/* Mode PREUVE : fond léger, filet accent, citation en entier, dévoilement */
+.bench__stage--preuve {
+  background: color-mix(in srgb, var(--glass-tint) 55%, transparent);
+  border-left-color: var(--accent, #ff4d6a);
+}
+.bench__stage--preuve .bench__stage-text {
+  white-space: normal;
+  font-style: italic;
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+.bench__stage--preuve .bench__stage-meta {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent, #ff4d6a);
+  font-size: 0.7rem;
+}
+.bench__stage--preuve.is-swap .bench__stage-body { animation: none; }
+.bench__stage--preuve.is-swap .bench__stage-text { animation: quote-unveil 1.1s cubic-bezier(0.3, 0.75, 0.3, 1) both; }
+.bench__stage--preuve.is-swap .bench__stage-meta { animation: quote-media-in 0.5s ease-out 0.8s both; }
+.bench__stage--preuve::after {
+  content: '';
+  position: absolute;
+  top: -8%;
+  bottom: -8%;
+  left: -22%;
+  width: 16%;
+  background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--accent, #ff4d6a) 45%, white) 50%, transparent);
+  filter: blur(7px);
+  opacity: 0;
+  pointer-events: none;
+}
+.bench__stage--preuve.is-swap::after { animation: quote-scan 1.1s cubic-bezier(0.3, 0.75, 0.3, 1) 1; }
+@keyframes quote-scan {
+  0% { left: -22%; opacity: 0; }
+  12% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { left: 106%; opacity: 0; }
+}
+@keyframes quote-unveil {
+  from { clip-path: inset(-15% 100% -15% 0); }
+  to { clip-path: inset(-15% 0 -15% 0); }
+}
+@keyframes quote-media-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 0.9; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bench__stage.is-swap .bench__stage-body,
+  .bench__stage.is-swap .bench__stage-icon,
+  .bench__stage--preuve.is-swap .bench__stage-text,
+  .bench__stage--preuve.is-swap .bench__stage-meta { animation: none; }
+  .bench__stage--preuve.is-swap::after { animation: none; }
+}
 @keyframes findingIn { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: none; } }
 
 /* Sonar de recensement : anneaux concentriques qui se propagent depuis la
@@ -572,7 +594,7 @@ html[data-theme='dark'] .fx-sonar { mix-blend-mode: screen; }
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 92px;
+  bottom: 218px;
   z-index: 5;
   margin: 0;
   max-width: min(720px, 92vw);
@@ -954,58 +976,142 @@ html[data-theme='dark'] .fx-sonar { mix-blend-mode: screen; }
 /* ─── La preuve : citation exacte relevée dans la source ───────────────────
    Posée au-dessus du ticker, elle reste 5 s puis s'efface. C'est la pièce qui
    transforme « une IA a produit une liste » en « nous avons lu cette phrase ». */
-.quote {
-  position: fixed;
-  left: 50%;
-  bottom: 96px;
-  z-index: 6;
-  margin: 0;
-  width: min(680px, 90vw);
-  padding: 16px 22px 13px;
-  background: color-mix(in srgb, var(--glass-tint) 78%, transparent);
-  backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid var(--glass-border);
-  border-left: 3px solid var(--accent, #ff4d6a);
-  border-radius: 14px;
-  box-shadow: 0 24px 70px -20px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
-  pointer-events: none;
-  opacity: 0;
-  transform: translate(-50%, 14px) scale(0.98);
-  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.quote.is-on { opacity: 1; transform: translate(-50%, 0) scale(1); }
-.quote__text {
-  margin: 0;
-  font-size: 16.5px;
-  line-height: 1.5;
-  color: var(--on-glass);
-  font-style: italic;
-  letter-spacing: 0.1px;
-}
-.quote__media {
-  margin-top: 8px;
-  font-size: 12.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent, #ff4d6a);
-  opacity: 0.9;
-}
+/* (la preuve vit désormais dans le plateau de l'établi, voir .bench__stage--preuve) */
 
-/* ─── Ce que l'on refuse : gage de rigueur, pas aveu de faiblesse ───────── */
-.rejected {
+/* ─── L'établi : fil, main de cartes et compteurs en un seul panneau ──────
+   Toute la bande du bas dans un seul verre, taillé comme les autres panneaux
+   du HUD. La main de cartes s'étale au centre : elle s'aère à trois cartes,
+   se resserre en recouvrement à cent, toujours dans la même largeur. */
+.bench {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 8px;
+  bottom: 12px;
   z-index: 5;
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--on-scene-faint);
-  letter-spacing: 0.02em;
-  pointer-events: none;
-  text-align: center;
-  max-width: 92vw;
+  width: min(1280px, 96vw);
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px 10px;
+  background: color-mix(in srgb, var(--glass-tint) 80%, transparent);
+  backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+  box-shadow: 0 28px 80px -22px var(--glass-shadow), inset 0 1.5px 0 var(--glass-shimmer);
+  pointer-events: auto;
 }
+.bench__hand {
+  position: relative;
+  height: 0;
+  margin: 0 2px;
+  transition: height 0.45s cubic-bezier(0.16, 1, 0.3, 1), margin 0.45s ease;
+}
+/* Une marge haute de respiration : le grossissement au survol monte un peu,
+   il ne doit pas mordre le plateau */
+.bench__hand.has-cards { height: 78px; margin: 14px 2px 6px; }
+.bench__card {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 190px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--glass-tint) 94%, transparent);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 10px 26px -10px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
+  transform-origin: 50% 100%;
+  opacity: 0;
+  transform: var(--chute, translate3d(0, -170px, 0));
+  /* Décélération douce, sans rebond : les arrivées et les resserrements de la
+     main glissent au lieu de tressauter */
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, box-shadow 0.2s ease;
+}
+.bench__card.is-in { opacity: 1; transform: var(--slot); }
+/* Grossissement au survol, façon barre d'applications : chaque carte suit
+   sa variable --mag posée par l'écran, réponse quasi instantanée */
+.bench__hand.is-magnify .bench__card.is-in:not(.is-binned):not(.is-flown) {
+  transform: var(--slot) var(--mag, translate(0, 0));
+  transition: transform 0.09s linear, box-shadow 0.2s ease;
+}
+/* Hors fenêtre : la carte attend dans le débord « +X », sans place à l'écran */
+.bench__card.is-overflow { display: none; }
+/* Le débord : ce que la fenêtre ne montre pas, compté à droite */
+.bench__more {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 58px;
+  text-align: center;
+  padding: 12px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--glass-tint) 94%, transparent);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 10px 26px -10px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent, #ff4d6a);
+}
+.bench__more[hidden] { display: none; }
+.bench__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--on-glass);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bench__domain {
+  flex: none;
+  /* Une adresse d'Etat peut faire 50 caracteres : bornee, sinon elle
+     ecraserait le titre (releve : la DREAL Auvergne-Rhone-Alpes) */
+  max-width: 38%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--on-glass);
+  opacity: 0.5;
+}
+/* Localisé : bref éclat, le clone porte le vol jusqu'au point sur la carte */
+.bench__card.is-flown {
+  border-color: color-mix(in srgb, var(--accent, #ff4d6a) 60%, transparent);
+  opacity: 0;
+  transform: var(--slot) scale(1.06);
+}
+/* Écarté : la carte s'efface SUR PLACE, sans traverser l'écran - elle
+   rétrécit, perd ses couleurs et disparaît, puis la main se resserre */
+.bench__card.is-binned {
+  opacity: 0;
+  transform: var(--slot) scale(0.86);
+  filter: saturate(0);
+  transition: transform 0.3s ease, opacity 0.3s ease, filter 0.3s ease;
+}
+/* Le clone qui vole de la main à l'emplacement réel sur la carte */
+.bench-fly {
+  position: fixed;
+  z-index: 30;
+  margin: 0;
+  opacity: 1;
+  background: color-mix(in srgb, var(--glass-tint) 94%, transparent);
+  box-shadow: 0 12px 38px -10px var(--glass-shadow);
+  transition: transform 0.9s cubic-bezier(0.5, 0, 0.3, 1), opacity 0.9s ease;
+  pointer-events: none;
+}
+@media (max-width: 1023px) { .bench__hand { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .bench__card, .bench-fly { transition: none; }
+}
+
+/* ─── Ce que l'on refuse : gage de rigueur, pas aveu de faiblesse ───────── */
 
 /* ─── Survol final : le titre du projet que la caméra vient voir ────────── */
 .flyover {

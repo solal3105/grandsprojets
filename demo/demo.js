@@ -1,10 +1,11 @@
 /* ============================================================================
    ÉCRAN DÉMO SALON - /demo/demo.js
    Flow immersif : mode attract (France en respiration + machine à écrire),
-   génération en phases SSE enchaînées avec reprise automatique, HUD intégré
-   à la carte (pilule de statut, compteurs de recensement, ticker une ligne),
-   chorégraphie WebGL (plongée, radar, arcs de collecte, zoom par projet,
-   photos posées sur la carte), écran final avec statistiques et QR code.
+   génération en phases SSE enchaînées avec reprise automatique, et un écran
+   à TROIS ZONES : l'en-tête (phases + action en cours + commune), la carte
+   (sonar, épingles, emprises, photos), l'établi du bas (le plateau - seule
+   voix de l'écran -, la main de cartes des projets repérés, les compteurs).
+   Écran final avec statistiques et QR code.
    Mode kiosque : ?kiosk=1 (pas de redirection auto, retour attract).
    ============================================================================ */
 (() => {
@@ -165,6 +166,7 @@
     photo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
     plume: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
     fusee: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
+    citation: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.6 7C6.6 7 4.5 9.2 4.5 12.4V17h5.2v-5h-2.6c.2-1.6 1.2-2.6 2.5-2.9zM19 7c-3 0-5.1 2.2-5.1 5.4V17h5.2v-5h-2.6c.2-1.6 1.2-2.6 2.5-2.9z"/></svg>',
   };
 
   const STEP_PCT = {
@@ -184,66 +186,65 @@
     $('hud-icon').innerHTML = done ? `<span class="hud-check">${CHECK_SVG}</span>` : '<span class="spinner"></span>';
   }
 
-  // Compteurs cumulés du recensement, rendus uniquement quand ils vivent
-  const COUNTER_DEFS = [
-    ['sources', 'sources'],
-    ['articles', 'articles lus'],
-    ['docs', 'docs officiels'],
-    ['marches', 'marchés'],
-    ['candidats', 'candidats'],
-    ['verifies', 'vérifiés'],
-    ['localises', 'localisés'],
-    ['illustres', 'illustrés'],
-  ];
-  let counters = {};
-  // Projets survolés au final, et ce qu'on a refusé d'afficher
+  /* Plus aucune pastille de compteur : le seul nombre à l'écran est celui
+     des projets repérés, sur la main de cartes. Le reste vit au plateau
+     (les moments) et sur l'écran final (les totaux). */
+  // Projets survolés au final
   let tourPoints = [];
-  const rejected = {};
 
-  function bumpCounter(key, value) {
-    counters[key] = value !== undefined ? value : (counters[key] || 0) + 1;
-    const box = $('counters');
-    let el = document.getElementById(`counter-${key}`);
-    if (!el) {
-      el = document.createElement('span');
-      el.className = 'counter';
-      el.id = `counter-${key}`;
-      const label = COUNTER_DEFS.find(([k]) => k === key)?.[1] || key;
-      el.innerHTML = `<span class="counter__n">0</span><span class="counter__l">${label}</span>`;
-      // Ordre stable, indépendant de l'ordre d'apparition
-      const order = COUNTER_DEFS.findIndex(([k]) => k === key);
-      const next = [...box.children].find((c) => COUNTER_DEFS.findIndex(([k]) => `counter-${k}` === c.id) > order);
-      box.insertBefore(el, next || null);
-    }
-    const n = el.querySelector('.counter__n');
-    n.textContent = counters[key];
-    n.classList.remove('is-bump');
-    requestAnimationFrame(() => n.classList.add('is-bump'));
+  /* ─── Le plateau : la seule voix de l'écran ───
+     Une information à la fois, cadencée pour être lue. Deux modes :
+     l'ACTIVITÉ (ce que la machine fait à l'instant) et la PREUVE (la phrase
+     exacte relevée dans la source, dévoilée par balayage - prioritaire et
+     affichée plus longtemps). Les activités ne s'empilent jamais : la plus
+     récente remplace celle qui attendait, une rafale de cinq pages ne fait
+     donc défiler qu'un titre. Un changement de phase vide tout : le plateau
+     parle toujours de la phase en cours. */
+  const ACTIVITE_MS = 2400;
+  const PREUVE_MS = 4600;
+  let plateauPreuves = [];
+  let plateauActiviteEnAttente = null;
+  let plateauBusy = false;
+  let plateauTimer = null;
+
+  function plateauActivite(icon, texte, meta, iconUrl) {
+    if (!texte) return;
+    plateauActiviteEnAttente = { icon, texte, meta, iconUrl };
+    if (!plateauBusy) plateauSuivant();
   }
 
-  // Ticker : une seule trouvaille à la fois, file d'attente à débit régulier
-  let tickerQueue = [];
-  let tickerBusy = false;
-
-  function tick(icon, text, meta, iconUrl) {
-    tickerQueue.push({ icon, text, meta, iconUrl });
-    if (tickerQueue.length > 5) tickerQueue.splice(0, tickerQueue.length - 5);
-    if (!tickerBusy) nextTick();
+  function plateauPreuve(texte, media) {
+    if (!texte) return;
+    plateauPreuves.push({ texte, media });
+    while (plateauPreuves.length > 2) plateauPreuves.shift();
+    if (!plateauBusy) plateauSuivant();
   }
 
-  function nextTick() {
-    const item = tickerQueue.shift();
-    if (!item) { tickerBusy = false; return; }
-    tickerBusy = true;
-    const t = $('ticker');
-    $('ticker-icon').innerHTML = item.iconUrl
-      ? `<img src="${escapeHtml(item.iconUrl)}" alt="" onerror="this.remove()">`
-      : (ICONS[item.icon] || ICONS.file);
-    $('ticker-text').textContent = item.text;
-    $('ticker-meta').textContent = item.meta || '';
-    t.classList.remove('is-swap');
-    requestAnimationFrame(() => t.classList.add('is-swap'));
-    setTimeout(nextTick, 1500);
+  function plateauVider() {
+    plateauPreuves = [];
+    plateauActiviteEnAttente = null;
+  }
+
+  function plateauSuivant() {
+    const preuve = plateauPreuves.shift() || null;
+    const item = preuve || plateauActiviteEnAttente;
+    if (!preuve) plateauActiviteEnAttente = null;
+    const el = $('stage');
+    if (!item || !el) { plateauBusy = false; return; }
+    plateauBusy = true;
+    el.classList.remove('is-swap');
+    el.classList.toggle('bench__stage--preuve', Boolean(preuve));
+    $('stage-icon').innerHTML = preuve
+      ? ICONS.citation
+      : (item.iconUrl
+        ? `<img src="${escapeHtml(item.iconUrl)}" alt="" onerror="this.remove()">`
+        : (ICONS[item.icon] || ICONS.file));
+    $('stage-text').textContent = preuve ? `« ${item.texte} »` : item.texte;
+    $('stage-meta').textContent = preuve ? `relevé sur ${item.media || 'source publique'}` : (item.meta || '');
+    void el.offsetWidth; // l'animation d'entrée rejoue à chaque changement
+    el.classList.add('is-swap');
+    clearTimeout(plateauTimer);
+    plateauTimer = setTimeout(plateauSuivant, preuve ? PREUVE_MS : ACTIVITE_MS);
   }
 
   // Stepper : chaque step interne appartient à l'une des 5 phases visibles.
@@ -282,16 +283,21 @@
   function onStep({ id, status, label, detail }) {
     if (STAGE_OF[id] !== undefined) setStage(STAGE_OF[id]);
     if (STEP_PCT[id]) setProgress(status === 'start' ? STEP_PCT[id] - 5 : STEP_PCT[id]);
-    if (status === 'start') setPill(label, detail, false);
-    else {
+    if (status === 'start') {
+      setPill(label, detail, false);
+      // Nouvelle étape : ce qui attendait au plateau parle d'un temps révolu
+      plateauVider();
+    } else {
       setPill(label, detail, true);
-      tick('verif', label, detail);
     }
     if (hasFx) {
       if (id === 'mairie' && status === 'start') window.MapFX.scanStart();
       if (id === 'ai1' && status === 'start') window.MapFX.orbitStart();
       if (id === 'geo' && status === 'start') { window.MapFX.scanStop(); window.MapFX.orbitStop(); }
     }
+    // La localisation est finie : ce qui reste dans la main n'a pas
+    // d'emplacement fiable et part au rebut
+    if (id === 'media' && status === 'start') mainBinRest();
   }
 
   function onFinding(f) {
@@ -315,37 +321,44 @@
         logo.src = f.iconUrl;
         logo.hidden = false;
       }
-      bumpCounter('sources');
-      tick('mairie', f.title, f.color ? `identité et couleurs récupérées · ${f.color}` : 'site officiel', f.iconUrl);
+      plateauActivite('mairie', f.title, f.color ? `identité et couleurs récupérées · ${f.color}` : 'site officiel', f.iconUrl);
       return;
     }
-    if (f.kind === 'article') { bumpCounter('sources'); bumpCounter('articles'); tick('presse', f.text || f.title, [f.domain, f.date].filter(Boolean).join(' · ')); }
-    else if (f.kind === 'pdf') { bumpCounter('docs'); tick('file', f.title, 'document officiel'); }
-    else if (f.kind === 'page') { bumpCounter('sources'); tick('mairie', f.title, f.domain); }
-    else if (f.kind === 'boamp') { bumpCounter('marches'); tick('marche', f.title, f.date); }
+    if (f.kind === 'article') { plateauActivite('presse', f.text || f.title, [f.domain, f.date].filter(Boolean).join(' · ')); }
+    else if (f.kind === 'annonce') { plateauActivite('presse', f.text || f.title, [f.domain, f.date].filter(Boolean).join(' · ')); }
+    else if (f.kind === 'pdf') { plateauActivite('file', f.title, 'document officiel'); }
+    else if (f.kind === 'page') { plateauActivite('mairie', f.title, f.domain); }
+    else if (f.kind === 'boamp') { plateauActivite('marche', f.title, f.date); }
   }
 
   function onAiItem(msg) {
-    if (msg.phase === 'ai1') { bumpCounter('candidats'); tick('ia', msg.title, 'projet repéré'); }
-    else { tick('verif', msg.title, 'projet retenu'); }
-    $('hud-detail').textContent = msg.phase === 'ai1'
-      ? `${counters.candidats || 0} projet(s) repéré(s) dans les sources...`
-      : 'vérification des sources projet par projet...';
+    if (msg.phase === 'ai1') {
+      // Le projet repéré tombe en carte dans la main ; sa preuve prend la
+      // parole au plateau (la carte qui tombe suffit à annoncer le projet)
+      mainAdd(msg.title, msg.domain);
+      if (msg.quote) plateauPreuve(msg.quote, msg.domain);
+      else plateauActivite('ia', msg.title, 'projet repéré');
+    } else {
+      plateauActivite('verif', msg.title, 'projet retenu');
+    }
   }
 
   function onProjects(items) {
-    bumpCounter('verifies', items.length);
-    items.forEach((p, i) => {
-      setTimeout(() => tick('verif', p.title, [p.category_slug.replace(/-/g, ' '), p.status].filter(Boolean).join(' · ')), i * 260);
-    });
+    // Les rangées absentes de la liste vérifiée étaient des doublons fondus
+    // ou des recalés du contrôle : ces cartes sont jetées maintenant.
+    // Un seul résumé au plateau - égrener chaque titre saturait l'écran.
+    mainReconcile(items.map((p) => p.title));
+    plateauActivite('verif', `${items.length} projet${items.length > 1 ? 's' : ''} vérifié${items.length > 1 ? 's' : ''}`, 'doublons fondus, contrôle des sources passé');
   }
 
   function onGeoItem(g) {
-    bumpCounter('localises');
-    tick('pin', g.title, g.label || g.method);
-    // La PREUVE : la phrase exacte relevée dans la source. C'est ce qui fait la
-    // différence entre « une IA a produit une liste » et « nous avons lu ceci ».
-    if (g.quote) showQuote(g.quote, g.media);
+    plateauActivite('pin', g.title, g.label || g.method);
+    // La carte quitte la main et vole jusqu'à son emplacement
+    mainFly(g.title, g);
+    /* Pas de citation ici : la preuve a eu son moment pendant la lecture.
+       Pendant la localisation, une seule voix parle - le fil - pendant que la
+       carte recoit ses epingles ; trois panneaux simultanes rendaient l'ecran
+       illisible (constat sur Quincieux). */
     if (hasFx && typeof g.lat === 'number') {
       window.MapFX.addProject({ lat: g.lat, lng: g.lng, geometry: g.geometry, precise: true, title: g.title });
       tourPoints.push({ lat: g.lat, lng: g.lng, title: g.title, surface: g.geometry ? 2 : 1 });
@@ -357,22 +370,162 @@
     }
   }
 
-  /* Bandeau de preuve : la citation reste affichée quelques secondes, le temps
-     d'être lue, puis s'efface. Un seul bandeau à l'écran, le plus récent. */
-  let quoteTimer = null;
-  function showQuote(texte, media) {
-    const box = $('quote');
-    if (!box) return;
-    $('quote-text').textContent = `« ${texte} »`;
-    $('quote-media').textContent = media ? `relevé sur ${media}` : 'source publique';
-    box.hidden = false;
-    requestAnimationFrame(() => box.classList.add('is-on'));
-    clearTimeout(quoteTimer);
-    quoteTimer = setTimeout(() => {
-      box.classList.remove('is-on');
-      setTimeout(() => { box.hidden = true; }, 600);
-    }, 5200);
+  /* ─── La main de cartes : les projets repérés, étalés dans l'établi ───
+     Chaque projet repéré en lecture TOMBE en carte dans la main, au centre de
+     l'établi du bas. La main s'étale tant qu'il y a de la place, puis se
+     resserre en recouvrement comme une main de jeu : trois cartes font un
+     éventail aéré, cent font une main dense, toujours dans la même bande.
+     Au survol, la carte sort de la main et se redresse. Trois sorts, aux
+     trois moments où ils se décident : à la vérification les doublons sont
+     JETÉS ; à la localisation la carte s'envole vers son point sur la carte ;
+     à la fin, ce qui reste est sans adresse fiable et part au rebut. */
+  const mainKey = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const CARTE_LARGEUR = 190;
+
+  /* Redistribue les places. La main est FENÊTRÉE : seules les douze cartes
+     les plus récentes sont visibles, la plus neuve à gauche, et le reste se
+     replie dans un débord « +X » à droite - des centaines de projets restent
+     lisibles. Quand une carte s'envole ou s'efface, la fenêtre se recomplète
+     depuis le débord. Chaque carte retient le centre de sa place (cx) pour
+     le grossissement au survol. */
+  const VISIBLES_MAX = 12;
+  function mainLayout() {
+    const zone = $('hand');
+    if (!zone) return;
+    const cartes = [...zone.children].filter((c) => c.classList.contains('bench__card') && !c.dataset.done);
+    const n = cartes.length;
+    zone.classList.toggle('has-cards', n > 0);
+    const caches = Math.max(0, n - VISIBLES_MAX);
+    const plus = $('hand-more');
+    if (plus) { plus.hidden = !caches; plus.textContent = `+${caches}`; }
+    if (!n) return;
+    cartes.forEach((c, i) => c.classList.toggle('is-overflow', i < caches));
+    const visibles = cartes.slice(caches);
+    const m = visibles.length;
+    const L = (zone.clientWidth || 800) - (caches ? 88 : 0);
+    const pas = m > 1 ? Math.min(CARTE_LARGEUR + 10, (L - CARTE_LARGEUR) / (m - 1)) : 0;
+    const depart = Math.max(0, (L - (CARTE_LARGEUR + pas * (m - 1))) / 2);
+    visibles.forEach((c, i) => {
+      // La plus récente (fin du DOM) prend la place de GAUCHE : la rangée
+      // coulisse vers la droite à chaque arrivée, le débord absorbe la queue
+      const x = depart + (m - 1 - i) * pas;
+      c.dataset.cx = (x + CARTE_LARGEUR / 2).toFixed(0);
+      c.style.setProperty('--slot', `translate3d(${x.toFixed(1)}px, 0, 0)`);
+      c.style.setProperty('--chute', `translate3d(${x.toFixed(1)}px, -150px, 0)`);
+    });
   }
+
+  /* Grossissement au survol, façon barre d'applications : chaque carte
+     grandit selon sa distance au curseur, ses voisines un peu moins. */
+  const MAGNIFY_RAYON = 210;
+  let magnifyRaf = 0;
+  function mainMagnify(e) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const zone = $('hand');
+    cancelAnimationFrame(magnifyRaf);
+    magnifyRaf = requestAnimationFrame(() => {
+      const bord = zone.getBoundingClientRect().left;
+      zone.classList.add('is-magnify');
+      for (const c of zone.children) {
+        if (!c.classList.contains('bench__card') || c.classList.contains('is-overflow') || c.dataset.done) continue;
+        const d = Math.abs(e.clientX - bord - Number(c.dataset.cx || 0));
+        const k = Math.max(0, 1 - d / MAGNIFY_RAYON);
+        c.style.setProperty('--mag', `translateY(${(-8 * k * k).toFixed(1)}px) scale(${(1 + 0.16 * k * k).toFixed(3)})`);
+        c.style.zIndex = String(10 + Math.round(k * 20));
+      }
+    });
+  }
+  function mainMagnifyFin() {
+    const zone = $('hand');
+    cancelAnimationFrame(magnifyRaf);
+    zone.classList.remove('is-magnify');
+    for (const c of zone.children) { c.style.removeProperty('--mag'); c.style.removeProperty('z-index'); }
+  }
+  $('hand')?.addEventListener('mousemove', mainMagnify);
+  $('hand')?.addEventListener('mouseleave', mainMagnifyFin);
+
+  function mainAdd(title, domain) {
+    const zone = $('hand');
+    if (!zone || !title) return;
+    const carte = document.createElement('article');
+    carte.className = 'bench__card';
+    carte.dataset.key = mainKey(title);
+    carte.title = title;
+    carte.innerHTML = `<span class="bench__title"></span>${domain ? '<span class="bench__domain"></span>' : ''}`;
+    carte.querySelector('.bench__title').textContent = title;
+    if (domain) carte.querySelector('.bench__domain').textContent = domain.replace(/^www\./, '');
+    zone.appendChild(carte);
+    mainLayout();
+    requestAnimationFrame(() => requestAnimationFrame(() => carte.classList.add('is-in')));
+  }
+
+  // Une carte jetée : elle quitte la main par le bas en tournant, puis la
+  // main se resserre sur la place libérée
+  function mainBinCard(carte, delai = 0) {
+    if (!carte || carte.dataset.done) return;
+    carte.dataset.done = '1';
+    setTimeout(() => {
+      carte.classList.add('is-binned');
+      setTimeout(() => { carte.remove(); mainLayout(); }, 340);
+    }, delai);
+  }
+
+  /* La vérification a rendu sa liste : toute carte absente des titres retenus
+     était un doublon fondu ou un recalé du contrôle, elle est jetée. */
+  function mainReconcile(titres) {
+    const zone = $('hand');
+    if (!zone) return;
+    const retenus = new Set(titres.map(mainKey));
+    let i = 0;
+    for (const carte of zone.children) {
+      if (!retenus.has(carte.dataset.key)) mainBinCard(carte, i++ * 90);
+    }
+  }
+
+  // Le projet est localisé : sa carte quitte la main et vole jusqu'à son
+  // emplacement réel sur la carte
+  function mainFly(title, geo) {
+    const zone = $('hand');
+    if (!zone) return;
+    const carte = [...zone.children].find((c) => c.dataset.key === mainKey(title) && !c.dataset.done);
+    if (!carte) return;
+    carte.dataset.done = '1';
+    const cible = hasFx && geo && Number.isFinite(geo.lng) ? window.MapFX.screenPos(geo) : null;
+    const rect = carte.getBoundingClientRect();
+    if (cible && rect.width && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const clone = carte.cloneNode(true);
+      clone.className = 'bench__card bench-fly';
+      clone.style.cssText = `top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;transition:transform 0.7s cubic-bezier(0.5,0,0.3,1),opacity 0.5s ease;`;
+      document.body.appendChild(clone);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        clone.style.transform = `translate(${cible.x - rect.left - rect.width / 2}px, ${cible.y - rect.top - rect.height / 2}px) rotateZ(0deg) scale(0.2)`;
+        clone.style.opacity = '0';
+      }));
+      setTimeout(() => clone.remove(), 1000);
+    }
+    carte.classList.add('is-flown');
+    setTimeout(() => { carte.remove(); mainLayout(); }, 300);
+  }
+
+  // Fin de la localisation : ce qui reste dans la main n'a pas d'adresse
+  function mainBinRest() {
+    const zone = $('hand');
+    if (!zone) return;
+    let i = 0;
+    for (const carte of zone.children) mainBinCard(carte, i++ * 90);
+  }
+
+  function mainClear() {
+    const zone = $('hand');
+    if (zone) { zone.innerHTML = ''; zone.classList.remove('has-cards'); }
+  }
+
+  // La main suit la fenêtre : un redimensionnement redistribue les places
+  let mainResizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(mainResizeTimer);
+    mainResizeTimer = setTimeout(mainLayout, 150);
+  });
 
   // Titre du projet que la caméra vient survoler, en grand au centre
   function showFlyover(p) {
@@ -382,26 +535,6 @@
     $('flyover-title').textContent = p.title || '';
     el.hidden = false;
     requestAnimationFrame(() => el.classList.add('is-on'));
-  }
-
-  // Ce qu'on REFUSE : un projet sans emplacement vérifiable, une photo hors
-  // sujet. L'afficher est un gage de rigueur que personne d'autre ne donne.
-  function onRejected(msg) {
-    const el = $('rejected');
-    if (!el) return;
-    rejected[msg.kind] = msg.count;
-    const bouts = [];
-    if (rejected.position) bouts.push(`${rejected.position} projet${rejected.position > 1 ? 's' : ''} écarté${rejected.position > 1 ? 's' : ''}, emplacement non vérifiable`);
-    // Un doublon n'est PAS un emplacement non vérifiable : le projet était
-    // parfaitement situé, c'est la fiche qui faisait double emploi. Les
-    // confondre revenait à mentir à l'écran sur le motif du rejet.
-    if (rejected.doublon) bouts.push(`${rejected.doublon} fiche${rejected.doublon > 1 ? 's' : ''} fusionnée${rejected.doublon > 1 ? 's' : ''}, même chantier vu par deux sources`);
-    if (rejected.photo) bouts.push(`${rejected.photo} fiche${rejected.photo > 1 ? 's' : ''} sans photo : aucune image du projet trouvée`);
-    // Un avis de marché écarté n'est pas une fiche ratée : c'est une fiche
-    // faible qu'on refuse parce que la commune documente déjà mieux.
-    if (rejected.marche) bouts.push(`${rejected.marche} avis de marché écarté${rejected.marche > 1 ? 's' : ''} : la commune documente déjà ses projets`);
-    el.textContent = bouts.join('  ·  ');
-    el.hidden = !bouts.length;
   }
 
   /* Avertissement de carte courte. Le visiteur apprend AVANT l'arrivée que sa
@@ -446,9 +579,8 @@
   };
 
   function onMediaItem(msg) {
-    bumpCounter('illustres');
     const origine = msg.source || (msg.generique ? 'generique' : 'photo');
-    tick('photo', msg.title, LIBELLES_ILLUSTRATION[origine] || LIBELLES_ILLUSTRATION.photo);
+    plateauActivite('photo', msg.title, LIBELLES_ILLUSTRATION[origine] || LIBELLES_ILLUSTRATION.photo);
     if (hasFx && typeof msg.lat === 'number' && msg.coverSrc) {
       window.MapFX.attachPhoto(msg.lat, msg.lng, msg.coverSrc);
     }
@@ -500,12 +632,11 @@
       else if (msg.type === 'finding') onFinding(msg);
       else if (msg.type === 'ai-item') onAiItem(msg);
       else if (msg.type === 'media-item') onMediaItem(msg);
-      else if (msg.type === 'cover-item') tick('photo', msg.title, 'illustration installée');
-      else if (msg.type === 'article-item') tick('plume', msg.title, 'article rédigé');
-      else if (msg.type === 'create-item') tick('fusee', msg.label, '');
+      else if (msg.type === 'cover-item') plateauActivite('photo', msg.title, 'illustration installée');
+      else if (msg.type === 'article-item') plateauActivite('plume', msg.title, 'article rédigé');
+      else if (msg.type === 'create-item') plateauActivite('fusee', msg.label, '');
       else if (msg.type === 'projects') onProjects(msg.items || []);
       else if (msg.type === 'geo-item') onGeoItem(msg);
-      else if (msg.type === 'rejected') onRejected(msg);
       else if (msg.type === 'phase') {
         es.close(); es = null;
         setPill($('hud-label').textContent || 'Analyse en cours...', 'Étape suivante...', false);
@@ -534,7 +665,7 @@
       resumeAttempts++;
       resumeTotal++;
       console.warn(`[demo] reprise automatique ${resumeAttempts}/${MAX_RESUMES} (${resumeTotal}/${MAX_RESUMES_TOTAL} au total) pour ${currentCommune.nom}`);
-      tick('fusee', 'Reconnexion...', `reprise automatique (${resumeAttempts}/${MAX_RESUMES})`);
+      plateauActivite('fusee', 'Reconnexion...', `reprise automatique (${resumeAttempts}/${MAX_RESUMES})`);
       setTimeout(() => {
         if (!es && screens.progress.classList.contains('is-active')) {
           /* Première tentative : viser directement la phase en cours, c'est le
@@ -578,20 +709,22 @@
     renderSuggestions([]);
     input.blur();
     clearTimeout(typeTimer);
-    counters = {};
-    $('counters').innerHTML = '';
-    tickerQueue = [];
-    tickerBusy = false;
-    $('ticker-icon').innerHTML = '';
-    $('ticker-text').textContent = `Recensement de ${commune.nom} en cours...`;
-    $('ticker-meta').textContent = '';
+    plateauVider();
+    clearTimeout(plateauTimer);
+    plateauBusy = false;
+    $('stage').classList.remove('bench__stage--preuve', 'is-swap');
+    $('stage-icon').innerHTML = ICONS.fusee;
+    $('stage-text').textContent = `Recensement de ${commune.nom} en cours...`;
+    $('stage-meta').textContent = '';
     resetStages();
     progressPct = 0;
     setProgress(2);
     setPill('Préparation...', '', false);
     $('hud-commune').textContent = commune.nom;
+    $('city-badge').hidden = false;
     $('hud-logo').hidden = true;
     $('hud-logo').removeAttribute('src');
+    $('city-badge').hidden = true;
     resetIssue();
     show('progress');
 
@@ -970,23 +1103,19 @@
     $('btn-regen').hidden = true;
     input.value = '';
     renderSuggestions([]);
-    counters = {};
-    $('counters').innerHTML = '';
-    tickerQueue = [];
-    tickerBusy = false;
+    plateauVider();
+    clearTimeout(plateauTimer);
+    plateauBusy = false;
+    $('stage').classList.remove('bench__stage--preuve', 'is-swap');
     resetStages();
-    // Preuve, refus et survol : sans ce nettoyage, la commune suivante
-    // heritait de la citation et du compteur d'ecartes de la precedente
     tourPoints = [];
-    Object.keys(rejected).forEach((k) => delete rejected[k]);
-    clearTimeout(quoteTimer);
+    mainClear();
     resetIssue();
-    ['quote', 'rejected', 'flyover'].forEach((id) => {
-      const el = $(id);
-      if (el) { el.hidden = true; el.classList.remove('is-on'); }
-    });
+    const survol = $('flyover');
+    if (survol) { survol.hidden = true; survol.classList.remove('is-on'); }
     $('hud-logo').hidden = true;
     $('hud-logo').removeAttribute('src');
+    $('city-badge').hidden = true;
     progressPct = 0;
     setProgress(0);
     ['stat-sources', 'stat-verified', 'stat-precise', 'stat-illustrated'].forEach((id) => { $(id).textContent = '0'; });
