@@ -28,7 +28,7 @@ const {
   sansPrefixeGenerique, locationQueries, nomCoherent, positionDansLaCommune,
   migrerEtatGeo, METHOD_LABELS, communeDuResultat,
   CARTE_COURTE, deLaCommune, messageSansProjet, messageCarteCourte,
-  arbitrerMarches, domainesAutorises, featuresDuProjet, tailleMinimaleVisible,
+  arbitrerMarches, domainesAutorises, featuresDuProjet, tailleMinimaleVisible, nomDistinctifEpci,
   vueAerienneUrl, coverKey, oublierLesEchecs,
 } = _internals;
 
@@ -1541,6 +1541,24 @@ test.describe('0.81 - Démo : une lecture qui échoue est retentée, une fois', 
     file.remettre(file.vague(1)[0]);
     const repris = FileExploration.restaurer(JSON.parse(JSON.stringify(file.serialiser())));
     expect(repris.remettre(repris.vague(1)[0])).toBe(false);
+  });
+
+});
+
+/**
+ * L'étage intercommunal : les opérations structurantes d'une petite commune
+ * vivent souvent sur le site de sa métropole ou de sa communauté de communes.
+ */
+test.describe('0.83 - Démo : le nom de l\'intercommunalité se retrouve dans l\'annuaire', () => {
+
+  test('0.83.1 - Le nom distinctif survit aux variantes d\'écriture', () => {
+    // geo.api.gouv.fr dit « CC du Pays d'Iroise », l'annuaire dit
+    // « Communauté de communes - Pays d'Iroise » : seule la partie distinctive
+    // permet de faire le pont.
+    expect(nomDistinctifEpci("CC du Pays d'Iroise")).toBe("Pays d'Iroise");
+    expect(nomDistinctifEpci('Métropole de Lyon')).toBe('Lyon');
+    expect(nomDistinctifEpci("Communauté d'agglomération du Bassin de Bourg-en-Bresse")).toBe('Bassin de Bourg-en-Bresse');
+    expect(nomDistinctifEpci('CU Le Havre Seine Métropole')).toBe('Le Havre Seine Métropole');
   });
 
 });

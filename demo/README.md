@@ -2,8 +2,9 @@
 
 Écran plein format (« Tapez le nom de votre commune ») qui génère en direct
 l'espace Open Projets d'une commune à partir de sources publiques : site de la
-mairie (logo, couleur, pages projets, texte des PDF officiels), presse locale
-(Google News), marchés publics de travaux (BOAMP, avis complet).
+mairie (logo, couleur, pages projets, texte des PDF officiels), site de
+l'intercommunalité (pages qui nomment la commune), presse locale (articles lus
+un par un), marchés publics de travaux (BOAMP, avis complet).
 
 ## Le site est exploré page par page
 
@@ -49,6 +50,34 @@ plus : il n'y a plus de document commun à rationner, donc plus de répartition 
 négocier entre la mairie, les marchés et la presse. Conséquence assumée : une
 petite commune se génère en 3 à 4 minutes, une métropole peut demander 6 à 8
 minutes, et le coût d'analyse passe d'environ 0,30 à 1 euro par métropole.
+
+## Trois étages de sources, du plus officiel au plus large
+
+Une petite commune épuise vite son site : l'exploration monte alors d'un étage,
+tant que le budget de matière n'est pas atteint.
+
+1. **La mairie**, intégralement, comme décrit ci-dessus.
+2. **L'intercommunalité.** Son site est identifié par l'annuaire de
+   l'administration, et seules ses pages qui **nomment la commune** sont lues :
+   le verrou s'applique aux liens suivis ET aux projets récoltés, sans quoi les
+   rubriques vitrines de la métropole versaient La Duchère dans la carte de
+   Quincieux (mesuré : 236 pages lues et 65 projets d'ailleurs avant le verrou,
+   contre 42 pages après).
+3. **La presse.** Les flux Google News sont illisibles (leurs liens rendent une
+   coquille JavaScript) et le flux Bing est réservé à un usage personnel : la
+   découverte passe par la recherche web d'OpenAI, déjà payée pour la
+   rédaction, dont les **annotations** portent les adresses réelles des
+   articles cités - jamais le texte du modèle, qui invente des adresses.
+   Chaque article est ensuite lu par le même lecteur que les pages de mairie,
+   sans suivre aucun de ses liens, avec une consigne durcie : opérations
+   décidées, financées ou engagées, jamais une piste ni une promesse, et
+   uniquement dans la commune. Mesure sur Quincieux : 3 articles lus (Le
+   Progrès, Lyon Entreprises, DREAL), 2 fiches nouvelles dont la
+   requalification du centre-bourg, invisible des sites officiels.
+
+Le placement sur carte est cadencé à une requête par seconde et retente après
+un refus : le géocodeur public bannit les rafales, et un refus transitoire ne
+doit jamais faire conclure à tort « aucun projet documenté ».
 
 ## Un même chantier vu par plusieurs pages ne fait qu'une fiche
 

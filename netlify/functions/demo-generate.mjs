@@ -437,7 +437,7 @@ async function inChunks(items, size, worker, echeance = Infinity) {
 
 async function resolveCommune(insee) {
   const r = await fetchWithTimeout(
-    `https://geo.api.gouv.fr/communes/${encodeURIComponent(insee)}?fields=nom,code,population,centre,departement,contour&geometry=contour`
+    `https://geo.api.gouv.fr/communes/${encodeURIComponent(insee)}?fields=nom,code,population,centre,departement,contour,epci&geometry=contour`
   );
   if (!r.ok) return null;
   return lireJson(r);
@@ -532,6 +532,81 @@ function positionDansLaCommune(position, bbox) {
   if (!position) return false;
   if (!bbox) return true;
   return geometryInBbox({ type: 'Point', coordinates: [position.lng, position.lat] }, bbox);
+}
+
+/* ─── L'ETAGE INTERCOMMUNAL ───
+
+   Les operations structurantes d'une petite commune - voirie metropolitaine,
+   tram, logement social - vivent sur le site de son intercommunalite, pas sur
+   le sien : mesure sur Quincieux, la Metropole de Lyon y investit douze
+   millions pendant que quincieux.fr parle du parc de la mairie. On n'explore
+   PAS ce site en entier, il peut etre enorme : on ne retient que les pages
+   dont l'adresse ou l'intitule NOMME la commune, plus une poignee de rubriques
+   d'amenagement ou la descente pourra la chercher. */
+const EPCI_HUBS_MAX = 10;
+const EPCI_CANDIDATES_MAX = 40;
+const EPCI_HUB_RE = /amenag|projet|travaux|chantier|urbanis|grand-projet|quartier/i;
+
+// Nom distinctif d'un EPCI pour l'annuaire : « CC du Pays d'Iroise » s'y
+// appelle « Communaute de communes - Pays d'Iroise », on cherche la partie
+// qui ne change pas.
+function nomDistinctifEpci(nom) {
+  return String(nom || '')
+    .replace(/^(CC|CA|CU|Communaut[eé] de communes|Communaut[eé] d'agglom[eé]ration|Communaut[eé] urbaine|M[eé]tropole)\s*(du|de la|de l'|des|de|d')?\s*/i, '')
+    .trim();
+}
+
+async function findEpciSite(nomEpci) {
+  try {
+    const distinctif = nomDistinctifEpci(nomEpci) || nomEpci;
+    const u = new URL('https://api-lannuaire.service-public.fr/api/explore/v2.1/catalog/datasets/api-lannuaire-administration/records');
+    u.searchParams.set('where', `pivot like "epci" and nom like "${distinctif.replace(/"/g, '')}"`);
+    u.searchParams.set('select', 'nom,site_internet');
+    u.searchParams.set('limit', '1');
+    const r = await fetchWithTimeout(u.toString(), {}, 7000);
+    if (!r.ok) return null;
+    const rec = (await lireJson(r))?.results?.[0];
+    let sites = rec?.site_internet;
+    if (typeof sites === 'string') { try { sites = JSON.parse(sites); } catch { return null; } }
+    const site = (Array.isArray(sites) ? sites : [sites]).map((x) => x?.valeur).find((v) => v && isSafePublicUrl(v));
+    return site || null;
+  } catch { return null; }
+}
+
+/* Adresses candidates de l'etage intercommunal : la « recherche ciblee » se
+   fait dans le plan du site, filtre par le nom de la commune. */
+async function amorcerEpci(nomEpci, communeNom) {
+  const site = await findEpciSite(nomEpci);
+  if (!site) return null;
+  const home = await fetchCapped(site, { headers: UA }, FETCH_TIMEOUT_MS, ACCUEIL_MAX_BYTES);
+  if (!home || estPageTremplin(home.data)) return null;
+  const host = new URL(home.url).host;
+  const slug = slugify(communeNom);
+  const motCommune = unaccentLower(communeNom);
+
+  const liens = [];
+  collectPageLinks(home.data, home.url, host, liens);
+  const sitemap = await fetchSitemapUrls(home.url);
+  for (const e of sitemap.slice(0, 2000)) {
+    liens.push({ url: e.url, label: libelleDuChemin(e.url) });
+  }
+
+  const nommees = [];
+  const hubs = [];
+  const vus = new Set();
+  for (const l of liens) {
+    const cle = normaliserUrl(l.url);
+    if (vus.has(cle)) continue;
+    vus.add(cle);
+    const meule = unaccentLower(`${l.url} ${l.label}`);
+    if (meule.includes(slug) || meule.includes(motCommune)) {
+      if (nommees.length < EPCI_CANDIDATES_MAX) nommees.push(l);
+    } else if (EPCI_HUB_RE.test(l.url) && hubs.length < EPCI_HUBS_MAX) {
+      hubs.push(l);
+    }
+  }
+  console.log(`[demo-generate] intercommunalite ${host} : ${nommees.length} page(s) nommant ${communeNom}, ${hubs.length} rubrique(s) d'amenagement`);
+  return { nom: nomEpci, host, accueilTexte: stripHtml(home.data).slice(0, PAGE_TEXT_BRUT_CHARS), candidates: [...nommees, ...hubs] };
 }
 
 /* Site ET position de la mairie, en une seule interrogation de l'annuaire.
@@ -1239,8 +1314,10 @@ async function fetchLocalNews(communeNom, departement, onFinding) {
      exige une citation mot pour mot, une description factuelle et un lieu
      geocodable ; mesure sur Lyon, 22 titres ont produit zero projet. Ils
      corroborent en revanche utilement ce que la mairie annonce, et c'est a ce
-     titre seul qu'ils entrent dans le corpus, avec une part reduite en
-     consequence (voir PART_PRESSE). */
+     titre seul qu'ils entrent dans le corpus. Le CORPS des articles, lui,
+     arrive par un autre chemin : l'etage presse (moissonnerLaPresse), qui
+     obtient les adresses reelles via la recherche web d'OpenAI et lit chaque
+     article un par un. */
   for (const item of items.slice(0, NEWS_ANNONCES)) {
     onFinding?.({ kind: 'article', title: item.title.replace(/ - [^-]+$/, ''), domain: item.source || hostOf(item.sourceUrl || item.link), date: item.date });
   }
@@ -1624,10 +1701,17 @@ async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs 
 const PAGE_TEXTE_LU_MAX = 9000;
 const PAGE_LIENS_SOUMIS = 60;
 
-function consignePage(communeNom) {
-  return `Tu dépouilles UNE page du site officiel de ${communeNom} pour y trouver les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES qui concernent cette commune.
+function consignePage(communeNom, cadre = 'mairie') {
+  const entete = cadre === 'presse'
+    ? `Tu dépouilles UN article de presse en ligne pour y trouver les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES situés dans la commune de ${communeNom}.
+
+L'article peut couvrir plusieurs communes ou toute une agglomération : ne retiens QUE les opérations situées à ${communeNom}. La presse rapporte aussi des intentions, des polémiques et des promesses : ne retiens que les opérations DÉCIDÉES, financées ou engagées, jamais une piste à l'étude ni une promesse de campagne.`
+    : `Tu dépouilles UNE page du site officiel de ${communeNom} pour y trouver les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES qui concernent cette commune.`;
+  return `${entete}
 
 Retiens un projet UNIQUEMENT si cette page le décrit vraiment, et si tu peux en recopier une phrase mot pour mot. Une simple mention en passant, un lien de menu ou un titre de rubrique ne sont pas une description : dans ce cas, rends une liste vide, ce qui est le cas le plus fréquent et ne pose aucun problème.
+
+Un projet est une OPÉRATION : une construction, une rénovation, une extension, une requalification, annoncée, en cours ou récemment livrée. La page de présentation d'un équipement qui existe déjà - ses horaires, ses tarifs, sa réservation, son fonctionnement - n'est PAS un projet, même si l'équipement est photogénique.
 
 Écarte ce qui n'est pas un aménagement du territoire : raccordement d'un concessionnaire de réseau (électricité, gaz, fibre), entretien courant, contrat de service, achat de matériel, événement, élection, fait divers. Écarte aussi les projets situés dans une AUTRE commune.
 
@@ -1740,7 +1824,7 @@ function extraitAutourDe(texte, citation) {
   return t.slice(from, from + SOURCE_EXCERPT_CHARS).trim();
 }
 
-async function lirePage(commune, page, liens) {
+async function lirePage(commune, page, liens, cadre = 'mairie') {
   const listeLiens = liens.slice(0, PAGE_LIENS_SOUMIS);
   const user = `PAGE : ${page.title || '(sans titre)'}
 ADRESSE : ${page.url}
@@ -1752,7 +1836,7 @@ LIENS DE CETTE PAGE :
 ${listeLiens.length ? listeLiens.map((l, i) => `${i}. ${l.label}`).join('\n') : '(aucun)'}`;
 
   const out = await openAIStructured(
-    [{ role: 'system', content: consignePage(commune.nom) }, { role: 'user', content: user }],
+    [{ role: 'system', content: consignePage(commune.nom, cadre) }, { role: 'user', content: user }],
     /* Deux tentatives, pas cinq : une page perdue sur cent vingt ne coute
        rien, alors que cinq reprises avec recul exponentiel immobilisent une
        place de la vague pendant une demi-minute. C'est l'inverse du gros appel
@@ -1776,6 +1860,118 @@ ${listeLiens.length ? listeLiens.map((l, i) => `${i}. ${l.label}`).join('\n') : 
     .filter((i) => Number.isInteger(i) && i >= 0 && i < listeLiens.length)
     .map((i) => listeLiens[i]);
   return { projets, suivants, interet: out.interet || 'moyenne' };
+}
+
+
+/* ─── ÉTAGE PRESSE ───
+
+   La presse locale documente des opérations que ni le site de la commune ni
+   celui de l'intercommunalité n'exposent (relevé sur Quincieux : la
+   requalification du centre-bourg validée par la Métropole n'existe que dans
+   la presse régionale). Les flux Google News étant illisibles (leurs liens
+   rendent une coquille JavaScript) et le flux Bing réservé par ses conditions
+   à un usage personnel, la découverte passe par la recherche web d'OpenAI,
+   déjà employée pour la rédaction : ses ANNOTATIONS portent les adresses
+   réelles des articles cités, jamais le texte du modèle (invité à écrire une
+   adresse, il écrit un titre - mesuré). Les articles sont ensuite lus un par
+   un par le même lecteur que les pages de mairie, sans suivre aucun de leurs
+   liens, et seuls les projets qui NOMMENT la commune sont versés. */
+const PRESSE_ARTICLES_MAX = 8;
+const PRESSE_TIMEOUT_MS = 90000;
+// Ce qui n'est pas un article lisible : agrégateurs, réseaux, portails de
+// marchés (déjà couverts par le BOAMP), encyclopédies et documents bruts
+const HORS_PRESSE = /news\.google\.|\bbing\.com|facebook\.|twitter\.|\bx\.com|linkedin\.|instagram\.|youtube\.|wikipedi|wikimedia|centraledesmarches|marchesonline|francemarches|klekoon|pappers\.|societe\.com|\.pdf($|[?#])/i;
+
+async function chercherLaPresse(commune, epciNom, mairieHost) {
+  const contexte = [epciNom, commune.departement?.nom ? `département ${commune.departement.nom}` : '']
+    .filter(Boolean).join(', ');
+  const corps = {
+    model: ARTICLE_MODEL,
+    input: [{
+      role: 'system',
+      content: `Tu cherches des ARTICLES DE PRESSE en ligne (journaux, sites d'actualités locales ou régionales) qui décrivent des opérations d'aménagement urbain dans la commune de ${commune.nom}${contexte ? ` (${contexte})` : ''} : requalification, logements, équipements publics, voirie, espaces publics. Fais au moins trois recherches distinctes avec des angles différents, et cite chaque article retenu. N'utilise NI le site de la commune elle-même, NI des documents PDF, NI des annuaires d'entreprises, NI des portails de marchés publics : uniquement des articles qui racontent une opération précise.`,
+    }, {
+      role: 'user',
+      content: `Commune : ${commune.nom}. Quels articles de presse en ligne décrivent ses opérations d'aménagement ? Cite-les.`,
+    }],
+    max_output_tokens: 1600,
+    /* Sortie LIBRE, à rebours de tout le reste du fichier : contrainte par un
+       schéma, la réponse arrive sans annotations (mesuré), et les annotations
+       sont la seule source d'adresses réelles. Le texte n'est jamais lu. */
+    tools: [{ type: ARTICLE_OUTIL }],
+  };
+  const r = await postOpenAI(corps, PRESSE_TIMEOUT_MS);
+  if (!r.ok) throw new Error(`recherche presse indisponible (${r.status})`);
+  const data = JSON.parse(await readBody(r));
+  logUsage('presse_recherche', data.usage);
+  const { annotations } = texteEtCitations(data);
+  const vus = new Set();
+  const articles = [];
+  for (const a of annotations) {
+    const url = String(a?.url || '');
+    if (!/^https?:\/\//i.test(url) || HORS_PRESSE.test(url)) continue;
+    const hote = hostOf(url);
+    if (!hote || hote === mairieHost) continue;
+    const cle = normaliserUrl(url);
+    if (vus.has(cle)) continue;
+    vus.add(cle);
+    articles.push({ url, title: String(a?.title || '').trim() });
+    if (articles.length >= PRESSE_ARTICLES_MAX) break;
+  }
+  return articles;
+}
+
+async function moissonnerLaPresse(send, step, state) {
+  const { commune, mairie } = state;
+  step('presse', 'start', 'Lecture de la presse locale', 'Recherche des articles qui documentent des opérations');
+  let articles = [];
+  try {
+    articles = await chercherLaPresse(commune, state.epci?.nom, mairie.host);
+  } catch (e) {
+    console.warn(`[demo-generate] presse : recherche indisponible :: ${e?.message}`);
+    step('presse', 'skip', 'Presse locale', 'recherche indisponible');
+    return [];
+  }
+  if (!articles.length) {
+    console.log(`[demo-generate] presse : aucune adresse d'article exploitable`);
+    step('presse', 'skip', 'Presse locale', 'aucun article exploitable trouvé');
+    return [];
+  }
+  console.log(`[demo-generate] presse : ${articles.length} article(s) a lire (${articles.map((a) => hostOf(a.url)).join(', ')})`);
+
+  const slug = slugify(commune.nom);
+  const mot = unaccentLower(commune.nom);
+  const nommeLaCommune = (p) => {
+    const meule = unaccentLower(`${p.title || ''} ${p.place || ''} ${p.address || ''} ${p.geo_query || ''} ${p.description || ''} ${p.evidence_quote || ''}`);
+    return meule.includes(slug) || meule.includes(mot);
+  };
+
+  const recolte = [];
+  let lues = 0;
+  await inChunks(articles, 4, async (a) => {
+    const page = await fetchCapped(a.url, { headers: UA }, 6000, 400000);
+    if (!page) return;
+    const texte = stripHtml(page.data).slice(0, PAGE_TEXT_BRUT_CHARS);
+    // Un teaser d'article payant trop court ne peut fonder aucune citation
+    if (texte.length < 400 || looksLikeCode(texte)) return;
+    try {
+      const lu = await lirePage(commune, { url: page.url, title: a.title, text: texte }, [], 'presse');
+      lues++;
+      for (const p of lu.projets) {
+        if (!nommeLaCommune(p)) continue;
+        p.origine = 'presse';
+        p.sources = [{ url: p.source_url, type: 'presse' }];
+        recolte.push(p);
+        send({ type: 'ai-item', phase: 'ai1', title: p.title });
+      }
+      send({ type: 'finding', kind: 'article', title: a.title || hoteLisible(page.url), domain: hostOf(page.url) });
+    } catch (e) {
+      console.warn(`[demo-generate] presse : lecture perdue ${a.url} :: ${e?.message}`);
+    }
+  });
+  console.log(`[demo-generate] presse : ${lues} article(s) lu(s), ${recolte.length} projet(s) retenus`);
+  step('presse', 'done', 'Presse locale dépouillée', `${lues} article(s) lu(s), ${recolte.length} opération(s) documentée(s)`);
+  return recolte;
 }
 
 
@@ -2172,6 +2368,18 @@ function communeDuResultat(hit) {
 // best-of-6 : on garde l'ordre de pertinence de Nominatim mais on descend
 // jusqu'au 1er résultat réellement DANS la commune et son emprise (un homonyme
 // mieux classé ailleurs ne fait plus rater le bon résultat).
+/* La politique d'usage de Nominatim est stricte : une requete par seconde au
+   plus. Or un refus 429 revient en ~50 ms, la ou une reponse pleine prend une
+   bonne seconde : une boucle non cadencee ACCELERE des qu'elle est limitee et
+   entretient elle-meme le blocage (spirale observee : 214 refus d'affilee).
+   Le cadencement vaut donc pour toutes les requetes, pas que les reprises. */
+let nominatimProchainDepart = 0;
+async function nominatimRespire() {
+  const attente = nominatimProchainDepart - Date.now();
+  nominatimProchainDepart = Math.max(Date.now(), nominatimProchainDepart) + 1100;
+  if (attente > 0) await new Promise((r) => setTimeout(r, attente));
+}
+
 async function nominatimLookup(q, commune, bbox) {
   try {
     const u = new URL('https://nominatim.openstreetmap.org/search');
@@ -2183,7 +2391,17 @@ async function nominatimLookup(q, commune, bbox) {
     // Le detail d'adresse permet de comparer la COMMUNE du resultat, et non
     // de chercher son nom quelque part dans le libelle complet (voir plus bas)
     u.searchParams.set('addressdetails', '1');
-    const r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
+    /* Nominatim limite a ~1 requete/s par IP, et plusieurs generations peuvent
+       sortir par la meme IP (poste local, IPs partagees Netlify). Un refus 429
+       ne dit rien du lieu cherche : on patiente puis on retente, sinon des
+       projets parfaitement localisables partent en « non localisable ». */
+    let r;
+    for (let essai = 0; ; essai++) {
+      await nominatimRespire();
+      r = await fetchWithTimeout(u.toString(), { headers: UA }, 7000);
+      if (r.status !== 429 || essai >= 2) break;
+      await new Promise((res) => setTimeout(res, 1500 * (essai + 1)));
+    }
     if (!r.ok) console.warn(`[demo-generate] nominatim http=${r.status} pour "${q}"`);
     if (r.ok) {
       const commLc = commune.nom.toLowerCase().slice(0, 8);
@@ -3006,6 +3224,11 @@ async function coreSources(send, step, insee, runState) {
   step('mairie', 'start', 'Visite du site officiel de la mairie');
   step('news', 'start', 'Lecture de la presse locale');
   step('boamp', 'start', 'Consultation des marchés publics (BOAMP)');
+  // L'etage intercommunal s'amorce en parallele : deux ou trois requetes, et
+  // il ne sera LU que s'il reste de la place apres le site de la commune.
+  const epciPromise = commune.epci?.nom
+    ? amorcerEpci(commune.epci.nom, commune.nom).catch((e) => { console.warn(`[demo-generate] intercommunalite injoignable :: ${e?.message}`); return null; })
+    : Promise.resolve(null);
 
   const [mairie, news, boamp] = await Promise.all([
     (async () => {
@@ -3080,6 +3303,7 @@ async function coreSources(send, step, insee, runState) {
     return null;
   }
 
+  const epci = await epciPromise;
   const sourcesCount = mairie.pages.length + news.length + (boamp.length ? 1 : 0);
   console.log(`[demo-generate] sources ${commune.nom}: ${mairie.pages.length} pages mairie${mairie.bloque ? ' (SITE BLOQUE)' : ''}, ${news.length} articles, ${boamp.length} BOAMP, ${(mairie.images || []).length} images mairie, theme=${mairie.themeColor || 'aucun'}`);
   return {
@@ -3091,6 +3315,7 @@ async function coreSources(send, step, insee, runState) {
       lng: commune.centre.coordinates[0],
     },
     bbox,
+    epci,
     // pdfTextes VOYAGE : c'est le texte des PDF officiels, la seule source qui
     // porte des dates de chantier. Il etait produit par readMairiePdfs puis
     // perdu ici, donc jamais lu par l'IA alors qu'il etait deja paye.
@@ -3378,7 +3603,23 @@ async function coreExplore(send, step, state) {
      Un enchainement n'est du gabarit que s'il figure sur au moins deux
      references : le menu et le pied de page y sont, un teaser unique n'y est
      pas. Voir empreinteGabarit. */
-  const gabarit = empreinteGabarit([mairie.accueilTexte || '', ...(explo.echantillons || [])]);
+  const etageEpci = explo.etage === 'epci';
+  const accueilRef = etageEpci ? (state.epci?.accueilTexte || '') : (mairie.accueilTexte || '');
+  const hoteEtage = etageEpci ? state.epci.host : mairie.host;
+  /* Pendant l'etage intercommunal, la COHERENCE avec la commune est un filtre,
+     pas une esperance : aucun lien n'entre en file, ni n'est montre au modele,
+     s'il ne nomme pas la commune dans son adresse ou son intitule. Sans ce
+     verrou, les pages de la metropole se recommandaient entre elles et la
+     lecture partait sur les projets de toute l'agglomeration - mesure sur
+     Quincieux : deux cents pages de grandlyon.com lues, la gare routiere de
+     Gerland dans la moisson. */
+  const slugCommune = slugify(commune.nom);
+  const motCommune = unaccentLower(commune.nom);
+  const nommeLaCommune = (l) => {
+    const meule = unaccentLower(`${l.url} ${l.label || ''}`);
+    return meule.includes(slugCommune) || meule.includes(motCommune);
+  };
+  const gabarit = empreinteGabarit([accueilRef, ...(explo.echantillons || [])]);
   // Le menu du site, sous forme normalisee : retire des liens soumis au modele
   const navSet = new Set((mairie.navigation || []).map(normaliserUrl));
   const t0 = Date.now();
@@ -3400,7 +3641,7 @@ async function coreExplore(send, step, state) {
       /* Une page de la mairie qui redirige HORS du site n'est pas une page de
          la mairie : la lire la verserait a l'allowlist d'attestation, et une
          fiche pourrait citer un site tiers comme source officielle. */
-      if (hostOf(page.url) !== hostOf(`https://${mairie.host}`)) return { ecartee: true };
+      if (hostOf(page.url) !== hostOf(`https://${hoteEtage}`)) return { ecartee: true };
       const brut = stripHtml(page.data).slice(0, PAGE_TEXT_BRUT_CHARS);
       const texte = retirerGabaritConnu(brut, gabarit);
       // Une page qui ne dit rien de plus que le gabarit du site n'a aucun
@@ -3408,7 +3649,7 @@ async function coreExplore(send, step, state) {
       if (texte.length < GABARIT_RESTE_MIN || looksLikeCode(texte)) return { ecartee: true };
 
       const liens = [];
-      collectPageLinks(page.data, page.url, mairie.host, liens);
+      collectPageLinks(page.data, page.url, hoteEtage, liens);
       /* On soumet tous les liens PAS ENCORE LUS, y compris ceux qui attendent
          deja dans la file : c'est ainsi qu'une page de sommaire fait remonter
          ses fiches detaillees en tete, au lieu de les laisser au fond d'une
@@ -3418,6 +3659,7 @@ async function coreExplore(send, step, state) {
          besoin que d'une eventuelle remontee de priorite. */
       const nouveaux = liens
         .filter((l) => !file.dejaOuverte(l.url) && !navSet.has(normaliserUrl(l.url)))
+        .filter((l) => !etageEpci || nommeLaCommune(l))
         .sort((x, y) => Number(file.connue(x.url)) - Number(file.connue(y.url)));
       collectPdfLinks(page.data, page.url, state.mairie.pdfs);
 
@@ -3461,6 +3703,20 @@ async function coreExplore(send, step, state) {
         explo.echantillons.push(r.echantillon);
       }
       for (const p of r.lu.projets) {
+        if (etageEpci) {
+          /* Les pages d'amorce de l'etage (rubriques d'amenagement) parlent de
+             toute la metropole : le verrou sur les LIENS ne suffit pas, les
+             projets vitrines qu'elles decrivent elles-memes (La Duchere, place
+             Grandclement...) entraient dans la recolte d'une petite commune et
+             voyageaient jusqu'au filet du geocodage pour rien. Un projet de
+             l'etage qui ne nomme la commune ni dans son texte ni par sa page
+             source est un projet d'ailleurs : il ne quitte pas la page. */
+          const texteDuProjet = `${p.title || ''} ${p.place || ''} ${p.address || ''} ${p.geo_query || ''} ${p.description || ''}`;
+          if (!nommeLaCommune({ url: p.source_url || '', label: texteDuProjet })) continue;
+          // La source est l'intercommunalite : l'attestation reste officielle,
+          // le lecteur de la fiche voit d'ou elle vient.
+          p.sources = [{ url: p.source_url, type: 'intercommunalite' }];
+        }
         explo.bruts.push(p);
         send({ type: 'ai-item', phase: 'ai1', title: p.title });
       }
@@ -3532,11 +3788,32 @@ async function coreExplore(send, step, state) {
     explo.file = new FileExploration({ hote: mairie.host }).serialiser();
   }
 
-  const fini = !file.restantes
+  let fini = !file.restantes
     || explo.pagesLues >= EXPLO_PAGES_MAX
     || explo.tours >= EXPLO_TOURS_MAX
     || explo.tranchesVides >= TRANCHES_VIDES_MAX
     || (assezDeMatiere() && explo.repechageFait);
+
+  /* BASCULE VERS L'INTERCOMMUNALITE. Le site de la commune est epuise et le
+     budget de matiere n'est pas atteint : les pages du site intercommunal qui
+     NOMMENT la commune prennent la suite, avec leur propre gabarit. */
+  if (fini && !etageEpci && !explo.etageEpciFait
+    && !assezDeMatiere()
+    && explo.tranchesVides < TRANCHES_VIDES_MAX
+    && state.epci?.candidates?.length) {
+    explo.etageEpciFait = true;
+    explo.etage = 'epci';
+    explo.echantillons = [];
+    const suite = new FileExploration({ hote: state.epci.host, plafond: 80 });
+    for (const l of state.epci.candidates) suite.ajouter(l.url, l.label, 0);
+    explo.file = suite.serialiser();
+    state.epci.candidates = [];
+    console.log(`[demo-generate] etage intercommunal : ${suite.restantes} page(s) de ${state.epci.host} a lire pour ${commune.nom}`);
+    step('ai1', 'done', 'Lecture en cours', `site de la commune épuisé, lecture de ${state.epci.host} (${suite.restantes} page(s) nommant la commune)`);
+    state.__continue = true;
+    return state;
+  }
+  fini = fini && (etageEpci || explo.etageEpciFait || !state.epci?.candidates?.length || assezDeMatiere() || explo.tranchesVides >= TRANCHES_VIDES_MAX);
   if (!fini) {
     step('ai1', 'done', 'Lecture en cours', `${explo.pagesLues} page(s) lue(s), ${explo.bruts.length} projet(s) repéré(s)`);
     state.__continue = true;
@@ -3722,7 +3999,7 @@ async function ecarterLesResidus(commune, projets) {
   try {
     const system = `Voici les titres des fiches retenues pour la carte des projets d'amenagement de ${commune.nom}. La quasi-totalite sont de vraies operations : ton travail est seulement d'ecarter les intrus MANIFESTES.
 
-ECARTE : un spectacle, un concert, un cours ou un atelier, un festival, une exposition, une animation saisonniere, une election, un dispositif evenementiel sans chantier, et une INAUGURATION seule (le chantier est fini).
+ECARTE : un spectacle, un concert, un cours ou un atelier, un festival, une exposition, une animation saisonniere, une election, un dispositif evenementiel sans chantier, une INAUGURATION seule (le chantier est fini), et la simple PRESENTATION d'un equipement existant (horaires, tarifs, reservation) sans operation de travaux.
 NE TOUCHE A RIEN d'autre. Sont des amenagements, meme quand le titre ne le crie pas : une restauration de patrimoine, une fresque murale, une aire de jeux, une vegetalisation de cours d'ecole ou de rue, une ferme urbaine, la suppression de feux ou la pietonnisation d'un carrefour, un equipement, une voirie, une concertation sur l'avenir d'une rue. Dans le doute, garde : ecarter a tort fait disparaitre un vrai projet de la carte.`;
     const user = projets.map((p, i) => `${i}. ${p.title}${p.description ? ` - ${String(p.description).slice(0, 90)}` : ''}`).join('\n');
     const out = await openAIStructured(
@@ -3748,19 +4025,35 @@ const MOTS_SANS_CARACTERE = GENERIC_PROJECT_WORDS;
 async function coreAi(send, step, state) {
   const { commune, mairie, news, boamp } = state;
 
+  /* ÉTAGE PRESSE : seulement quand la commune et son intercommunalité n'ont
+     pas déjà rempli le budget de matière. Il prend sa PROPRE invocation
+     (passage de relais) pour ne pas alourdir celle qui porte déjà les avis et
+     le rapprochement ; au retour, coreExplore repasse sans rien relire. */
+  if (!state.pressePassee) {
+    state.pressePassee = true;
+    const deja = (state.explo?.bruts || []).length;
+    if (process.env.DEMO_PRESSE !== '0' && !(EXPLO_BRUTS_MAX > 0 && deja >= EXPLO_BRUTS_MAX)) {
+      state.presseProjets = await moissonnerLaPresse(send, step, state);
+      state.presseUrls = [...new Set(state.presseProjets.map((p) => p.source_url))];
+      state.__continue = true;
+      return state;
+    }
+  }
+
   step('ai2', 'start', 'Rapprochement et vérification', 'Un même chantier décrit par plusieurs pages ne fait qu\'une fiche');
 
   // Les avis de marches, en un appel : liste compacte, aucun risque de volume
   const avis = await depouillerLesAvis(commune, boamp);
   if (avis.length) console.log(`[demo-generate] avis de marches depouilles : ${avis.length} projet(s)`);
 
-  const bruts = [...(state.explo?.bruts || []), ...avis];
+  const bruts = [...(state.explo?.bruts || []), ...avis, ...(state.presseProjets || [])];
   const beforeFilter = bruts.length;
 
   const allowedUrls = new Set([
     ...mairie.urls,
     ...news.flatMap((n) => [n.link, n.sourceUrl].filter(Boolean)),
     ...boamp.map((b) => b.link),
+    ...(state.presseUrls || []),
   ].map(normaliserUrl));
   const allowedHosts = new Set([...allowedUrls].map(hostOf).filter(Boolean));
 
@@ -3881,6 +4174,7 @@ async function coreAi(send, step, state) {
   state.mairie.candidates = [];
   state.mairie.accueilTexte = '';
   state.mairie.navigation = [];
+  if (state.epci) state.epci = { nom: state.epci.nom, host: state.epci.host };
   return state;
 }
 
@@ -5318,6 +5612,7 @@ export const _internals = {
   REPERE_MIN_PX,
   arbitrerMarches,
   domainesAutorises,
+  nomDistinctifEpci,
   MARCHES_CIBLE,
   typeImageReel,
   looksLikeCode,
