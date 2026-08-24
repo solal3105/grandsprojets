@@ -3,33 +3,102 @@
 Écran plein format (« Tapez le nom de votre commune ») qui génère en direct
 l'espace Open Projets d'une commune à partir de sources publiques : site de la
 mairie (logo, couleur, pages projets, texte des PDF officiels), presse locale
-(Google News), marchés publics de travaux (BOAMP, avis complet). Sélection par
-IA en une passe avec citation obligatoire, puis **fusion multi-sources** :
-chaque projet agrège toutes les sources qui le mentionnent, ce qui lui donne
-l'adresse officielle de l'avis de marché, le récit et les visuels de la page de
-la mairie, et le contexte de la presse.
+(Google News), marchés publics de travaux (BOAMP, avis complet).
 
-**Aucun plafond sur le nombre de projets.** Les anciens plafonds (12 puis 18)
-bridaient le résultat exactement là où le prospect est le plus gros : sur les 22
-premières communes générées, Bordeaux rendait 7 fiches et Montpellier 5, quand
-une métropole a des dizaines d'opérations en cours. Ce n'était pas la preuve qui
-manquait, c'était la place. Conséquence assumée : une petite commune se génère
-toujours en 2 à 3 minutes, une métropole peut demander 5 à 6 minutes.
+## Le site est exploré page par page
 
-## Deux règles de fond
+C'est le cœur du système, et il a changé. On lisait auparavant un nombre fixe de
+pages, on en faisait **un seul document**, et on demandait à l'IA de le
+dépouiller d'un coup. Sur une métropole ce document atteignait l'équivalent d'un
+livre de cent cinquante pages, et l'IA en ratait le milieu : mesure sur Lyon,
+dix projets tirés d'un corpus pourtant plus riche que celui qui en avait rendu
+dix-neuf. Le fichier documentait déjà le même phénomène pour la sélection des
+liens, découpée en lots pour cette raison exacte.
 
-**Aucune position inventée.** Un projet qu'on ne sait pas situer, au moins à la
-maille du quartier, est retiré de la carte. La localisation procède par étages :
-adresse postale (BAN), emprise ou tracé réels (Nominatim), quartier statistique
-IRIS, puis en dernier recours une requête IA qui propose un lieu géocodable.
-Une carte qui invente des emplacements devant un élu qui connaît sa commune
-coûte plus cher qu'une carte moins fournie.
+Le parcours actuel :
 
-**Aucune affirmation hors source.** Le rédacteur ne reçoit que l'extrait des
-sources réellement collectées, avec consigne de préférer trois lignes exactes à
-quinze lignes plausibles. Une illustration n'est retenue que si elle provient du
-bloc de page consacré au projet ; à défaut, une photo générique du type
-d'ouvrage est proposée, explicitement créditée comme telle.
+1. **Amorçage.** L'accueil et le sitemap donnent les adresses candidates, avec
+   leurs seuls intitulés. Le sitemap est cherché aux chemins d'usage **et** dans
+   le `robots.txt`, que certaines communes sont les seules à renseigner.
+2. **Tri de masse.** Un appel par lot de 150 intitulés **écarte l'évident** :
+   état civil, menus de cantine, vie associative, élus et instances. Il ne
+   choisit pas les meilleures, il refuse les impossibles - la nuance est tout,
+   car deviner laquelle des deux cents pages restantes décrit un chantier est
+   impossible sans l'ouvrir. Mesure sur Ploudalmézeau : 325 candidates, 190
+   écartées, 135 ouvertes.
+3. **Lecture.** Chaque page survivante reçoit **un appel à elle seule**, qui
+   répond à deux questions ensemble : quels projets décrit-elle, et quels de ses
+   liens méritent d'être ouverts à leur tour. Cinq lectures de front.
+4. **Descente.** Les liens recommandés rejoignent la file, débarrassés de ce qui
+   a déjà été lu. L'exploration s'enfonce là où elle trouve et s'arrête quand la
+   file est vide, pas quand un quota est atteint.
+
+Deux curseurs, réglables sans déploiement : `DEMO_PAGES_MAX` (300 par défaut,
+plafond de sécurité) et surtout `DEMO_BRUTS_MAX`, le **budget de matière** du
+mode salon : l'exploration s'arrête quand elle a repéré assez de projets. Mesure
+sur les traces réelles : les pistes froides produisent presque autant que les
+chaudes (24 % contre 28 % sur Vannes) et les projets arrivent jusqu'à la
+dernière page, donc ni un tri plus dur ni un arrêt au rendement ne marchent -
+le budget de matière coupe tôt sur les villes riches (Bordeaux : 60 projets dès
+la 80e page sur 266) et jamais sur les communes pauvres. **Actif par défaut à
+100 projets repérés**, calibré pour une carte de 40 à 50 fiches ; `0` rétablit
+le mode exhaustif.
+
+**Aucun plafond sur le nombre de projets**, et plus de plafond de matière non
+plus : il n'y a plus de document commun à rationner, donc plus de répartition à
+négocier entre la mairie, les marchés et la presse. Conséquence assumée : une
+petite commune se génère en 3 à 4 minutes, une métropole peut demander 6 à 8
+minutes, et le coût d'analyse passe d'environ 0,30 à 1 euro par métropole.
+
+## Un même chantier vu par plusieurs pages ne fait qu'une fiche
+
+C'est la contrepartie de la lecture séparée. Le même écoquartier figure sur la
+rubrique « nos projets », sur l'actualité qui annonce le chantier et dans l'avis
+de marché : trois adresses distinctes, aucune lue deux fois, et pourtant trois
+entrées à fondre en une. Le rapprochement se fait en trois temps : un tri
+mécanique gratuit sur les mots caractéristiques et le lieu, un arbitrage par
+l'IA sur les seules paires douteuses (les titres seuls, jamais les pages), puis
+la fusion, qui garde le titre le plus informatif, la description la plus
+complète, l'adresse la plus précise et **additionne les sources**.
+
+Ce dernier point est un gain inattendu : le nombre de sources distinctes qui
+attestent un projet devient une mesure de sa solidité, ce qu'on ne savait pas
+mesurer quand une seule lecture voyait tout d'un coup et fusionnait sans dire
+ni quoi ni pourquoi.
+
+## Trois règles de fond
+
+**Aucune position inventée.** Un projet qu'on ne sait pas situer précisément est
+retiré de la carte. La localisation procède par étages : emprise ou tracé réels
+(Nominatim), adresse postale (BAN), puis en dernier recours une requête IA qui
+propose un lieu géocodable. Une carte qui invente des emplacements devant un élu
+qui connaît sa commune coûte plus cher qu'une carte moins fournie.
+
+**Aucune affirmation hors source.** Le rédacteur travaille à partir de l'extrait
+des sources collectées et peut consulter les pages de ces sources, mais
+uniquement les leurs : la recherche web est restreinte aux domaines déjà
+attestés pour ce projet. Consigne constante de préférer trois lignes exactes à
+quinze lignes plausibles. Les sources réellement consultées sont citées en fin
+d'article, reconstruites à partir des adresses relevées et non de ce que le
+modèle prétend avoir lu.
+
+**Aucune illustration qui trompe.** Une photo n'est retenue que si un juge
+visuel confirme qu'elle montre bien ce projet. À défaut, la fiche reçoit la vue
+aérienne du lieu exact (IGN, Géoplateforme) : elle ne prétend pas montrer le
+projet, elle montre l'endroit, ce qu'un élu peut vérifier d'un coup d'oeil. La
+recherche de photos libres *à proximité* a été supprimée : elle rendait l'église
+classée du quartier plutôt que la rue en travaux.
+
+## Les marchés publics sont un dernier recours
+
+Un avis de marché apporte l'adresse officielle du chantier et le maître
+d'ouvrage, mais une prose administrative et aucun visuel. Il sert donc d'abord à
+**compléter** un projet repéré ailleurs, ce que fait la fusion multi-sources. Il
+ne crée une fiche à lui seul que si la commune ne documente pas assez
+d'opérations par elle-même (seuil `DEMO_MARCHES_CIBLE`, 12 par défaut), et la
+réserve écartée se rouvre si le géocodage fait descendre la carte sous huit
+projets. Mesure sur Lyon : les douze projets venus du site de la ville ont tous
+une vraie photo, les sept venus d'avis n'en avaient aucune.
 
 ## Thème d'affichage
 
@@ -186,7 +255,15 @@ Suivi : `select mail_status, count(*) from demo_leads group by 1;`
   rejets au-dessus de deux projets retenus insiste sur ce qui manque
 - SEO : villes `essai-*` exclues du sitemap et du llms.txt, hubs et fiches en
   noindex
-- Modèle IA : `gpt-4o` (surchargable via `DEMO_OPENAI_MODEL`). Les appels de
+- Modèle IA : `gpt-4o` (surchargable via `DEMO_OPENAI_MODEL`). Les **tâches
+  unitaires** - lire une page - tournent sur un modèle léger
+  (`DEMO_OPENAI_MODEL_LIGHT`, `gpt-4o-mini` par défaut) : un petit problème
+  fermé n'a pas besoin d'un grand modèle, et à l'échelle de quatre-vingt-dix
+  pages c'est ce qui rend la lecture page par page moins chère que l'ancien
+  dépouillement en bloc. Le **tri des intitulés** reste en revanche sur le
+  grand modèle : c'est un jugement, et mesure faite sur Vannes, le léger
+  n'écarte que 9 adresses sur 280 là où le grand en écarte 189, chaque adresse
+  gardée à tort se payant ensuite en lecture. Les appels de
   vision ont leur propre variable `DEMO_OPENAI_VISION_MODEL`, qui pointe par
   défaut sur le même modèle : **ne pas y mettre un modèle léger**, mesure faite
   le juge d'image y passe de 953 à 13 565 tokens d'entrée par appel, ces
@@ -201,12 +278,15 @@ Suivi : `select mail_status, count(*) from demo_leads group by 1;`
 
 | Appel | Quand | Ordre de grandeur |
 |---|---|---|
-| `projets` | une fois, le gros morceau | ~35 000 tokens d'entrée |
-| `articles_projets` | un lot de 3 fiches | ~2 500 entrée / 1 000 sortie |
+| `tri_liens` | un par lot de 150 intitulés, écarte l'évident | ~5 500 tokens |
+| `lecture_page` | **un par page ouverte**, le gros poste | ~2 500 entrée / 300 sortie |
+| `rapprochement_doutes` | seulement s'il reste des paires ambiguës, titres seuls | ~250 tokens |
+| `avis_marches` | une fois, les avis BOAMP en une passe | ~8 000 tokens |
+| `article` | **un par fiche**, avec recherche web restreinte aux domaines attestés | ~15 000 entrée / 700 sortie |
 | `choix_image` | un par projet, images en `detail: 'low'` | ~950 tokens |
 | `logo_commune` | une fois, jusqu'à 4 candidats en `detail: 'low'` | ~400 tokens |
 | `lieux_projets` | une fois, seulement s'il reste des projets à situer | ~1 000 tokens |
-| `themes_illustration` | une fois, seulement s'il reste des fiches sans photo | ~700 tokens |
+| `themes_illustration` | **rare** : seulement si l'IGN ne couvre pas la commune | ~700 tokens |
 | `tri_boamp` | **conditionnel** : seulement si les avis dépassent le plafond | ~4 500 tokens |
 
 Trois de ces appels ont remplacé des règles écrites en dur :

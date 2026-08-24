@@ -14,6 +14,10 @@
  *   [DONE]                          - fin du stream
  */
 
+// Nombre de sources affichées sous un texte généré : au-delà, la liste cesse
+// d'être une preuve et devient un pavé de liens.
+const MAX_SOURCES_CITEES = 5;
+
 const SYSTEM_PROMPT_DESC = `Tu es un rédacteur expert en urbanisme et projets de territoire.
 Tu rédiges des descriptions courtes (2-3 phrases, max 450 caractères) pour des fiches de projets urbains.
 Style : factuel, concis, institutionnel mais accessible. Pas de superlatifs. Pas de bullet points.
@@ -129,6 +133,36 @@ export default async function handler(req) {
     // Relais SSE : le squelette est partagé, seuls les événements propres à
     // la génération (recherche web, sources citées) sont traités ici.
     let chunkCount = 0;
+    /* Citations relevées au fil du flux.
+       Elles étaient lues sur `response.output_text.done`, qui ne les porte pas :
+       mesuré sur la requête exacte de cet outil, cet événement rend zéro
+       annotation quand `response.output_text.annotation.added` en rend huit. Le
+       bloc « Sources » du copilote ne s'est donc jamais affiché, alors que le
+       modèle citait bel et bien ses sources. On accumule ici, et on émet à la
+       fin ; l'ancienne lecture est conservée en second filet, elle ne coûte rien
+       et couvrira le jour où l'API remettra les annotations à cet endroit. */
+    const citations = [];
+    const ajouterCitations = (annotations) => {
+      for (const a of annotations || []) {
+        if (a?.type === 'url_citation' && typeof a.url === 'string' && a.url.startsWith('http')) {
+          citations.push({ url: a.url, title: a.title || null });
+        }
+      }
+    };
+    /* Émises UNE seule fois, quel que soit le chemin de sortie : plusieurs
+       événements terminaux peuvent se succéder, et le relais appelle aussi ce
+       point d'accroche à la fermeture du flux. */
+    let sourcesEmises = false;
+    const emettreSources = async (emit) => {
+      if (sourcesEmises) return;
+      sourcesEmises = true;
+      const vues = new Set();
+      const sources = citations
+        .filter((x) => { if (vues.has(x.url)) return false; vues.add(x.url); return true; })
+        .slice(0, MAX_SOURCES_CITEES);
+      if (sources.length) await emit({ sources });
+    };
+
     return relayOpenAIStream(openaiRes, {
       tag: 'ai-generate',
       corsHeaders,
@@ -144,17 +178,21 @@ export default async function handler(req) {
           chunkCount++;
           await emit({ content: ev.delta });
         }
-        // Sources consultées
+        // Sources consultées : l'événement qui les porte réellement
+        if (ev.type === 'response.output_text.annotation.added' && ev.annotation) {
+          ajouterCitations([ev.annotation]);
+        }
         if (ev.type === 'response.output_text.done' && ev.annotations?.length) {
-          const seen = new Set();
-          const sources = ev.annotations
-            .filter(a => a.type === 'url_citation' && a.url?.startsWith('http'))
-            .map(a => ({ url: a.url, title: a.title || null }))
-            .filter(x => { if (seen.has(x.url)) return false; seen.add(x.url); return true; })
-            .slice(0, 5);
-          if (sources.length) await emit({ sources });
+          ajouterCitations(ev.annotations);
+        }
+        if (ev.type === 'response.completed' || ev.type === 'response.incomplete') {
+          await emettreSources(emit);
         }
       },
+      /* Filet : une génération arrêtée à son plafond de sortie, ou un flux
+         coupé, n'émet aucun événement terminal. Les citations déjà relevées
+         partaient alors à la poubelle. */
+      onFin: emettreSources,
       // Timeout sans aucun contenu généré : signaler plutôt qu'un silence
       // (avec du contenu partiel, le texte déjà reçu reste utilisable).
       onTimeoutMessage: () => (_timedOut && chunkCount === 0)

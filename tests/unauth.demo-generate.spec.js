@@ -1,6 +1,11 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { _internals } from '../netlify/functions/demo-generate.mjs';
+import { promptArticle, retirerLesLiens, sourcesDesAnnotations, blocSources } from '../netlify/functions/lib/redaction.mjs';
+import {
+  normaliserUrl, estUnePageExplorable, FileExploration,
+  empreinteGabarit, retirerGabaritConnu, rapprochement, regrouper, fondre,
+} from '../netlify/functions/lib/demo-exploration.mjs';
 
 /**
  * Tunnel de démo : les gardes de demo-generate.
@@ -19,10 +24,12 @@ const {
   bboxOfContour, geometryExtentKm, extentAcceptable, geometryInBbox,
   centroidOf, haversineM, typeImageReel, looksLikeCode, estPageTremplin,
   collectPageLinks, unescapeBoamp, odonymesDe, distinctiveWords, essaisNominatim,
-  inChunks, lireFluxBorne, lireJson, corpsJson, MAIRIE_BUDGET_MS, MAIRIE_OCTETS_MAX,
-  sansPrefixeGenerique, locationQueries, nomCoherent, rangStructurel, positionDansLaCommune,
+  inChunks, lireFluxBorne, lireJson, corpsJson, MAIRIE_BUDGET_MS,
+  sansPrefixeGenerique, locationQueries, nomCoherent, positionDansLaCommune,
   migrerEtatGeo, METHOD_LABELS, communeDuResultat,
   CARTE_COURTE, deLaCommune, messageSansProjet, messageCarteCourte,
+  arbitrerMarches, domainesAutorises, featuresDuProjet, tailleMinimaleVisible,
+  vueAerienneUrl, coverKey, oublierLesEchecs,
 } = _internals;
 
 test.describe('0.64 - Démo : garde contre les requêtes vers le réseau interne', () => {
@@ -328,23 +335,6 @@ test.describe('0.67 - Démo : tri du contenu récolté', () => {
     expect(positionDansLaCommune(null, bboxGex)).toBe(false);
   });
 
-  test("0.67.4c - Le repli sans IA classe par forme, jamais par vocabulaire", () => {
-    /* Quand le modèle n'est pas joignable, l'ordre du document ouvrait le menu :
-       « Annuaires » en tête (mesuré en local, où Netlify Dev refuse d'injecter
-       la clé). Une page de contenu a un chemin plus profond et un intitulé
-       rédigé qu'une rubrique de premier niveau. Aucun mot n'est jugé. */
-    const menu = { url: 'https://ville.fr/annuaires/', label: 'Annuaires' };
-    const contenu = { url: 'https://ville.fr/ma-ville/grands-projets/paul-brard/', label: 'En savoir plus' };
-    expect(rangStructurel(contenu)).toBeGreaterThan(rangStructurel(menu));
-
-    // Un intitulé rédigé départage deux pages de même profondeur
-    const court = { url: 'https://ville.fr/a/b/', label: 'Voir' };
-    const redige = { url: 'https://ville.fr/a/c/', label: 'Les pistes de padel débarquent en ville' };
-    expect(rangStructurel(redige)).toBeGreaterThan(rangStructurel(court));
-
-    // Une adresse invalide ne fait pas tomber le calcul
-    expect(Number.isFinite(rangStructurel({ url: 'pas une url', label: '' }))).toBe(true);
-  });
 
   test('0.67.6g - RÉGRESSION Conflans : le lieu trouvé doit porter un mot du lieu cherché', () => {
     /* Seul contrôle de PERTINENCE de la chaîne : les trois garde-fous
@@ -738,7 +728,6 @@ test.describe('0.70 - Démo : la collecte mairie rend la main avant le mur d\'in
   test('0.70.4 - Le filet est au-dessus du normal observé et sous le mur de 60 s', () => {
     expect(MAIRIE_BUDGET_MS).toBeGreaterThan(35000);
     expect(MAIRIE_BUDGET_MS).toBeLessThanOrEqual(50000);
-    expect(MAIRIE_OCTETS_MAX).toBeGreaterThan(0);
   });
 
 });
@@ -892,6 +881,666 @@ test.describe('0.72 - Demo : un octet NUL ne fait plus echouer l\'ecriture', () 
   test('0.72.3 - La sequence litterale u0000 dans un texte est preservee', () => {
     const etat = { doc: 'le code u0000 figure dans la doc' };
     expect(JSON.parse(corpsJson(etat)).doc).toBe('le code u0000 figure dans la doc');
+  });
+
+});
+
+/**
+ * Les marchés publics passés en DERNIER RECOURS.
+ *
+ * Mesure qui a motivé la règle, sur Lyon : des 19 projets attestés, les 12
+ * venus du site de la ville avaient tous une vraie photo et se géocodaient,
+ * les 7 venus d'avis de marché n'en avaient aucune et portaient des intitulés
+ * du type « modernisation du système de sécurité incendie de l'université ».
+ */
+test.describe('0.73 - Démo : les marchés publics ne créent une fiche qu\'à défaut', () => {
+
+  const projet = (title, origine, address = '', marcheDate = '') => ({ title, origine, address, marcheDate });
+
+  test('0.73.1 - Une commune qui documente ses projets voit ses avis écartés', () => {
+    const projets = [
+      ...Array.from({ length: 12 }, (_, i) => projet(`Projet ville ${i + 1}`, 'commune')),
+      ...Array.from({ length: 7 }, (_, i) => projet(`Avis ${i + 1}`, 'marche', '', `2026-0${i + 1}-01`)),
+    ];
+    const { retenus, ecartes } = arbitrerMarches(projets, 12);
+    expect(retenus).toHaveLength(12);
+    expect(ecartes).toHaveLength(7);
+    expect(retenus.every((p) => p.origine === 'commune')).toBe(true);
+  });
+
+  test('0.73.2 - Une commune muette garde TOUS ses avis', () => {
+    const projets = Array.from({ length: 6 }, (_, i) => projet(`Avis ${i + 1}`, 'marche'));
+    const { retenus, ecartes } = arbitrerMarches(projets, 12);
+    expect(retenus).toHaveLength(6);
+    expect(ecartes).toHaveLength(0);
+  });
+
+  test('0.73.3 - Une commune médiane complète avec ses avis sans en perdre', () => {
+    const projets = [
+      ...Array.from({ length: 3 }, (_, i) => projet(`Projet ville ${i + 1}`, 'commune')),
+      ...Array.from({ length: 5 }, (_, i) => projet(`Avis ${i + 1}`, 'marche')),
+    ];
+    const { retenus, ecartes } = arbitrerMarches(projets, 12);
+    expect(retenus).toHaveLength(8);
+    expect(ecartes).toHaveLength(0);
+  });
+
+  /* Un avis sans lieu propre finit de toute façon écarté au géocodage : à
+     nombre de places égal, celui qui porte une adresse doit passer devant. */
+  test('0.73.4 - À places limitées, l\'avis qui porte une adresse est préféré', () => {
+    const projets = [
+      ...Array.from({ length: 11 }, (_, i) => projet(`Projet ville ${i + 1}`, 'commune')),
+      projet('Sans adresse', 'marche', '', '2026-08-01'),
+      projet('Avec adresse', 'marche', '1 rue des Écoles', '2026-01-01'),
+    ];
+    const { retenus } = arbitrerMarches(projets, 12);
+    const gardes = retenus.filter((p) => p.origine === 'marche');
+    expect(gardes).toHaveLength(1);
+    expect(gardes[0].title).toBe('Avec adresse');
+  });
+
+  test('0.73.5 - L\'ordre d\'origine des projets est préservé', () => {
+    const projets = [
+      projet('A', 'commune'), projet('Avis', 'marche'), projet('B', 'commune'),
+    ];
+    const { retenus } = arbitrerMarches(projets, 12);
+    expect(retenus.map((p) => p.title)).toEqual(['A', 'Avis', 'B']);
+  });
+
+  test('0.73.6 - La recherche d\'un article est bornée aux domaines attestés', () => {
+    const domaines = domainesAutorises({
+      sources: [{ url: 'https://www.lyon.fr/actu/x' }, { url: 'https://www.boamp.fr/avis/1' }],
+      source_url: 'https://www.lyon.fr/actu/x',
+    }, 'www.lyon.fr');
+    expect(domaines).toContain('lyon.fr');
+    expect(domaines).toContain('boamp.fr');
+    expect(domaines).not.toContain('www.lyon.fr');
+  });
+
+  test('0.73.7 - Un projet sans source attestée n\'ouvre aucun domaine', () => {
+    expect(domainesAutorises({ sources: [], source_url: '' }, '')).toEqual([]);
+  });
+
+});
+
+/**
+ * Les emprises trop petites pour se voir reçoivent un repère.
+ *
+ * Le calcul est fait à la PUBLICATION, dans la démo : la carte publique pose
+ * déjà un marqueur sur toute forme ponctuelle d'une contribution, elle n'a donc
+ * aucune ligne de code à recevoir pour ça.
+ */
+test.describe('0.74 - Démo : un repère sur les emprises invisibles', () => {
+
+  // Carré de `metres` de côté, à la latitude de Lyon
+  const carre = (metres) => {
+    const d = metres / 111320;
+    return { type: 'Polygon', coordinates: [[[4.83, 45.76], [4.83 + d, 45.76], [4.83 + d, 45.76 + d], [4.83, 45.76 + d], [4.83, 45.76]]] };
+  };
+
+  test('0.74.1 - Le seuil de visibilité suit le zoom d\'ouverture', () => {
+    // Une métropole s'ouvre au zoom 12, un village au zoom 15 : la même forme
+    // n'y a pas la même taille à l'écran.
+    const metropole = tailleMinimaleVisible(12, 45.76);
+    const village = tailleMinimaleVisible(15, 45.76);
+    expect(metropole).toBeGreaterThan(village);
+    expect(Math.round(metropole)).toBe(640);
+    expect(Math.round(village)).toBe(80);
+  });
+
+  test('0.74.2 - Une petite emprise reçoit un point EN PLUS de son contour', () => {
+    const f = featuresDuProjet(carre(40), 'Cour d\'école', 12, 45.76);
+    expect(f).toHaveLength(2);
+    expect(f[0].geometry.type).toBe('Polygon');
+    expect(f[1].geometry.type).toBe('Point');
+    // Le contour reste EN PREMIER : la carte interroge les formes avant les
+    // marqueurs, et le survol doit continuer à souligner l'emprise.
+    expect(f[0].properties.name).toBe('Cour d\'école');
+    expect(f[1].properties.name).toBe('Cour d\'école');
+  });
+
+  test('0.74.3 - Une emprise assez grande reste seule', () => {
+    expect(featuresDuProjet(carre(900), 'Quartier', 12, 45.76)).toHaveLength(1);
+  });
+
+  test('0.74.4 - Un point reste un point, sans doublon', () => {
+    const f = featuresDuProjet({ type: 'Point', coordinates: [4.83, 45.76] }, 'Adresse', 12, 45.76);
+    expect(f).toHaveLength(1);
+  });
+
+  /* Un tracé est fin mais long : il se voit sur la carte, et son repère doit
+     tomber SUR le tracé, pas à côté. */
+  test('0.74.5 - Le repère d\'un tracé court est posé sur le tracé', () => {
+    // Environ 155 m de long : invisible à l'échelle d'une métropole (zoom 12,
+    // seuil 640 m), mais parfaitement lisible à celle d'un village (zoom 15).
+    const trace = { type: 'LineString', coordinates: [[4.830, 45.760], [4.831, 45.7605], [4.832, 45.761]] };
+    const f = featuresDuProjet(trace, 'Rue', 12, 45.76);
+    expect(f).toHaveLength(2);
+    // Un sommet du tracé, donc un point qui tombe SUR la rue et non à côté
+    expect(f[1].geometry.coordinates).toEqual([4.831, 45.7605]);
+    expect(featuresDuProjet(trace, 'Rue', 15, 45.76)).toHaveLength(1);
+  });
+
+  test('0.74.6 - Une géométrie absente ne fait pas échouer la publication', () => {
+    expect(featuresDuProjet(null, 'Projet', 12, 45.76)).toHaveLength(1);
+  });
+
+});
+
+/**
+ * La vue aérienne du lieu, qui remplace la recherche de photos à proximité.
+ */
+test.describe('0.75 - Démo : la vue aérienne remplace la photo du voisinage', () => {
+
+  const bboxDe = (url) => new URL(url).searchParams.get('BBOX').split(',').map(Number);
+
+  /* En WMS 1.3.0 et EPSG:4326, l'ordre est latitude puis longitude, l'inverse
+     de l'ordre GeoJSON. Les inverser rend une image de l'autre bout du monde
+     sans lever la moindre erreur : c'est le piège du service. */
+  test('0.75.1 - RÉGRESSION : la boîte est en latitude, longitude', () => {
+    const [minLat, minLng, maxLat, maxLng] = bboxDe(vueAerienneUrl({ type: 'Point', coordinates: [4.83, 45.76] }));
+    expect(minLat).toBeGreaterThan(45); expect(maxLat).toBeGreaterThan(45);
+    expect(minLng).toBeLessThan(5); expect(maxLng).toBeLessThan(5);
+    expect(maxLat).toBeGreaterThan(minLat);
+    expect(maxLng).toBeGreaterThan(minLng);
+  });
+
+  test('0.75.2 - Le cadrage garde la proportion de la vignette', () => {
+    for (const g of [
+      { type: 'Point', coordinates: [4.83, 45.76] },
+      { type: 'LineString', coordinates: [[4.820, 45.750], [4.835, 45.756]] },
+    ]) {
+      const [minLat, minLng, maxLat, maxLng] = bboxDe(vueAerienneUrl(g));
+      const largeur = (maxLng - minLng) * 111320 * Math.cos((minLat * Math.PI) / 180);
+      const hauteur = (maxLat - minLat) * 111320;
+      expect(largeur / hauteur).toBeCloseTo(16 / 9, 1);
+    }
+  });
+
+  test('0.75.3 - Le cadrage est borné dans les deux sens', () => {
+    const largeurDe = (g) => {
+      const [minLat, minLng, , maxLng] = bboxDe(vueAerienneUrl(g));
+      return (maxLng - minLng) * 111320 * Math.cos((minLat * Math.PI) / 180);
+    };
+    // Un point n'a aucune étendue : il ne doit pas produire une vue floue
+    expect(Math.round(largeurDe({ type: 'Point', coordinates: [4.83, 45.76] }))).toBe(220);
+    // Un très long tracé ne doit pas produire une vue illisible
+    const long = { type: 'LineString', coordinates: [[4.80, 45.76], [4.86, 45.76]] };
+    expect(Math.round(largeurDe(long))).toBe(1600);
+  });
+
+  /* Toutes les vues aériennes partagent le chemin du service et ne diffèrent
+     que par leur cadrage. Sans ce correctif, la première passait et toutes les
+     suivantes étaient rejetées comme doublons, silencieusement. */
+  test('0.75.4 - RÉGRESSION : deux vues aériennes ne sont pas prises pour un doublon', () => {
+    const a = coverKey(vueAerienneUrl({ type: 'Point', coordinates: [4.83, 45.76] }));
+    const b = coverKey(vueAerienneUrl({ type: 'Point', coordinates: [4.85, 45.77] }));
+    expect(a).not.toBe(b);
+  });
+
+  test('0.75.5 - Les vignettes de cache d\'un CMS restent bien dédoublonnées', () => {
+    expect(coverKey('https://ville.fr/img/web-parking-3d6e6237.png'))
+      .toBe(coverKey('https://ville.fr/img/web-parking-450dc1de.png'));
+  });
+
+});
+
+/**
+ * L'EXPLORATION : on ne décide plus à l'avance combien de pages lire.
+ *
+ * L'ancienne collecte téléchargeait un nombre fixe de pages, en faisait un seul
+ * document, et demandait à l'IA de le dépouiller d'un coup. Sur une métropole
+ * ce document atteignait l'équivalent d'un livre de cent cinquante pages, et
+ * l'IA en ratait le milieu : mesure sur Lyon, dix projets tirés d'un corpus
+ * pourtant plus riche que celui qui en avait rendu dix-neuf.
+ * Désormais chaque page est lue séparément, et ce qu'elle contient désigne la
+ * suite du chemin.
+ */
+test.describe('0.76 - Démo : l\'exploration du site, page par page', () => {
+
+  test('0.76.1 - Une même page écrite de cinq façons n\'est ouverte qu\'une fois', () => {
+    const ecritures = [
+      'https://www.lyon.fr/projet/',
+      'http://lyon.fr/projet',
+      'https://LYON.fr/projet#le-calendrier',
+      'https://www.lyon.fr/projet?utm_source=newsletter',
+      'https://www.lyon.fr//projet/',
+    ];
+    expect(new Set(ecritures.map(normaliserUrl)).size).toBe(1);
+    // Deux pages réellement différentes le restent
+    expect(normaliserUrl('https://lyon.fr/a')).not.toBe(normaliserUrl('https://lyon.fr/b'));
+  });
+
+  test('0.76.2 - Un paramètre porteur de sens n\'est pas confondu avec un suivi', () => {
+    expect(normaliserUrl('https://lyon.fr/p?id=12')).not.toBe(normaliserUrl('https://lyon.fr/p?id=13'));
+    // L'ordre des paramètres ne fait pas deux pages
+    expect(normaliserUrl('https://lyon.fr/p?a=1&b=2')).toBe(normaliserUrl('https://lyon.fr/p?b=2&a=1'));
+  });
+
+  test('0.76.3 - Ce qui n\'est pas une page n\'entre pas dans l\'exploration', () => {
+    for (const u of [
+      'https://lyon.fr/doc.pdf', 'https://lyon.fr/photo.jpg', 'https://lyon.fr/wp-login.php',
+      'https://lyon.fr/etat-civil/acte', 'https://lyon.fr/recrutement', 'https://autre-site.fr/projet',
+    ]) {
+      expect(estUnePageExplorable(u, 'www.lyon.fr'), u).toBe(false);
+    }
+    expect(estUnePageExplorable('https://lyon.fr/projets/mermoz', 'www.lyon.fr')).toBe(true);
+  });
+
+  test('0.76.4 - La file ouvre d\'abord ce qu\'une page de projets a recommandé', () => {
+    const file = new FileExploration({ hote: 'www.lyon.fr' });
+    file.ajouter('https://www.lyon.fr/a', 'Rubrique', 0);
+    file.ajouter('https://www.lyon.fr/b', 'Actualités', 0);
+    file.ajouter('https://www.lyon.fr/c', 'Fiche du projet', 3);
+    expect(file.vague(3).map((x) => x.label)).toEqual(['Fiche du projet', 'Rubrique', 'Actualités']);
+  });
+
+  test('0.76.5 - Une page déjà ouverte n\'est jamais reproposée', () => {
+    const file = new FileExploration({ hote: 'www.lyon.fr' });
+    file.ajouter('https://www.lyon.fr/a', 'Page', 0);
+    file.vague(1);
+    expect(file.ajouter('https://www.lyon.fr/a/', 'La même', 9)).toBe(false);
+    expect(file.restantes).toBe(0);
+  });
+
+  /* L'exploration travaille par tranches : son état voyage en base entre deux
+     invocations, et un registre qui ne survivrait pas au voyage ferait relire
+     tout le site à chaque reprise. */
+  test('0.76.6 - L\'état de l\'exploration survit à un aller-retour en base', () => {
+    const file = new FileExploration({ hote: 'www.lyon.fr' });
+    // La plus prioritaire part dans la première vague, l'autre reste en attente
+    file.ajouter('https://www.lyon.fr/a', 'Ouverte', 5);
+    file.ajouter('https://www.lyon.fr/b', 'En attente', 0);
+    expect(file.vague(1)[0].label).toBe('Ouverte');
+    const repris = FileExploration.restaurer(JSON.parse(JSON.stringify(file.serialiser())));
+    expect(repris.restantes).toBe(1);
+    expect(repris.ajouter('https://www.lyon.fr/a', 'Déjà vue', 0)).toBe(false);
+    expect(repris.vague(1)[0].label).toBe('En attente');
+  });
+
+  /* Le gabarit exige DEUX references : construit sur le seul accueil, il
+     mangeait aussi les teasers, et une commune qui presente ses projets en
+     page d'accueil voyait la page projet, identique au teaser, retiree comme
+     du menu. */
+  test('0.76.7 - Le menu, present sur deux references, est retiré des pages', () => {
+    const menu = 'Accueil Mairie Demarches Vie associative Agenda Contact Plan du site Mentions legales';
+    const gabarit = empreinteGabarit([
+      `${menu} Bienvenue sur le site de la commune.`,
+      `${menu} Les actualites du mois de mars sont en ligne.`,
+    ]);
+    const net = retirerGabaritConnu(`${menu} La requalification de la place du marche debutera en mars 2027 avec la reprise des reseaux et du mobilier urbain pour un budget vote au conseil. Les riverains seront informes des fermetures par un affichage sur place et le marche hebdomadaire sera deplace le temps des travaux vers le parking des halles.`, gabarit);
+    expect(net).toContain('requalification');
+    expect(net).not.toContain('Mentions legales');
+  });
+
+  test('0.76.8 - Un teaser present sur le seul accueil n\'est pas du gabarit', () => {
+    const teaser = 'La commune lance la requalification de la place du marche des mars 2027';
+    const gabarit = empreinteGabarit([
+      `Menu Accueil Contact ${teaser} pied de page mentions legales cookies acceptez notre politique`,
+      'Menu Accueil Contact autre page sans le teaser pied de page mentions legales cookies acceptez notre politique',
+    ]);
+    const page = `${teaser} avec la reprise complete des reseaux, du mobilier urbain et des plantations, pour un budget de deux millions d'euros vote au conseil municipal de janvier. Le chantier durera dix-huit mois et le marche hebdomadaire sera deplace vers le parking des halles pendant toute la duree des travaux.`;
+    expect(retirerGabaritConnu(page, gabarit)).toContain('requalification de la place');
+  });
+
+  test('0.76.9 - Une seule reference ne retire rien : pas de gabarit fiable', () => {
+    const gabarit = empreinteGabarit(['Menu Accueil Contact Mentions legales et toute la page d accueil']);
+    expect(gabarit.size).toBe(0);
+  });
+
+});
+
+/**
+ * Le RAPPROCHEMENT, contrepartie de la lecture page par page.
+ *
+ * Le même écoquartier est décrit sur la rubrique « nos projets », sur
+ * l'actualité qui annonce le chantier et dans l'avis de marché : trois adresses
+ * distinctes, aucune lue deux fois, et pourtant trois entrées à fondre en une.
+ */
+test.describe('0.79 - Démo : un même chantier vu par plusieurs pages', () => {
+
+  const VIDES = /^(projet|travaux|amenagement|renovation|construction|nouvelle|ville|commune)$/;
+
+  test('0.79.1 - Deux mots caractéristiques communs suffisent à rapprocher', () => {
+    expect(rapprochement(
+      { title: 'Renovation du groupe scolaire Jean Moulin', geo_query: 'Jean Moulin' },
+      { title: 'Extension du groupe scolaire Jean Moulin', geo_query: 'Jean Moulin' },
+      VIDES,
+    )).toBe('oui');
+  });
+
+  test('0.79.2 - Deux chantiers distincts ne sont pas rapprochés', () => {
+    expect(rapprochement(
+      { title: 'Piscine municipale', geo_query: 'piscine' },
+      { title: 'Mediatheque centrale', geo_query: 'mediatheque' },
+      VIDES,
+    )).toBe('non');
+  });
+
+  test('0.79.3 - La fusion garde le titre le plus informatif, pas le plus court', () => {
+    const groupe = [
+      { title: 'Travaux ecoquartier', description: 'x', origine: 'marche', source_url: 'https://boamp.fr/1' },
+      { title: 'Ecoquartier secteur ancienne gare', description: 'Description complete du chantier.', origine: 'commune', source_url: 'https://lyon.fr/p' },
+    ];
+    const fondu = fondre(groupe, VIDES);
+    // Le titre de l'avis de marche est le plus court mais le plus pauvre
+    expect(fondu.title).toBe('Ecoquartier secteur ancienne gare');
+    expect(fondu.description).toBe('Description complete du chantier.');
+  });
+
+  test('0.79.4 - La fusion additionne les sources et compte les attestations', () => {
+    const groupe = [
+      { title: 'Ecoquartier de la gare', description: 'Court.', geo_query: 'gare', source_url: 'https://lyon.fr/projets', origine: 'commune' },
+      { title: 'Amenagement ecoquartier gare', description: 'Beaucoup plus complet.', geo_query: 'gare', address: '1 rue de la Gare', source_url: 'https://lyon.fr/actu', origine: 'commune' },
+      { title: 'Travaux ecoquartier gare', description: 'x', geo_query: 'gare', source_url: 'https://boamp.fr/9', origine: 'marche' },
+    ];
+    const fondu = fondre(groupe, VIDES);
+    expect(fondu.attestations).toBe(3);
+    // L'adresse officielle vient de l'avis, la description de la page de la ville
+    expect(fondu.address).toBe('1 rue de la Gare');
+    expect(fondu.description).toBe('Beaucoup plus complet.');
+    // Un projet décrit par la commune n'est jamais classé « de marché »
+    expect(fondu.origine).toBe('commune');
+  });
+
+  test('0.79.5 - Le regroupement fond ce qui doit l\'être et sépare le reste', () => {
+    const bruts = [
+      { title: 'Ecoquartier ancienne gare', geo_query: 'gare', description: 'a', source_url: 'https://lyon.fr/1', origine: 'commune' },
+      { title: 'Amenagement ecoquartier ancienne gare', geo_query: 'gare', description: 'b', source_url: 'https://lyon.fr/2', origine: 'commune' },
+      { title: 'Mediatheque centrale', geo_query: 'mediatheque', description: 'c', source_url: 'https://lyon.fr/3', origine: 'commune' },
+    ];
+    const { groupes } = regrouper(bruts, VIDES);
+    expect(groupes).toHaveLength(2);
+    expect(groupes.map((g) => g.length).sort()).toEqual([1, 2]);
+  });
+
+  /* Une paire douteuse ne doit jamais être fondue d'office : fusionner deux
+     opérations distinctes fait disparaître un projet de la carte, alors que
+     les laisser séparées ne coûte qu'une fiche en double. */
+  test('0.79.6 - Un cas ambigu est signalé plutôt que tranché tout seul', () => {
+    const bruts = [
+      { title: 'Requalification avenue Berthelot', geo_query: 'avenue Berthelot', description: 'a', source_url: 'https://lyon.fr/1' },
+      { title: 'Residence Berthelot', geo_query: 'residence Berthelot', description: 'b', source_url: 'https://lyon.fr/2' },
+    ];
+    const { groupes, doutes } = regrouper(bruts, VIDES);
+    expect(doutes).toHaveLength(1);
+    expect(groupes).toHaveLength(2);
+  });
+
+});
+
+/**
+ * Le compteur d'échecs d'une phase découpée en tranches.
+ * Il n'était remis à zéro qu'en atteignant son plafond, jamais après un travail
+ * réussi : deux incidents passagers sur deux tranches distinctes d'une même
+ * phase suffisaient à abandonner une génération qui avançait.
+ */
+test.describe('0.77 - Démo : une tranche réussie efface l\'ardoise', () => {
+
+  test('0.77.1 - Le compteur de la phase est retiré du brouillon', () => {
+    const apres = oublierLesEchecs({ _attempts_locate: 1, located: [1, 2] }, 'locate');
+    expect(apres._attempts_locate).toBeUndefined();
+    expect(apres.located).toEqual([1, 2]);
+  });
+
+  test('0.77.2 - Le compteur des AUTRES phases est laissé intact', () => {
+    const apres = oublierLesEchecs({ _attempts_locate: 1, _attempts_media: 1 }, 'locate');
+    expect(apres._attempts_locate).toBeUndefined();
+    expect(apres._attempts_media).toBe(1);
+  });
+
+  test('0.77.3 - Un brouillon sans compteur est rendu tel quel', () => {
+    const etat = { located: [] };
+    expect(oublierLesEchecs(etat, 'media')).toBe(etat);
+  });
+
+});
+
+/**
+ * Le socle de rédaction partagé avec l'outil de l'admin.
+ *
+ * Ce qu'il produit est publié TEL QUEL sur une fiche que consultent des
+ * habitants : rien ne relit entre le modèle et l'écran.
+ */
+test.describe('0.78 - Démo : ce qui sort d\'un article rédigé', () => {
+
+  test('0.78.1 - Un lien d\'attribution disparaît, sa phrase reste', () => {
+    expect(retirerLesLiens('Le chantier débute en mars ([mairie3.lyon.fr](https://mairie3.lyon.fr/x)).'))
+      .toBe('Le chantier débute en mars.');
+  });
+
+  /* Le modèle attribue aussi par simple nom de site, sans lien : c'est la forme
+     que la consigne « n'insère aucun lien » ne suffit pas à empêcher. */
+  test('0.78.2 - Une attribution par nom de site disparaît aussi', () => {
+    expect(retirerLesLiens('La ZAC couvre 12 hectares (metropole.nantes.fr).'))
+      .toBe('La ZAC couvre 12 hectares.');
+    expect(retirerLesLiens('Le budget est de 4 M€ (source : lyon.fr).'))
+      .toBe('Le budget est de 4 M€.');
+  });
+
+  test('0.78.3 - Les parenthèses légitimes d\'un texte français sont intactes', () => {
+    for (const phrase of [
+      'Le parc couvre 160 hectares (env. 160 hectares) et sera livré en 2027.',
+      'Conformément au décret (n°2021-1104), les travaux commencent en avril.',
+      'Les travaux (18 mois) démarreront au printemps.',
+    ]) {
+      expect(retirerLesLiens(phrase)).toBe(phrase);
+    }
+  });
+
+  test('0.78.4 - La structure markdown de l\'article n\'est pas abîmée', () => {
+    const article = '## Ce qui change\n\n- Une piste cyclable\n- Un parvis végétalisé\n\n## Calendrier\n\nLivraison en 2027.';
+    expect(retirerLesLiens(article)).toBe(article);
+  });
+
+  test('0.78.5 - Les sources sont dédoublonnées et débarrassées du suivi', () => {
+    const sources = sourcesDesAnnotations([
+      { type: 'url_citation', url: 'https://www.lyon.fr/a?utm_source=openai', title: 'Ville de Lyon' },
+      { type: 'url_citation', url: 'https://www.lyon.fr/a', title: 'Doublon' },
+      { type: 'autre', url: 'https://ignore.fr' },
+      null,
+      { type: 'url_citation', url: 'pas-une-url' },
+    ]);
+    expect(sources).toEqual([{ url: 'https://www.lyon.fr/a', title: 'Ville de Lyon' }]);
+  });
+
+  test('0.78.6 - Une annotation sans titre prend le nom du média', () => {
+    const [s] = sourcesDesAnnotations([{ type: 'url_citation', url: 'https://www.leprogres.fr/article' }]);
+    expect(s.title).toBe('leprogres.fr');
+  });
+
+  test('0.78.7 - Sans source citée, aucun bloc n\'est ajouté', () => {
+    expect(blocSources([])).toBe('');
+    expect(blocSources(null)).toBe('');
+  });
+
+  test('0.78.8 - Le bloc de sources est du markdown de liens', () => {
+    expect(blocSources([{ url: 'https://www.lyon.fr/a', title: 'Ville de Lyon' }]))
+      .toContain('- [Ville de Lyon](https://www.lyon.fr/a)');
+  });
+
+  /* La démo publie sans relecture : la consigne doit interdire explicitement de
+     s'adresser au demandeur, faute de quoi la fiche affiche « Voici un texte
+     factuel : » ou « Je n'ai trouvé aucune information récente ». */
+  test('0.78.9 - La consigne stricte interdit le préambule et l\'attribution', () => {
+    const strict = promptArticle({ commune: 'Lyon', stricte: true });
+    expect(strict).toContain('Rends l\'article et rien d\'autre');
+    expect(strict).toContain('N\'attribue AUCUNE phrase');
+    expect(strict).toContain('RÈGLE ABSOLUE');
+    // L'admin, où un agent relit avant publication, n'a pas besoin de la règle stricte
+    expect(promptArticle({ commune: 'Lyon', stricte: false })).not.toContain('RÈGLE ABSOLUE');
+  });
+
+});
+
+/**
+ * Le TRI DE MASSE : écarter l'évident, jamais choisir les meilleures.
+ *
+ * La bascule tient dans cette nuance. L'ancienne sélection retenait trente
+ * adresses sur trois cent vingt, ce qui est un pari : sur Lyon, la seule
+ * rubrique que l'accueil offrait était de la gouvernance, et les projets ont
+ * été manqués. Écarter « état civil » sur son intitulé, en revanche, est un
+ * jugement sûr, et tout ce qui survit est ensuite ouvert.
+ */
+test.describe('0.80 - Démo : ce que l\'exploration refuse d\'ouvrir', () => {
+
+  /* Ces chemins sont refusés sans même consulter l'IA : ils ne mènent jamais à
+     une opération d'aménagement, et les ouvrir ne ferait que payer des pages. */
+  test('0.80.1 - Les chemins de service sont refusés sans appel IA', () => {
+    for (const chemin of [
+      '/etat-civil/naissance', '/demarches/carte-identite', '/recrutement',
+      '/contact', '/mentions-legales', '/plan-du-site', '/newsletter',
+    ]) {
+      expect(estUnePageExplorable(`https://ville.fr${chemin}`, 'ville.fr'), chemin).toBe(false);
+    }
+  });
+
+  /* Dans le doute, on ouvre : une page écartée à tort fait disparaître un
+     projet de la carte, une page ouverte pour rien coûte une poignée de
+     centimes. C'est l'asymétrie qui commande tout le réglage. */
+  test('0.80.2 - Une rubrique d\'aménagement ou un intitulé vague est ouvert', () => {
+    for (const chemin of [
+      '/travaux/rue-de-la-gare', '/urbanisme/zac-des-vignes', '/actualites/2026/03',
+      '/ma-ville/grands-projets', '/cadre-de-vie', '/page-1234', '/actualite-sans-titre',
+    ]) {
+      expect(estUnePageExplorable(`https://ville.fr${chemin}`, 'ville.fr'), chemin).toBe(true);
+    }
+  });
+
+  /* Une page de sommaire désigne ses fiches détaillées. Si celles-ci attendent
+     déjà dans la file, elles doivent quand même lui être soumises, sinon la
+     recommandation est perdue : mesure sur Ploudalmézeau, les trois fiches de
+     projets étaient déjà versées par le sitemap, n'étaient donc pas proposées,
+     ne recevaient aucune priorité et n'ont jamais été atteintes. */
+  test('0.80.3 - RÉGRESSION : une page en attente reste proposable au sommaire', () => {
+    const file = new FileExploration({ hote: 'ville.fr' });
+    file.ajouter('https://ville.fr/projets/ecoquartier', 'Écoquartier', 0);
+    // Elle attend, elle n'a pas été lue : le sommaire peut encore la désigner
+    expect(file.connue('https://ville.fr/projets/ecoquartier')).toBe(true);
+    expect(file.dejaOuverte('https://ville.fr/projets/ecoquartier')).toBe(false);
+    // Une fois lue, elle ne doit plus jamais revenir
+    file.vague(1);
+    expect(file.dejaOuverte('https://ville.fr/projets/ecoquartier')).toBe(true);
+  });
+
+  test('0.80.4 - Une recommandation fait remonter une page déjà en file', () => {
+    const file = new FileExploration({ hote: 'ville.fr' });
+    file.ajouter('https://ville.fr/a', 'Page quelconque du sitemap', 0);
+    file.ajouter('https://ville.fr/b', 'Autre page du sitemap', 0);
+    // La page de projets recommande la première : elle passe devant
+    file.ajouter('https://ville.fr/b', 'Fiche du projet', 3);
+    expect(file.vague(1)[0].url).toBe('https://ville.fr/b');
+  });
+
+});
+
+/**
+ * Ce que la revue adversariale du modèle d'exploration a confirmé puis corrigé.
+ */
+test.describe('0.82 - Démo : les décisions fines du rapprochement et de la file', () => {
+
+  const VIDES = /^(projet|travaux|amenagement|renovation|construction|nouvelle|ville|commune)$/;
+
+  /* Fusionner à tort fait DISPARAÎTRE un projet de la carte : des lieux
+     explicitement différents interdisent la fusion d'office, l'arbitre tranche. */
+  test('0.82.1 - Deux chantiers de lieux différents ne sont jamais fondus d\'office', () => {
+    expect(rapprochement(
+      { title: 'Requalification de la rue Jean Jaures', geo_query: 'rue Jean Jaures' },
+      { title: 'Residence de la rue Jean Jaures', geo_query: 'avenue de la Gare' },
+      VIDES,
+    )).toBe('doute');
+  });
+
+  test('0.82.2 - Un titre sans mot caractéristique au même lieu part en arbitrage', () => {
+    expect(rapprochement(
+      { title: 'Les travaux', geo_query: 'place du marche' },
+      { title: 'Le projet de la ville', geo_query: 'place du marche' },
+      VIDES,
+    )).toBe('doute');
+  });
+
+  test('0.82.3 - La ligature oe ne casse pas la comparaison des titres', () => {
+    expect(rapprochement(
+      { title: 'Cœur de bourg, phase deux', geo_query: 'centre' },
+      { title: 'Amenagement du coeur de bourg', geo_query: 'centre' },
+      VIDES,
+    )).toBe('oui');
+  });
+
+  /* La citation-preuve reste appariée à SA source : mélanger la plus longue
+     citation avec la première adresse présentait la phrase d'un avis de marché
+     comme relevée sur le site de la commune. */
+  test('0.82.4 - La citation et sa source restent appariées à la fusion', () => {
+    const fondu = fondre([
+      { title: 'Ecoquartier de la gare', description: 'Complet.', geo_query: 'gare', origine: 'commune', source_url: 'https://ville.fr/p', evidence_quote: '' },
+      { title: 'Travaux ecoquartier gare', description: 'x', geo_query: 'gare', origine: 'marche', source_url: 'https://boamp.fr/9', evidence_quote: 'Construction de 50 logements sur le site de la gare.' },
+    ], VIDES);
+    // Le porteur (commune) n'a pas de citation : on prend celle de l'avis, ET son adresse avec
+    expect(fondu.evidence_quote).toContain('50 logements');
+    expect(fondu.source_url).toBe('https://boamp.fr/9');
+  });
+
+  test('0.82.5 - La date d\'avis retenue est la plus récente du groupe', () => {
+    const fondu = fondre([
+      { title: 'Renovation du gymnase municipal Jean Moulin', geo_query: 'gymnase', origine: 'marche', source_url: 'https://boamp.fr/1', marcheDate: '2024-05-01' },
+      { title: 'Gymnase Jean Moulin, seconde tranche', geo_query: 'gymnase', origine: 'marche', source_url: 'https://boamp.fr/2', marcheDate: '2026-03-15' },
+    ], VIDES);
+    expect(fondu.marcheDate).toBe('2026-03-15');
+  });
+
+  /* File pleine : une recommandation chaude évince la pire attente froide,
+     jamais l'inverse. */
+  test('0.82.6 - Au plafond, une recommandation chaude prend la place d\'une froide', () => {
+    const file = new FileExploration({ hote: 'ville.fr', plafond: 3 });
+    file.ajouter('https://ville.fr/froide-1', 'Sitemap', 0);
+    file.ajouter('https://ville.fr/froide-2', 'Sitemap', 0);
+    file.ajouter('https://ville.fr/froide-3', 'Sitemap', 0);
+    expect(file.ajouter('https://ville.fr/fiche-projet', 'Fiche designee par un sommaire', 3)).toBe(true);
+    expect(file.restantes).toBe(3);
+    // Une froide de plus est refusée tant que la file est pleine : elle ne
+    // surclasse personne
+    expect(file.ajouter('https://ville.fr/froide-4', 'Sitemap', 0)).toBe(false);
+    expect(file.vague(1)[0].url).toBe('https://ville.fr/fiche-projet');
+  });
+
+});
+
+/**
+ * La résilience de l'exploration aux coupures.
+ * Une rafale de coupures réseau ne doit ni perdre des pages, ni faire tourner
+ * l'exploration en rond sur une adresse durablement en panne.
+ */
+test.describe('0.81 - Démo : une lecture qui échoue est retentée, une fois', () => {
+
+  test('0.81.1 - Une page en échec retourne en file et repart à la vague suivante', () => {
+    const file = new FileExploration({ hote: 'ville.fr' });
+    file.ajouter('https://ville.fr/projets/ecole', 'École', 2);
+    const [candidate] = file.vague(1);
+    expect(file.restantes).toBe(0);
+    expect(file.remettre(candidate)).toBe(true);
+    expect(file.restantes).toBe(1);
+    // Elle repart, et n'est plus considérée comme déjà lue
+    expect(file.dejaOuverte('https://ville.fr/projets/ecole')).toBe(false);
+    expect(file.vague(1)[0].url).toBe('https://ville.fr/projets/ecole');
+  });
+
+  test('0.81.2 - Une seule seconde chance : le troisième échec est définitif', () => {
+    const file = new FileExploration({ hote: 'ville.fr' });
+    file.ajouter('https://ville.fr/page-en-panne', 'Page', 0);
+    const [c1] = file.vague(1);
+    expect(file.remettre(c1)).toBe(true);
+    const [c2] = file.vague(1);
+    // c2 porte le compteur d'essais : plus de remise possible
+    expect(file.remettre(c2)).toBe(false);
+    expect(file.restantes).toBe(0);
+  });
+
+  test('0.81.3 - Le compteur d\'essais survit à un aller-retour en base', () => {
+    const file = new FileExploration({ hote: 'ville.fr' });
+    file.ajouter('https://ville.fr/p', 'Page', 0);
+    file.remettre(file.vague(1)[0]);
+    const repris = FileExploration.restaurer(JSON.parse(JSON.stringify(file.serialiser())));
+    expect(repris.remettre(repris.vague(1)[0])).toBe(false);
   });
 
 });

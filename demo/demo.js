@@ -397,6 +397,9 @@
     // confondre revenait à mentir à l'écran sur le motif du rejet.
     if (rejected.doublon) bouts.push(`${rejected.doublon} fiche${rejected.doublon > 1 ? 's' : ''} fusionnée${rejected.doublon > 1 ? 's' : ''}, même chantier vu par deux sources`);
     if (rejected.photo) bouts.push(`${rejected.photo} fiche${rejected.photo > 1 ? 's' : ''} sans photo : aucune image du projet trouvée`);
+    // Un avis de marché écarté n'est pas une fiche ratée : c'est une fiche
+    // faible qu'on refuse parce que la commune documente déjà mieux.
+    if (rejected.marche) bouts.push(`${rejected.marche} avis de marché écarté${rejected.marche > 1 ? 's' : ''} : la commune documente déjà ses projets`);
     el.textContent = bouts.join('  ·  ');
     el.hidden = !bouts.length;
   }
@@ -431,9 +434,21 @@
     $('btn-again').textContent = 'Autre commune';
   }
 
+  /* Ce que l'écran dit de l'origine d'une illustration. La vue aérienne se
+     revendique : montrer le lieu exact du chantier est un argument devant un
+     élu qui connaît sa commune, pas un pis-aller à masquer.
+     `generique` est l'ancien champ, conservé le temps qu'une génération lancée
+     avant une mise en ligne se termine. */
+  const LIBELLES_ILLUSTRATION = {
+    photo: 'illustration trouvée',
+    aerien: 'vue aérienne du lieu exact',
+    generique: 'illustration générique du type d\'ouvrage',
+  };
+
   function onMediaItem(msg) {
     bumpCounter('illustres');
-    tick('photo', msg.title, msg.generique ? 'illustration générique du type d\'ouvrage' : 'illustration trouvée');
+    const origine = msg.source || (msg.generique ? 'generique' : 'photo');
+    tick('photo', msg.title, LIBELLES_ILLUSTRATION[origine] || LIBELLES_ILLUSTRATION.photo);
     if (hasFx && typeof msg.lat === 'number' && msg.coverSrc) {
       window.MapFX.attachPhoto(msg.lat, msg.lng, msg.coverSrc);
     }

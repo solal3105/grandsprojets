@@ -5,8 +5,9 @@
    (site de la mairie + pages projets + PDFs officiels, presse locale lue en
    entier, marchés publics BOAMP), sélection IA en deux passes streamées avec
    citations obligatoires, localisation hybride (emprises réelles OSM,
-   adresses BAN), illustrations libres (Wikimedia Commons, geosearch sur
-   place), articles rédigés par fiche. Résultat sauvegardé en brouillon
+   adresses BAN), illustrations (visuels officiels jugés par l'IA, puis vue
+   aérienne IGN du lieu), un article recherché et rédigé par fiche. Résultat
+   sauvegardé en brouillon
    (demo_instances.payload) puis événement { type: 'phase' } : l'écran
    enchaîne aussitôt la seconde invocation.
 
@@ -21,6 +22,15 @@
    ============================================================================ */
 
 import zlib from 'node:zlib';
+// Socle de rédaction partagé avec l'outil de l'admin : structure de l'article,
+// nettoyage des liens, construction du bloc de sources citées.
+import { promptArticle, retirerLesLiens, sourcesDesAnnotations, blocSources, hoteLisible } from './lib/redaction.mjs';
+// Mecanique d'exploration : registre des pages vues, file de ce qui reste a
+// ouvrir, rapprochement des projets decrits par plusieurs pages.
+import {
+  FileExploration, empreinteGabarit, retirerGabaritConnu, GABARIT_RESTE_MIN,
+  regrouper, fondre, normaliserUrl,
+} from './lib/demo-exploration.mjs';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 // `netlify dev` injecte dans les fonctions la passerelle IA de Netlify
@@ -42,6 +52,13 @@ const OPENAI_MODEL = process.env.DEMO_OPENAI_MODEL || 'gpt-4o';
    quatorze. On reste donc sur le modele principal, en gardant la variable pour
    pouvoir en changer sans toucher au code. */
 const OPENAI_VISION_MODEL = process.env.DEMO_OPENAI_VISION_MODEL || OPENAI_MODEL;
+/* Modele des TACHES UNITAIRES : lire une page, trier des intitules. Ce sont de
+   petits problemes fermes - une page, une question - la ou l'ancien modele
+   posait un probleme enorme a un gros modele. Un modele leger y suffit et coute
+   quinze fois moins ; a l'echelle de quatre-vingt-dix pages, c'est ce qui rend
+   la lecture page par page MOINS chere que l'ancien depouillement en bloc.
+   Verifie par comparaison sur Vannes avant adoption (voir demo/README.md). */
+const OPENAI_MODEL_LIGHT = process.env.DEMO_OPENAI_MODEL_LIGHT || 'gpt-4o-mini';
 
 // Code INSEE d'une commune : 5 caracteres. Metropole (69244), Corse (2A004,
 // 2B033), outre-mer (97411, 98801). La lettre corse est en 2e position.
@@ -60,14 +77,25 @@ const MAX_PHASE_ATTEMPTS = 2; // au-dela, la phase est declaree en echec (anti-b
    inverse : Bordeaux rendait 7 fiches et Montpellier 5, la ou une metropole a
    des dizaines d'operations. Le cout IA, lui, ne suit pas : le paquet envoye au
    modele reste borne par BUNDLE_MAX_CHARS, seule la duree reseau augmente. */
-const MAIRIE_PAGES = 30;
 // Pages filles, tirees uniquement des sommaires de projets (voir le second
 // niveau de crawl dans inspectMairieSite)
-const MAIRIE_PAGES_ENFANTS = 26;
-const PAGE_TEXT_CHARS = 5000;
+/* Vivier de liens. Trois metropoles mesurees - Bordeaux, Montpellier, Colmar -
+   saturent les 250 liens des l'accueil, ce qui veut dire qu'on choisissait
+   parmi une liste deja coupee. Elargir le vivier ne coute que de la memoire :
+   le nombre de pages REELLEMENT ouvertes reste commande par MAIRIE_PAGES. */
+const LIENS_PAGE_MAX = 400;
+const LIENS_NAVIGATION_MAX = 900;
+/* Fenetre de lecture de l'accueil. A 500 Ko, on ne lisait que le cinquieme de
+   l'accueil de lyon.fr, qui pese 2,45 Mo : les liens s'y trouvaient, on ne les
+   voyait pas. Cette fenetre sert AUSSI a relever la navigation du site, qui est
+   ce qui permet ensuite de distinguer le menu repete du contenu propre d'une
+   page ; l'elargir profite donc deux fois. */
+const ACCUEIL_MAX_BYTES = 2500000;
+/* Pages lues en parallele. Mesure sur lyon.fr : six pages en 503 ms, sans
+   aucun cout de calcul. Le facteur limitant est la latence du site, pas nous. */
 // Texte conserve AVANT le retrait du gabarit : il faut voir la page entiere
-// pour reconnaitre ce qui s'y repete d'une page a l'autre. La troncature a
-// PAGE_TEXT_CHARS n'intervient qu'ensuite, sur du contenu reel.
+// pour reconnaitre ce qui s'y repete d'une page a l'autre. La repartition de la
+// place de lecture n'intervient qu'ensuite, sur du contenu reel.
 // Mesure sur un panel de 18 communes : une page de mairie rend 5 000 a 7 000
 // caracteres de texte. 20 000 couvre tres largement, sans faire enfler le
 // calcul de gabarit, qui indexe des enchainements de mots page par page.
@@ -94,11 +122,10 @@ const FETCH_TIMEOUT_MS = 8000;
    La presse et les marches publics repondent en 1 a 2 s et ne dependent pas de
    la mairie : quand le filet se declenche, le recensement continue avec eux. */
 const MAIRIE_BUDGET_MS = 45000;
-/* Plafond d'octets de la branche mairie. Le nombre de pages ne dit rien du
-   cout reel : 56 pages de 190 Ko font 10 Mo a telecharger, decouper et
-   detourer, la ou 56 pages legeres n'en font pas 2. On borne donc ce qui pese
-   vraiment, pas ce qui se compte. */
-const MAIRIE_OCTETS_MAX = 12000000;
+/* Part du budget reservee au PREMIER niveau de collecte. Le reste appartient
+   aux pages filles, qui portent le detail des operations : sur un site lent,
+   un premier niveau sans borne les condamnait purement et simplement. */
+
 const UA = { 'User-Agent': 'Mozilla/5.0 (compatible; OpenProjetsDemo/1.0; +https://openprojets.com/demo/)' };
 
 const CATEGORIES = {
@@ -130,67 +157,60 @@ const CATEGORY_META = {
 
 /* ─── Schémas de sortie IA ─── */
 
-/* Un SEUL schema de sortie. Le corpus etait auparavant lu deux fois par l'IA :
-   une passe d'extraction de candidats, puis une passe de selection qui le
-   relisait pour verifier. C'etait le premier poste de tokens de la generation
-   (~25 000 + ~16 000 en entree). La citation obligatoire, qui etait la vraie
-   valeur de la premiere passe, est simplement remontee ici. */
-const FINAL_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    projects: {
-      type: 'array',
-      /* Plus de plafond de fait. 12 puis 18 bridaient le rappel exactement la
-         ou le prospect est le plus gros : sur les 22 communes generees avant ce
-         changement, Bordeaux rendait 7 fiches et Montpellier 5. Ce n'est pas la
-         preuve qui manquait, c'est la place.
-         60 n'est plus un arbitrage produit mais une simple butee de securite
-         contre une reponse aberrante : aucune commune francaise n'a 60
-         operations attestees simultanement dans ses sources publiques. */
-      maxItems: 60,
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          title: { type: 'string', description: 'Nom court et propre du projet, sans le nom de la commune' },
-          description: { type: 'string', description: '2 à 4 phrases factuelles en français, dates si connues, aucun superlatif' },
-          category_slug: { type: 'string', enum: Object.keys(CATEGORIES) },
-          place: { type: 'string', description: 'Lieu géocodable le plus précis (rue, quartier, équipement), vide si inconnu' },
-          address: { type: 'string', description: 'Adresse postale EXACTE du projet SI elle figure telle quelle dans les sources (ex : "12 rue Voltaire" ou "avenue des Belges"). Recopie-la fidèlement. Chaîne vide si aucune adresse n\'est écrite dans les sources - N\'INVENTE JAMAIS d\'adresse.' },
-          geo_query: { type: 'string', description: 'Requête optimale pour localiser CE projet sur OpenStreetMap dans la commune : adresse (n° + rue) si connue, sinon le nom EXACT de l\'équipement (ex : "Centre nautique Robert Sautin") ou du quartier/lieu-dit tel qu\'il apparaît sur une carte. Chaîne vide seulement si aucun lieu n\'est identifiable.' },
-          source_url: { type: 'string' },
-          evidence_quote: { type: 'string', description: 'Citation exacte copiée MOT POUR MOT depuis la source citée, une seule phrase, 200 caractères maximum. C\'est la preuve que le projet existe : si tu ne peux pas citer, ne retiens pas le projet.' },
-          confidence: { type: 'string', enum: ['haute', 'moyenne', 'basse'] },
-        },
-        required: ['title', 'description', 'category_slug', 'place', 'address', 'geo_query', 'source_url', 'evidence_quote', 'confidence'],
-      },
-    },
-  },
-  required: ['projects'],
+/* Champs d'un projet, partagés par la lecture d'une page et par le
+   dépouillement des avis de marchés : c'est le même objet, décrit par deux
+   sources différentes. Les décrire deux fois les ferait diverger au premier
+   ajustement. */
+const CHAMPS_PROJET = {
+  title: { type: 'string', description: 'Nom court et propre du projet, sans le nom de la commune' },
+  description: { type: 'string', description: '2 à 4 phrases factuelles en français, dates si connues, aucun superlatif' },
+  category_slug: { type: 'string', enum: Object.keys(CATEGORIES) },
+  place: { type: 'string', description: 'Lieu géocodable le plus précis (rue, quartier, équipement), vide si inconnu' },
+  address: { type: 'string', description: 'Adresse postale EXACTE du projet SI elle figure telle quelle dans le texte (ex : "12 rue Voltaire" ou "avenue des Belges"). Recopie-la fidèlement. Chaîne vide si aucune adresse n\'est écrite - N\'INVENTE JAMAIS d\'adresse.' },
+  geo_query: { type: 'string', description: 'Requête qui permettra de trouver CE projet sur une carte OpenStreetMap de la commune. Par ordre de préférence : l\'adresse (n° + rue), sinon une VOIE citée dans le texte au sujet de ce projet (ex : "rue de Kerjolys"), sinon le nom EXACT d\'un équipement (ex : "Centre nautique Robert Sautin"). N\'utilise le nom d\'un secteur ou d\'un quartier ("secteur de l\'ancienne gare") QUE si le texte ne cite aucune voie ni aucun équipement : un nom de secteur ne figure sur aucune carte et le projet ne pourra pas être situé. Chaîne vide seulement si aucun lieu n\'est identifiable.' },
+  evidence_quote: { type: 'string', description: 'Citation exacte copiée MOT POUR MOT depuis le texte fourni, une seule phrase, 200 caractères maximum. C\'est la preuve que le projet existe : si tu ne peux pas citer, ne retiens pas le projet.' },
+  confidence: { type: 'string', enum: ['haute', 'moyenne', 'basse'] },
 };
+const CHAMPS_PROJET_REQUIS = Object.keys(CHAMPS_PROJET);
 
-const ARTICLES_SCHEMA = {
+/* LECTURE D'UNE PAGE : le cœur du nouveau modèle.
+
+   Une page, un appel, deux questions posées ensemble : que décrit-elle, et où
+   mène-t-elle. On ne demande plus à l'IA de dépouiller d'un coup l'équivalent
+   d'un livre de cent cinquante pages, exercice où elle rate le milieu ; on lui
+   soumet une page à la fois, ce qu'elle traite sans marge d'erreur.
+   L'adresse du projet n'est pas demandée : c'est celle de la page lue, et la
+   faire recopier par le modèle ne produisait que des approximations. */
+const PAGE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    articles: {
+    projets: {
       type: 'array',
       maxItems: 12,
+      description: 'Projets d\'aménagement décrits par CETTE page. Tableau vide si la page n\'en décrit aucun, ce qui est le cas le plus fréquent.',
       items: {
         type: 'object',
         additionalProperties: false,
-        properties: {
-          index: { type: 'integer', description: 'Index du projet dans la liste fournie, ordre conservé' },
-          title: { type: 'string', description: 'Titre du projet, repris tel quel' },
-          markdown: { type: 'string', description: 'Article en markdown, 150 à 250 mots' },
-        },
-        required: ['index', 'title', 'markdown'],
+        properties: CHAMPS_PROJET,
+        required: CHAMPS_PROJET_REQUIS,
       },
     },
+    liens: {
+      type: 'array',
+      maxItems: 25,
+      description: 'Index des liens de cette page qui mènent vraisemblablement à la description d\'une opération d\'aménagement. Tableau vide si aucun.',
+      items: { type: 'integer' },
+    },
+    interet: {
+      type: 'string',
+      enum: ['forte', 'moyenne', 'nulle'],
+      description: 'Cette page appartient-elle à une rubrique qui parle d\'aménagement du territoire ? "forte" pour une page de projet ou son sommaire, "nulle" pour une page de service, d\'état civil ou de vie associative.',
+    },
   },
-  required: ['articles'],
+  required: ['projets', 'liens', 'interet'],
 };
+
 
 // Schémas des appels vision (courts). Le schéma du logo est défini avec son
 // appel, plus bas : il rend désormais le choix du logo ET sa couleur.
@@ -383,8 +403,12 @@ function stripHtml(html) {
     .trim();
 }
 
-async function sha256Hex(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+// Empreinte d'une chaine OU d'un bloc d'octets. La variante binaire sert a
+// reconnaitre l'image vide que rend un service cartographique hors de sa zone
+// de couverture, qu'aucun code HTTP ne signale.
+async function sha256Hex(entree) {
+  const octets = typeof entree === 'string' ? new TextEncoder().encode(entree) : entree;
+  const buf = await crypto.subtle.digest('SHA-256', octets);
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
@@ -743,7 +767,7 @@ const LIEN_LABEL_MAX = 80;
 function collectPageLinks(html, baseUrl, host, outLinks, known = []) {
   const aRe = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]{0,3000}?)<\/a>/gi;
   let m;
-  while ((m = aRe.exec(html)) !== null && outLinks.length < 250) {
+  while ((m = aRe.exec(html)) !== null && outLinks.length < LIENS_PAGE_MAX) {
     const href = m[1].split('#')[0];
     if (!href) continue;
     const label = stripHtml(m[2]).trim();
@@ -777,34 +801,25 @@ function collectPageLinks(html, baseUrl, host, outLinks, known = []) {
    du contenu, c'est le gabarit. Mesure sur ce meme site : la page « Travaux »
    passe de 5 159 caracteres de menu a 2 429 caracteres qui sont la vraie liste
    des chantiers avec leurs dates. */
-const MOTS_GABARIT = 8;
+// Sous ce nombre de pages, le calcul du gabarit n'a pas assez de matiere pour
+// etre fiable : on ne retire rien plutot que de vider un corpus deja maigre.
 
-function retirerLeGabarit(textes) {
-  if (textes.length < 2) return textes;
-  const seuil = Math.max(2, Math.ceil(textes.length * 0.6));
-  const motsParPage = textes.map((t) => String(t || '').split(' '));
-  const compte = new Map();
-  for (const mots of motsParPage) {
-    const vus = new Set();
-    for (let i = 0; i + MOTS_GABARIT <= mots.length; i++) {
-      const cle = mots.slice(i, i + MOTS_GABARIT).join(' ');
-      if (vus.has(cle)) continue;
-      vus.add(cle);
-      compte.set(cle, (compte.get(cle) || 0) + 1);
-    }
-  }
-  return motsParPage.map((mots) => {
-    const aRetirer = new Uint8Array(mots.length);
-    for (let i = 0; i + MOTS_GABARIT <= mots.length; i++) {
-      const cle = mots.slice(i, i + MOTS_GABARIT).join(' ');
-      if ((compte.get(cle) || 0) >= seuil) aRetirer.fill(1, i, i + MOTS_GABARIT);
-    }
-    const net = mots.filter((_, i) => !aRetirer[i]).join(' ').replace(/\s+/g, ' ').trim();
-    // Garde-fou : si le retrait vide la page, c'est que le calcul s'est trompe
-    // (deux pages quasi identiques). On rend alors le texte d'origine.
-    return net.length >= 200 ? net : mots.join(' ');
-  });
-}
+
+/* Repartition de la place de lecture entre les pages.
+
+   Chaque page etait coupee au meme nombre de caracteres, et ce nombre unique se
+   trompait dans les deux sens. Mesure sur Lyon : quatre pages sur douze etaient
+   amputees, dont une de 10 286 caracteres ramenee a 5 000, alors que le paquet
+   envoye au modele n'etait rempli qu'a moitie. Mesure sur Ploudalmezeau : une
+   seule page sur trente et une atteignait le plafond, la moyenne etant de
+   2 192 caracteres. On coupait donc la matiere la ou il y en avait, et on
+   reservait de la place la ou il n'y en avait pas.
+
+   Deux passes, comme pour le paquet lui-meme : chacun sa part, puis le reliquat
+   des pages courtes aux pages longues. L'ordre compte, il est celui du
+   classement rendu par l'IA : si le reliquat vient a manquer, il doit manquer
+   aux pages les moins prometteuses. */
+
 
 /* Toutes les adresses internes d'une page, sans filtre de mot-cle.
    Sert a etablir la NAVIGATION du site depuis l'accueil : ce qui figure sur
@@ -813,7 +828,7 @@ function retirerLeGabarit(textes) {
 function collectAllInternalLinks(html, baseUrl, host, out) {
   const aRe = /<a[^>]+href=["']([^"']+)["']/gi;
   let m;
-  while ((m = aRe.exec(html)) !== null && out.size < 400) {
+  while ((m = aRe.exec(html)) !== null && out.size < LIENS_NAVIGATION_MAX) {
     const href = m[1].split('#')[0];
     if (!href) continue;
     try {
@@ -835,10 +850,37 @@ function collectAllInternalLinks(html, baseUrl, host, out) {
    d'actualites, qui en liste dix par page. Il aurait fallu paginer a l'aveugle.
    Le sitemap du meme site rend 280 actualites et 90 pages en deux requetes, et
    l'article y figure avec sa date de derniere modification. */
-const SITEMAP_CHEMINS = ['/sitemap.xml', '/sitemap_index.xml', '/wp-sitemap.xml'];
+const SITEMAP_CHEMINS = ['/sitemap.xml', '/sitemap_index.xml', '/sitemap-index.xml', '/wp-sitemap.xml'];
 const SITEMAP_SOUS_MAX = 6;
 const SITEMAP_URLS_MAX = 400;
 const SITEMAP_MAX_BYTES = 3000000;
+
+/* Le sitemap n'est pas toujours a l'un des chemins d'usage : lyon.fr et
+   brest.fr ne repondent sur aucun des quatre. La seule facon fiable de le
+   trouver est de demander au site ou il se trouve, ce que robots.txt dit
+   explicitement quand il existe. Les adresses d'un autre domaine sont ecartees :
+   c'est une porte de sortie que la garde des adresses publiques ne verrait
+   pas passer. */
+async function cheminsDeSitemap(baseUrl) {
+  const chemins = [];
+  try {
+    const r = await fetchCapped(new URL('/robots.txt', baseUrl).toString(), { headers: UA }, 8000, 200000);
+    const hote = new URL(baseUrl).host;
+    for (const ligne of String(r?.data || '').split('\n')) {
+      const m = /^\s*sitemap\s*:\s*(\S+)/i.exec(ligne);
+      if (!m) continue;
+      try {
+        const u = new URL(m[1], baseUrl);
+        if (u.host === hote && isSafePublicUrl(u.toString())) chemins.push(u.toString());
+      } catch { /* ligne illisible */ }
+    }
+  } catch { /* robots.txt absent : ce n'est pas une anomalie */ }
+  return [...chemins, ...SITEMAP_CHEMINS.map((c) => new URL(c, baseUrl).toString())];
+}
+
+// Un 404 servi en HTML avec un code 200 entrerait sinon dans le lecteur de
+// sitemap, qui n'y trouverait rien mais aurait consomme sa tentative.
+const estDuXml = (s) => /^\s*(<\?xml|<urlset|<sitemapindex)/i.test(String(s || '').slice(0, 200));
 
 // Entrees d'un sitemap ou d'un index de sitemaps : {url, lastmod}
 function lireSitemap(xml) {
@@ -860,12 +902,12 @@ function lireSitemap(xml) {
 const estUnSitemap = (u) => /\.xml(\?|$)/i.test(u);
 
 async function fetchSitemapUrls(baseUrl) {
-  for (const chemin of SITEMAP_CHEMINS) {
+  for (const chemin of await cheminsDeSitemap(baseUrl)) {
     let r;
     try {
-      r = await fetchCapped(new URL(chemin, baseUrl).toString(), { headers: UA }, 12000, SITEMAP_MAX_BYTES);
+      r = await fetchCapped(chemin, { headers: UA }, 12000, SITEMAP_MAX_BYTES);
     } catch { continue; }
-    if (!r) continue;
+    if (!r || !estDuXml(r.data)) continue;
     const entrees = lireSitemap(r.data);
     if (!entrees.length) continue;
 
@@ -902,127 +944,6 @@ function libelleDuChemin(u) {
    sait faire : « Les pistes de padel debarquent en ville » est evidemment une
    operation d'amenagement, « Inscriptions cantine » evidemment pas.
 
-   Environ 3 000 tokens en entree pour 200 liens, une centaine en sortie. La
-   latence est absorbee : cette branche attend de toute facon la presse et les
-   marches publics, qui tournent en parallele. */
-const LIENS_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    ouvrir: {
-      type: 'array',
-      maxItems: 40,
-      description: "Index des pages à ouvrir, de la plus prometteuse à la moins prometteuse. Tableau vide si aucune page du lot ne peut décrire une opération.",
-      items: { type: 'integer' },
-    },
-  },
-  required: ['ouvrir'],
-};
-
-/* Un modele a qui l'on soumet 500 lignes d'un coup et qui doit en rendre 30
-   rate les entrees du milieu, quel que soit leur interet. Mesure sur Conflans :
-   sur les 495 candidats en un seul appel, l'article des pistes de padel n'est
-   pas retenu ; sur le lot de 120 qui le contient, il l'est, en troisieme
-   position sur trois. Le decoupage n'est pas une optimisation de cout, c'est ce
-   qui rend le rappel utilisable. */
-const LIENS_LOT_MAX = 120;
-
-async function choisirLiensParIa(liens, communeNom, max, contexte, echeance = Infinity) {
-  if (!liens.length) return [];
-  /* Passe l'echeance, on ne demande plus rien au modele : un seul appel vaut
-     40 s de plafond, soit plus que tout le budget restant. Le classement
-     structurel rend un choix immediat, moins fin mais gratuit en temps. */
-  if (Date.now() >= echeance) {
-    return [...liens].sort((a, b) => rangStructurel(b) - rangStructurel(a)).slice(0, max);
-  }
-  if (liens.length <= LIENS_LOT_MAX) return choisirDansUnLot(liens, communeNom, max, contexte);
-
-  const lots = [];
-  for (let i = 0; i < liens.length; i += LIENS_LOT_MAX) lots.push(liens.slice(i, i + LIENS_LOT_MAX));
-  const parLot = await inChunks(lots, 4, (lot) => choisirDansUnLot(lot, communeNom, max, contexte), echeance);
-
-  /* Fusion en tourniquet : le premier choix de chaque lot, puis le deuxieme de
-     chacun, et ainsi de suite. Aucun lot ne peut monopoliser les places, et
-     l'ordre de sortie reflete le rang attribue par l'IA dans son propre lot.
-     Cet ordre compte au-dela du crawl : le paquet envoye a l'extraction est
-     plafonne, et les dernieres pages lues en sont ecartees. */
-  const out = [];
-  const vus = new Set();
-  for (let rang = 0; out.length < max; rang++) {
-    let ajout = false;
-    for (const choix of parLot) {
-      const l = choix?.[rang];
-      if (!l || vus.has(l.url)) continue;
-      vus.add(l.url);
-      out.push(l);
-      ajout = true;
-      if (out.length >= max) break;
-    }
-    if (!ajout) break;
-  }
-  console.log(`[demo-generate] liens : ${out.length} page(s) retenue(s) sur ${liens.length} par l'IA (${lots.length} lots)`);
-  return out;
-}
-
-/* Classement de REPLI, quand l'IA n'est pas joignable. Purement structurel :
-   aucun vocabulaire, seulement la forme de l'adresse et de l'intitule.
-
-   Prendre les liens dans l'ordre du document ouvrait le menu, « Annuaires »
-   en tete (mesure sur Conflans, en local sans acces au modele). Une page de
-   CONTENU a un chemin plus profond qu'une rubrique de premier niveau, et un
-   intitule redige plutot qu'un mot unique. Ce n'est pas un jugement sur le
-   sujet de la page, c'est une observation sur sa place dans le site. */
-function rangStructurel(lien) {
-  let score = 0;
-  try {
-    const segments = new URL(lien.url).pathname.split('/').filter(Boolean);
-    score += Math.min(segments.length, 4) * 10;
-  } catch { /* url deja validee a la collecte */ }
-  score += Math.min(String(lien.label || '').trim().split(/\s+/).length, 8);
-  return score;
-}
-
-async function choisirDansUnLot(liens, communeNom, max, contexte) {
-  const repliStructurel = () => [...liens]
-    .sort((a, b) => rangStructurel(b) - rangStructurel(a))
-    .slice(0, max);
-  try {
-    const system = `Tu prépares le recensement des opérations d'aménagement de la commune de ${communeNom} à partir de son site officiel. ${contexte}
-
-Retiens les pages susceptibles de DÉCRIRE ou de LISTER une opération qui transforme physiquement le territoire : construction, réhabilitation, requalification d'espace public, équipement, voirie, logement, aménagement paysager. Une actualité municipale qui annonce un chantier ou l'ouverture d'un équipement compte autant qu'une rubrique « Grands projets » : c'est souvent elle qui donne le lieu exact.
-
-Écarte les pages de service et de vie quotidienne : démarches administratives, état civil, inscriptions, menus, agenda culturel, contacts, annuaire, recrutement, mentions légales, comptes rendus de conseil municipal.
-
-Juge sur l'intitulé et le chemin, pas sur la présence d'un mot particulier. Au plus ${max} index, les plus prometteurs d'abord. Dans le doute sur une page qui pourrait décrire une opération, retiens-la : une page inutile coûte peu, une page manquée fait disparaître un projet de la carte.`;
-    const user = JSON.stringify(
-      liens.map((l, i) => ({ index: i, intitule: l.label, chemin: cheminDe(l.url) })),
-      null, 0
-    );
-    const out = await openAIStructured(
-      [{ role: 'system', content: system }, { role: 'user', content: user }],
-      'liens_a_ouvrir', LIENS_SCHEMA, 600, 40000, 0.1
-    );
-    const choisis = [...new Set(out.ouvrir || [])]
-      .filter((i) => Number.isInteger(i) && i >= 0 && i < liens.length)
-      .slice(0, max)
-      .map((i) => liens[i]);
-    // Une reponse vide n'est pas un verdict exploitable : sur un site dont tous
-    // les intitules sont opaques, mieux vaut ouvrir des pages au hasard que de
-    // rendre une commune sans aucune source.
-    if (!choisis.length) return repliStructurel();
-    console.log(`[demo-generate] liens : ${choisis.length} page(s) retenue(s) sur ${liens.length} par l'IA`);
-    return choisis;
-  } catch (e) {
-    console.warn(`[demo-generate] choix des liens indisponible, repli sur l'ordre du document :: ${e?.message}`);
-    return repliStructurel();
-  }
-}
-
-// Chemin lisible d'une adresse, pour donner a l'IA la structure du site sans
-// lui faire payer le domaine repete a chaque ligne
-function cheminDe(u) {
-  try { return new URL(u).pathname; } catch { return u; }
-}
 
 /* Decoupe une page en blocs {texte, images}. Un bloc = une operation sur une
    page qui en liste plusieurs. Deux decoupages complementaires : par titres de
@@ -1050,47 +971,6 @@ function extractPageBlocks(html, baseUrl) {
   while ((m = carteRe.exec(html)) !== null && n < 40) { pousser(m[0]); n++; }
 
   return blocs.slice(0, 40);
-}
-
-// Télécharge un lot de pages en parallèle et les verse dans `out`
-async function fetchPages(links, out, onFinding, echeance = Infinity) {
-  const fetched = await inChunks(links, 6, async (link) => {
-    if ((out.octets || 0) >= MAIRIE_OCTETS_MAX) { out.tronque = true; return null; }
-    const page = await fetchCapped(link.url, { headers: UA }, 6000, 400000);
-    if (!page) return null;
-    out.octets = (out.octets || 0) + (page.data?.length || 0);
-    // Texte COMPLET a ce stade : la troncature n'intervient qu'apres le retrait
-    // du gabarit, sinon on couperait dans le menu et pas dans le contenu.
-    return { link, page, text: stripHtml(page.data).slice(0, PAGE_TEXT_BRUT_CHARS) };
-  }, echeance);
-  for (const sp of fetched) {
-    if (!sp) continue;
-    collectPdfLinks(sp.page.data, sp.page.url, out.pdfs);
-    collectImages(sp.page.data, sp.page.url, out.images);
-    /* Une page servie en coquille JavaScript n'a pas de contenu : sans ce
-       test, du code se retrouvait présenté à l'IA comme le texte d'une source
-       officielle. Le garde-fou existait pour les articles de presse, qui ne
-       sont plus téléchargés ; le risque, lui, subsiste sur les CMS de mairie. */
-    if (sp.text.length > 400 && !looksLikeCode(sp.text) && !out.urls.includes(sp.link.url)) {
-      // Les images sont AUSSI gardees par page : c'est le seul moyen de
-      // rattacher une photo au bon projet. Versees dans un pool indifferencie,
-      // elles n'etaient que du remplissage que le juge visuel rejetait.
-      out.pages.push({
-        url: sp.link.url,
-        title: sp.link.label,
-        text: sp.text,
-        images: extractImageUrls(sp.page.data, sp.page.url, 24),
-        // Une page « nos projets » juxtapose une carte par operation, chacune
-        // avec SA vignette. Associer les images a la page entiere donnait la
-        // photo d'un projet a son voisin (releve sur Vannes : 0 attribution
-        // correcte sur 5). On decoupe donc la page en blocs.
-        blocs: extractPageBlocks(sp.page.data, sp.page.url),
-      });
-      out.urls.push(sp.link.url);
-      onFinding?.({ kind: 'page', title: sp.link.label, domain: out.host });
-    }
-  }
-  return fetched;
 }
 
 /* Vrai logo de la commune, plutot qu'une favicon.
@@ -1165,8 +1045,8 @@ function findSiteLogo(html, baseUrl) {
 }
 
 async function inspectMairieSite(siteUrl, communeNom, onFinding, echeance = Infinity) {
-  const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], bloque: false, tronque: false, octets: 0 };
-  const home = await fetchCapped(siteUrl, { headers: UA }, FETCH_TIMEOUT_MS, 500000);
+  const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], candidates: [], accueilTexte: '', bloque: false, tronque: false, octets: 0 };
+  const home = await fetchCapped(siteUrl, { headers: UA }, FETCH_TIMEOUT_MS, ACCUEIL_MAX_BYTES);
   if (!home) return out;
   /* Le site renvoie une page-tremplin au lieu de son contenu : inutile
      d'insister, mais il faut le dire. Sans ce constat explicite, la commune
@@ -1184,7 +1064,10 @@ async function inspectMairieSite(siteUrl, communeNom, onFinding, echeance = Infi
   const html = home.data;
   // Texte complet ici aussi : le retrait du gabarit, en fin de collecte, a
   // besoin de l'accueil pour reconnaitre le menu commun a tout le site.
-  out.pages.push({ url: home.url, title: 'Accueil du site de la mairie', text: stripHtml(html).slice(0, PAGE_TEXT_BRUT_CHARS) });
+  /* Le texte de l'accueil sert de REFERENCE pour reconnaitre le gabarit du
+     site : il porte le menu, le pied de page et le bandeau de cookies,
+     c'est-a-dire tout ce qui se repete de page en page. */
+  out.accueilTexte = stripHtml(html).slice(0, PAGE_TEXT_BRUT_CHARS);
   collectPdfLinks(html, home.url, out.pdfs);
   collectImages(html, home.url, out.images);
 
@@ -1264,61 +1147,34 @@ async function inspectMairieSite(siteUrl, communeNom, onFinding, echeance = Infi
   }
   console.log(`[demo-generate] candidats : ${depuisAccueil} de l'accueil + ${links.length - depuisAccueil} du sitemap`);
 
-  const aOuvrir = await choisirLiensParIa(
-    links, communeNom, MAIRIE_PAGES,
-    "Voici les liens de la page d'accueil du site officiel, complétés par les adresses publiées dans son sitemap. Pour ces dernières, l'intitulé est tiré de l'adresse elle-même.",
-    echeance
-  );
-  const seed = await fetchPages(aOuvrir, out, onFinding, echeance);
+  /* AMORCAGE de l'exploration.
 
-  /* Second niveau. Une page « Travaux », « Grands projets » ou « Actualites »
-     n'est souvent qu'un SOMMAIRE : sur Vannes elle liste 14 operations en
-     1 160 caracteres, chaque page fille en portant 3 000 a 15 000. Sans ce
-     niveau, on ne retenait que 5 des 14 projets.
+     Cette fonction ne telecharge plus aucune page de contenu : elle prepare la
+     liste des candidates, et c'est l'exploration qui les ouvrira une par une en
+     decidant au fur et a mesure ou descendre. Le crawl a deux niveaux qui vivait
+     ici a disparu avec son plafond de pages : on ne decide plus a l'avance
+     combien lire, on s'arrete quand plus rien de neuf ne remonte.
 
-     Un sommaire se reconnait a ce qu'il EXPOSE : une page qui offre plusieurs
-     liens encore inconnus en est un, quel que soit son titre. C'est mesurable,
-     et vrai sur tous les sites. Les entrees deja presentes dans la NAVIGATION
-     relevee sur l'accueil sont du menu repete, pas du contenu propre. */
-  const MIN_ENFANTS_POUR_SOMMAIRE = 3;
-  const enfants = [];
-  const vus = new Set(links.map((l) => l.url));
-  let sommaires = 0;
-  for (const sp of seed.filter(Boolean)) {
-    const trouves = [];
-    collectPageLinks(sp.page.data, sp.page.url, finalUrl.host, trouves, links);
-    const propres = trouves.filter((l) => !navigation.has(l.url) && !vus.has(l.url));
-    if (propres.length < MIN_ENFANTS_POUR_SOMMAIRE) continue;
-    sommaires++;
-    for (const l of propres) { vus.add(l.url); enfants.push(l); }
-  }
-  /* Le second niveau est un BONUS : il affine une collecte qui tient deja
-     debout. Passe l'echeance, on le saute entierement plutot que de risquer
-     l'invocation, et le premier niveau part tel quel. */
-  if (enfants.length && Date.now() < echeance) {
-    console.log(`[demo-generate] ${sommaires} sommaire(s), ${enfants.length} page(s) fille(s) reperee(s)`);
-    const fillesAOuvrir = await choisirLiensParIa(
-      enfants, communeNom, MAIRIE_PAGES_ENFANTS,
-      'Voici les entrées listées par les pages de sommaire déjà ouvertes. Chaque entrée est un contenu propre du site, pas une rubrique de menu.',
-      echeance
-    );
-    await fetchPages(fillesAOuvrir, out, onFinding, echeance);
-  } else if (enfants.length) {
-    out.tronque = true;
-    console.warn(`[demo-generate] echeance atteinte : second niveau saute (${enfants.length} page(s) fille(s) non ouvertes)`);
-  }
-
-  /* Retrait du gabarit, une fois TOUTES les pages du site collectees : il faut
-     plusieurs pages pour reconnaitre ce qui s'y repete. La troncature a la
-     taille transmise a l'IA n'intervient qu'ici, donc sur du contenu reel. */
-  const nets = retirerLeGabarit(out.pages.map((p) => p.text));
-  out.pages.forEach((p, i) => { p.text = (nets[i] || p.text).slice(0, PAGE_TEXT_CHARS); });
+     Les intitules restent la seule matiere pour amorcer, ce qui est correct :
+     juger un lien sur son intitule est exactement ce qu'un humain fait devant un
+     sommaire. La difference est qu'on ne joue plus toute la collecte sur ce
+     jugement, puisque la lecture de chaque page le corrige aussitot. */
+  out.candidates = links;
+  out.navigation = [...navigation];
+  console.log(`[demo-generate] amorcage ${out.host} : ${links.length} candidate(s)`);
 
   for (const pdf of out.pdfs.slice(0, 6)) {
     onFinding?.({ kind: 'pdf', title: pdf.label, domain: 'PDF officiel' });
   }
   return out;
 }
+
+// Presse locale : plafond global, quota par requete, age maximal, et nombre de
+// titres annonces a l'ecran pendant la collecte.
+const NEWS_MAX = 22;
+const NEWS_PAR_REQUETE = 8;
+const NEWS_AGE_MAX_MS = 3 * 365 * 24 * 3600 * 1000;
+const NEWS_ANNONCES = 13;
 
 async function fetchLocalNews(communeNom, departement, onFinding) {
   const queries = [
@@ -1336,36 +1192,57 @@ async function fetchLocalNews(communeNom, departement, onFinding) {
       const xml = await r.text();
       const itemRe = /<item>([\s\S]*?)<\/item>/g;
       let m;
-      while ((m = itemRe.exec(xml)) !== null && items.length < 22) {
+      /* Quota PAR REQUETE. Le compteur etait global : sur une metropole, la
+         premiere requete remplissait a elle seule les 22 places, et les deux
+         autres etaient telechargees puis jetees. La troisieme est pourtant la
+         plus specifiquement urbaine, elle cite les ZAC, les mediatheques et les
+         ecoquartiers. Sur une petite commune, ou chaque requete rend moins que
+         son quota, le comportement ne change pas. */
+      let pourCetteRequete = 0;
+      while ((m = itemRe.exec(xml)) !== null && items.length < NEWS_MAX && pourCetteRequete < NEWS_PAR_REQUETE) {
         const block = m[1];
         const title = /<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/.exec(block)?.[1]?.trim();
         const link = /<link>([\s\S]*?)<\/link>/.exec(block)?.[1]?.trim();
         const pubDate = /<pubDate>([\s\S]*?)<\/pubDate>/.exec(block)?.[1]?.trim();
-        const source = /<source[^>]*>([\s\S]*?)<\/source>/.exec(block)?.[1]?.trim() || '';
+        /* La balise <source> porte le NOM du media dans son contenu et son
+           adresse dans son attribut `url`. Seul le nom etait lu, si bien que
+           l'ecran annoncait « news.google.com » comme media a chaque fois. */
+        const src = /<source([^>]*)>([\s\S]*?)<\/source>/.exec(block);
+        const source = src?.[2]?.trim() || '';
+        const sourceUrl = /url=["']([^"']+)["']/.exec(src?.[1] || '')?.[1] || '';
         if (!title || !link || seen.has(title)) continue;
-        if (pubDate && Date.now() - new Date(pubDate).getTime() > 3 * 365 * 24 * 3600 * 1000) continue;
+        if (pubDate && Date.now() - new Date(pubDate).getTime() > NEWS_AGE_MAX_MS) continue;
         seen.add(title);
-        items.push({ title, link, date: pubDate ? new Date(pubDate).toLocaleDateString('fr-FR') : '', source, text: '' });
+        pourCetteRequete++;
+        items.push({
+          title,
+          link,
+          date: pubDate ? new Date(pubDate).toLocaleDateString('fr-FR') : '',
+          source,
+          sourceUrl,
+        });
       }
     } catch { /* flux indisponible */ }
   }
 
-  /* On NE TELECHARGE PLUS le corps des articles.
+  /* On ne telecharge PAS le corps des articles.
 
-     Le lien d'un item Google News est une redirection encodee qui ne resout
-     plus vers le media : mesure sur Conflans, les 22 articles rendent 200 OK
-     et 580 Ko du shell JavaScript de Google (« window.WIZ_global_data »), zero
-     caractere d'article. Le garde-fou looksLikeCode les rejetait correctement,
-     si bien que les 13 telechargements etaient integralement perdus : jusqu'a
-     400 Ko et 6 s chacun, pour un texte toujours vide. La balise
-     <description> du flux ne contient, elle, que le titre repete.
+     Le lien d'un item Google News est une redirection encodee qui ne mene plus
+     au media : mesure refaite le 24 aout 2026, les articles rendent 200 OK et
+     580 Ko d'une coquille JavaScript, zero caractere d'article. Les recuperer
+     supposerait de passer par un mecanisme interne non documente de Google,
+     dont le flux restreint par ailleurs l'usage : c'est un choix qui ne se
+     tranche pas dans le code.
 
-     Restent les TITRES, qui sont la vraie valeur de cette source et sont
-     souvent explicites (« Ce que l'on sait de la renovation du groupe scolaire
-     Paul Bert », « L'hotel de ville est en pleine renovation »). Ils
-     corroborent ce que la mairie et les marches publics annoncent. */
-  for (const item of items.slice(0, 13)) {
-    onFinding?.({ kind: 'article', title: item.title.replace(/ - [^-]+$/, ''), domain: item.source || hostOf(item.link), date: item.date });
+     Restent les TITRES, souvent explicites (« Ce que l'on sait de la renovation
+     du groupe scolaire Paul Bert »). Ils ne peuvent pas FONDER une fiche, qui
+     exige une citation mot pour mot, une description factuelle et un lieu
+     geocodable ; mesure sur Lyon, 22 titres ont produit zero projet. Ils
+     corroborent en revanche utilement ce que la mairie annonce, et c'est a ce
+     titre seul qu'ils entrent dans le corpus, avec une part reduite en
+     consequence (voir PART_PRESSE). */
+  for (const item of items.slice(0, NEWS_ANNONCES)) {
+    onFinding?.({ kind: 'article', title: item.title.replace(/ - [^-]+$/, ''), domain: item.source || hostOf(item.sourceUrl || item.link), date: item.date });
   }
   return items;
 }
@@ -1719,14 +1596,14 @@ class ReponseTronquee extends Error {
 
 // Appel structuré non streamé : renvoie l'objet JSON validé (json_schema strict).
 // Température basse par défaut : taches de fidélité (extraction, jugement)
-async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs = 120000, temperature = 0.2, model = OPENAI_MODEL) {
+async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs = 120000, temperature = 0.2, model = OPENAI_MODEL, tries = 5) {
   const r = await postOpenAI({
     model,
     input,
     text: { format: { type: 'json_schema', name: schemaName, schema, strict: true } },
     max_output_tokens: maxTokens,
     temperature,
-  }, timeoutMs);
+  }, timeoutMs, tries);
   if (!r.ok) throw new Error(`IA indisponible (${r.status})`);
   const data = JSON.parse(await readBody(r));
   logUsage(schemaName, data.usage);
@@ -1738,247 +1615,323 @@ async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs 
   return JSON.parse(text);
 }
 
-// Passe streamée : diffuse les titres au fil de l'eau (onTitle) pour le direct
-async function callOpenAIStreamed(system, user, schemaName, schema, maxTokens, onTitle, temperature = 0.2) {
-  const r = await postOpenAI({
-    model: OPENAI_MODEL,
-    stream: true,
-    input: [{ role: 'system', content: system }, { role: 'user', content: user }],
-    text: { format: { type: 'json_schema', name: schemaName, schema, strict: true } },
-    max_output_tokens: maxTokens,
-    temperature,
-  }, 120000);
-  if (!r.ok) {
-    const errText = await r.text().catch(() => '');
-    throw new Error(`IA indisponible (${r.status}) ${errText.slice(0, 200)}`);
-  }
+/* ─── EXPLORATION : lire une page, en tirer des projets et la suite du chemin ───
 
-  const reader = r.body.getReader();
-  const dec = new TextDecoder();
-  const wd = idleCanceller(reader, 30000);
-  let buf = '';
-  let full = '';
-  let titlesSeen = 0;
-  let tronquee = false;
-  const TITLE_RE = /"title"\s*:\s*"((?:[^"\\]|\\.)+)"/g;
+   Consigne délibérément courte. Elle part à chaque page, donc chaque mot y est
+   payé autant de fois qu'il y a de pages ; et il n'y a plus besoin des longues
+   mises en garde de l'ancien dépouillement, qui existaient parce qu'un corpus
+   énorme faisait lâcher les règles énoncées trop loin du point de génération. */
+const PAGE_TEXTE_LU_MAX = 9000;
+const PAGE_LIENS_SOUMIS = 60;
+
+function consignePage(communeNom) {
+  return `Tu dépouilles UNE page du site officiel de ${communeNom} pour y trouver les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES qui concernent cette commune.
+
+Retiens un projet UNIQUEMENT si cette page le décrit vraiment, et si tu peux en recopier une phrase mot pour mot. Une simple mention en passant, un lien de menu ou un titre de rubrique ne sont pas une description : dans ce cas, rends une liste vide, ce qui est le cas le plus fréquent et ne pose aucun problème.
+
+Écarte ce qui n'est pas un aménagement du territoire : raccordement d'un concessionnaire de réseau (électricité, gaz, fibre), entretien courant, contrat de service, achat de matériel, événement, élection, fait divers. Écarte aussi les projets situés dans une AUTRE commune.
+
+Si la page est une TRIBUNE ou l'expression d'un groupe politique, ne retiens RIEN : ce qu'un groupe réclame ou conteste n'est pas une opération attestée par la commune.
+
+Une page peut décrire plusieurs opérations distinctes : un parking, une résidence, un équipement et une voie réaménagée sont des projets différents, même dans le même quartier.
+
+Pour les LIENS : indique ceux qui mènent vraisemblablement à la description d'une opération, en jugeant sur leur intitulé. Ce sont eux qui guideront la suite de l'exploration, alors ne retiens ni les menus, ni les démarches administratives, ni les pages d'élus ou d'instances.`;
+}
+
+/* ─── TRI DE MASSE des adresses candidates ───
+
+   Il ECARTE l'evident, il ne choisit pas les meilleures. La nuance est tout :
+   sur trois cent vingt intitules, personne ne se trompe en refusant « etat
+   civil », « menus de la cantine » ou « recensement citoyen », alors que
+   deviner laquelle des deux cents pages restantes decrit un chantier est
+   impossible sans l'ouvrir. L'ancienne selection faisait ce pari, en retenait
+   trente, et se trompait : sur Lyon, la seule rubrique que l'accueil offrait
+   etait de la gouvernance.
+
+   Ce qui survit au tri est ouvert INTEGRALEMENT. Ce tri n'existe donc que pour
+   ne pas payer la lecture de pages dont l'intitule dit deja qu'elles n'ont
+   rien a voir avec l'amenagement du territoire. */
+const TRI_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    ecarter: {
+      type: 'array',
+      description: "Index des pages dont l'intitulé montre qu'elles ne décriront jamais une opération d'aménagement.",
+      items: { type: 'integer' },
+    },
+  },
+  required: ['ecarter'],
+};
+const TRI_LOT_MAX = 150;
+
+/* Une rubrique de PREMIER NIVEAU est un carrefour, pas une destination.
+   Mesure sur Ploudalmezeau : le tri a ecarte « mairie » sur son intitule, alors
+   que les fiches de projets de cette commune vivent sous
+   /mairie/conseil-municipal/projets/. Le sitemap a sauve la mise cette fois-la,
+   mais sur une commune sans sitemap, refuser le carrefour coupe l'acces a toute
+   une branche du site. On ne juge donc jamais ces pages sur leur nom : elles
+   sont peu nombreuses, et ce sont elles qui ouvrent le reste. */
+function estUnCarrefour(url) {
   try {
-    wd.arm();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      wd.arm();
-      buf += dec.decode(value, { stream: true });
-      let idx;
-      while ((idx = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, idx).trim();
-        buf = buf.slice(idx + 1);
-        if (!line.startsWith('data:')) continue;
-        const payload = line.slice(5).trim();
-        if (!payload || payload === '[DONE]') continue;
-        try {
-          const ev = JSON.parse(payload);
-          if (ev.type === 'response.output_text.delta' && ev.delta) {
-            full += ev.delta;
-            const titles = [...full.matchAll(TITLE_RE)];
-            for (; titlesSeen < titles.length; titlesSeen++) {
-              onTitle?.(titles[titlesSeen][1].replace(/\\(["\\])/g, '$1'));
-            }
-          } else if (ev.type === 'response.output_text.done' && ev.text) {
-            full = ev.text;
-          } else if (ev.type === 'response.completed') {
-            logUsage(schemaName, ev.response?.usage);
-          } else if (ev.type === 'response.incomplete') {
-            logUsage(schemaName, ev.response?.usage);
-            if (ev.response?.incomplete_details?.reason === 'max_output_tokens') tronquee = true;
-          }
-        } catch { /* ligne partielle : suite au prochain chunk */ }
-      }
-    }
-  } finally {
-    wd.clear();
-  }
-  if (tronquee) throw new ReponseTronquee(schemaName);
-  if (!full) throw new Error('Réponse IA vide');
-  return JSON.parse(full);
+    return new URL(url).pathname.split('/').filter(Boolean).length <= 1;
+  } catch { return false; }
 }
 
-// Passe texte : streamée (titres en direct), avec repli non streamé si le flux
-// échoue ou revient vide (aléa transitoire) - jamais d'interruption de démo
-async function callOpenAIResilient(system, user, schemaName, schema, maxTokens, onTitle, temperature = 0.2) {
-  try {
-    return await callOpenAIStreamed(system, user, schemaName, schema, maxTokens, onTitle, temperature);
-  } catch (e) {
-    /* Une coupure et une réponse tronquée demandent des remèdes OPPOSÉS. Sur
-       une coupure, rejouer à l'identique suffit. Sur une troncature, rejouer à
-       l'identique retombe sur la même limite et fait payer deux fois le plus
-       gros appel de la génération : il faut de la place en plus. */
-    const plafond = e?.tronquee ? Math.round(maxTokens * 1.6) : maxTokens;
-    console.error(`[demo-generate] repli IA non streamé après : ${e.message}${e?.tronquee ? ` (plafond de sortie relevé à ${plafond})` : ''}`);
-    return openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }], schemaName, schema, plafond, 120000, temperature);
-  }
-}
+// Au-dela, les pages racines ne sont pas des carrefours : le site est PLAT.
+const CARREFOURS_MAX = 20;
 
-// Budget de caracteres du paquet envoye a l'IA. Sans plafond, l'elargissement
-// de la collecte ferait grimper le cout d'extraction proportionnellement au
-// nombre de pages ; on borne donc, en servant d'abord les sources a plus fort
-// rendement (pages officielles, puis avis de marches, puis presse).
-const BUNDLE_MAX_CHARS = 260000;
+async function ecarterLesHorsSujet(communeNom, liens) {
+  if (liens.length <= TRI_LOT_MAX / 4) return liens;
+  /* La protection des carrefours ne vaut que sur un site HIERARCHIQUE, ou les
+     pages racines sont une poignee de rubriques qui ouvrent le reste. Mesure
+     sur mairie-vannes.fr : toutes les pages y sont a la racine, et proteger
+     « la racine » revenait a exempter le site entier du tri - 7 adresses
+     ecartees sur 280, puis 267 lectures dont une bonne moitie pour rien. */
+  const racines = liens.filter((l) => estUnCarrefour(l.url));
+  const siteHierarchique = racines.length <= CARREFOURS_MAX;
+  const carrefours = siteHierarchique ? racines : [];
+  const aTrier = siteHierarchique ? liens.filter((l) => !estUnCarrefour(l.url)) : liens;
+  const lots = [];
+  for (let i = 0; i < aTrier.length; i += TRI_LOT_MAX) lots.push(aTrier.slice(i, i + TRI_LOT_MAX));
 
-/* Quotas par origine. Le paquet est plafonne globalement, mais un plafond
-   unique laissait la liste des marches publics - tres compacte, une ligne par
-   avis - consommer tout le budget et evincer la prose de la presse et de la
-   mairie (mesure : 92 % des fiches issues d'une seule source sur Tassin, ZERO
-   de la presse alors que 22 articles avaient ete lus). Chaque origine dispose
-   donc de sa part reservee, et le reliquat non consomme profite aux autres. */
-const PART_MAIRIE = 0.55;
-const PART_BOAMP = 0.20;
-const PART_PRESSE = 0.25;
+  const system = `Tu prepares le recensement des operations d'amenagement de la commune de ${communeNom} a partir de son site officiel. On va OUVRIR toutes les pages que tu ne rejettes pas : ton travail est uniquement d'ecarter celles dont l'intitule prouve deja qu'elles n'ont rien a voir.
 
-function buildSourcesBundle({ mairie, news, boamp }) {
-  const parts = [];
-  let budget = BUNDLE_MAX_CHARS;
+ECARTE : demarches administratives, etat civil, inscriptions scolaires, menus de cantine, agenda culturel, vie associative, sport et loisirs, annuaire, contacts, recrutement, mentions legales, comptes rendus de conseil, elus et instances (adjoints, commissions, groupes politiques, organigramme), pages de compte ou de connexion, articles de vie quotidienne sans rapport avec un chantier.
 
-  /* Les parts sont des PLANCHERS, pas des plafonds. Traitees comme des
-     plafonds, elles faisaient fondre le corpus : une commune dont la mairie
-     n'expose que trois pages laissait 60 000 caracteres inutilises que la
-     presse ne pouvait pas reprendre, et le paquet tombait de 12 000 a 5 400
-     mots. Premiere passe : chaque origine sert sa part reservee. Seconde
-     passe : le reliquat va a qui a encore de la matiere. */
-  const groupes = [];
-  const pushGroup = (textes, reserve) => {
-    groupes.push({ textes, reserve, i: 0 });
-  };
-  const servir = (g, plafond) => {
-    let restant = Math.min(plafond, budget);
-    while (g.i < g.textes.length && restant > 0 && budget > 0) {
-      const t = g.textes[g.i];
-      const morceau = t.length > restant ? t.slice(0, restant) : t;
-      parts.push(morceau);
-      restant -= morceau.length;
-      budget -= morceau.length;
-      g.i++;
-    }
-  };
+N'ECARTE PAS une page dont l'intitule est vague, generique ou peu clair : dans le doute on ouvre, cela ne coute presque rien, alors qu'une page ecartee a tort fait disparaitre un projet de la carte. N'ecarte jamais une actualite, un sommaire, une rubrique de travaux, d'urbanisme, de cadre de vie ou de projets.
 
-  pushGroup(
-    mairie.pages.map((p) => `SOURCE OFFICIELLE [${p.url}] (${p.title}) :\n${p.text}`)
-      // Les PDF officiels ferment la part « mairie » : ce sont les seules
-      // sources qui portent un calendrier de chantier daté
-      .concat((mairie.pdfTextes || []).map((d) => `DOCUMENT OFFICIEL PDF [${d.url}] (${d.label}) :\n${d.texte}`)),
-    BUNDLE_MAX_CHARS * PART_MAIRIE
-  );
-  if (boamp.length) {
-    // La date est explicitement qualifiée : sans cela, le rédacteur la reprenait
-    // comme un début ou une fin de travaux dans la section « Calendrier ».
-    const entete = 'MARCHÉS PUBLICS DE TRAVAUX (BOAMP). La date est celle de PARUTION DE L\'AVIS, ce n\'est ni un début ni une fin de chantier. Le champ « Lieu d\'exécution » est l\'adresse OFFICIELLE du chantier déclarée par le maître d\'ouvrage : recopie-la telle quelle dans le champ address du projet correspondant :';
-    pushGroup([entete].concat(boamp.map((b) => [
-      `- [${b.link}] avis paru le ${b.date} | ${b.nature || 'Avis'} | maître d'ouvrage : ${b.acheteur || 'non précisé'}${b.themes ? ` | thèmes : ${b.themes}` : ''}`,
-      `  Objet : ${b.title}`,
-      b.lieu ? `  Lieu d'exécution : ${b.lieu}` : '',
-      b.description ? `  Description : ${b.description}` : '',
-      b.lots?.length ? `  Lots : ${b.lots.join(' ; ')}` : '',
-    ].filter(Boolean).join('\n'))), BUNDLE_MAX_CHARS * PART_BOAMP);
-  }
-  pushGroup(
-    news.map((n) => `ARTICLE DE PRESSE [${n.finalUrl || n.link}] (${n.source || hostOf(n.finalUrl || n.link)}, ${n.date}) :\nTitre : ${n.title}\n${n.text || '(contenu non accessible, titre seul)'}`),
-    BUNDLE_MAX_CHARS * PART_PRESSE
-  );
+N'ecarte jamais non plus une RUBRIQUE, c'est-a-dire une page dont le chemin est court et l'intitule general (« mairie », « ma ville », « vivre ici ») : ce sont des carrefours qui menent ailleurs, et leur nom ne dit rien de ce qu'ils contiennent. Le patrimoine bati fait partie de l'amenagement des qu'il est question de le restaurer : n'ecarte une page de patrimoine que si elle raconte l'histoire ou la legende d'un lieu.`;
 
-  // Passe 1 : la part garantie de chaque origine
-  for (const g of groupes) servir(g, g.reserve);
-  // Passe 2 : le budget restant, a qui a encore de la matiere
-  for (const g of groupes) servir(g, budget);
-
-  return parts.join('\n\n---\n\n');
-}
-
-/* Passe UNIQUE d'extraction et de selection.
-   Le corpus n'est plus lu deux fois : la citation obligatoire, seule vraie
-   valeur ajoutee de l'ancienne passe de candidats, fait partie du schema
-   final. Economie mesuree : la moitie du plus gros poste de tokens. */
-async function extractProjects(commune, bundle, onTitle) {
-  const system = `Tu es un rédacteur territorial exigeant. Tu dépouilles des sources publiques au sujet de la commune de ${commune.nom} et tu en tires la liste des projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES qui la concernent.
-
-Sois EXHAUSTIF : retiens CHAQUE projet réel et distinct attesté par les sources, sans aucune limite de nombre. Ne vise pas un chiffre rond, ne résume pas la liste, n'élague pas les projets modestes. Une métropole peut légitimement en compter plusieurs dizaines : une liste courte sur une grande ville est une erreur, pas une synthèse.
-
-Les sources sont de trois natures : pages officielles de la mairie, articles de presse, avis de marchés publics. Dépouille les TROIS avec la même attention. La liste de marchés publics est compacte et facile à moissonner, mais un projet raconté sur une page de la mairie ou dans un article de presse compte autant : ne remplis pas ta liste avec les seuls marchés publics.
-
-Règles :
-- Uniquement des projets physiques et localisables qui touchent le territoire de la commune. Un projet à cheval sur plusieurs communes (ligne de transport, piste cyclable structurante, ouvrage d'art, opération intercommunale) COMPTE dès qu'une partie s'y trouve : décris la portion locale. Un projet contesté compte aussi : c'est l'aménagement physique qui t'intéresse, pas la polémique.
-- ÉCARTE ce qui n'est pas un aménagement du territoire : raccordement d'un concessionnaire de réseau (électricité, gaz, télécoms, fibre), entretien courant, contrat de service, achat de matériel. Écarte aussi les événements, élections, faits divers, et tout projet situé entièrement dans une AUTRE commune.
-- Ne fusionne que deux entrées qui désignent EXACTEMENT le même projet au même endroit. Un parking, une résidence rénovée, un équipement (piscine, EHPAD, médiathèque), une voie réaménagée, un espace public sont des projets DISTINCTS, même dans le même quartier.
-- evidence_quote : une citation exacte, copiée MOT POUR MOT depuis la source. C'est la preuve du projet : si tu ne peux pas citer, ne le retiens pas.
-- source_url : obligatoirement une URL présente entre crochets dans les sources fournies.
-- confidence "haute" si la citation atteste clairement le projet ; "moyenne" si l'information est réelle mais partielle ; "basse" seulement si douteux (il sera écarté).
-- category_slug (catégorie dominante) : urbanisme (ZAC, aménagement large), renovation-urbaine (réhabilitation de quartier ou de logement social), mobilite (voirie, transport, pistes cyclables, gare), environnement (nature, eau, énergie), equipement-public (école, gymnase, médiathèque, hôpital, mairie, centre technique municipal, poste de police, tout bâtiment porté par la collectivité pour un service public), patrimoine (monument, église, château), economique (zone d'activité, commerces, immobilier d'entreprise privé), logement (résidence, cité universitaire, programme de logements), cadre-de-vie (espaces publics, parcs, places). En cas d'hésitation entre economique et equipement-public, tranche par le maître d'ouvrage : une opération portée par la collectivité relève de equipement-public.
-- description : 2 à 4 phrases sobres et factuelles, dates si connues, zéro superlatif, en français impeccable.
-- place : le lieu géocodable le plus précis mentionné (rue, quartier, équipement), chaîne vide sinon.
-- address : recopie l'adresse postale exacte du projet si elle figure dans les sources (numéro + rue, ou nom de rue seul). Pour un projet issu d'un marché public, le champ « Lieu d'exécution » de l'avis EST cette adresse : recopie-la en retirant le code postal et le nom de la commune. Ignore les mentions vagues du type « différents bâtiments de la commune », qui ne sont pas des adresses. Chaîne vide si rien n'est écrit. N'invente JAMAIS.
-- geo_query : la MEILLEURE requête pour localiser CE projet sur une carte OpenStreetMap dans la commune. Adresse précise si connue, sinon le nom EXACT de l'équipement, du quartier ou du lieu-dit, sans le mot "projet" ni de verbe (écris "Centre nautique Robert Sautin", pas "Rénovation du centre nautique"). Ne laisse JAMAIS ce champ vide.`;
-  /* Rappel des consignes APRES le corpus.
-     Les règles étaient toutes placées avant 260 000 caractères de sources, donc
-     très loin du point de génération, et le code contient la preuve qu'elles
-     lâchent : le filtre des concessionnaires en JavaScript existe parce que le
-     modèle retenait des interventions ENEDIS que la consigne lui interdit
-     explicitement. Le phénomène s'aggrave avec la taille du corpus, c'est-à-dire
-     précisément sur les métropoles, les prospects qui comptent. Environ 200
-     tokens, coût négligeable à l'échelle de cet appel. */
-  const rappel = `
-
-RAPPEL, maintenant que tu as lu les sources. Avant de répondre, vérifie chaque projet de ta liste :
-1. Est-ce un aménagement PHYSIQUE du territoire ? Un raccordement de réseau (électricité, gaz, fibre, télécoms), de l'entretien courant ou un achat de matériel n'en est pas un : retire-le.
-2. evidence_quote est-elle copiée MOT POUR MOT depuis la source citée ? Une phrase reformulée, résumée ou reconstituée n'est pas une citation : sans citation exacte, retire le projet.
-3. source_url figure-t-elle bien entre crochets dans les sources ci-dessus ?
-4. address : est-elle ÉCRITE dans les sources ? Si tu l'as déduite, devinée ou complétée, remplace-la par une chaîne vide.
-5. Deux entrées de ta liste désignent-elles vraiment deux chantiers DIFFÉRENTS ? Ne fusionne que ce qui est identique, et ne fusionne jamais deux équipements distincts d'un même quartier.
-6. Sois EXHAUSTIF : n'élague aucun projet réel et attesté pour faire court.`;
-
-  // Résilient : le flux OpenAI revient parfois vide (aléa constaté) -> une
-  // passe non streamée en secours plutôt que d'interrompre toute la démo
-  const out = await callOpenAIResilient(system, `SOURCES :\n\n${bundle}${rappel}`, 'projets', FINAL_SCHEMA, 26000, onTitle);
-  return out.projects || [];
-}
-
-// Rédaction par lots : un appel qui échoue (flux tronqué, coupure réseau) ne
-// coûte que son lot, pas tous les articles de la commune.
-const ARTICLES_BATCH = 3;
-
-async function writeArticlesBatch(commune, projects, offset, pdfs, onTitle) {
-  const system = `Tu es un rédacteur territorial. Pour CHAQUE projet fourni (index conservé), écris un article markdown de 150 à 250 mots destiné aux habitants de ${commune.nom}.
-
-RÈGLE ABSOLUE : tu ne disposes que du champ "extrait_source" de chaque projet. Chaque affirmation de ton article doit pouvoir se lire dans cet extrait ou dans la description. N'ajoute AUCUN détail technique qui n'y figure pas : pas d'éclairage LED, pas de matériaux, pas de nombre de places, pas d'essences d'arbres, pas de dispositifs inventés. Si l'extrait est pauvre, écris un article court : mieux vaut trois lignes exactes que quinze lignes plausibles. Ne contredis jamais l'intention de la source (si elle dit "limiter le trafic", n'écris pas "améliorer la fluidité").
-
-Structure : 2 phrases d'introduction, une section "## Ce qui change" avec 2 à 4 puces tirées de l'extrait, une section "## Calendrier" UNIQUEMENT si l'extrait donne une date de CHANTIER (début, fin, livraison, inauguration). Une date de parution d'avis de marché n'est PAS un calendrier de travaux : dans ce cas, pas de section Calendrier du tout. Si un document PDF fourni correspond CLAIREMENT au projet, ajoute "## Documents" avec le lien markdown. Termine toujours par : *Fiche générée automatiquement à partir de sources publiques : [NOM_DU_MEDIA](URL_SOURCE).* Ton sobre et factuel, aucun superlatif.`;
-  const user = `PROJETS :\n${JSON.stringify(projects.map((p, i) => ({
-    index: i,
-    title: p.title,
-    description: p.description,
-    place: p.place,
-    source_url: p.source_url,
-    source_media: hostOf(p.source_url),
-    extrait_source: p.source_excerpt || '(aucun extrait disponible : reste sur la description, sans ajouter de détail)',
-  })), null, 1)}\n\nDOCUMENTS PDF DISPONIBLES :\n${pdfs.length ? pdfs.map((p) => `- [${p.label}](${p.url})`).join('\n') : '(aucun)'}`;
-  const out = await callOpenAIResilient(system, user, 'articles_projets', ARTICLES_SCHEMA, 4000, onTitle, 0.4);
-  // L'index renvoyé est local au lot : on le replace dans la numérotation globale
-  return (out.articles || [])
-    .filter((a) => a && typeof a.markdown === 'string' && a.markdown.trim())
-    .map((a) => ({ ...a, index: offset + (typeof a.index === 'number' ? a.index : 0) }));
-}
-
-async function writeArticles(commune, projects, pdfs, onTitle) {
-  const batches = [];
-  for (let i = 0; i < projects.length; i += ARTICLES_BATCH) {
-    batches.push({ items: projects.slice(i, i + ARTICLES_BATCH), offset: i });
-  }
-  const results = await inChunks(batches, 2, async ({ items, offset }) => {
+  const parLot = await inChunks(lots, 4, async (lot) => {
     try {
-      return await writeArticlesBatch(commune, items, offset, pdfs, onTitle);
+      const user = JSON.stringify(lot.map((l, i) => ({ index: i, intitule: l.label, chemin: l.url.replace(/^https?:\/\/[^/]+/, '') })), null, 0);
+      const out = await openAIStructured(
+        [{ role: 'system', content: system }, { role: 'user', content: user }],
+        /* Le tri reste sur le GRAND modele : c'est un jugement, pas une
+           extraction. Mesure sur Vannes : le modele leger n'ecarte que 9
+           adresses sur 280 la ou le grand en ecarte 189, et chaque adresse
+           gardee a tort se paie ensuite en lecture. Le tri ne coute que
+           quelques appels par generation, l'economie serait fausse. */
+        'tri_liens', TRI_SCHEMA, 2000, 60000, 0.1
+      );
+      const ecartes = new Set((out.ecarter || []).filter((i) => Number.isInteger(i) && i >= 0 && i < lot.length));
+      if (process.env.DEMO_DUMP) {
+        // Ce que le tri refuse d'ouvrir. Sans cette trace, on ne peut ni
+        // verifier qu'il ecarte bien, ni voir ce qu'il jette a tort.
+        for (const i of ecartes) console.log(`[demo-tri] ECARTE : ${lot[i].label} (${lot[i].url.replace(/^https?:\/\/[^/]+/, '')})`);
+      }
+      return lot.filter((_, i) => !ecartes.has(i));
     } catch (e) {
-      console.error(`[demo-generate] articles lot ${offset} :`, e.message);
-      return [];
+      // Sans tri, on ouvre tout : c'est plus cher, jamais moins bon.
+      console.warn(`[demo-generate] tri des liens indisponible, tout est ouvert :: ${e?.message}`);
+      return lot;
     }
   });
-  return results.flat();
+  return [...carrefours, ...parLot.flat()];
+}
+
+/* Extrait de page centre sur une citation. Sans citation retrouvee, le debut
+   de la page fait l'affaire : c'est la ou un CMS place le chapeau. */
+function extraitAutourDe(texte, citation) {
+  const t = String(texte || '');
+  const at = citation ? t.indexOf(String(citation).slice(0, 40)) : -1;
+  const from = at > 0 ? Math.max(0, at - 600) : 0;
+  return t.slice(from, from + SOURCE_EXCERPT_CHARS).trim();
+}
+
+async function lirePage(commune, page, liens) {
+  const listeLiens = liens.slice(0, PAGE_LIENS_SOUMIS);
+  const user = `PAGE : ${page.title || '(sans titre)'}
+ADRESSE : ${page.url}
+
+TEXTE DE LA PAGE :
+${page.text.slice(0, PAGE_TEXTE_LU_MAX)}
+
+LIENS DE CETTE PAGE :
+${listeLiens.length ? listeLiens.map((l, i) => `${i}. ${l.label}`).join('\n') : '(aucun)'}`;
+
+  const out = await openAIStructured(
+    [{ role: 'system', content: consignePage(commune.nom) }, { role: 'user', content: user }],
+    /* Deux tentatives, pas cinq : une page perdue sur cent vingt ne coute
+       rien, alors que cinq reprises avec recul exponentiel immobilisent une
+       place de la vague pendant une demi-minute. C'est l'inverse du gros appel
+       d'autrefois, ou tout reposait sur une seule reponse. */
+    'lecture_page', PAGE_SCHEMA, 3000, 45000, 0.2, OPENAI_MODEL_LIGHT, 2
+  );
+  const projets = (out.projets || []).map((p) => ({
+    ...p,
+    // L'adresse de la source est celle de la page lue, jamais une recopie
+    source_url: page.url,
+    origine: 'commune',
+    sources: [{ url: page.url, type: 'mairie' }],
+    /* Un extrait de la page, centre sur la citation quand on la retrouve. Il
+       sert deux fois : de matiere a l'article, et de repli au geocodage, car
+       les pages citent souvent la voie en toutes lettres la ou le modele
+       nomme le secteur (« ancienne gare » se geocode mal, « rue de Kerjolys »
+       parfaitement). */
+    page_excerpt: extraitAutourDe(page.text, p.evidence_quote),
+  }));
+  const suivants = [...new Set(out.liens || [])]
+    .filter((i) => Number.isInteger(i) && i >= 0 && i < listeLiens.length)
+    .map((i) => listeLiens[i]);
+  return { projets, suivants, interet: out.interet || 'moyenne' };
+}
+
+
+/* ─── RÉDACTION D'UN ARTICLE ───
+
+   Un appel PAR PROJET, avec recherche web, comme le fait l'outil de rédaction
+   de l'admin. La démo écrivait auparavant trois articles par appel, à partir du
+   seul extrait de ses sources, et le résultat s'en ressentait : mesure sur
+   Lyon, des articles de 54 mots pour une cible annoncée de 150 à 250.
+
+   Le lot a été supprimé pour une raison mesurée, pas par élégance : prié
+   d'écrire trois articles en une fois avec une recherche à sa disposition, le
+   modèle fait UNE recherche et rend UN article ; contraint d'en rendre trois,
+   il n'en fait AUCUNE et invente trois articles de trois cents mots. Le lot est
+   le pire des deux mondes. Un appel par projet règle les deux, et rattache en
+   prime chaque citation au bon projet sans aucun travail.
+
+   La recherche est RESTREINTE aux domaines déjà attestés pour ce projet : le
+   site de la commune et les sources qui ont servi à l'établir. C'est ce qui
+   permet d'aller chercher de la matière sans rouvrir la porte au blog de
+   quartier, et donc de garder l'exigence de sourçage qui fait toute la valeur
+   de cette démonstration. */
+const ARTICLE_MAX_TOKENS = 1400;
+// En deca, ce n'est pas un article : mieux vaut une fiche sans texte qu'une
+// fiche portant une phrase d'excuse.
+const ARTICLE_MIN_CHARS = 200;
+const ARTICLE_TIMEOUT_MS = 60000;
+// Modèle et outil de recherche. Sortis en constantes pour être ajustables sans
+// toucher au code, les noms d'outils de l'API évoluant plus vite que ce fichier.
+const ARTICLE_MODEL = process.env.DEMO_ARTICLE_MODEL || 'gpt-4.1';
+const ARTICLE_OUTIL = process.env.DEMO_ARTICLE_TOOL || 'web_search';
+
+/* Domaines où la recherche a le droit d'aller pour CE projet. */
+function domainesAutorises(projet, mairieHost) {
+  const hotes = new Set();
+  if (mairieHost) hotes.add(mairieHost.replace(/^www\./, ''));
+  for (const s of projet.sources || []) {
+    const h = hostOf(s.url);
+    if (h) hotes.add(h);
+  }
+  const cite = hostOf(projet.source_url);
+  if (cite) hotes.add(cite);
+  return [...hotes].filter(Boolean);
+}
+
+/* Texte et citations d'une réponse de l'API Responses.
+   Les annotations sont la SEULE source d'adresses réelles : invité à remplir
+   lui-même un champ d'URL, le modèle y écrit un jeton interne. */
+function texteEtCitations(data) {
+  const annotations = [];
+  let texte = '';
+  for (const item of data?.output || []) {
+    for (const bloc of item?.content || []) {
+      if (typeof bloc?.text === 'string') texte += bloc.text;
+      if (Array.isArray(bloc?.annotations)) annotations.push(...bloc.annotations);
+    }
+  }
+  return { texte: texte.trim(), annotations };
+}
+
+async function redigerArticle(commune, projet, pdfs, mairieHost) {
+  const system = promptArticle({ commune: commune.nom, stricte: true });
+  const domaines = domainesAutorises(projet, mairieHost);
+  // Les intitules seuls : l'adresse ne sert qu'au rattachement, fait en code.
+  const documents = pdfs.length
+    ? pdfs.map((d) => `- ${d.label}`).join('\n')
+    : '(aucun)';
+  const user = `PROJET : ${projet.title}
+${projet.place ? `LIEU : ${projet.place}\n` : ''}COMMUNE : ${commune.nom}
+DESCRIPTION ÉTABLIE : ${projet.description || '(aucune)'}
+EXTRAIT DES SOURCES OFFICIELLES :
+${projet.source_excerpt || '(aucun extrait : reste sur la description, sans ajouter aucun détail)'}
+
+DOCUMENTS OFFICIELS DISPONIBLES (recopie l'intitulé exact de celui qui porte sur CE projet, dans le champ prévu, et ne le cite jamais dans le corps du texte) :
+${documents}
+
+Consulte les pages des sources de ce projet pour compléter ce que l'extrait ne dit pas, puis rédige l'article.`;
+
+  const corps = {
+    model: ARTICLE_MODEL,
+    input: [{ role: 'system', content: system }, { role: 'user', content: user }],
+    max_output_tokens: ARTICLE_MAX_TOKENS,
+    /* La sortie est CONTRAINTE, comme partout ailleurs dans ce fichier.
+       Laissée libre, elle est publiée telle quelle sur la fiche, et le modèle
+       s'adresse volontiers au demandeur : « Voici un texte factuel et sobre : »,
+       ou pire « Je n'ai trouvé aucune information récente sur ce projet ».
+       Ce qui se lit très bien dans une fenêtre de rédaction où un agent relit
+       devient, sur une carte de démonstration, une fiche qui parle à un élu de
+       ce que l'IA n'a pas trouvé. Le champ unique force l'article et rien
+       d'autre ; les citations continuent de remonter normalement. */
+    text: {
+      format: {
+        type: 'json_schema',
+        name: 'article_projet',
+        strict: true,
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            markdown: {
+              type: 'string',
+              description: "L'article en markdown, et lui seul : aucun préambule, aucune phrase adressée au lecteur de la consigne, aucun commentaire sur ce que tu as trouvé ou non.",
+            },
+            /* Le lien du document est construit EN CODE à partir de cet
+               intitulé : le modèle ne recopie jamais une adresse fidèlement, et
+               le nettoyage des liens supprimerait de toute façon celle qu'il
+               aurait écrite dans le corps du texte. */
+            document: {
+              type: 'string',
+              description: "Intitulé EXACT, recopié de la liste fournie, du document officiel qui porte sur CE projet précis. Chaîne vide si aucun document de la liste ne le concerne clairement.",
+            },
+          },
+          required: ['markdown', 'document'],
+        },
+      },
+    },
+  };
+  /* Sans domaine attesté, on n'ouvre pas la recherche : elle ramènerait des
+     pages que rien ne rattache à ce projet, ce que cette démo s'interdit. */
+  if (domaines.length) {
+    corps.tools = [{ type: ARTICLE_OUTIL, filters: { allowed_domains: domaines } }];
+  }
+
+  const r = await postOpenAI(corps, ARTICLE_TIMEOUT_MS);
+  if (!r.ok) {
+    const detail = await r.text().catch(() => '');
+    throw new Error(`IA indisponible (${r.status}) ${detail.slice(0, 200)}`);
+  }
+  const data = JSON.parse(await readBody(r));
+  logUsage('article', data.usage);
+  const { texte, annotations } = texteEtCitations(data);
+  if (!texte) throw new Error('Article vide');
+  let markdown = '';
+  let document = '';
+  try {
+    const sortie = JSON.parse(texte);
+    markdown = String(sortie.markdown || '').trim();
+    document = String(sortie.document || '').trim();
+  } catch { markdown = ''; }
+  // Un article illisible ou vide est un MANQUE, pas une panne : la fiche existe
+  // quand même, avec sa description et son illustration.
+  if (markdown.length < ARTICLE_MIN_CHARS) throw new Error('Article trop court ou illisible');
+
+  const sources = sourcesDesAnnotations(annotations);
+  /* Aucune citation ne remonte : la recherche n'a rien trouvé, ou n'a pas eu
+     lieu. L'article n'en est pas moins écrit à partir de l'extrait, qui est
+     attesté ; on cite alors la source d'origine du projet, comme avant. */
+  const citees = sources.length
+    ? sources
+    : [{ url: projet.source_url, title: hoteLisible(projet.source_url) }].filter((s) => s.url);
+  /* Le dossier officiel qui porte sur ce projet, rattache par son intitule.
+     C'est ce qu'un elu ouvre en premier : la deliberation ou la concertation
+     qui fonde l'operation. */
+  const dossier = pdfs.find((d) => d.label && d.label.trim() === document);
+  const blocDossier = dossier ? `\n\n## Document officiel\n\n- [${dossier.label}](${dossier.url})\n` : '';
+  return `${retirerLesLiens(markdown)}${blocDossier}${blocSources(citees)}`;
 }
 
 // Formats rejetes par la vision gpt-4o : un seul suffit a faire echouer TOUT
@@ -2083,6 +2036,62 @@ function centroidOf(geometry) {
     lng: pts.reduce((s, p) => s + p[0], 0) / n,
     lat: pts.reduce((s, p) => s + p[1], 0) / n,
   };
+}
+
+/* ─── Ce que la carte publiée reçoit pour un projet ───
+
+   Une emprise réelle est l'argument le plus fort de la démonstration, mais à
+   l'échelle où la carte s'ouvre, une cour d'école de quarante mètres est un
+   point de deux pixels : elle existe sans se voir. On publie donc, EN PLUS du
+   contour et jamais à sa place, un repère ponctuel dès que l'emprise est trop
+   petite pour se lire.
+
+   Rien à ajouter côté carte : celle-ci pose déjà un marqueur de catégorie sur
+   toute forme ponctuelle d'une contribution, et cadre la fiche sur l'ensemble
+   des formes, si bien qu'un point posé à l'intérieur du contour ne déplace pas
+   le cadrage. L'écran de génération fait d'ailleurs exactement ce choix depuis
+   toujours : il pose une épingle et lève l'emprise pour chaque projet. La carte
+   livrée ressemble enfin à celle que le visiteur a vue se construire. */
+
+// Taille minimale, en pixels d'écran, sous laquelle une forme n'est plus lue
+// comme une forme mais comme une bavure. L'épingle en fait quarante de haut.
+const REPERE_MIN_PX = 24;
+// Longueur de l'équateur en mètres, divisée par la taille d'une tuile : c'est
+// la résolution d'une carte web au zoom 0, à l'équateur.
+const RESOLUTION_ZOOM_0 = 156543.03;
+
+function tailleMinimaleVisible(zoom, lat) {
+  return (REPERE_MIN_PX * RESOLUTION_ZOOM_0 * Math.cos((lat * Math.PI) / 180)) / (2 ** zoom);
+}
+
+/* Point de repère d'une géométrie.
+   Sur un tracé, le sommet du milieu, qui est forcément SUR le tracé ; sur une
+   surface, son centre, c'est-à-dire exactement le point où l'écran de
+   génération a fait apparaître l'épingle devant le visiteur. */
+function pointDeRepere(geometry) {
+  if (/LineString/.test(geometry.type)) {
+    const pts = [];
+    const walk = (c) => { if (typeof c[0] === 'number') pts.push(c); else c.forEach(walk); };
+    walk(geometry.coordinates);
+    if (!pts.length) return null;
+    return pts[Math.floor(pts.length / 2)];
+  }
+  const c = centroidOf(geometry);
+  return Number.isFinite(c.lat) && Number.isFinite(c.lng) ? [c.lng, c.lat] : null;
+}
+
+function featuresDuProjet(geometry, title, zoom, lat) {
+  const emprise = { type: 'Feature', geometry, properties: { name: title } };
+  if (!geometry || geometry.type === 'Point') return [emprise];
+
+  const { w, h } = geometryExtentKm(geometry);
+  if (Math.max(w, h) * 1000 >= tailleMinimaleVisible(zoom, lat)) return [emprise];
+
+  const repere = pointDeRepere(geometry);
+  if (!repere) return [emprise];
+  /* L'emprise reste EN PREMIER : la carte interroge les formes avant les
+     marqueurs, et le survol doit continuer à souligner le contour. */
+  return [emprise, { type: 'Feature', geometry: { type: 'Point', coordinates: repere }, properties: { name: title } }];
 }
 
 /* Le lieu trouvé porte-t-il un mot du lieu cherché ?
@@ -2256,12 +2265,22 @@ const PLACES_SCHEMA = {
 async function askAiForPlaces(commune, projets) {
   if (!projets.length) return [];
   try {
-    const system = `Tu localises des projets urbains dans la commune de ${commune.nom}. Pour CHAQUE projet (index conservé), donne le nom du lieu le plus précis qui permette de le retrouver sur une carte de cette commune : une rue, une place, un quartier, un lieu-dit ou un équipement nommé. Écris-le tel qu'il apparaîtrait sur une carte, sans verbe ni mot « projet ». Si le texte fourni ne permet vraiment pas de situer le projet, rends une chaîne vide plutôt qu'une invention : une position fausse est pire qu'une absence.`;
+    /* Dernier recours : les designations precedentes ont toutes echoue, donc ce
+       qu'on cherche ici est CE QUE LES ANNUAIRES CONNAISSENT, pas la meilleure
+       description du lieu. Mesure sur Ploudalmezeau : « secteur de l'ancienne
+       gare » est la bonne reponse en francais et n'existe sur aucune carte,
+       alors que la meme page cite « rue de Kerjolys », qui se geocode du
+       premier coup. D'ou l'insistance sur la VOIE. */
+    const system = `Tu localises des projets urbains dans la commune de ${commune.nom}. Les designations evidentes ont deja ete essayees sans succes : ce qu'on te demande est une adresse qui existe REELLEMENT sur une carte.
+
+Pour CHAQUE projet (index conservé), cherche dans l'extrait fourni une VOIE nommee - rue, avenue, boulevard, place, chemin, route, quai - et rends-la. C'est le seul type de lieu qu'un annuaire d'adresses connait a coup sur. A defaut de voie, rends le nom exact d'un equipement (« Centre nautique Robert Sautin »), puis seulement en dernier ressort un lieu-dit.
+
+Ne rends JAMAIS un nom de secteur, de quartier ou d'operation (« secteur de l'ancienne gare », « ecoquartier »): ces noms ne figurent sur aucune carte et la recherche echouera encore. Si l'extrait ne cite ni voie ni equipement, rends une chaine vide : une position fausse est pire qu'une absence.`;
     const user = JSON.stringify(projets.map((p, i) => ({
       index: i,
       titre: p.title,
       description: (p.description || '').slice(0, 300),
-      extrait: (p.source_excerpt || '').slice(0, 700),
+      extrait: (p.source_excerpt || '').slice(0, 1200),
     })), null, 1);
     const out = await openAIStructured(
       [{ role: 'system', content: system }, { role: 'user', content: user }],
@@ -2304,7 +2323,9 @@ function locationQueries(project) {
 
      Quand l'IA a nomme un lieu, sa designation fait foi : si ce lieu est
      introuvable dans les annuaires, le projet part sans emplacement, ce qui est
-     le resultat honnete. On ne se rabat pas sur un lieu voisin. */
+     le resultat honnete. On ne se rabat pas sur un lieu voisin. C'est a la
+     LECTURE de la page de nommer un lieu geocodable, ce que sa consigne lui
+     demande explicitement. */
   const aUnLieuNomme = [project.address, project.geo_query, project.place]
     .some((x) => motsSignificatifs(String(x || '')).size > 0);
   const candidats = [
@@ -2440,13 +2461,142 @@ async function commonsQuery(params) {
   } catch { return []; }
 }
 
-// Photos géolocalisées autour d'un point
-const commonsCandidatesAt = (lat, lng, radius) =>
-  commonsQuery({ generator: 'geosearch', ggscoord: `${lat}|${lng}`, ggsradius: radius, ggslimit: 8, ggsnamespace: 6 });
+/* La recherche de photos PAR PROXIMITE a été retirée.
+
+   Elle demandait à Wikimedia Commons les photos prises dans un rayon de trois
+   cents mètres autour du projet, en supposant qu'une photo voisine montrerait
+   au moins le quartier. Le fonds libre français n'est pas un relevé du terrain,
+   c'est un album de monuments : à trois cents mètres d'un réaménagement de
+   voirie il n'y a pas la rue, il y a l'église classée. Mesure sur Lyon, les
+   trois seules illustrations issues de ce chemin étaient hors sujet toutes les
+   trois, et le juge visuel ne pouvait pas les rattraper puisqu'on lui demandait
+   de choisir la meilleure d'un lot entièrement hors sujet.
+   Ce qui la remplace est la vue aérienne du lieu exact, plus bas : elle ne
+   montre pas le projet, mais elle montre l'endroit, ce qui est vérifiable par
+   un élu qui connaît sa commune. */
 
 // Photos taguées au nom du lieu mais pas géolocalisées à proximité (équipements)
 const commonsTextCandidates = (query) =>
   commonsQuery({ generator: 'search', gsrsearch: query, gsrnamespace: 6, gsrlimit: 6 });
+
+/* ─── Vue aérienne du lieu, via la Géoplateforme de l'IGN ───
+
+   Service public, gratuit, sans clé, et surtout JUSTE PAR CONSTRUCTION : elle
+   ne prétend pas montrer le projet, elle montre l'endroit où il se trouve. Elle
+   remplace la recherche par proximité pour tous les projets dont aucune source
+   ne publie de visuel, ce qui est le cas de la totalité de ceux qui viennent
+   d'un avis de marché public.
+
+   Le service répond TOUJOURS 200, même hors de sa zone de couverture, où il
+   rend une image uniforme de quelques kilo-octets. Aucun code d'erreur ne
+   signale ce cas : c'est la sonde plus bas qui le reconnaît. */
+const IGN_WMS = 'https://data.geopf.fr/wms-r/wms';
+const IGN_COUCHE_AERIENNE = 'HR.ORTHOIMAGERY.ORTHOPHOTOS';
+const IGN_CREDIT = 'Vue aérienne IGN, BD ORTHO (Géoplateforme)';
+// Format de la vignette. Le 16/9 exact est celui de la couverture d'une fiche :
+// toute autre proportion serait recadrée à l'affichage.
+const IGN_LARGEUR_PX = 1280;
+const IGN_HAUTEUR_PX = 720;
+const IGN_RATIO = IGN_LARGEUR_PX / IGN_HAUTEUR_PX;
+/* Largeur de terrain montrée, en mètres. Le plancher tient à la résolution de
+   la prise de vue, environ 20 cm par pixel : en dessous, le service agrandit et
+   l'image devient une bouillie de toitures. Le plafond suit la taille maximale
+   d'une emprise de projet déjà admise ailleurs dans ce fichier, et reste
+   lisible : à 1 400 mètres on distingue encore les rues et les îlots. */
+const IGN_LARGEUR_MIN_M = 220;
+const IGN_LARGEUR_MAX_M = 1600;
+// Marge autour de l'emprise : un projet collé aux bords de sa vignette se lit
+// mal, on montre aussi ce qu'il y a autour.
+const IGN_MARGE = 1.6;
+const METRES_PAR_DEGRE_LAT = 111320;
+
+function borner(v, min, max) {
+  return Math.min(Math.max(v, min), max);
+}
+
+/* URL d'une vue aérienne cadrée sur une géométrie de projet.
+   Le cadrage suit la proportion de l'IMAGE et non celle de la géométrie, sans
+   quoi le service étirerait la prise de vue. */
+function vueAerienneUrl(geometry, { couche = IGN_COUCHE_AERIENNE, largeurPx = IGN_LARGEUR_PX, hauteurPx = IGN_HAUTEUR_PX } = {}) {
+  const centre = centroidOf(geometry);
+  if (!centre) return null;
+  const etendue = geometryExtentKm(geometry);
+  const largeurM = borner(
+    Math.max(etendue.w * 1000, etendue.h * 1000 * IGN_RATIO) * IGN_MARGE,
+    IGN_LARGEUR_MIN_M,
+    IGN_LARGEUR_MAX_M
+  );
+  const dLat = (largeurM / IGN_RATIO) / 2 / METRES_PAR_DEGRE_LAT;
+  const dLng = (largeurM / 2) / (METRES_PAR_DEGRE_LAT * Math.cos((centre.lat * Math.PI) / 180));
+  return bboxWmsUrl(
+    [centre.lat - dLat, centre.lng - dLng, centre.lat + dLat, centre.lng + dLng],
+    { couche, largeurPx, hauteurPx }
+  );
+}
+
+/* Requête GetMap. En WMS 1.3.0 et EPSG:4326, l'ordre des coordonnées de la
+   boîte est latitude puis longitude, l'inverse de l'ordre GeoJSON : inverser
+   les deux rend une image de l'autre bout du monde, sans aucune erreur. */
+function bboxWmsUrl([minLat, minLng, maxLat, maxLng], { couche, largeurPx, hauteurPx }) {
+  const u = new URL(IGN_WMS);
+  const p = {
+    SERVICE: 'WMS',
+    VERSION: '1.3.0',
+    REQUEST: 'GetMap',
+    LAYERS: couche,
+    STYLES: '',
+    CRS: 'EPSG:4326',
+    BBOX: [minLat, minLng, maxLat, maxLng].map((n) => n.toFixed(6)).join(','),
+    WIDTH: String(largeurPx),
+    HEIGHT: String(hauteurPx),
+    FORMAT: 'image/jpeg',
+  };
+  for (const [k, v] of Object.entries(p)) u.searchParams.set(k, v);
+  return u.toString();
+}
+
+// Taille des sondes de couverture : assez grande pour que deux zones réellement
+// couvertes ne rendent jamais la même image, assez petite pour ne rien coûter.
+const IGN_SONDE_PX = 64;
+const IGN_SONDE_DELTA = 0.004;
+// Point volontairement hors de tout territoire français, en plein golfe de
+// Guinée : ce que le service y répond EST son image de « rien à montrer ».
+const IGN_SONDE_VIDE = [0, 0, IGN_SONDE_DELTA, IGN_SONDE_DELTA];
+
+// Poids en dessous duquel une vue aérienne au format de couverture est une
+// image uniforme, donc un trou de couverture. Mesures : 92 ko sur un cadrage
+// serré, 227 ko sur le plus large, contre quelques kilo-octets pour du vide.
+const AERIEN_OCTETS_MIN = 20000;
+
+const estVueAerienne = (u) => typeof u === 'string' && u.startsWith(IGN_WMS);
+
+async function empreinteVueAerienne(bbox) {
+  const url = bboxWmsUrl(bbox, { couche: IGN_COUCHE_AERIENNE, largeurPx: IGN_SONDE_PX, hauteurPx: IGN_SONDE_PX / 2 });
+  const r = await fetchCapped(url, { headers: UA }, 8000, 200000, true);
+  if (!r || !r.data?.byteLength) return null;
+  return sha256Hex(new Uint8Array(r.data));
+}
+
+/* La commune est-elle couverte par la prise de vue aérienne ?
+   On compare l'image du centre de la commune à celle d'un point hors
+   couverture, mesurée dans la même génération plutôt qu'inscrite en dur : le
+   jour où l'IGN change d'encodeur, une empreinte figée dans le code aurait
+   déclaré la France entière hors couverture.
+   En cas de service injoignable, on répond non : mieux vaut aucune vue aérienne
+   que des fiches pointant sur une image morte. */
+async function couvertureVueAerienne(lat, lng) {
+  try {
+    const [ici, rien] = await Promise.all([
+      empreinteVueAerienne([lat - IGN_SONDE_DELTA, lng - IGN_SONDE_DELTA, lat + IGN_SONDE_DELTA, lng + IGN_SONDE_DELTA]),
+      empreinteVueAerienne(IGN_SONDE_VIDE),
+    ]);
+    if (!ici || !rien) return false;
+    return ici !== rien;
+  } catch (e) {
+    console.warn('[demo-generate] sonde de couverture aérienne :', e?.message);
+    return false;
+  }
+}
 
 // Images de la SOURCE du projet (article de presse, page mairie) : les plus
 // pertinentes car elles illustrent littéralement le projet. Démo : la licence
@@ -2518,29 +2668,34 @@ function mairiePageImages(project, pages = []) {
    indifferemment dans le pool de chaque projet, il produisait l'essentiel des
    mauvaises attributions (une photo de Conleau prise sur la page d'accueil
    servait de visuel a un square) et faisait reencoder les memes images autant
-   de fois qu'il y a de projets. Ne restent que des sources rattachables. */
-async function gatherImageCandidates(project, communeNom, lat, lng, mairiePages = [], locationSure = true) {
+   de fois qu'il y a de projets. Ne restent que des sources rattachables.
+
+   Ces candidats sont ceux qui passent devant le juge visuel, donc ceux qui
+   pretendent montrer LE PROJET. La vue aerienne, elle, ne pretend rien de tel
+   et n'entre pas dans ce lot : elle est posee plus loin, sans jugement. */
+const CANDIDATS_MAX = 8;
+
+async function gatherImageCandidates(project, communeNom, mairiePages = []) {
   // Bloc de la page de la mairie qui parle de CE projet : la meilleure source
   const fromPage = mairiePageImages(project, mairiePages);
   // Images de la page source du projet elle-meme
   const fromSource = project.source_url ? await sourceImageCandidates(project.source_url) : [];
 
-  // Commons n'est sollicite qu'a defaut, et seulement si la position est sure :
-  // un geosearch autour d'une position fabriquee ne rend que du hasard.
+  /* Recherche par NOM sur Wikimedia Commons, en dernier ressort. C'est le seul
+     chemin restant vers une vraie photo d'un objet nomme : une passerelle, une
+     gare, une eglise en restauration. On ne la tente que si le projet designe
+     un lieu nomme, sans quoi la requete se reduit au nom de la commune et ne
+     rend que du hasard, exactement ce que la recherche par proximite faisait. */
   let commons = [];
-  if (!fromPage.length && !fromSource.length && locationSure) {
-    commons = await commonsCandidatesAt(lat, lng, 300);
-    if (commons.length < 3) {
-      commons = commons.concat(await commonsTextCandidates(
-        `${project.place || project.geo_query || project.title} ${communeNom}`.trim()
-      ));
-    }
+  const lieu = String(project.place || project.geo_query || '').trim();
+  if (!fromPage.length && !fromSource.length && motsSignificatifs(lieu).size) {
+    commons = await commonsTextCandidates(`${lieu} ${communeNom}`.trim());
   }
 
   const seen = new Set();
   const all = [];
   for (const c of [...fromPage, ...fromSource, ...commons]) {
-    if (seen.has(c.url) || all.length >= 8) continue;
+    if (seen.has(c.url) || all.length >= CANDIDATS_MAX) continue;
     seen.add(c.url);
     all.push(c);
   }
@@ -2899,9 +3054,12 @@ async function coreSources(send, step, insee, runState) {
       if (m.pages.length > 1) bits.push(`${m.pages.length - 1} page(s) projets lue(s)`);
       if (pdfsLus.length) bits.push(`${pdfsLus.length} document(s) PDF lu(s)`);
       else if (m.pdfs.length) bits.push(`${m.pdfs.length} document(s) officiel(s)`);
-      // Une collecte ecourtee se DIT : sans cela, un site trop riche pour le
-      // budget rendait une carte maigre sans que rien ne l'explique.
-      if (m.tronque) bits.push('site très riche : lecture écourtée pour tenir le temps imparti');
+      /* Une collecte ecourtee se DIT, et elle dit POURQUOI : le motif etait
+         calcule mais jamais lu, si bien que l'ecran annoncait « pour tenir le
+         temps imparti » alors que le temps n'y etait pour rien. */
+      if (m.tronque) bits.push(m.motifArret === 'temps' || !m.motifArret
+        ? 'site très riche : lecture écourtée pour tenir le temps imparti'
+        : 'site très riche : lecture arrêtée une fois la matière suffisante');
       step('mairie', m.host ? 'done' : 'skip', 'Site officiel de la mairie', bits.join(' · ') || 'non exploitable');
       return m;
     })(),
@@ -2946,7 +3104,19 @@ async function coreSources(send, step, insee, runState) {
       themeColor: mairie.themeColor,
       pdfs: mairie.pdfs,
       pdfTextes: mairie.pdfTextes || [],
-      pages: mairie.pages,
+      /* L'exploration part de la : les adresses candidates relevees sur
+         l'accueil et dans le sitemap, et le texte de l'accueil, qui sert de
+         reference pour reconnaitre le menu commun a toutes les pages. */
+      candidates: (mairie.candidates || []).map((l) => ({ url: l.url, label: l.label })),
+      accueilTexte: mairie.accueilTexte || '',
+      /* La NAVIGATION du site, relevee sur l'accueil. Elle sert a ne pas
+         resoumettre le menu a chaque lecture de page : les liens d'une page
+         sont proposes dans l'ordre du document et coupes a quarante, or le menu
+         vient en premier. Sans ce filtre, une page a gros menu ne montrait
+         jamais ses liens de contenu au modele. */
+      navigation: mairie.navigation || [],
+      // Remplis au fil de l'exploration : index des images et allowlist
+      pages: [],
       urls: mairie.urls,
       images: mairie.images,
     },
@@ -2956,6 +3126,56 @@ async function coreSources(send, step, insee, runState) {
     // commune s'explique alors d'un coup d'oeil, sans avoir a rejouer la
     // generation pour comprendre.
     stats: { sources: sourcesCount, news: news.length, boamp: boamp.length, site_bloque: Boolean(mairie.bloque) },
+  };
+}
+
+/* ─── Les marchés publics en dernier recours ───
+
+   Un avis de marché apporte deux choses excellentes, l'adresse officielle du
+   chantier et le maître d'ouvrage, et deux choses détestables, une prose
+   administrative et aucun visuel. Mesure sur Lyon : les douze projets venus du
+   site de la ville ont tous une vraie photo, les sept venus des avis n'en ont
+   aucune, et leurs intitulés - « modernisation du système de sécurité incendie
+   de l'université » - ne sont pas ce qu'on montre à un élu.
+
+   La règle est donc : tant que la commune documente elle-même assez
+   d'opérations, les avis ne créent pas de fiche et servent seulement à
+   compléter les autres, ce que la fusion a déjà fait juste avant. Dès que la
+   commune est muette, ils reprennent leur rôle de matière première, sans quoi
+   il ne resterait rien à montrer.
+
+   L'arbitrage se fait sur la LISTE EXTRAITE, pas sur le corpus : le paquet est
+   construit avant de savoir combien la mairie donnera. Deux extractions
+   successives auraient coûté 80 % de tokens et 65 % de temps en plus sur
+   l'étape la plus chère, pour un résultat identique. */
+const MARCHES_CIBLE = Number(process.env.DEMO_MARCHES_CIBLE) || 12;
+/* Nombre de projets REELLEMENT poses sur la carte en dessous duquel la reserve
+   d'avis se rouvre. La cible ci-dessus compte des projets attestes ; entre les
+   deux, le geocodage en retire une partie. */
+const RESERVE_PLANCHER = 8;
+// Mots distinctifs qu'une source doit partager avec un projet pour l'attester.
+
+function arbitrerMarches(projects, cible = MARCHES_CIBLE) {
+  const propres = projects.filter((p) => p.origine !== 'marche');
+  const marches = projects.filter((p) => p.origine === 'marche');
+  if (!marches.length) return { retenus: projects, ecartes: [] };
+
+  const places = Math.max(0, cible - propres.length);
+  /* Les avis qui portent une adresse d'abord : ce sont les seuls qui se
+     géocoderont, et un avis sans lieu propre finit de toute façon écarté plus
+     loin, faute d'emplacement vérifiable. À adresse égale, le plus récent. */
+  const classes = [...marches].sort((a, b) => {
+    const adr = Number(Boolean(String(b.address || '').trim())) - Number(Boolean(String(a.address || '').trim()));
+    if (adr) return adr;
+    return String(b.marcheDate || '').localeCompare(String(a.marcheDate || ''));
+  });
+  const gardes = classes.slice(0, places);
+  const ecartes = classes.slice(places);
+  // L'ordre d'origine est preserve : il porte le classement de l'extraction.
+  const gardesSet = new Set(gardes);
+  return {
+    retenus: projects.filter((p) => p.origine !== 'marche' || gardesSet.has(p)),
+    ecartes,
   };
 }
 
@@ -2999,67 +3219,609 @@ function messageCarteCourte(nom, n) {
     + 'et vos propres documents nous permettront de la compléter.';
 }
 
+/* ─── PHASE EXPLORATION ───
+
+   Elle remplace l'ancien couple « tout collecter puis tout dépouiller d'un
+   coup ». On ouvre une vague de pages, on lit chacune séparément, et ce qu'on y
+   trouve désigne la vague suivante. L'exploration s'enfonce là où elle trouve,
+   s'arrête là où elle ne trouve rien.
+
+   Découpée en tranches comme la localisation : une métropole demande plusieurs
+   dizaines de pages, ce qui ne tient pas dans une invocation. */
+/* Lectures menees de front. CINQ, et ce chiffre est une mesure, pas un gout :
+   a huit comme a dix, les connexions sortantes partent en echec en rafale
+   (verifie deux fois, dont une campagne entiere faussee) ; a cinq, une sonde
+   de soixante-cinq pages passe sans un seul echec. */
+const VAGUE_TAILLE = 5;
+/* Plafond de securite, pas un arbitrage : aucune commune francaise ne publie
+   trois cents pages qui decrivent des operations d'amenagement. L'exploration
+   s'arrete normalement parce qu'elle a vide sa file, pas parce qu'elle a
+   atteint un quota.
+   Il n'y a plus d'arret « au bout de N vagues sans resultat » : c'etait un pari
+   sur l'ordre de la file, et il a fait perdre l'ecoquartier de Ploudalmezeau,
+   dont la fiche detaillee attendait derriere vingt pages sans interet. */
+/* Reglable sans deploiement : 300 est le mode exhaustif (Lyon rend 53 fiches
+   en 10 minutes), 120 un mode salon plus court. Le cout et la duree suivent
+   presque lineairement le nombre de pages. */
+const EXPLO_PAGES_MAX = Number(process.env.DEMO_PAGES_MAX) || 300;
+/* BUDGET DE MATIERE, le vrai curseur du mode salon. Mesure sur la trace
+   exhaustive de Vannes : les projets arrivent jusqu'a la derniere page et les
+   pistes froides produisent presque autant que les chaudes (24 % contre 28 %),
+   donc ni un tri plus dur ni un arret au rendement ne tiennent - le premier
+   perd de vrais projets, le second perd 56 % des projets ou n'economise rien.
+   S'arreter quand ON A ASSEZ DE MATIERE, en revanche, coupe tot sur les villes
+   riches (Bordeaux : 60 projets reperes des la 80e page sur 266) et jamais sur
+   les communes pauvres. ACTIF PAR DEFAUT a cent projets, calibre pour une carte
+   finale de quarante a cinquante fiches une fois la fusion et le geocodage
+   passes ; zero = illimite, le mode exhaustif. */
+const EXPLO_BRUTS_MAX = process.env.DEMO_BRUTS_MAX !== undefined
+  ? Number(process.env.DEMO_BRUTS_MAX)
+  : 100;
+// Pages repechees au plus quand l'abondance arrete la lecture : celles dont
+// l'intitule annonce CLAIREMENT une operation majeure ne restent pas de cote.
+const REPECHAGE_MAX = 15;
+
+/* Le REPECHAGE, filet de l'arret par abondance.
+   Couper a cent projets laisse une file du meme tonneau que ce qu'on a lu :
+   c'est mesure, la pertinence d'un lien se predit mal. Mais un intitule qui
+   annonce sans ambiguite une operation majeure - ZAC, ecoquartier,
+   requalification, grand projet nomme - est l'exception ou le titre suffit.
+   Une derniere lecture des intitules restants les retient, on les lit, puis on
+   ferme : rien de manifestement en or ne part dans la part mise de cote. */
+async function repecherLesTitresEnOr(communeNom, restantes) {
+  if (!restantes.length) return [];
+  try {
+    const system = `La lecture du site de ${communeNom} s'arrete : assez de projets sont deja reperes. Voici les intitules des pages qui ne seront PAS lues. Ne retiens que celles dont l'intitule annonce SANS AMBIGUITE une operation d'amenagement majeure : une ZAC, un ecoquartier, une requalification, un grand projet urbain nomme, un equipement structurant en construction. Un intitule vague, generique ou de vie quotidienne ne se repeche pas : dans le doute, laisse. Rends au plus ${REPECHAGE_MAX} index.`;
+    const user = restantes.map((l, i) => `${i}. ${l.label || l.url}`).join('\n');
+    const out = await openAIStructured(
+      [{ role: 'system', content: system }, { role: 'user', content: user }],
+      'repechage_titres', TRI_SCHEMA_REPECHAGE, 600, 40000, 0.1
+    );
+    return [...new Set(out.garder || [])]
+      .filter((i) => Number.isInteger(i) && i >= 0 && i < restantes.length)
+      .slice(0, REPECHAGE_MAX)
+      .map((i) => restantes[i]);
+  } catch (e) {
+    console.warn(`[demo-generate] repechage indisponible :: ${e?.message}`);
+    return [];
+  }
+}
+
+const TRI_SCHEMA_REPECHAGE = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    garder: {
+      type: 'array',
+      description: 'Index des intitules qui annoncent sans ambiguite une operation majeure.',
+      items: { type: 'integer' },
+    },
+  },
+  required: ['garder'],
+};
+// Pages qui servent a reconnaitre le gabarit du site, en plus de l'accueil.
+const GABARIT_ECHANTILLONS = 4;
+/* Texte garde par page dans l'index des visuels. Assez pour reconnaitre de quoi
+   parle la page, assez court pour que le brouillon reste transportable : il est
+   relu et reecrit a chaque tranche des phases suivantes. */
+const INDEX_TEXTE_MAX = 1500;
+/* L'index voyage dans le brouillon pendant toutes les phases suivantes : borne
+   en pages et en blocs, sinon une exploration de quatre-vingt-dix pages ferait
+   transporter un mega-octet a chaque tranche de localisation. */
+const INDEX_PAGES_MAX = 80;
+const INDEX_BLOCS_MAX = 12;
+const EXPLO_TOURS_MAX = 12;
+// Tranches consecutives sans une seule page lue avant d'abandonner l'exploration
+// et de continuer avec ce qui a deja ete trouve.
+const TRANCHES_VIDES_MAX = 2;
+// Priorité donnée aux liens rapportés par une page selon ce qu'elle valait :
+// descendre depuis une page de projets est bien plus prometteur que descendre
+// depuis une page quelconque.
+const PRIORITE = { forte: 3, moyenne: 1, nulle: 0 };
+
+async function coreExplore(send, step, state) {
+  const { commune, mairie } = state;
+  const explo = state.explo || (state.explo = {
+    file: new FileExploration({ hote: mairie.host }).serialiser(),
+    bruts: [],
+    tours: 0,
+    pagesLues: 0,
+    /* Tranches consecutives qui n'ont pas reussi a lire UNE page. Deux d'affilee
+       signifient que le site ou la liaison IA ne repondent plus : on finalise
+       avec ce qu'on a plutot que de bruler les douze tranches du quota a ne
+       rien faire. Mesure le 24/08 : douze tranches consommees pour douze pages,
+       et le visiteur aurait attendu quatre minutes devant une carte vide. */
+    tranchesVides: 0,
+    amorcee: false,
+  });
+  explo.tours++;
+
+  const file = FileExploration.restaurer(explo.file);
+  if (!explo.amorcee) {
+    const racine = normaliserUrl(`https://${mairie.host}/`);
+    // L'accueil est lu A PART, jamais comme candidate : il se recrutait
+    // lui-meme via son lien « Accueil » et repassait par la file pour rien.
+    const candidates = (mairie.candidates || []).filter((l) => normaliserUrl(l.url) !== racine);
+    const gardees = await ecarterLesHorsSujet(commune.nom, candidates);
+    for (const l of gardees) file.ajouter(l.url, l.label, 0);
+    file.marquerVue(racine);
+    explo.amorcee = true;
+    console.log(`[demo-generate] exploration ${commune.nom} : ${candidates.length} candidate(s), ${candidates.length - gardees.length} ecartee(s) sur l'intitule, ${file.restantes} a ouvrir`);
+    /* L'ACCUEIL est depouille lui aussi, une fois : une petite commune presente
+       souvent ses projets directement en page d'accueil, et l'ancien modele la
+       versait au corpus. Le gabarit ne s'y applique pas, il en est la source. */
+    try {
+      const luAccueil = await lirePage(commune, { url: `https://${mairie.host}/`, title: 'Accueil du site de la mairie', text: mairie.accueilTexte || '' }, []);
+      for (const pr of luAccueil.projets) {
+        explo.bruts.push(pr);
+        send({ type: 'ai-item', phase: 'ai1', title: pr.title });
+      }
+      explo.pagesLues++;
+    } catch (e) {
+      console.warn(`[demo-generate] lecture de l'accueil impossible :: ${e?.message}`);
+    }
+    // Les candidates sont dans la file : leur copie du brouillon a fini d'exister
+    state.mairie.candidates = [];
+  }
+
+  step('ai1', 'start',
+    explo.tours === 1 ? 'Lecture du site de la mairie, page par page' : 'Lecture en cours',
+    explo.tours === 1
+      ? `${file.restantes} page(s) candidate(s), chacune lue séparément`
+      : `${explo.bruts.length} projet(s) repéré(s), ${file.restantes} page(s) en attente`);
+
+  /* Le gabarit s'apprend sur l'accueil ET sur les premieres pages lues : mesure
+     sur Ploudalmezeau, l'accueil seul laissait passer « Ouvrir la barre
+     d'outils Outils d'accessibilite Augmenter le texte », qui se retrouvait
+     dans l'extrait servant a localiser le projet. */
+  /* References du gabarit : l'accueil ET les echantillons, comptes SEPAREMENT.
+     Un enchainement n'est du gabarit que s'il figure sur au moins deux
+     references : le menu et le pied de page y sont, un teaser unique n'y est
+     pas. Voir empreinteGabarit. */
+  const gabarit = empreinteGabarit([mairie.accueilTexte || '', ...(explo.echantillons || [])]);
+  // Le menu du site, sous forme normalisee : retire des liens soumis au modele
+  const navSet = new Set((mairie.navigation || []).map(normaliserUrl));
+  const t0 = Date.now();
+  // Pages en echec de la tranche, remises en file a la SORTIE de la boucle
+  const echecs = [];
+  // Pages consommees par la tranche, lectures abouties ET ecartees legitimes :
+  // c'est la mesure d'avancement, pas le seul compte des lectures IA.
+  let traitees = 0;
+
+  const assezDeMatiere = () => EXPLO_BRUTS_MAX > 0 && explo.bruts.length >= EXPLO_BRUTS_MAX;
+  while (file.restantes && Date.now() - t0 < PHASE_BUDGET_MS && explo.pagesLues < EXPLO_PAGES_MAX
+    && (!assezDeMatiere() || explo.repechageFait)) {
+    const lot = file.vague(VAGUE_TAILLE);
+    if (!lot.length) break;
+
+    const resultats = await inChunks(lot, VAGUE_TAILLE, async (candidate) => {
+      const page = await fetchCapped(candidate.url, { headers: UA }, 6000, 400000);
+      if (!page) return { echec: candidate };
+      /* Une page de la mairie qui redirige HORS du site n'est pas une page de
+         la mairie : la lire la verserait a l'allowlist d'attestation, et une
+         fiche pourrait citer un site tiers comme source officielle. */
+      if (hostOf(page.url) !== hostOf(`https://${mairie.host}`)) return { ecartee: true };
+      const brut = stripHtml(page.data).slice(0, PAGE_TEXT_BRUT_CHARS);
+      const texte = retirerGabaritConnu(brut, gabarit);
+      // Une page qui ne dit rien de plus que le gabarit du site n'a aucun
+      // contenu propre : on ne paie pas une lecture pour l'apprendre.
+      if (texte.length < GABARIT_RESTE_MIN || looksLikeCode(texte)) return { ecartee: true };
+
+      const liens = [];
+      collectPageLinks(page.data, page.url, mairie.host, liens);
+      /* On soumet tous les liens PAS ENCORE LUS, y compris ceux qui attendent
+         deja dans la file : c'est ainsi qu'une page de sommaire fait remonter
+         ses fiches detaillees en tete, au lieu de les laisser au fond d'une
+         file alimentee par le sitemap. */
+      /* Les 60 sieges de la soumission vont d'abord aux liens INCONNUS de la
+         file : une candidate deja en attente sera lue de toute facon, elle n'a
+         besoin que d'une eventuelle remontee de priorite. */
+      const nouveaux = liens
+        .filter((l) => !file.dejaOuverte(l.url) && !navSet.has(normaliserUrl(l.url)))
+        .sort((x, y) => Number(file.connue(x.url)) - Number(file.connue(y.url)));
+      collectPdfLinks(page.data, page.url, state.mairie.pdfs);
+
+      try {
+        const lu = await lirePage(commune, { url: page.url, title: candidate.label, text: texte }, nouveaux);
+        if (process.env.DEMO_DUMP) {
+          // Rendement page par page : la matiere premiere du reglage de l'arret
+          console.log(`[demo-pages] ${lu.projets.length} projet(s) | interet ${lu.interet} | ${candidate.priorite > 0 ? 'chaude' : 'froide'} | ${page.url}`);
+        }
+        /* L'echantillon de gabarit ne part qu'avec une lecture ABOUTIE : verse
+           avant l'appel, une page remise en file apres echec retrouvait son
+           propre texte dans le gabarit a la relecture, et en ressortait vide. */
+        return {
+          candidate, page, lu, texte,
+          echantillon: brut.slice(0, 4000),
+          horsSieges: nouveaux.slice(PAGE_LIENS_SOUMIS),
+          images: extractImageUrls(page.data, page.url, 24),
+          blocs: extractPageBlocks(page.data, page.url),
+        };
+      } catch (e) {
+        console.warn(`[demo-generate] lecture impossible : ${candidate.url} :: ${e?.message}`);
+        return { echec: candidate };
+      }
+    });
+
+    /* Les pages en echec sont MISES DE COTE, et ne retournent en file qu'a la
+       FIN de la tranche : remises immediatement, elles restaient en tete du
+       classement et etaient repiochees quelques secondes plus tard, dans la
+       meme fenetre de coupure, ou leur seconde chance se consumait pour rien.
+       Ce sont precisement les pages les plus prioritaires qui mouraient en
+       premier. */
+    for (const r of resultats) {
+      if (r?.echec) echecs.push(r.echec);
+      if (r && !r.echec) traitees++;
+    }
+
+    for (const r of resultats) {
+      if (!r || r.echec || r.ecartee) continue;
+      explo.pagesLues++;
+      if ((explo.echantillons = explo.echantillons || []).length < GABARIT_ECHANTILLONS) {
+        explo.echantillons.push(r.echantillon);
+      }
+      for (const p of r.lu.projets) {
+        explo.bruts.push(p);
+        send({ type: 'ai-item', phase: 'ai1', title: p.title });
+      }
+      /* Les liens que cette page recommande. La priorite ne decide plus de ce
+         qu'on lira - la file est destinee a etre videe - seulement de l'ordre :
+         une page designee par une page de projets a des chances de donner plus
+         vite, autant commencer par elle. */
+      for (const l of r.lu.suivants) file.ajouter(l.url, l.label, PRIORITE[r.lu.interet] ?? 1);
+      /* Les liens qu'on n'a PAS pu soumettre au modele, au-dela des 60 sieges,
+         n'en disparaissent pas pour autant : sur une page qui parle
+         d'amenagement, ils entrent en file a priorite basse. Elle est faite
+         pour etre videe, et ses gardes bornent deja le cout. */
+      if (r.lu.interet !== 'nulle' && r.horsSieges?.length) {
+        for (const l of r.horsSieges) file.ajouter(l.url, l.label, 0);
+      }
+      // L'index d'images sert plus tard à rattacher un visuel officiel au projet
+      if (r.images.length || r.blocs.length) {
+        /* Index des visuels, pour la phase des illustrations. Le TEXTE y est
+           conserve, ampute mais present : c'est lui qui permet de reconnaitre
+           que cette page parle de ce projet-la. Sans lui, seul le rattachement
+           par bloc fonctionnait, et le repli « page entiere » ne se declenchait
+           jamais - releve sur Lyon, deux vraies photos sur sept la ou toutes
+           les fiches issues du site de la ville en avaient une. */
+        if (state.mairie.pages.length < INDEX_PAGES_MAX) {
+          state.mairie.pages.push({
+            url: r.page.url,
+            title: r.candidate.label,
+            text: r.texte.slice(0, INDEX_TEXTE_MAX),
+            images: r.images.slice(0, 8),
+            blocs: r.blocs.filter((b) => b.images?.length).slice(0, INDEX_BLOCS_MAX),
+          });
+        }
+      }
+      if (!state.mairie.urls.includes(r.page.url)) state.mairie.urls.push(r.page.url);
+    }
+    send({ type: 'finding', kind: 'page', title: `${explo.pagesLues} page(s) lue(s), ${explo.bruts.length} projet(s)`, domain: mairie.host });
+  }
+
+  /* Les echecs retournent en file MAINTENANT, hors de la fenetre de coupure
+     qui les a fait tomber : ils seront relus a la tranche suivante, et leur
+     presence compte dans file.restantes, donc dans la decision de continuer. */
+  for (const c of echecs) file.remettre(c);
+  explo.file = file.serialiser();
+  /* Une tranche a AVANCE des qu'elle a consomme des pages, meme si aucune n'a
+     franchi la lecture IA : quarante pages minces ecartees d'affilee sont un
+     site qui repond, pas une liaison morte. */
+  explo.tranchesVides = traitees > 0 ? 0 : (explo.tranchesVides || 0) + 1;
+
+  /* L'abondance declenche d'abord le REPECHAGE : les intitules restants sont
+     relus une derniere fois, les operations majeures manifestes sont gardees
+     seules en file, et une tranche de plus les lit avant la fermeture. */
+  if (assezDeMatiere() && !explo.repechageFait) {
+    explo.repechageFait = true;
+    const restantes = FileExploration.restaurer(explo.file);
+    const candidates = [...restantes.candidates.values()];
+    const enOr = await repecherLesTitresEnOr(commune.nom, candidates);
+    if (enOr.length) {
+      const garde = new FileExploration({ hote: mairie.host });
+      garde.vues = restantes.vues;
+      for (const l of enOr) garde.ajouter(l.url, l.label, 3);
+      explo.file = garde.serialiser();
+      // Le budget de matiere est leve d'autant : ces pages doivent etre lues
+      explo.repeches = enOr.length;
+      console.log(`[demo-generate] repechage : ${enOr.length} intitule(s) en or sur ${candidates.length} mis de cote`);
+      step('ai1', 'done', 'Lecture en cours', `assez de matière, ${enOr.length} page(s) majeure(s) repêchée(s) avant fermeture`);
+      state.__continue = true;
+      return state;
+    }
+    explo.file = new FileExploration({ hote: mairie.host }).serialiser();
+  }
+
+  const fini = !file.restantes
+    || explo.pagesLues >= EXPLO_PAGES_MAX
+    || explo.tours >= EXPLO_TOURS_MAX
+    || explo.tranchesVides >= TRANCHES_VIDES_MAX
+    || (assezDeMatiere() && explo.repechageFait);
+  if (!fini) {
+    step('ai1', 'done', 'Lecture en cours', `${explo.pagesLues} page(s) lue(s), ${explo.bruts.length} projet(s) repéré(s)`);
+    state.__continue = true;
+    return state;
+  }
+  delete state.__continue;
+
+  const motif = !file.restantes ? 'site entièrement parcouru'
+    : assezDeMatiere() ? 'assez de matière réunie'
+      : explo.tranchesVides >= TRANCHES_VIDES_MAX ? 'lectures en échec répété'
+        : explo.pagesLues >= EXPLO_PAGES_MAX ? 'plafond de pages atteint'
+          : 'budget de temps atteint';
+  console.log(`[demo-generate] exploration ${commune.nom} : ${explo.pagesLues} pages lues, ${explo.bruts.length} projets bruts, ${file.restantes} candidates non ouvertes (${motif}, ${explo.tours} tranche(s))`);
+  step('ai1', 'done', 'Site de la mairie dépouillé',
+    `${explo.pagesLues} page(s) lue(s) une par une, ${explo.bruts.length} projet(s) repéré(s)`);
+  state.stats.pages_lues = explo.pagesLues;
+  state.stats.motif_arret = motif;
+  // Le site a livre ce qu'il avait : on enchaine sur le rapprochement, qui a
+  // besoin de la liste complete pour fondre ce qui doit l'etre.
+  return coreAi(send, step, state);
+}
+
+/* Depouillement des AVIS DE MARCHES.
+
+   Ils forment une liste compacte, une notice par avis : ils ne posent donc pas
+   le probleme de volume qui a impose la lecture page par page, et un seul appel
+   suffit. Ils gardent leur statut de complement : la fusion leur donnera leur
+   place aupres des projets deja reperes sur le site de la commune, et
+   l'arbitrage decidera ensuite lesquels meritent une fiche a eux seuls. */
+const AVIS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    projets: {
+      type: 'array',
+      maxItems: 40,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: { ...CHAMPS_PROJET, source_url: { type: 'string', description: "L'adresse de l'avis, recopiee telle quelle depuis la ligne correspondante." } },
+        required: [...CHAMPS_PROJET_REQUIS, 'source_url'],
+      },
+    },
+  },
+  required: ['projets'],
+};
+
+async function depouillerLesAvis(commune, boamp) {
+  if (!boamp.length) return [];
+  const system = `Tu depouilles des avis de marches publics de travaux passes par ou pour la commune de ${commune.nom}. Pour chaque avis qui correspond a un amenagement PHYSIQUE et LOCALISABLE du territoire, rends un projet.
+
+Ecarte l'entretien courant, les contrats de service, les achats de materiel et les interventions de concessionnaires de reseau. Le champ « Lieu d'execution » d'un avis EST l'adresse officielle du chantier : recopie-la dans address, en retirant le code postal et le nom de la commune. La date est celle de PARUTION de l'avis, ce n'est ni un debut ni une fin de chantier : ne la presente jamais comme un calendrier.
+
+La citation doit etre recopiee mot pour mot depuis l'objet ou la description de l'avis.`;
+  const user = boamp.map((b) => [
+    `[${b.link}] ${b.nature || 'Avis'} paru le ${b.date} | maitre d'ouvrage : ${b.acheteur || 'non precise'}`,
+    `  Objet : ${b.title}`,
+    b.lieu ? `  Lieu d'execution : ${b.lieu}` : '',
+    b.description ? `  Description : ${b.description}` : '',
+    b.lots?.length ? `  Lots : ${b.lots.join(' ; ')}` : '',
+  ].filter(Boolean).join('\n')).join('\n\n');
+
+  try {
+    const out = await openAIStructured(
+      [{ role: 'system', content: system }, { role: 'user', content: `AVIS :\n\n${user}` }],
+      'avis_marches', AVIS_SCHEMA, 8000, 90000, 0.2
+    );
+    const parLien = new Map(boamp.map((b) => [b.link, b]));
+    return (out.projets || []).map((p) => ({
+      ...p,
+      origine: 'marche',
+      marcheDate: parLien.get(p.source_url)?.date || '',
+      sources: [{ url: p.source_url, type: 'marche' }],
+    }));
+  } catch (e) {
+    console.warn(`[demo-generate] depouillement des avis impossible :: ${e?.message}`);
+    return [];
+  }
+}
+
+/* ARBITRAGE des rapprochements douteux.
+
+   Le tri mecanique tranche les cas nets sans rien couter. Restent les paires
+   qui partagent un seul mot caracteristique sans partager leur lieu, ou qui
+   n'en partagent aucun tout en designant peut-etre le meme endroit. On ne
+   soumet alors que les TITRES et les lieux, jamais les pages : c'est un appel
+   court, sur une liste courte, et il ne se declenche pas quand il n'y a aucun
+   doute a lever. */
+const DOUTES_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    memes: {
+      type: 'array',
+      description: 'Index des paires qui designent le MEME chantier physique.',
+      items: { type: 'integer' },
+    },
+  },
+  required: ['memes'],
+};
+// Paires soumises par appel d'arbitrage : au-dela, le modele rate le milieu de
+// la liste, exactement comme pour le tri des liens.
+const DOUTES_PAR_LOT = 40;
+
+async function arbitrerLesDoutes(commune, projets, groupes, doutes) {
+  if (!doutes.length) return groupes;
+  const decrire = (i) => `${projets[i].title}${projets[i].geo_query ? ` (lieu : ${projets[i].geo_query})` : ''}`;
+  /* Tous les doutes sont arbitres, par LOTS : la troncature a quarante paires
+     laissait sur une metropole plus de la moitie des doutes sans arbitrage,
+     donc autant de doublons potentiels publies. */
+  const lots = [];
+  for (let i = 0; i < doutes.length; i += DOUTES_PAR_LOT) lots.push(doutes.slice(i, i + DOUTES_PAR_LOT));
+  try {
+    const system = `Deux descriptions peuvent designer le MEME chantier de la commune de ${commune.nom}, vu par deux sources differentes, ou deux chantiers DISTINCTS.
+
+Rends les index des paires qui designent le meme chantier physique, au meme endroit. Dans le doute, ne les rapproche pas : fusionner deux operations distinctes fait disparaitre un projet de la carte, alors que les laisser separees ne coute qu'une fiche en double, qu'un dernier controle attrapera plus loin.
+
+Deux descriptions du MEME OBJET sont le MEME chantier, meme si le lieu est formule autrement : « renovation des petites serres » et « restauration des petites serres du parc » designent les memes serres ; une creche nommee et la meme creche avec son adresse sont la meme creche. Deux tranches d'une meme operation aussi.
+En revanche un equipement et la voie qui le dessert sont DISTINCTS, et deux equipements differents d'un meme quartier aussi.`;
+    const verdictsParLot = await inChunks(lots, 2, async (lot) => {
+      const user = lot.map(([i, j], k) => `${k}. A = ${decrire(i)} | B = ${decrire(j)}`).join('\n');
+      const out = await openAIStructured(
+        [{ role: 'system', content: system }, { role: 'user', content: user }],
+        'rapprochement_doutes', DOUTES_SCHEMA, 1000, 40000, 0.1
+      );
+      return (out.memes || [])
+        .filter((k) => Number.isInteger(k) && k >= 0 && k < lot.length)
+        .map((k) => lot[k]);
+    });
+    const aFondre = verdictsParLot.flat();
+    if (!aFondre.length) return groupes;
+
+    /* Les groupes sont refondus : deux projets declares identiques doivent
+       rejoindre le meme groupe, y compris quand chacun appartenait deja a un
+       groupe distinct forme par le tri mecanique. */
+    const groupeDe = new Map();
+    groupes.forEach((g, idx) => { for (const p of g) groupeDe.set(p, idx); });
+    const parent = groupes.map((_, i) => i);
+    const racine = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+    for (const [i, j] of aFondre) {
+      const gi = groupeDe.get(projets[i]);
+      const gj = groupeDe.get(projets[j]);
+      if (gi === undefined || gj === undefined) continue;
+      const ri = racine(gi); const rj = racine(gj);
+      if (ri !== rj) parent[rj] = ri;
+    }
+    const refondus = new Map();
+    groupes.forEach((g, idx) => {
+      const r = racine(idx);
+      if (!refondus.has(r)) refondus.set(r, []);
+      refondus.get(r).push(...g);
+    });
+    return [...refondus.values()];
+  } catch (e) {
+    console.warn(`[demo-generate] arbitrage des rapprochements indisponible :: ${e?.message}`);
+    return groupes;
+  }
+}
+
+/* CONTROLE FINAL sur les titres.
+
+   La lecture page par page, sur le modele leger, laisse passer quelques
+   residus que la consigne interdit pourtant : mesure sur Lyon, « La salsa
+   cubaine » et « SORCIERE ! », deux evenements culturels, figuraient parmi les
+   cinquante-trois fiches. Devant un elu, une seule suffit a discrediter la
+   carte. Un appel court, sur les seuls titres, ecarte ces residus ; son biais
+   est de GARDER, l'extraction ayant deja filtre l'essentiel. */
+const RESIDUS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    ecarter: {
+      type: 'array',
+      description: 'Index des entrees qui ne sont manifestement PAS des operations d\'amenagement.',
+      items: { type: 'integer' },
+    },
+  },
+  required: ['ecarter'],
+};
+
+async function ecarterLesResidus(commune, projets) {
+  if (projets.length < 2) return projets;
+  try {
+    const system = `Voici les titres des fiches retenues pour la carte des projets d'amenagement de ${commune.nom}. La quasi-totalite sont de vraies operations : ton travail est seulement d'ecarter les intrus MANIFESTES.
+
+ECARTE : un spectacle, un concert, un cours ou un atelier, un festival, une exposition, une animation saisonniere, une election, un dispositif evenementiel sans chantier, et une INAUGURATION seule (le chantier est fini).
+NE TOUCHE A RIEN d'autre. Sont des amenagements, meme quand le titre ne le crie pas : une restauration de patrimoine, une fresque murale, une aire de jeux, une vegetalisation de cours d'ecole ou de rue, une ferme urbaine, la suppression de feux ou la pietonnisation d'un carrefour, un equipement, une voirie, une concertation sur l'avenir d'une rue. Dans le doute, garde : ecarter a tort fait disparaitre un vrai projet de la carte.`;
+    const user = projets.map((p, i) => `${i}. ${p.title}${p.description ? ` - ${String(p.description).slice(0, 90)}` : ''}`).join('\n');
+    const out = await openAIStructured(
+      [{ role: 'system', content: system }, { role: 'user', content: user }],
+      'residus_titres', RESIDUS_SCHEMA, 800, 40000, 0.1
+    );
+    const ecartes = new Set((out.ecarter || []).filter((i) => Number.isInteger(i) && i >= 0 && i < projets.length));
+    if (ecartes.size) {
+      console.log(`[demo-generate] residus ecartes au controle final : ${[...ecartes].map((i) => projets[i].title).join(' | ')}`);
+    }
+    return projets.filter((_, i) => !ecartes.has(i));
+  } catch (e) {
+    console.warn(`[demo-generate] controle final indisponible :: ${e?.message}`);
+    return projets;
+  }
+}
+
+/* Le vocabulaire d'amenagement ne caracterise aucun projet en particulier :
+   « renovation », « travaux » et « ville » se retrouvent dans un titre sur
+   deux. Il est retire avant tout rapprochement. */
+const MOTS_SANS_CARACTERE = GENERIC_PROJECT_WORDS;
+
 async function coreAi(send, step, state) {
   const { commune, mairie, news, boamp } = state;
-  const bundle = buildSourcesBundle({ mairie, news, boamp });
-  const words = Math.round(bundle.length / 6);
 
-  console.log(`[demo-generate] depouillement ${commune.nom} : ~${words} mots`);
-  step('ai1', 'start', 'Dépouillement des sources par l\'IA', `${state.stats.sources} sources, ~${words.toLocaleString('fr-FR')} mots à lire`);
-  let projects = await extractProjects(commune, bundle, (title) => send({ type: 'ai-item', phase: 'ai1', title }));
-  console.log(`[demo-generate] -> ${projects.length} projets extraits`);
-  step('ai1', 'done', 'Sources dépouillées', `${projects.length} projet(s) repéré(s)`);
+  step('ai2', 'start', 'Rapprochement et vérification', 'Un même chantier décrit par plusieurs pages ne fait qu\'une fiche');
 
-  step('ai2', 'start', 'Vérification des projets', 'Chaque projet doit citer sa source mot pour mot');
+  // Les avis de marches, en un appel : liste compacte, aucun risque de volume
+  const avis = await depouillerLesAvis(commune, boamp);
+  if (avis.length) console.log(`[demo-generate] avis de marches depouilles : ${avis.length} projet(s)`);
+
+  const bruts = [...(state.explo?.bruts || []), ...avis];
+  const beforeFilter = bruts.length;
 
   const allowedUrls = new Set([
     ...mairie.urls,
-    ...news.flatMap((n) => [n.link, n.finalUrl].filter(Boolean)),
+    ...news.flatMap((n) => [n.link, n.sourceUrl].filter(Boolean)),
     ...boamp.map((b) => b.link),
-  ]);
+  ].map(normaliserUrl));
   const allowedHosts = new Set([...allowedUrls].map(hostOf).filter(Boolean));
-  const beforeFilter = projects.length;
-  projects = projects.filter((p) =>
-    p.confidence !== 'basse' && (allowedUrls.has(p.source_url) || allowedHosts.has(hostOf(p.source_url)))
+
+  let retenus = bruts.filter((p) =>
+    p.confidence !== 'basse'
+    && (allowedUrls.has(normaliserUrl(p.source_url)) || allowedHosts.has(hostOf(p.source_url)))
   );
 
-  // Garde-fou concessionnaires : le prompt demande d'écarter les interventions
-  // de réseau, le modèle en laisse passer (relevé : « rénovation d'un câble
-  // électrique moyenne tension par ENEDIS » présentée comme un projet urbain).
-  // Remplacer une conduite n'est pas un aménagement du territoire.
-  const avantConcess = projects.length;
-  projects = projects.filter((p) => !estInterventionReseau(p, commune.nom));
-  if (projects.length < avantConcess) {
-    console.log(`[demo-generate] interventions de concessionnaire écartées : ${avantConcess - projects.length}`);
+  // Garde-fou concessionnaires : la consigne demande d'ecarter les
+  // interventions de reseau, le modele en laisse passer (releve : « renovation
+  // d'un cable electrique moyenne tension par ENEDIS » presentee comme un
+  // projet urbain). Remplacer une conduite n'est pas un amenagement.
+  const avantConcess = retenus.length;
+  retenus = retenus.filter((p) => !estInterventionReseau(p, commune.nom));
+  if (retenus.length < avantConcess) {
+    console.log(`[demo-generate] interventions de concessionnaire ecartees : ${avantConcess - retenus.length}`);
   }
 
-  // Dédoublonnage après sélection : le modèle scinde parfois un même avis en
-  // deux fiches (relevé : « Aménagements d'une rue-jardin ET végétalisation des
-  // abords du parking de l'Horloge » rendu en deux projets, même source, même
-  // lieu, statuts contradictoires). Deux fiches qui partagent leur source ET
-  // leur lieu de géocodage désignent le même chantier.
-  const seenPair = new Set();
-  const beforeDedup = projects.length;
-  projects = projects.filter((p) => {
-    const loc = (p.geo_query || p.place || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-    if (!loc) return true;
-    const key = `${p.source_url}|${loc}`;
-    if (seenPair.has(key)) return false;
-    seenPair.add(key);
-    return true;
-  });
-  if (projects.length < beforeDedup) {
-    console.log(`[demo-generate] doublons source+lieu écartés : ${beforeDedup - projects.length}`);
+  /* RAPPROCHEMENT. C'est la contrepartie de la lecture page par page : le meme
+     ecoquartier figure sur la rubrique « nos projets », sur l'actualite qui
+     annonce le chantier et dans l'avis de marche. Trois pages distinctes,
+     aucune lue deux fois, et pourtant trois entrees a fondre en une.
+     Ce que la mecanique laisse en doute part a l'arbitrage, sur les seuls
+     titres, ce qui est court et sur. */
+  const { groupes, doutes } = regrouper(retenus, MOTS_SANS_CARACTERE);
+  const groupesFinaux = doutes.length ? await arbitrerLesDoutes(commune, retenus, groupes, doutes) : groupes;
+  let projects = groupesFinaux.map((g) => fondre(g, MOTS_SANS_CARACTERE));
+  projects = await ecarterLesResidus(commune, projects);
+  const fusionnes = retenus.length - projects.length;
+  console.log(`[demo-generate] rapprochement : ${retenus.length} descriptions -> ${projects.length} projets (${fusionnes} fondu(s), ${doutes.length} doute(s) arbitre(s))`);
+
+  /* La matiere de l'article : les phrases relevees sur chaque page qui parle du
+     projet. Elle remplace l'extrait composite d'autrefois, qui etait decoupe a
+     l'aveugle dans un corpus commun. */
+  for (const p of projects) {
+    p.source_excerpt = (p.page_excerpt || [p.description, p.evidence_quote].filter(Boolean).join('\n\n'))
+      .slice(0, SOURCE_EXCERPT_CHARS);
+    delete p.page_excerpt;
   }
-  console.log(`[demo-generate] -> ${projects.length} projets retenus (${beforeFilter} avant filtre source)`);
+
+  if (fusionnes) {
+    send({ type: 'rejected', kind: 'doublon', count: fusionnes });
+  }
 
   /* Seul le vide arrete la generation. Un ou deux projets attestes suffisent a
-     monter une carte, et la brievete sera annoncee apres le geocodage, quand le
-     compte sera definitif. */
+     monter une carte, et la brievete sera annoncee apres le geocodage. */
   if (!projects.length) {
     send({ type: 'error', kind: 'sans-projet', message: messageSansProjet(commune.nom) });
     return null;
   }
+
+  const { retenus: gardes, ecartes } = arbitrerMarches(projects);
+  projects = gardes;
+  state.marchesReserve = ecartes;
+  if (ecartes.length) {
+    const propres = projects.filter((p) => p.origine !== 'marche').length;
+    const raison = propres >= MARCHES_CIBLE ? 'abondance' : 'plafond';
+    console.log(`[demo-generate] marches publics ecartes : ${ecartes.length} (motif ${raison}, ${propres} projet(s) documente(s) par la commune)`);
+    send({ type: 'rejected', kind: 'marche', count: ecartes.length, raison, titles: ecartes.map((p) => p.title).slice(0, 12) });
+  }
+
   step('ai2', 'done', 'Projets vérifiés', `${projects.length} projets attestés par les sources`);
   /* La CITATION voyage avec chaque projet attesté. L'écran en fait la matière
      de sa pièce de papier : c'est la phrase relevée dans la source qui prouve
@@ -3076,116 +3838,33 @@ async function coreAi(send, step, state) {
   });
 
   state.projects = projects;
-  state.stats.words = words;
+  state.stats.pages_lues = state.stats.pages_lues || 0;
   state.stats.candidates = beforeFilter;
-
-  /* FUSION MULTI-SOURCES.
-     Un projet n'appartient plus a une source unique : le meme chantier figure
-     souvent dans deux ou trois sources COMPLEMENTAIRES. L'avis de marche porte
-     l'adresse officielle et le maitre d'ouvrage mais une description
-     squelettique ; la page de la mairie porte le recit et les visuels mais
-     jamais d'adresse postale ; la presse porte le contexte et les dates.
-     On rassemble ici tout ce qui parle du projet, ce qui alimente d'un coup la
-     redaction (matiere reelle au lieu d'inventions), le geocodage (une adresse
-     recuperee d'une autre source) et l'attestation (plusieurs liens). */
-  const corpus = [];
-  for (const pg of mairie.pages) {
-    corpus.push({ url: pg.url, type: 'mairie', titre: pg.title || '', texte: pg.text || '' });
-  }
-  for (const d of mairie.pdfTextes || []) {
-    corpus.push({ url: d.url, type: 'document', titre: d.label || '', texte: d.texte || '' });
-  }
-  for (const n of news) {
-    // Google News sert une coquille sans le texte de l'article : le titre reste
-    // alors la seule matiere reelle, et il est souvent explicite (« Projet de
-    // 43 logements sociaux : la Ville est contre »).
-    const t = n.text || '';
-    corpus.push({
-      url: n.finalUrl || n.link,
-      type: 'presse',
-      titre: n.title || '',
-      texte: `Titre de presse : ${n.title}${n.source ? ` (${n.source}${n.date ? ', ' + n.date : ''})` : ''}. ${t}`.trim(),
-    });
-  }
-  for (const b of boamp) {
-    corpus.push({
-      url: b.link,
-      type: 'marche',
-      titre: b.title || '',
-      lieu: b.lieu || '',
-      texte: [
-        `Marché public de travaux. Objet : ${b.title}.`,
-        `Maître d'ouvrage : ${b.acheteur || 'non précisé'}.`,
-        `${b.nature || 'Avis'} paru le ${b.date} (date de parution de l'avis, ce n'est ni un début ni une fin de chantier).`,
-        b.lieu ? `Lieu d'exécution : ${b.lieu}.` : '',
-        b.description ? `Description officielle : ${b.description}` : '',
-        b.lots?.length ? `Lots : ${b.lots.join(' ; ')}.` : '',
-        b.themes ? `Thèmes : ${b.themes}.` : '',
-      ].filter(Boolean).join(' '),
-    });
-  }
-
-  let fusions = 0;
-  for (const p of projects) {
-    const mots = distinctiveWords(`${p.title} ${p.geo_query || ''} ${p.place || ''}`);
-    const quote = String(p.evidence_quote || '');
-
-    // La source citee par l'IA vient toujours en tete, les autres derriere,
-    // classees par nombre de mots distinctifs partages
-    const retenues = [];
-    for (const src of corpus) {
-      const estCitee = src.url === p.source_url;
-      const hay = unaccentLower(`${src.titre} ${src.texte}`);
-      const score = mots.filter((m) => hay.includes(m)).length;
-      // Deux mots distinctifs pour une source non citee : un seul est trop
-      // souvent fortuit (le nom d'une avenue passante citee ailleurs)
-      if (estCitee || score >= 2) retenues.push({ src, score: estCitee ? 99 : score });
-    }
-    retenues.sort((x, y) => y.score - x.score);
-    if (retenues.length > 1) fusions++;
-
-    // Extrait composite, borne, centre sur la citation quand on la retrouve
-    const morceaux = [];
-    let reste = SOURCE_EXCERPT_CHARS;
-    for (const { src } of retenues.slice(0, 3)) {
-      if (reste <= 0) break;
-      const at = quote ? src.texte.indexOf(quote.slice(0, 40)) : -1;
-      const from = at > 0 ? Math.max(0, at - 600) : 0;
-      const bout = src.texte.slice(from, from + Math.min(reste, 1200)).trim();
-      if (bout.length > 30) { morceaux.push(bout); reste -= bout.length; }
-    }
-    p.source_excerpt = morceaux.join('\n\n') || quote;
-    p.sources = retenues.slice(0, 3).map(({ src }) => ({ url: src.url, type: src.type }));
-
-    // Adresse recuperee d'une AUTRE source : c'est le gain principal de la
-    // fusion pour la carte. Seul un avis de marche porte une adresse officielle,
-    // et un projet trouve sur le site de la mairie n'en avait donc jamais.
-    if (!String(p.address || '').trim()) {
-      const avecLieu = retenues.find(({ src }) => src.type === 'marche' && src.lieu);
-      if (avecLieu) {
-        // On retire code postal et nom de commune, que le geocodeur ajoute deja
-        p.address = avecLieu.src.lieu
-          .replace(/\b\d{5}\b/g, ' ')
-          .replace(new RegExp(commune.nom.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ')
-          .replace(/[-\s]+$/g, '')
-          .replace(/\s{2,}/g, ' ')
-          .trim();
-      }
-    }
-  }
-  console.log(`[demo-generate] fusion multi-sources : ${fusions}/${projects.length} projets attestés par plusieurs sources`);
+  state.stats.marches_ecartes = ecartes.length;
 
   // Le paquet de sources ne sert plus : on allège le brouillon. On garde
   // toutefois un index reduit des pages (titre, images, debut de texte) : la
   // phase illustrations, qui tourne plus tard, en a besoin pour rattacher une
   // photo de la mairie au bon projet.
+  /* Index reduit des pages, pour la seule phase des illustrations : elle a
+     besoin de rattacher une photo de la mairie au bon projet, rien de plus.
+
+     Ce resserrement compte plus qu'il n'y parait. Le brouillon est relu ET
+     reecrit a chaque tranche, et la localisation en compte jusqu'a quatorze :
+     tout ce qu'on y laisse dormir se paie autant de fois. Depuis que la
+     collecte peut rapporter soixante-dix pages au lieu de trente, un index
+     genereux couterait plusieurs centaines de kilo-octets par tranche.
+     Ne sont donc gardees que les pages qui portent VRAIMENT une image. Le texte
+     des blocs, lui, n'est PAS raccourci : c'est exactement ce qui sert a
+     reconnaitre lequel parle du projet, et l'amputer ferait retomber le
+     rattachement sur la page entiere, c'est-a-dire sur la photo du voisin. */
   state.mairie.pages = mairie.pages
-    .filter((p) => p.images?.length || p.blocs?.length)
+    .filter((p) => p.images?.length || p.blocs?.some((b) => b.images?.length))
     .map((p) => ({
       url: p.url,
       title: p.title,
       images: (p.images || []).slice(0, 8),
-      blocs: (p.blocs || []).slice(0, 25),
+      blocs: (p.blocs || []).filter((b) => b.images?.length).slice(0, 25),
       text: (p.text || '').slice(0, 1500),
     }));
   state.news = [];
@@ -3194,6 +3873,14 @@ async function coreAi(send, step, state) {
   // eux servent encore au rattachement des dossiers en phase create.
   state.mairie.pdfTextes = [];
   state.boamp = [];
+  /* L'exploration est finie : son etat - la file, ses centaines d'adresses, les
+     echantillons de gabarit, les projets bruts deja fondus - n'a plus aucun
+     lecteur, et le brouillon est relu jusqu'a quatorze fois par la phase de
+     localisation. Tout ce qui reste ici se paierait a chaque tranche. */
+  state.explo = null;
+  state.mairie.candidates = [];
+  state.mairie.accueilTexte = '';
+  state.mairie.navigation = [];
   return state;
 }
 
@@ -3262,6 +3949,7 @@ function migrerEtatGeo(geo, queries) {
   if (!geo) return geo;
   if (!Array.isArray(geo.titresFusionnes)) geo.titresFusionnes = [];
   if (!Array.isArray(geo.titresSuperposes)) geo.titresSuperposes = [];
+  if (!Array.isArray(geo.titresAbandonnes)) geo.titresAbandonnes = [];
   if (!Array.isArray(geo.aTester)) geo.aTester = [];
   if (geo.etape === 'nominatim' && geo.aTester.length && !Array.isArray(geo.aTester[0])) {
     geo.aTester = essaisNominatim(queries);
@@ -3288,6 +3976,14 @@ async function coreGeo(send, step, state) {
     centre: { coordinates: [state.commune.lng, state.commune.lat] },
   };
   const queries = projects.map(locationQueries);
+  if (process.env.DEMO_DUMP && !state.geo) {
+    // Ce que le geocodeur va reellement chercher. Sans cette trace, un projet
+    // non localise ne dit pas s'il manquait de lieu ou si l'annuaire a echoue.
+    projects.forEach((p, i) => {
+      console.log(`[demo-geo] "${p.title}" -> ${queries[i].length ? queries[i].join(' | ') : 'AUCUNE REQUETE'}`);
+      console.log(`[demo-geo]   extrait : ${(p.source_excerpt || '').slice(0, 400).replace(/\s+/g, ' ')}`);
+    });
+  }
 
   // Etat de la phase, serialisable : il voyage d'une tranche a l'autre
   const geo = state.geo || (state.geo = {
@@ -3307,6 +4003,9 @@ async function coreGeo(send, step, state) {
        pas un. */
     titresFusionnes: [],
     titresSuperposes: [],
+    /* Titres des projets restes sans emplacement AVANT une reouverture de la
+       reserve de marches, qui remplace `geo.reste` par de nouveaux indices. */
+    titresAbandonnes: [],
     tours: 0,
   });
 
@@ -3479,6 +4178,53 @@ async function coreGeo(send, step, state) {
   }
   delete state.__continue;
 
+  /* FILET : la réserve des marchés publics.
+     Les avis écartés plus haut l'ont été sur le nombre de projets ATTESTÉS, pas
+     sur le nombre de projets qui atterrissent vraiment sur la carte. Quand le
+     géocodage fait fondre la liste, on rouvre la réserve plutôt que de livrer
+     une carte vide alors qu'il restait de la matière. Une seule fois, et
+     seulement en dessous du plancher : rouvrir en boucle reviendrait à annuler
+     l'arbitrage. */
+  /* La réouverture exige qu'il reste un tour pour travailler : sans cette
+     condition, la tranche suivante sort de la boucle sans rien tenter et
+     l'écran annonce comme « emplacement non vérifiable » des avis auxquels on
+     n'a jamais posé la question. */
+  if (state.located.length < RESERVE_PLANCHER
+    && state.marchesReserve?.length
+    && !geo.reserveUtilisee
+    && geo.tours < GEO_MAX_TOURS) {
+    const reserve = state.marchesReserve;
+    state.marchesReserve = [];
+    geo.reserveUtilisee = true;
+    console.log(`[demo-generate] ${state.located.length} projet(s) situé(s) : réouverture de ${reserve.length} avis de marché mis en réserve`);
+    /* L'écran annonçait ces avis comme écartés : ils ne le sont plus. Un compte
+       à zéro efface la mention, sinon le visiteur lirait « avis écartés »
+       pendant que les épingles de ces mêmes avis se posent sous ses yeux. */
+    send({ type: 'rejected', kind: 'marche', count: 0 });
+    state.stats.marches_ecartes = 0;
+    /* Les projets restés sans emplacement sont MÉMORISÉS avant d'écraser le
+       reste : `geo.reste` est leur seul porteur, et la réouverture le remplace
+       par les indices de la réserve. Sans cette copie, une carte à six projets
+       sur vingt annonçait ensuite « trois écartés » et n'en nommait aucun des
+       quatorze vrais. Ce qu'on refuse est un argument à condition de dire vrai. */
+    geo.titresAbandonnes.push(...geo.reste.map((i) => projects[i].title));
+    const depart = projects.length;
+    projects.push(...reserve);
+    // On repart uniquement sur les nouveaux venus, à l'étage le plus complet.
+    geo.etape = 'nominatim';
+    geo.curseur = 0;
+    geo.reste = reserve.map((_, k) => depart + k);
+    geo.aTester = essaisNominatim(projects.map(locationQueries))
+      .filter(([i]) => i >= depart);
+    geo.lieuxIa = null;
+    step('geo', 'done', 'Localisation en cours', `${state.located.length} projet(s) situé(s), reprise sur les marchés publics`);
+    state.projects = projects;
+    state.__continue = true;
+    return state;
+  }
+  // La réserve n'a plus de raison d'être : elle ne doit pas voyager davantage.
+  state.marchesReserve = [];
+
   /* Les projets qu'on ne sait pas situer, meme a la maille du quartier, sont
      RETIRES. Ils etaient auparavant poses a une position calculee autour du
      centre-ville, indiscernable d'une vraie punaise : une carte qui invente des
@@ -3488,7 +4234,7 @@ async function coreGeo(send, step, state) {
   /* Un projet ecarte pour position DEJA OCCUPEE est bien un projet dont on ne
      connait pas l'emplacement : le geocodeur lui a rendu le repli d'un autre.
      Il rejoint donc les non localisables, ce qui est exact. */
-  const abandonnes = geo.reste.length + geo.superposes;
+  const abandonnes = geo.reste.length + geo.titresAbandonnes.length + geo.superposes;
 
   /* Seul le vide arrete la generation : sans un projet situe, il n'y a rien a
      poser sur la carte. Un ou deux projets, eux, font une carte courte, pas un
@@ -3526,7 +4272,7 @@ async function coreGeo(send, step, state) {
       count: abandonnes,
       // Les projets restes sans emplacement, plus ceux rabattus sur une
       // position deja prise : les deux relevent du meme motif.
-      titles: [...geo.reste.map((i) => projects[i].title), ...geo.titresSuperposes].slice(0, 12),
+      titles: [...geo.titresAbandonnes, ...geo.reste.map((i) => projects[i].title), ...geo.titresSuperposes].slice(0, 12),
     });
   }
   if (geo.fusionnes && !carteCourte) {
@@ -3546,27 +4292,69 @@ async function coreGeo(send, step, state) {
 /* Les CMS servent la même photo sous plusieurs URL (vignettes de cache
    suffixées d'une empreinte : "web-parking-3d6e6237.png" et
    "web-parking-450dc1de.png"). Comparer les URL brutes laissait passer des
-   doublons, et une photo de parking se retrouvait sur un projet de rue. */
+   doublons, et une photo de parking se retrouvait sur un projet de rue.
+
+   Une image servie par un SERVICE n'a pas de nom de fichier : toutes les vues
+   aériennes de la Géoplateforme partagent le chemin `/wms-r/wms` et ne se
+   distinguent que par leur cadrage, qui est dans la chaîne de requête. Sans le
+   cas ci-dessous, la première vue aérienne d'une génération passait et TOUTES
+   les suivantes étaient rejetées comme doublons, silencieusement. La chaîne de
+   requête n'entre dans la clé que lorsque le nom de fichier ne dit rien, pour
+   ne pas rouvrir la porte aux vignettes de cache que ce garde-fou attrape. */
+const NOM_DE_FICHIER_IMAGE = /\.[a-z0-9]{2,5}$/;
+
 function coverKey(u) {
   try {
-    const p = decodeURIComponent(new URL(u).pathname).toLowerCase();
+    const url = new URL(u);
+    const p = decodeURIComponent(url.pathname).toLowerCase();
     const file = p.slice(p.lastIndexOf('/') + 1);
-    return file.replace(/-[0-9a-f]{6,}(?=\.[a-z0-9]+$)/, '').replace(/[\s_]+/g, '-');
+    const normalise = file.replace(/-[0-9a-f]{6,}(?=\.[a-z0-9]+$)/, '').replace(/[\s_]+/g, '-');
+    if (NOM_DE_FICHIER_IMAGE.test(normalise)) return normalise;
+    return `${p}?${url.search.slice(1).toLowerCase()}`;
   } catch { return u; }
 }
 
-/* Phase ILLUSTRATIONS : candidats (sources + mairie + Commons) puis juge visuel.
+/* Phase ILLUSTRATIONS. Quatre rangs, du plus au moins probant :
+
+   1. le visuel publié par la mairie sur la page qui parle DE CE projet ;
+   2. le visuel de la source du projet, article de presse ou page officielle ;
+   3. une photo Wikimedia du lieu, quand le projet désigne un lieu nommé ;
+   4. à défaut, la vue aérienne du lieu exact.
+
+   Les trois premiers passent devant un juge visuel qui a le droit de tout
+   refuser : ils prétendent montrer le projet, il faut donc le vérifier. Le
+   quatrième ne passe devant personne, il est juste par construction, et il
+   n'est jamais présenté comme une photo du projet.
 
    Découpée en tranches et émettant au fil de l'eau, pour les mêmes raisons que
    la localisation : un appel de vision par projet, quatre en parallèle, et un
    nombre de projets désormais non plafonné. L'ancienne version n'envoyait rien
    à l'écran avant d'avoir jugé TOUTES les images, soit un second silence de
    près d'une minute juste après celui de la localisation. */
+/* Vue aérienne d'un projet, quand aucune photo ne le montre.
+   Rend null si le service ne couvre pas la commune, ou si ce cadrage exact a
+   déjà servi à un autre projet, ce qui n'arrive qu'entre deux projets voisins
+   au mètre près. */
+function vueAerienneDe(projet, disponible, used) {
+  if (!disponible) return null;
+  const url = vueAerienneUrl(projet.geometry);
+  if (!url || used.has(coverKey(url))) return null;
+  return { url, credit: IGN_CREDIT, source: 'aerien' };
+}
+
 async function coreMedia(send, step, state) {
   const located = state.located;
   const pages = state.mairie?.pages || [];
-  const media = state.media || (state.media = { curseur: 0, illustrated: 0, used: [], tours: 0 });
+  const media = state.media || (state.media = { curseur: 0, illustrated: 0, aeriennes: 0, used: [], tours: 0 });
   media.tours++;
+
+  /* La couverture aérienne est sondée UNE fois et retenue sur l'état racine :
+     `state.media` est remis à null en fin de phase, un drapeau posé dessus ne
+     survivrait pas d'une tranche à l'autre. */
+  if (state.ignAerien === undefined) {
+    state.ignAerien = await couvertureVueAerienne(state.commune.lat, state.commune.lng);
+    console.log(`[demo-generate] vue aérienne IGN : ${state.ignAerien ? 'disponible' : 'indisponible ou hors couverture'} sur ${state.commune.nom}`);
+  }
 
   if (media.tours === 1) {
     console.log(`[demo-generate] media: ${located.length} projets, ${pages.length} page(s) mairie indexée(s)`);
@@ -3585,8 +4373,7 @@ async function coreMedia(send, step, state) {
     for (let k = 0; k < 4 && media.curseur < located.length; k++) lot.push(media.curseur++);
     const choix = await inChunks(lot, 4, async (i) => {
       const p = located[i];
-      const c = centroidOf(p.geometry);
-      const candidates = await gatherImageCandidates(p, state.commune.nom, c.lat, c.lng, pages, true);
+      const candidates = await gatherImageCandidates(p, state.commune.nom, pages);
       const img = candidates.length ? await pickBestImageWithAI(p, state.commune.nom, candidates) : null;
       if (process.env.DEMO_DUMP) {
         const origines = candidates.map((x) => (/wikimedia|wikipedia/.test(x.url) ? 'commons' : 'site')).join(',');
@@ -3597,14 +4384,28 @@ async function coreMedia(send, step, state) {
     // Le rattachement est séquentiel : `used` interdit la même photo sur deux
     // fiches, et cette décision ne peut pas se prendre en parallèle.
     for (const { i, img } of choix) {
-      if (!img || used.has(coverKey(img.url))) continue;
-      used.add(coverKey(img.url));
-      located[i].coverSrc = img.url;
-      located[i].coverCredit = img.credit;
+      const retenu = img && !used.has(coverKey(img.url))
+        ? { url: img.url, credit: img.credit, source: 'photo' }
+        : vueAerienneDe(located[i], state.ignAerien, used);
+      if (!retenu) continue;
+      used.add(coverKey(retenu.url));
+      located[i].coverSrc = retenu.url;
+      located[i].coverCredit = retenu.credit;
       media.illustrated++;
+      if (retenu.source === 'aerien') media.aeriennes++;
       const c = centroidOf(located[i].geometry);
       // coverSrc + coordonnées : le front pose la photo directement sur la carte
-      send({ type: 'media-item', title: located[i].title, credit: img.credit, coverSrc: img.url, lat: c.lat, lng: c.lng, generique: false });
+      send({
+        type: 'media-item',
+        title: located[i].title,
+        credit: retenu.credit,
+        coverSrc: retenu.url,
+        lat: c.lat,
+        lng: c.lng,
+        source: retenu.source,
+        // Conservé pour les écrans déjà ouverts au moment d'une mise en ligne
+        generique: false,
+      });
     }
   }
   media.used = [...used];
@@ -3618,7 +4419,13 @@ async function coreMedia(send, step, state) {
 
   /* Repli thematique pour les projets restes sans visuel. Une seule recherche
      Commons par THEME distinct, pas par projet : deux ecoles partagent la meme
-     requete. Le credit annonce explicitement l'image comme generique. */
+     requete. Le credit annonce explicitement l'image comme generique.
+
+     Depuis la vue aerienne, ce repli ne sert plus que la ou l'IGN ne couvre pas
+     la commune. Une photo d'une AUTRE piscine se repere en un instant devant un
+     elu, la ou la vue aerienne de sa propre commune se verifie ; on ne descend
+     donc a ce rang que faute de mieux. Sur une generation ordinaire, cet appel
+     a l'IA ne part plus du tout. */
   const sansImage = located.map((p, i) => ({ p, i })).filter(({ p }) => !p.coverSrc);
   if (sansImage.length) {
     const themes = await themesGeneriques(state.commune.nom, sansImage.map(({ p }) => p));
@@ -3643,7 +4450,7 @@ async function coreMedia(send, step, state) {
           located[idx].coverCredit = `Illustration générique (${info.libelle}) - ${c.credit}`;
           media.illustrated++;
           const pt = centroidOf(located[idx].geometry);
-          send({ type: 'media-item', title: located[idx].title, credit: located[idx].coverCredit, coverSrc: c.url, lat: pt.lat, lng: pt.lng, generique: true });
+          send({ type: 'media-item', title: located[idx].title, credit: located[idx].coverCredit, coverSrc: c.url, lat: pt.lat, lng: pt.lng, source: 'generique', generique: true });
         });
       });
       console.log(`[demo-generate] media: repli thématique appliqué sur ${entrees.reduce((s, [, i2]) => s + i2.cibles.length, 0)} projet(s)`);
@@ -3651,8 +4458,11 @@ async function coreMedia(send, step, state) {
   }
 
   const illustrated = media.illustrated;
-  console.log(`[demo-generate] media: ${illustrated}/${located.length} illustrés (${media.tours} tranche(s))`);
-  step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées', `${illustrated}/${located.length} projets illustrés (image choisie par l'IA)`);
+  const aeriennes = media.aeriennes;
+  const photos = illustrated - aeriennes;
+  console.log(`[demo-generate] media: ${illustrated}/${located.length} illustrés dont ${aeriennes} vue(s) aérienne(s) (${media.tours} tranche(s))`);
+  step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées',
+    `${illustrated}/${located.length} projets illustrés${aeriennes ? ` (${photos} visuel(s) officiel(s), ${aeriennes} vue(s) aérienne(s) du lieu)` : ' (image choisie par l\'IA)'}`);
   // Refuser une photo hors sujet est une décision, pas un échec : on l'affiche
   if (located.length - illustrated > 0) {
     send({ type: 'rejected', kind: 'photo', count: located.length - illustrated });
@@ -3660,20 +4470,70 @@ async function coreMedia(send, step, state) {
 
   state.media = null;
   state.stats.illustrated = illustrated;
+  state.stats.aeriennes = aeriennes;
+  /* L'index des pages de la mairie a fini son office : il ne servait qu'à
+     rattacher une photo au bon projet, ce qui vient d'être fait. Il pèse
+     lourd, et la rédaction qui suit relit puis réécrit le brouillon à chaque
+     tranche. Rien en aval ne le lit : la phase de création n'utilise de
+     `mairie` que ses PDF et ses candidats de logo. */
+  if (state.mairie) state.mairie.pages = [];
   return state;
 }
 
+/* Phase RÉDACTION, découpée en tranches comme la localisation et les
+   illustrations. Un article se recherche puis s'écrit en cinq à dix secondes :
+   dix-sept articles ne tiennent plus dans une invocation, alors que trois
+   appels de lot y tenaient. Trois articles à la fois, pas davantage : le bac à
+   sable des fonctions rompt ses connexions sortantes au-delà. */
+const ARTICLES_CONCURRENCE = 3;
+
 async function coreRedact(send, step, state) {
-  step('articles', 'start', 'Rédaction des articles de présentation', 'Un article sourcé par projet, avec les documents officiels');
-  let articles = [];
-  try {
-    // writeArticles ne lit que commune.nom : state.commune suffit
-    articles = await writeArticles(state.commune, state.located, state.mairie.pdfs, (title) => send({ type: 'article-item', title }));
-  } catch (e) {
-    console.error('[demo-generate] articles :', e.message);
+  const located = state.located;
+  const redac = state.redac || (state.redac = { curseur: 0, tours: 0 });
+  redac.tours++;
+  state.articles = state.articles || [];
+
+  step('articles', 'start',
+    redac.tours === 1 ? 'Rédaction des articles de présentation' : 'Rédaction en cours',
+    redac.tours === 1
+      ? 'Un article par projet, écrit à partir des sources officielles consultées'
+      : `${state.articles.length} article(s) écrit(s), ${located.length - redac.curseur} restant(s)`);
+
+  const t0 = Date.now();
+  const pdfs = state.mairie?.pdfs || [];
+  const mairieHost = state.mairie?.host || '';
+
+  while (redac.curseur < located.length && Date.now() - t0 < PHASE_BUDGET_MS) {
+    const lot = [];
+    for (let k = 0; k < ARTICLES_CONCURRENCE && redac.curseur < located.length; k++) lot.push(redac.curseur++);
+    const ecrits = await inChunks(lot, ARTICLES_CONCURRENCE, async (i) => {
+      try {
+        const markdown = await redigerArticle(state.commune, located[i], pdfs, mairieHost);
+        send({ type: 'article-item', title: located[i].title });
+        return { index: i, title: located[i].title, markdown };
+      } catch (e) {
+        // Un article manquant est un manque, pas une panne : la fiche existe
+        // quand même, avec sa description et sa photo.
+        console.error(`[demo-generate] article "${located[i].title}" :`, e.message);
+        return null;
+      }
+    });
+    for (const a of ecrits) {
+      // Un rejeu de tranche ne doit pas creer de doublon
+      if (a && !state.articles.some((x) => x.index === a.index)) state.articles.push(a);
+    }
   }
-  step('articles', articles.length ? 'done' : 'skip', 'Articles rédigés', `${articles.length} article(s) de présentation`);
-  state.articles = articles;
+
+  if (redac.curseur < located.length && redac.tours < GEO_MAX_TOURS) {
+    step('articles', 'done', 'Rédaction en cours', `${state.articles.length} article(s) écrit(s)`);
+    state.__continue = true;
+    return state;
+  }
+  delete state.__continue;
+
+  console.log(`[demo-generate] articles : ${state.articles.length}/${located.length} (${redac.tours} tranche(s))`);
+  step('articles', state.articles.length ? 'done' : 'skip', 'Articles rédigés', `${state.articles.length} article(s) de présentation`);
+  state.redac = null;
   return state;
 }
 
@@ -3726,7 +4586,7 @@ async function runSources(send, step, insee, ipHash, runState) {
       }
       return courant;
     };
-    const s2 = await coreAi(send, step, state);
+    const s2 = await enchainer(coreExplore, state);
     if (!s2) return;
     const s3 = await enchainer(coreGeo, s2);
     // coreGeo renonce quand trop peu de projets sont situés : il a déjà expliqué
@@ -3734,24 +4594,28 @@ async function runSources(send, step, insee, ipHash, runState) {
     if (!s3) return;
     const s4 = await enchainer(coreMedia, s3);
     if (!s4) return;
-    await coreRedact(send, step, s4);
+    /* La rédaction est elle aussi découpée en tranches depuis qu'elle fait un
+       appel par projet : sans `enchainer`, la voie locale n'écrivait plus que
+       les trois premiers articles. */
+    const s5 = await enchainer(coreRedact, s4);
+    if (!s5) return;
     // Audit local : DEMO_DUMP=1 déverse les artefacts complets (projets
     // localisés, illustrations retenues, articles rédigés) dans les logs
     // serveur, seule façon de les inspecter sans persistance Supabase.
     if (process.env.DEMO_DUMP) {
       console.log('[demo-dump] ' + JSON.stringify({
-        commune: s4.commune,
+        commune: s5.commune,
         mairie: {
-          host: s4.mairie?.host,
-          logoUrl: s4.mairie?.logoUrl,
-          themeColor: s4.mairie?.themeColor,
-          pages: s4.mairie?.pages?.map((p) => ({ url: p.url, title: p.title, chars: p.text?.length })),
-          pdfs: s4.mairie?.pdfs?.map((p) => p.url),
-          imagesCount: s4.mairie?.images?.length,
+          host: s5.mairie?.host,
+          logoUrl: s5.mairie?.logoUrl,
+          themeColor: s5.mairie?.themeColor,
+          pages: s5.mairie?.pages?.map((p) => ({ url: p.url, title: p.title, chars: p.text?.length })),
+          pdfs: s5.mairie?.pdfs?.map((p) => p.url),
+          imagesCount: s5.mairie?.images?.length,
         },
-        stats: { ...s4.stats, tokens_in: _tokens.input, tokens_out: _tokens.output, appels_ia: _tokens.appels },
-        located: s4.located,
-        articles: s4.articles,
+        stats: { ...s5.stats, tokens_in: _tokens.input, tokens_out: _tokens.output, appels_ia: _tokens.appels },
+        located: s5.located,
+        articles: s5.articles,
       }));
     }
     send({
@@ -3777,7 +4641,22 @@ async function runSources(send, step, insee, ipHash, runState) {
 // Wrapper commun des phases intermediaires : charge le brouillon a l'etat
 // attendu, execute le coeur, sauvegarde, annonce la phase suivante. Si le coeur
 // renonce (state null : sources insuffisantes en ai), echec definitif propre.
-async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase, selfPhase }, runState) {
+/* Compteur d'echecs d'une phase, pose par le handler sous la cle `_attempts_<route>`.
+   Il vit dans le brouillon, donc il survit aux invocations : c'est voulu, sans
+   quoi l'anti-boucle ne verrait jamais deux echecs de suite. Mais il n'etait
+   remis a zero QU'AU moment d'atteindre le plafond, jamais apres un travail
+   reussi. Une phase decoupee en tranches - la localisation en compte jusqu'a
+   quatorze - qui rencontre un incident passager sur sa premiere tranche puis un
+   autre sur sa troisieme atteignait donc 2 sur 2 et la generation etait
+   abandonnee, alors qu'elle avancait normalement entre les deux. */
+function oublierLesEchecs(payload, route) {
+  const cle = `_attempts_${route}`;
+  if (!payload || payload[cle] === undefined) return payload;
+  const { [cle]: _, ...reste } = payload;
+  return reste;
+}
+
+async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase, selfPhase, route }, runState) {
   const instance = await getInstance({ ville });
   /* Le run est retrouvé AVANT tout contrôle : sans cela, un abandon sur
      « analyse introuvable » laissait la ligne du journal en `running`, donc
@@ -3860,7 +4739,8 @@ async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase
      simplement basculer tous les projets suivants en « non localisable ». */
   if (state.__continue && selfPhase) {
     delete state.__continue;
-    await updateInstance(ville, { status: expect, payload: state });
+    // Une tranche qui aboutit efface l'ardoise : voir oublierLesEchecs.
+    await updateInstance(ville, { status: expect, payload: oublierLesEchecs(state, route) });
     if (runState?.id) {
       await patchRun(runState.id, {
         phase: selfPhase,
@@ -3873,7 +4753,7 @@ async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase
     return;
   }
 
-  await updateInstance(ville, { status: nextStatus, payload: state });
+  await updateInstance(ville, { status: nextStatus, payload: oublierLesEchecs(state, route) });
   if (runState?.id) {
     await patchRun(runState.id, {
       phase: nextPhase,
@@ -3885,10 +4765,10 @@ async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase
   send({ type: 'phase', next: nextPhase, ville });
 }
 
-const runAi = (send, step, ville, rs) => runPhase(send, step, ville, { expect: 'draft-sources', core: coreAi, nextStatus: 'draft-ai', nextPhase: 'locate' }, rs);
-const runLocate = (send, step, ville, rs) => runPhase(send, step, ville, { expect: 'draft-ai', core: coreGeo, nextStatus: 'draft-locate', nextPhase: 'media', selfPhase: 'locate' }, rs);
-const runMedia = (send, step, ville, rs) => runPhase(send, step, ville, { expect: 'draft-locate', core: coreMedia, nextStatus: 'draft-media', nextPhase: 'redact', selfPhase: 'media' }, rs);
-const runRedact = (send, step, ville, rs) => runPhase(send, step, ville, { expect: 'draft-media', core: coreRedact, nextStatus: 'draft', nextPhase: 'create' }, rs);
+const runAi = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'ai', expect: 'draft-sources', core: coreExplore, nextStatus: 'draft-ai', nextPhase: 'locate', selfPhase: 'ai' }, rs);
+const runLocate = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'locate', expect: 'draft-ai', core: coreGeo, nextStatus: 'draft-locate', nextPhase: 'media', selfPhase: 'locate' }, rs);
+const runMedia = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'media', expect: 'draft-locate', core: coreMedia, nextStatus: 'draft-media', nextPhase: 'redact', selfPhase: 'media' }, rs);
+const runRedact = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'redact', expect: 'draft-media', core: coreRedact, nextStatus: 'draft', nextPhase: 'create', selfPhase: 'redact' }, rs);
 
 /* Article du projet numero i, ou rien.
    Le repli positionnel `articles[i]` a ete retire : la liste d'articles est
@@ -3960,6 +4840,15 @@ async function runCreate(send, step, ville, runState) {
         console.warn(`[demo-generate] cover ignorée (trop lourde, ${declared || img.data.byteLength} octets) : ${p.title}`);
         return null;
       }
+      /* Trou de couverture LOCAL dans la prise de vue aérienne. La sonde de la
+         phase illustrations vérifie la commune, pas chaque parcelle : il reste
+         des zones blanches ponctuelles, et le service les rend avec un code 200
+         comme s'il n'y avait rien d'anormal. Une image uniforme se compresse en
+         quelques kilo-octets là où une vraie vue en pèse cent à deux cents. */
+      if (estVueAerienne(p.coverSrc) && img.data.byteLength < AERIEN_OCTETS_MIN) {
+        console.warn(`[demo-generate] vue aérienne vide (${img.data.byteLength} octets) : ${p.title}`);
+        return null;
+      }
       const ct = img.headers.get('content-type') || 'image/jpeg';
       // L'extension suit le type réel : tout était nommé .jpg, y compris des PNG
       const ext = /png/.test(ct) ? 'png' : /webp/.test(ct) ? 'webp' : /gif/.test(ct) ? 'gif' : 'jpg';
@@ -3971,12 +4860,19 @@ async function runCreate(send, step, ville, runState) {
   step('covers', 'done', 'Illustrations installées', `${coverUrls.filter(Boolean).length}/${located.length}`);
 
   step('publish', 'start', 'Publication des fiches');
+  /* Le zoom d'ouverture de la carte est calculé ICI, avant les fichiers, parce
+     que le seuil de visibilité d'une emprise en dépend directement : les deux
+     doivent venir du même nombre, sinon ils divergeront à la première retouche
+     du barème. Il sert ensuite tel quel au branding de la ville, plus bas. */
+  const population = commune.population || 0;
+  const zoom = population > 100000 ? 12 : population > 20000 ? 13 : population > 5000 ? 14 : 15;
+
   // Uploads geojson + markdown par lots (inChunks préserve l'ordre : rows[i] = located[i])
   const rows = await inChunks(located.map((p, i) => ({ p, i })), 5, async ({ p, i }) => {
     const slug = slugs[i];
     const fc = {
       type: 'FeatureCollection',
-      features: [{ type: 'Feature', geometry: p.geometry, properties: { name: p.title } }],
+      features: featuresDuProjet(p.geometry, p.title, zoom, commune.lat),
     };
     const geojsonUrl = await uploadToStorage(`demo/${ville}/${slug}.geojson`, JSON.stringify(fc), 'application/json');
 
@@ -4073,8 +4969,6 @@ async function runCreate(send, step, ville, runState) {
     console.warn(`[demo-generate] AUCUN logo installé pour ${ville} (${candidatsLogo.length} candidat(s) essayé(s))`);
   }
 
-  const population = commune.population || 0;
-  const zoom = population > 100000 ? 12 : population > 20000 ? 13 : population > 5000 ? 14 : 15;
   await insertRows('city_branding', [{
     ville,
     brand_name: commune.nom,
@@ -4402,7 +5296,6 @@ export const _internals = {
   lireJson,
   corpsJson,
   MAIRIE_BUDGET_MS,
-  MAIRIE_OCTETS_MAX,
   isSafePublicUrl,
   slugify,
   stripHtml,
@@ -4415,6 +5308,17 @@ export const _internals = {
   geometryInBbox,
   centroidOf,
   haversineM,
+  vueAerienneUrl,
+  couvertureVueAerienne,
+  coverKey,
+  oublierLesEchecs,
+  featuresDuProjet,
+  tailleMinimaleVisible,
+  pointDeRepere,
+  REPERE_MIN_PX,
+  arbitrerMarches,
+  domainesAutorises,
+  MARCHES_CIBLE,
   typeImageReel,
   looksLikeCode,
   estPageTremplin,
@@ -4425,7 +5329,6 @@ export const _internals = {
   METHOD_LABELS,
   sansPrefixeGenerique,
   nomCoherent,
-  rangStructurel,
   positionDansLaCommune,
   locationQueries,
   unescapeBoamp,

@@ -61,6 +61,9 @@ export function friendlyAIError(status, raw, conseil400 = '') {
  * @param {Object} opts.corsHeaders
  * @param {Function} opts.onEvent           - (ev, emit) => 'stop'|void ; emit(objet) écrit un
  *                                            événement SSE, 'stop' termine le relais
+ * @param {Function} [opts.onFin]           - (emit) => void ; dernier mot avant fermeture, appelé
+ *                                            quel que soit le chemin de sortie (fin normale,
+ *                                            plafond atteint, coupure) tant que [DONE] n'est pas parti
  * @param {Function} opts.onTimeoutMessage  - () => string|null ; message si timeout sans contenu
  * @param {Function} [opts.isDone]          - (ev) => bool ; l'événement termine le stream
  * @param {Function} opts.setReader         - (reader|null) => void ; expose le reader pour l'annulation
@@ -69,7 +72,7 @@ export function friendlyAIError(status, raw, conseil400 = '') {
  * @returns {Response} la réponse SSE à retourner au client
  */
 export function relayOpenAIStream(openaiRes, {
-  tag, corsHeaders, onEvent, onTimeoutMessage, isDone, setReader, clearTimeoutFn, conseil400 = '',
+  tag, corsHeaders, onEvent, onFin, onTimeoutMessage, isDone, setReader, clearTimeoutFn, conseil400 = '',
 }) {
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
@@ -141,6 +144,13 @@ export function relayOpenAIStream(openaiRes, {
       clearTimeoutFn();
       setReader(null);
       try {
+        /* Dernier mot avant la fermeture. Ce qu'un appelant a accumulé au fil du
+           flux - les sources citées, par exemple - doit pouvoir partir même
+           quand aucun événement de fin n'arrive : génération arrêtée à son
+           plafond de sortie, coupure réseau, délai dépassé alors que du texte
+           était déjà reçu. Sans ce point d'accroche, ces cas perdaient
+           silencieusement ce qui avait été relevé. */
+        if (onFin && !doneSent) await onFin(emit);
         const msg = onTimeoutMessage();
         if (msg && !doneSent) await emit({ error: msg });
         await sendDone();
