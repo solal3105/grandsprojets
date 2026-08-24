@@ -189,8 +189,10 @@
   /* Plus aucune pastille de compteur : le seul nombre à l'écran est celui
      des projets repérés, sur la main de cartes. Le reste vit au plateau
      (les moments) et sur l'écran final (les totaux). */
-  // Projets survolés au final
+  // Projets survolés au final, et la progression de la rédaction
   let tourPoints = [];
+  let placesTotal = 0;
+  let articlesFaits = 0;
 
   /* ─── Le plateau : la seule voix de l'écran ───
      Une information à la fois, cadencée pour être lue. Deux modes :
@@ -317,7 +319,10 @@
       // Logo de la mairie posé à côté du nom de la commune dans le HUD
       if (f.iconUrl) {
         const logo = $('hud-logo');
-        logo.onerror = () => { logo.hidden = true; };
+        logo.onerror = () => { logo.hidden = true; $('hud-commune').hidden = false; };
+        // Le logo suffit comme identité : le nom ne sert qu'aux communes qui
+        // n'en ont pas, il s'efface dès que le logo est là
+        logo.onload = () => { $('hud-commune').hidden = true; };
         logo.src = f.iconUrl;
         logo.hidden = false;
       }
@@ -352,6 +357,7 @@
   }
 
   function onGeoItem(g) {
+    placesTotal++;
     plateauActivite('pin', g.title, g.label || g.method);
     // La carte quitte la main et vole jusqu'à son emplacement
     mainFly(g.title, g);
@@ -444,30 +450,57 @@
   $('hand')?.addEventListener('mousemove', mainMagnify);
   $('hand')?.addEventListener('mouseleave', mainMagnifyFin);
 
+  /* Les entrées passent par une FILE cadencée : quand une vague de lecture
+     livre plusieurs projets d'un coup, les cartes tombent quand même une par
+     une, toutes les 420 ms - l'œil suit chaque arrivée. */
+  const mainFileEntrees = [];
+  let mainEntreeTimer = null;
   function mainAdd(title, domain) {
+    if (!title) return;
+    mainFileEntrees.push({ title, domain });
+    mainEntreeSuivante();
+  }
+  function mainEntreeSuivante() {
+    if (mainEntreeTimer) return;
+    const item = mainFileEntrees.shift();
+    if (!item) return;
+    mainPoseCarte(item.title, item.domain);
+    mainEntreeTimer = setTimeout(() => { mainEntreeTimer = null; mainEntreeSuivante(); }, 420);
+  }
+  function mainPoseCarte(title, domain) {
     const zone = $('hand');
     if (!zone || !title) return;
     const carte = document.createElement('article');
     carte.className = 'bench__card';
     carte.dataset.key = mainKey(title);
     carte.title = title;
-    carte.innerHTML = `<span class="bench__title"></span>${domain ? '<span class="bench__domain"></span>' : ''}`;
+    /* Le favicon de la source dit sa provenance sans manger la place du
+       titre. Le service d'icones de Google le fournit pour tout domaine ;
+       en echec, la carte vit tres bien sans. */
+    carte.innerHTML = `<span class="bench__title"></span>${domain ? `<img class="bench__favicon" alt="" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64" onerror="this.remove()">` : ''}`;
     carte.querySelector('.bench__title').textContent = title;
-    if (domain) carte.querySelector('.bench__domain').textContent = domain.replace(/^www\./, '');
     zone.appendChild(carte);
     mainLayout();
     requestAnimationFrame(() => requestAnimationFrame(() => carte.classList.add('is-in')));
   }
 
-  // Une carte jetée : elle quitte la main par le bas en tournant, puis la
-  // main se resserre sur la place libérée
-  function mainBinCard(carte, delai = 0) {
+  /* Les mises au rebut passent par la même discipline : une carte s'efface,
+     la main se resserre, PUIS la suivante s'efface - jamais une rafale. */
+  const mainFileSorties = [];
+  let mainSortieTimer = null;
+  function mainBinCard(carte) {
     if (!carte || carte.dataset.done) return;
     carte.dataset.done = '1';
-    setTimeout(() => {
-      carte.classList.add('is-binned');
-      setTimeout(() => { carte.remove(); mainLayout(); }, 340);
-    }, delai);
+    mainFileSorties.push(carte);
+    mainSortieSuivante();
+  }
+  function mainSortieSuivante() {
+    if (mainSortieTimer) return;
+    const carte = mainFileSorties.shift();
+    if (!carte) return;
+    carte.classList.add('is-binned');
+    setTimeout(() => { carte.remove(); mainLayout(); }, 340);
+    mainSortieTimer = setTimeout(() => { mainSortieTimer = null; mainSortieSuivante(); }, 560);
   }
 
   /* La vérification a rendu sa liste : toute carte absente des titres retenus
@@ -476,9 +509,8 @@
     const zone = $('hand');
     if (!zone) return;
     const retenus = new Set(titres.map(mainKey));
-    let i = 0;
     for (const carte of zone.children) {
-      if (!retenus.has(carte.dataset.key)) mainBinCard(carte, i++ * 90);
+      if (!retenus.has(carte.dataset.key)) mainBinCard(carte);
     }
   }
 
@@ -511,12 +543,17 @@
   function mainBinRest() {
     const zone = $('hand');
     if (!zone) return;
-    let i = 0;
-    for (const carte of zone.children) mainBinCard(carte, i++ * 90);
+    for (const carte of zone.children) mainBinCard(carte);
   }
 
   function mainClear() {
     const zone = $('hand');
+    mainFileEntrees.length = 0;
+    mainFileSorties.length = 0;
+    clearTimeout(mainEntreeTimer);
+    clearTimeout(mainSortieTimer);
+    mainEntreeTimer = null;
+    mainSortieTimer = null;
     if (zone) { zone.innerHTML = ''; zone.classList.remove('has-cards'); }
   }
 
@@ -633,7 +670,7 @@
       else if (msg.type === 'ai-item') onAiItem(msg);
       else if (msg.type === 'media-item') onMediaItem(msg);
       else if (msg.type === 'cover-item') plateauActivite('photo', msg.title, 'illustration installée');
-      else if (msg.type === 'article-item') plateauActivite('plume', msg.title, 'article rédigé');
+      else if (msg.type === 'article-item') { articlesFaits++; plateauActivite('plume', msg.title, `article ${articlesFaits}/${placesTotal || '?'} rédigé`); }
       else if (msg.type === 'create-item') plateauActivite('fusee', msg.label, '');
       else if (msg.type === 'projects') onProjects(msg.items || []);
       else if (msg.type === 'geo-item') onGeoItem(msg);
@@ -712,6 +749,8 @@
     plateauVider();
     clearTimeout(plateauTimer);
     plateauBusy = false;
+    placesTotal = 0;
+    articlesFaits = 0;
     $('stage').classList.remove('bench__stage--preuve', 'is-swap');
     $('stage-icon').innerHTML = ICONS.fusee;
     $('stage-text').textContent = `Recensement de ${commune.nom} en cours...`;
@@ -721,10 +760,11 @@
     setProgress(2);
     setPill('Préparation...', '', false);
     $('hud-commune').textContent = commune.nom;
+    $('hud-commune').hidden = false;
     $('city-badge').hidden = false;
+    // Le logo de la commune precedente s'efface, celui-ci arrive avec les sources
     $('hud-logo').hidden = true;
     $('hud-logo').removeAttribute('src');
-    $('city-badge').hidden = true;
     resetIssue();
     show('progress');
 
@@ -1109,6 +1149,8 @@
     $('stage').classList.remove('bench__stage--preuve', 'is-swap');
     resetStages();
     tourPoints = [];
+    placesTotal = 0;
+    articlesFaits = 0;
     mainClear();
     resetIssue();
     const survol = $('flyover');

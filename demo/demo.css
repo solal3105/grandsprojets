@@ -433,16 +433,21 @@ html[data-theme='dark'] .theme-toggle__sun { display: block; }
   overflow: hidden;
   display: flex;
   align-items: center;
-  /* Icône et texte forment UN bloc, centré : séparés, l'icône flottait au
-     bord gauche pendant que le texte se centrait (relevé en maquette) */
   justify-content: center;
   gap: 12px;
   min-height: 46px;
-  padding: 6px 14px;
-  border-radius: 12px;
-  border-left: 3px solid transparent;
+  /* Pilule autonome, centrée : l'établi n'a plus de fond commun */
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 8px 24px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--glass-tint) 84%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 20px 60px -18px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
   pointer-events: none;
-  transition: background 0.3s ease, border-color 0.3s ease;
+  transition: background 0.3s ease, border-color 0.3s ease, border-radius 0.3s ease;
 }
 .bench__stage-icon { width: 21px; height: 21px; color: var(--accent); flex-shrink: 0; }
 .bench__stage-icon svg { width: 100%; height: 100%; }
@@ -462,10 +467,11 @@ html[data-theme='dark'] .theme-toggle__sun { display: block; }
 }
 @keyframes tickerIn { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
 
-/* Mode PREUVE : fond léger, filet accent, citation en entier, dévoilement */
+/* Mode PREUVE : panneau plus large, filet accent, citation en entier */
 .bench__stage--preuve {
-  background: color-mix(in srgb, var(--glass-tint) 55%, transparent);
-  border-left-color: var(--accent, #ff4d6a);
+  border-radius: 16px;
+  border-left: 3px solid var(--accent, #ff4d6a);
+  padding: 12px 26px;
 }
 .bench__stage--preuve .bench__stage-text {
   white-space: normal;
@@ -569,10 +575,11 @@ html[data-theme='dark'] .fx-sonar { mix-blend-mode: screen; }
   pointer-events: none;
   opacity: 0;
 }
-.fx-photo.is-in {
-  opacity: 1;
-  animation: photoIn 0.7s cubic-bezier(0.34, 1.5, 0.64, 1);
-}
+.fx-photo.is-in { opacity: 1; }
+/* L'entree s'anime sur l'IMAGE, jamais sur le marqueur : une animation de
+   transform sur le marqueur ecrasait le positionnement de la carte, et la
+   photo apparaissait une seconde en haut a gauche avant de sauter au point */
+.fx-photo.is-in img { animation: photoIn 0.7s cubic-bezier(0.34, 1.5, 0.64, 1); }
 .fx-photo img {
   width: 92px;
   height: 66px;
@@ -982,21 +989,17 @@ html[data-theme='dark'] .fx-sonar { mix-blend-mode: screen; }
    Toute la bande du bas dans un seul verre, taillé comme les autres panneaux
    du HUD. La main de cartes s'étale au centre : elle s'aère à trois cartes,
    se resserre en recouvrement à cent, toujours dans la même largeur. */
+/* L'établi est un pur GABARIT : aucun fond à lui, la carte reste visible
+   derrière ; le plateau, les cartes et le débord portent chacun leur verre */
 .bench {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 12px;
+  bottom: 16px;
   z-index: 5;
   width: min(1280px, 96vw);
   display: flex;
   flex-direction: column;
-  padding: 8px 16px 10px;
-  background: color-mix(in srgb, var(--glass-tint) 80%, transparent);
-  backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid var(--glass-border);
-  border-radius: 22px;
-  box-shadow: 0 28px 80px -22px var(--glass-shadow), inset 0 1.5px 0 var(--glass-shimmer);
   pointer-events: auto;
 }
 .bench__hand {
@@ -1013,6 +1016,9 @@ html[data-theme='dark'] .fx-sonar { mix-blend-mode: screen; }
   left: 0;
   top: 6px;
   width: 190px;
+  /* Hauteur UNIQUE : une carte a une ou deux lignes de titre, jamais une
+     rangée dentelée */
+  height: 58px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1068,18 +1074,12 @@ html[data-theme='dark'] .fx-sonar { mix-blend-mode: screen; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.bench__domain {
+.bench__favicon {
   flex: none;
-  /* Une adresse d'Etat peut faire 50 caracteres : bornee, sinon elle
-     ecraserait le titre (releve : la DREAL Auvergne-Rhone-Alpes) */
-  max-width: 38%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 9.5px;
-  letter-spacing: 0.04em;
-  color: var(--on-glass);
-  opacity: 0.5;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  opacity: 0.9;
 }
 /* Localisé : bref éclat, le clone porte le vol jusqu'au point sur la carte */
 .bench__card.is-flown {
