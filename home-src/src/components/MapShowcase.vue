@@ -9,7 +9,7 @@
           <span class="w-2.5 h-2.5 rounded-full bg-amber" />
           <span class="w-2.5 h-2.5 rounded-full" style="background:#5AAB7D" />
         </div>
-        <div class="flex-1 bg-white border border-gray-200 rounded-full px-3 py-1.5 text-xs text-gray-500 flex items-center gap-1.5 min-w-0">
+        <div class="flex-1 bg-white border border-gray-200 rounded-full px-3 py-1.5 text-xs text-gray-600 flex items-center gap-1.5 min-w-0">
           <Lock class="w-3 h-3 text-gray-300 shrink-0" />
           <span class="truncate transition-all duration-500">{{ activeSpace.urlDisplay }}</span>
         </div>
@@ -25,7 +25,7 @@
           class="relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium select-none transition-all duration-200 group"
           :class="activeSpace.id === space.id
             ? 'bg-white text-dark shadow-sm border border-gray-200/70'
-            : 'text-gray-500 hover:text-gray-700 hover:bg-white/60'"
+            : 'text-gray-600 hover:text-gray-700 hover:bg-white/60'"
         >
           <span
             class="w-2 h-2 rounded-full shrink-0 transition-transform duration-150 group-hover:scale-110"
@@ -39,7 +39,7 @@
           />
         </button>
 
-        <div class="ml-auto mr-1 flex items-center gap-1.5 text-[11px] text-gray-400 font-medium">
+        <div class="ml-auto mr-1 flex items-center gap-1.5 text-[11px] text-gray-600 font-medium">
           <span class="relative flex h-2 w-2">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60" />
             <span class="relative inline-flex rounded-full h-2 w-2" style="background:#5AAB7D" />
@@ -83,7 +83,7 @@
           <MapPin class="w-4 h-4" :style="{ color: activeSpace.color }" />
         </div>
         <div class="text-left">
-          <p class="text-[11px] text-gray-400 leading-tight">{{ activeSpace.type }}</p>
+          <p class="text-[11px] text-gray-600 leading-tight">{{ activeSpace.type }}</p>
           <p class="text-[13px] font-medium text-dark leading-tight">{{ activeSpace.name }}</p>
         </div>
       </div>

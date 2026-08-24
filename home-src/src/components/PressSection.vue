@@ -4,7 +4,7 @@
 
       <!-- Heading -->
       <div class="max-w-[680px] mb-16">
-        <span class="inline-flex items-center gap-2.5 text-xs font-semibold text-primary uppercase tracking-widest mb-5">
+        <span class="inline-flex items-center gap-2.5 text-xs font-semibold text-primary-ink uppercase tracking-widest mb-5">
           <span class="w-5 h-px bg-primary inline-block" />
           On en parle
         </span>
@@ -27,7 +27,7 @@
               class="w-28 h-auto object-contain"
             />
             <div class="flex flex-col items-center gap-2 text-center">
-              <span class="inline-flex items-center gap-1.5 bg-primary-10 text-primary text-[11px] font-semibold uppercase tracking-widest px-3 py-1 rounded-full">
+              <span class="inline-flex items-center gap-1.5 bg-primary-10 text-primary-ink text-[11px] font-semibold uppercase tracking-widest px-3 py-1 rounded-full">
                 <Tv class="w-3 h-3 shrink-0" />
                 TV
               </span>
@@ -52,7 +52,7 @@
                 href="https://www.linkedin.com/posts/solal-gendrin_une-carte-des-travaux-et-projets-urbains-activity-7453065663713046528-suBc"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex items-center gap-2 bg-primary text-white text-xs font-semibold px-5 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-sm shadow-primary/20 group shrink-0"
+                class="inline-flex items-center gap-2 bg-primary-ink text-white text-xs font-semibold px-5 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-sm shadow-primary/20 group shrink-0"
               >
                 Voir le post LinkedIn
                 <ExternalLink class="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -73,7 +73,7 @@
               class="w-28 h-auto object-contain"
             />
             <div class="flex flex-col items-center gap-2 text-center">
-              <span class="inline-flex items-center gap-1.5 bg-primary-10 text-primary text-[11px] font-semibold uppercase tracking-widest px-3 py-1 rounded-full">
+              <span class="inline-flex items-center gap-1.5 bg-primary-10 text-primary-ink text-[11px] font-semibold uppercase tracking-widest px-3 py-1 rounded-full">
                 <Radio class="w-3 h-3 shrink-0" />
                 Radio
               </span>
@@ -97,7 +97,7 @@
               <div class="flex items-center gap-3 mb-3">
                 <button
                   @click="togglePlay"
-                  class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shrink-0 shadow-md shadow-primary/20 hover:bg-red-700 active:scale-95 transition-all duration-200"
+                  class="w-9 h-9 rounded-full bg-primary-ink text-white flex items-center justify-center shrink-0 shadow-md shadow-primary/20 hover:bg-red-700 active:scale-95 transition-all duration-200"
                   :aria-label="isPlaying ? 'Pause' : 'Écouter'"
                 >
                   <Pause v-if="isPlaying" class="w-3.5 h-3.5" />
@@ -128,7 +128,7 @@
               href="https://www.lyondemain.fr/actualite-du-mardi-14-avril-lyon-info-vazy-open-projets/"
               target="_blank"
               rel="noopener noreferrer"
-              class="self-start inline-flex items-center gap-2 bg-primary text-white text-xs font-semibold px-5 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-sm shadow-primary/20 group shrink-0"
+              class="self-start inline-flex items-center gap-2 bg-primary-ink text-white text-xs font-semibold px-5 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-sm shadow-primary/20 group shrink-0"
             >
               Lire l'article
               <ExternalLink class="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -148,7 +148,7 @@
               class="w-28 h-auto object-contain"
             />
             <div class="flex flex-col items-center gap-2 text-center">
-              <span class="inline-flex items-center gap-1.5 bg-primary-10 text-primary text-[11px] font-semibold uppercase tracking-widest px-3 py-1 rounded-full">
+              <span class="inline-flex items-center gap-1.5 bg-primary-10 text-primary-ink text-[11px] font-semibold uppercase tracking-widest px-3 py-1 rounded-full">
                 <Video class="w-3 h-3 shrink-0" />
                 Webinaire
               </span>
@@ -178,7 +178,7 @@
                 href="https://www.youtube.com/watch?v=dNOvVS3G-Ts"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex items-center gap-2 bg-primary text-white text-xs font-semibold px-5 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-sm shadow-primary/20 group shrink-0"
+                class="inline-flex items-center gap-2 bg-primary-ink text-white text-xs font-semibold px-5 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-sm shadow-primary/20 group shrink-0"
               >
                 Voir le replay
                 <ExternalLink class="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -198,7 +198,9 @@
 import { ref, computed, onUnmounted } from 'vue'
 import { Play, Pause, Radio, Video, Tv, ExternalLink } from 'lucide-vue-next'
 
-const audio = new Audio('/home/audio/lyon-demain-open-projets.mp3')
+// Chemin relatif a la base Vite : code en dur sur /home/, le fichier tombe en
+// 404 des que la vitrine est servie sous une autre base.
+const audio = new Audio(`${import.meta.env.BASE_URL}audio/lyon-demain-open-projets.mp3`)
 audio.preload = 'metadata'
 
 const isPlaying = ref(false)

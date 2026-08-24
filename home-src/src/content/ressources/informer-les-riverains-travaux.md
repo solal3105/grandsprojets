@@ -1,8 +1,8 @@
 ---
 title: Informer les riverains d'un chantier : ce que la loi impose, ce que le terrain recommande
 description: Courrier, affichage, réunion publique, horaires de bruit : ce qui est vraiment obligatoire avant un chantier, ce qui relève de l'usage, et la méthode avant-pendant-après utilisée par les communes qui s'y prennent bien.
-date: 2026-07-24
-updated: 2026-07-24
+date: 2026-03-19
+updated: 2026-03-19
 tag: Riverains
 readingTime: 12
 solutionHeading: Le point fixe de votre dispositif riverains

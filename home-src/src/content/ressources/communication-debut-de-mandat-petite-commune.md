@@ -1,8 +1,8 @@
 ---
 title: Début de mandat : la checklist communication des communes de moins de 5 000 habitants
 description: Les guides du nouveau mandat parlent aux directeurs de la communication des grandes villes. Voici la version pour votre réalité : un maire, un secrétaire général de mairie, un élu délégué, et six ans devant vous.
-date: 2026-07-24
-updated: 2026-07-24
+date: 2026-05-07
+updated: 2026-05-07
 tag: Début de mandat
 readingTime: 11
 solutionHeading: Pensé pour les équipes sans dircom

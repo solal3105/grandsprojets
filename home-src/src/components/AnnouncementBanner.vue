@@ -7,7 +7,7 @@
       <span class="hidden sm:inline text-white/60">Open Projets équipe déjà des collectivités -</span>
       <router-link
         to="/contact"
-        class="inline-flex items-center gap-2 font-medium text-white hover:text-primary transition-colors"
+        class="inline-flex items-center gap-2 font-medium text-white hover:text-primary-ink transition-colors"
       >
         Demander une démo
         <ArrowRight class="w-3.5 h-3.5 shrink-0" />

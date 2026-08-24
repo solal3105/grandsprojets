@@ -64,6 +64,17 @@
       });
     },
 
+    /**
+     * Ouvre un module comme le ferait un clic sur son bouton : etat actif de
+     * la barre laterale compris. Utilise par le deep-link ?module= de main.js,
+     * qui passait auparavant par NavPanel.openModule et laissait donc le
+     * bouton eteint.
+     * @param {string} mod - module_key
+     */
+    openModule(mod) {
+      this._activateModule(mod);
+    },
+
     _activateModule(mod) {
       // Same module: toggle collapse/expand
       if (this._activeModule === mod) {

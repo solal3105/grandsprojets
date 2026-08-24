@@ -1,6 +1,7 @@
 {
   "ignorePatterns": [
     "home/assets/**",
+    "home2/assets/**",
     "_home/assets/**",
     "node_modules/**"
   ],

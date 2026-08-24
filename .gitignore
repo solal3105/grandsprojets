@@ -27,3 +27,6 @@ audit-*.md
 
 # Cahier des charges : la source HTML est suivie, le PDF est un export
 docs/cahier-des-charges/*.pdf
+
+# Refonte temporaire : produite par la commande de build Netlify
+home2

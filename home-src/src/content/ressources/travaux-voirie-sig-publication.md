@@ -1,0 +1,82 @@
+---
+title: Publier ses travaux de voirie : pourquoi le SIG n'est pas le bon endroit
+description: Publier ses travaux de voirie et tenir une carte des travaux de commune sont deux métiers différents. Le SIG produit une donnée juste ; l'information chantier des riverains, elle, se périme en quarante-huit heures.
+date: 2026-07-16
+updated: 2026-07-16
+tag: Travaux
+readingTime: 12
+solutionHeading: Un module dédié au rythme quotidien des chantiers
+solutionIntro: Le module Travaux d'Open Projets ne remplace pas votre SIG et ne prétend pas le faire : il n'ingère qu'un seul format géographique, le GeoJSON. Il prend en charge la partie que le SIG n'a pas vocation à porter, c'est-à-dire la page publique tenue au jour le jour pour les riverains. Le rythme de mise à jour, lui, reste chez vous.
+solutionPoints: Une chronologie que le riverain fait glisser jour par jour, avec un histogramme de la charge de chantiers | Trois filtres pour retrouver un chantier : nature, localisation, état | Deux sources au choix, exclusives : la saisie par vos agents, ou un flux GeoJSON déjà existant | Consultation sans compte ni application, l'avancement affiché étant calendaire et non constaté sur le terrain
+---
+
+Il y a une phrase qu'on entend dans presque toutes les mairies quand le sujet de la carte des travaux arrive sur la table : « on a déjà la couche dans le SIG ». C'est vrai, et c'est même souvent une bonne couche, propre, géoréférencée, tenue par quelqu'un qui sait ce qu'il fait. Et pourtant, six mois plus tard, le standard sonne toujours autant, et le riverain de la rue barrée n'a pas trouvé sa réponse.
+
+Ce n'est pas un problème d'outil, ni de compétence. C'est un problème d'horloge. Un système d'information géographique est fait pour produire et diffuser de la donnée spatiale juste, et la France a bâti autour de lui un appareil technique remarquable. L'information chantier destinée aux habitants, elle, obéit à une contrainte que la donnée n'a pas : elle est fausse quarante-huit heures après avoir été vraie.
+
+Cet article ne dit pas que le SIG publie mal. [ArcGIS Online](https://doc.arcgis.com/fr/arcgis-online/manage-data/publish-features.htm), [QGIS Server](https://docs.qgis.org/3.40/fr/docs/server_manual/index.html) et [Lizmap](https://docs.lizmap.com/3.5/fr/publish/quick_start/project_for_web.html) publient très bien, et depuis longtemps. Il dit autre chose : ce qu'ils publient est une carte, alimentée au rythme d'un service, quand le riverain cherche une page écrite dans sa langue et mise à jour au rythme de la pelleteuse.
+
+## Que cherche vraiment un riverain devant une rue barrée ?
+
+Nous n'avons trouvé aucune enquête publique mesurant ce qu'un habitant cherche devant un chantier : ce qui suit relève donc de l'observation, pas de l'étude. Elle est constante : il veut savoir quand la rue rouvre, par où passer en attendant, et où se garer ce soir.
+
+Une couche SIG répond à une autre demande, parfaitement légitime : où se situe l'emprise, quel est son identifiant, quel est le maître d'ouvrage, à quelle date d'arrêté elle se rattache. Rien n'y est faux, mais rien n'y répond non plus à « je pars travailler dans dix minutes ».
+
+Les collectivités qui traitent sérieusement le sujet ajoutent donc tout autour. La Ville de Paris accompagne sa carte de [listes par arrondissement, de fiches par rue, du détail des déviations et des neutralisations de stationnement](https://www.paris.fr/pages/chantiers-de-voirie-3207). Nantes Métropole écrit noir sur blanc que sa carte est « non exhaustive » et qu'elle « indique les chantiers importants qui impactent la circulation », puis rappelle qu'elle informe aussi les riverains par [courriers, carnets de chantier et réunions](https://metropole.nantes.fr/ma-ville-ma-metropole/les-travaux-dans-la-metropole-nantaise). Les deux disent la même chose sans la formuler : la couche ne suffit pas, il faut une page autour.
+
+## Pourquoi la coordination des travaux se compte en mois quand l'information riverain se compte en heures
+
+Le décalage n'est pas une négligence, il est inscrit dans les textes. C'est [l'article L. 115-1 du code de la voirie routière](https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000006398462) qui confie au maire la coordination des travaux affectant le sol et le sous-sol des voies publiques en agglomération, « sous réserve des pouvoirs dévolus au représentant de l'État sur les routes à grande circulation » : les concessionnaires lui communiquent périodiquement leur programme et son calendrier, il établit le calendrier d'ensemble, et il peut ordonner la suspension d'un chantier non coordonné. C'est également le maire qui exerce la [police de la circulation en agglomération](https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000041411328/) : la décision qui ferme une rue et crée une déviation est un acte municipal.
+
+Le [règlement de voirie de Courbevoie](https://www.ville-courbevoie.fr/1775/cadre-de-vie/urbanisme-et-habitat/reglement-de-voirie.htm) fait tenir les deux horloges dans un même document. Côté coordination, les intervenants déposent leur programme avant le mois de novembre pour les années suivantes, et toute inscription en cours d'année suppose une annonce au moins deux mois avant l'ouverture du chantier. Côté riverains, le même texte impose que l'avis soit distribué quarante-huit heures au moins avant le commencement des travaux. Un an d'avance d'un côté, deux jours de l'autre.
+
+Entre les deux, l'exécution ajoute ses propres délais, comptés en jours : un exploitant de réseau répond à une déclaration de travaux en [neuf jours calendaires par internet et à une DICT en sept jours](https://entreprendre.service-public.gouv.fr/vosdroits/F23491). S'y ajoutent [plus de 2,7 millions de consultations préalables effectuées en 2024](https://www.ecologie.gouv.fr/politiques-publiques/canalisations-reforme-anti-endommagement) sur environ 4,5 millions de kilomètres de réseaux : ce sont des déclarations et non des chantiers, mais l'ordre de grandeur dit assez que la voirie française bouge en permanence.
+
+## Le rythme d'un service et le rythme d'un chantier ne coïncident pas
+
+Le fait devient ici vérifiable. La Métropole Européenne de Lille publie une couche des [tronçons de voirie impactés par des travaux](https://www.data.gouv.fr/datasets/troncons-de-voirie-impactes-par-des-travaux), diffusée en OGC API Features, WFS et WMS avec label INSPIRE, annoncée comme actualisée quotidiennement. Au 24 août 2026, la fiche data.gouv.fr affichait « Fréquence de mise à jour non respectée » et la dernière mise à jour datait du 15 avril 2026. Un cas ne fait pas une tendance, et ce n'est pas un procès : tenir une couche au jour le jour coûte cher, même très bien outillé.
+
+À l'inverse, quand la donnée est vraiment destinée au public, la cadence exigée est brutale. Le jeu [Chantiers à Paris](https://www.data.gouv.fr/datasets/chantiers-a-paris) décrit les chantiers en cours à J-1 ; consulté le 24 août 2026, il affichait une dernière mise à jour datée de la veille. La fiche prévient elle-même qu'« il peut subsister des travaux de réfection et de nettoyage des trottoirs après la fin d'un chantier » : même à ce niveau d'exigence, la date affichée peut différer de ce que le riverain constate.
+
+Et pour une commune ordinaire ? Dans une page publiée le 5 janvier 2022, la ville de Vence annonce une [carte interactive des travaux](https://vence.fr/carte-interactive-des-travaux/) tenue par ses services techniques et « réactualisée chaque semaine ». Un rythme hebdomadaire pour un besoin quotidien, affiché plutôt que promis, vaut mieux qu'une fraîcheur invérifiable. Détail qui compte : c'est une carte Google, pas une carte produite par un SIG. Un exemple ne fait pas une statistique, mais il dit quelque chose du réflexe spontané quand il n'y a pas de géomaticien dans le couloir.
+
+## Le service SIG n'a jamais été recruté pour tenir un fil d'actualité
+
+La fiche métier officielle du [chef de projet des systèmes d'information géographique](https://www.emploi-territorial.fr/fichemetier/D10406) décrit un agent qui « structure et modélise les informations géographiques de la collectivité » et qui pilote un système intégrant l'acquisition, l'administration, le traitement, l'analyse et la diffusion des données. Le poste relève des ingénieurs ou des techniciens territoriaux, et il est rattaché aux systèmes d'information ou à l'aménagement. Jamais à la communication ni à la relation aux habitants.
+
+Demander à un géomaticien de saisir chaque matin les chantiers ouverts la veille, ce n'est donc pas lui demander le travail pour lequel sa fiche métier a été écrite. La question n'est pas celle de la capacité, mais celle de l'affectation.
+
+La structure du bloc communal explique l'ampleur du sujet. La [DGCL recense 34 875 communes au 1er janvier 2025](https://www.collectivites-locales.gouv.fr/actualites/bis-195-les-structures-territoriales-au-1er-janvier-2025), et [97,0 % d'entre elles comptent moins de 10 000 habitants](https://www.collectivites-locales.gouv.fr/files/files/Etudes-et-statistiques/Les%20collectivit%C3%A9s%20locales%20en%20chiffres/BATweb-CL_en_chiffres_2025.pdf), pour près de la moitié de la population. Aucune statistique publique ne dit à partir de quelle taille un poste de géomaticien existe réellement, mais dans l'immense majorité des communes, la personne qui saisira le chantier de la rue des Écoles est un agent des services techniques ou de la communication, entre deux autres tâches.
+
+## La normalisation géomatique française a décrit le patrimoine, pas l'événement temporaire
+
+Un indice dit assez ce pour quoi le SIG a été conçu. Au 24 août 2026, le tableau des [standards de données géolocalisées validés par le Conseil national de l'information géolocalisée](https://cnig.gouv.fr/les-standards-cnig-a18959.html?lang=fr) comptait dix-neuf entrées, et aucune ne porte sur les chantiers. Celles qui touchent la voirie sont le Plan de corps de rue simplifié et la famille StaR, qui décrivent des fonds de plan et des réseaux, c'est-à-dire des objets permanents.
+
+Le grand chantier géomatique français sur la voirie vise d'ailleurs un autre public. La documentation officielle du PCRS rappelle que [les gestionnaires de réseaux ont l'obligation de l'utiliser depuis le 1er janvier 2026 dans leurs réponses aux DT-DICT](https://docs.pcrs.beta.gouv.fr/contexte/reglementation), seul usage réglementaire identifié. C'est un référentiel de très haute précision destiné à des professionnels du sous-sol, et il n'a jamais eu pour ambition de dire à un habitant par où contourner sa rue.
+
+Cette absence se voit dans les jeux ouverts. Sur data.gouv.fr, les chantiers de [Toulouse Métropole](https://www.data.gouv.fr/datasets/chantiers-toulouse-metropole) comme les [travaux de voirie de Pornichet](https://www.data.gouv.fr/datasets/travaux-de-voirie-sur-la-commune-de-pornichet) affichaient au 24 août 2026 une qualité de métadonnées notée « Bon (67 %) », avec les mêmes trois manques : description des données, couverture temporelle, couverture spatiale. Quand aucun modèle national ne dit à quoi ressemble une fiche chantier, chacun invente la sienne.
+
+## Comment font les collectivités qui séparent les deux objets ?
+
+Les plus outillées ne tranchent pas, elles distinguent. Sur sa page travaux, [Toulouse Métropole](https://metropole.toulouse.fr/mon-quotidien/travaux) renvoie sa carte des chantiers en cours vers son portail cartographique, et confie l'information courante des habitants à deux autres canaux annoncés au même endroit : une application mobile, « Parlons Travaux », et un abonnement à l'actualité des quartiers. La couche et le canal riverain n'y sont pas le même produit.
+
+La Métropole de Lyon, elle, entre par le besoin plutôt que par la donnée : sa page permet de [chercher les travaux dans un rayon de 300 mètres autour d'une adresse](https://mobilites.grandlyon.com/travaux), signale les chantiers de nuit et propose un itinéraire alternatif tenant compte des perturbations. On n'y consulte pas une couche, on y résout un trajet.
+
+Le Cerema, dans ses [éléments de charte pour l'accessibilité des chantiers urbains](https://www.cerema.fr/fr/actualites/chantiers-urbains-elements-charte-garantir-accessibilite) publiés le 3 décembre 2025, pose que garantir la continuité de la chaîne piétonne suppose d'« informer tôt et de façon accessible », par des panneaux normalisés, des courriers aux riverains, un site internet dédié : l'information riverain y est une obligation d'accompagnement du chantier, pas un sous-produit de la donnée. La finalité de la coordination, telle que la formule un [guide voirie du CETE de l'Ouest](https://smart-city.cerema.fr/sites/ant/files/fichiers/2018/10/Guide_voirie_-_gestion_DP_et_RCE_cle773ac7.pdf) en citant le guide CERTU et AITF, tient en une phrase : elle « évite l'ouverture de chantiers successifs sur les mêmes sections de chaussées ou de trottoirs qui, tout en irritant les usagers et riverains, altèrent le patrimoine routier ». L'usager agacé figure dans la justification d'origine, à égalité avec le patrimoine.
+
+## Que faut-il faire de sa couche travaux, alors ?
+
+Surtout pas la jeter. La couche reste le référentiel interne, pour la coordination, l'archivage et la programmation pluriannuelle. Et au-delà de [3 500 habitants et 50 agents en équivalent temps plein, la publication en ligne des bases mises à jour régulièrement est même une obligation](https://www.cnil.fr/fr/les-collectivites-territoriales-et-lopen-data-concilier-ouverture-des-donnees-et-protection-des), la CNIL rappelant que publier ne dispense d'aucune exigence du RGPD.
+
+Ce qu'il faut arrêter d'attendre d'elle, c'est qu'elle tienne lieu de page publique. Un projet Lizmap se prépare en [quatre étapes, avec choix du système de coordonnées et paramétrage des services web](https://docs.lizmap.com/3.5/fr/publish/quick_start/project_for_web.html), et ArcGIS Online précise que, par défaut, [seuls les administrateurs de l'organisation et l'auteur accèdent à une couche d'entités hébergée](https://doc.arcgis.com/fr/arcgis-online/manage-data/publish-features.htm) tant qu'elle n'est pas partagée. Ce sont des chaînes solides, faites pour durer, donc pour être tenues par quelqu'un dont c'est le métier. Ce n'est pas le tempo d'un chantier qui prend deux jours de retard un jeudi soir.
+
+La bonne architecture consiste donc à [garder son SIG et publier ailleurs](/home/ressources/garder-son-sig-et-publier) ce qui s'adresse aux habitants, sur un canal tenu au rythme du chantier. C'est ce que fait le module Travaux d'Open Projets, qui accepte un flux GeoJSON produit par votre SIG plutôt que de dupliquer la saisie ; l'adresse propre et le référencement s'y jouent au niveau de la page publique de la collectivité, pas du chantier pris un par un. Et la fiabilité paie : le [Baromètre de la communication locale](https://www.cap-com.org/actualit%C3%A9s/quatre-lecons-tirer-du-barometre-2024-de-la-communication-locale), mené du 27 août au 5 septembre 2024 auprès de 1 005 personnes, montre que la fiabilité est la première qualité que 76 % des répondants attribuent à l'information locale émise par leur collectivité. Pour la suite, notre guide de la [carte des travaux de commune](/home/ressources/carte-des-travaux-commune) détaille la méthode, et celui sur [l'information des riverains](/home/ressources/informer-les-riverains-travaux) précise ce que le droit impose autour.
+
+## L'essentiel en six points
+
+- Le SIG produit une donnée juste et sait très bien la diffuser ; ce qu'il diffuse est une carte, pas une page écrite pour un habitant pressé.
+- Les deux horloges cohabitent dans les textes : à Courbevoie, les programmes sont attendus avant novembre pour l'année suivante, et l'avis aux riverains quarante-huit heures avant l'ouverture.
+- Tenir une couche au jour le jour coûte cher, même très bien outillé : celle de la Métropole Européenne de Lille, annoncée quotidienne, datait du 15 avril 2026 au 24 août 2026.
+- Aucun des dix-neuf standards CNIG validés recensés au 24 août 2026 ne porte sur les travaux de voirie : la géomatique française a décrit le patrimoine, pas l'événement.
+- La fiche métier du chef de projet SIG le rattache aux systèmes d'information ou à l'aménagement, jamais à la relation aux habitants.
+- Les collectivités qui s'en sortent ne choisissent pas, elles séparent : une couche pour la coordination, un canal dédié pour les riverains, alimenté si possible par la première.

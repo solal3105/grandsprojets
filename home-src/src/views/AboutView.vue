@@ -73,7 +73,7 @@
               <img :src="`${base}img/logo-vazy.png`" alt="Vazy" class="h-14 w-auto" />
               <div>
                 <h3 class="font-heading font-bold text-xl text-dark">VAZY</h3>
-                <span class="inline-flex items-center gap-1.5 mt-1 text-xs font-medium text-green bg-green/10 px-2.5 py-1 rounded-full">
+                <span class="inline-flex items-center gap-1.5 mt-1 text-xs font-medium text-green-ink bg-green/10 px-2.5 py-1 rounded-full">
                   <Heart class="w-3 h-3" />
                   Société à Mission
                 </span>
@@ -90,7 +90,7 @@
 
             <div class="flex flex-wrap gap-3 mt-6">
               <span class="inline-flex items-center gap-1.5 text-xs text-gray-text bg-white border border-gray-border px-3 py-1.5 rounded-full">
-                <MapPinIcon class="w-3.5 h-3.5 text-primary" />
+                <MapPinIcon class="w-3.5 h-3.5 text-primary-ink" />
                 Lyon / Villeurbanne
               </span>
               <span class="inline-flex items-center gap-1.5 text-xs text-gray-text bg-white border border-gray-border px-3 py-1.5 rounded-full">
@@ -98,7 +98,7 @@
                 SASU - RCS Lyon
               </span>
               <span class="inline-flex items-center gap-1.5 text-xs text-gray-text bg-white border border-gray-border px-3 py-1.5 rounded-full">
-                <ShieldCheck class="w-3.5 h-3.5 text-green" />
+                <ShieldCheck class="w-3.5 h-3.5 text-green-ink" />
                 Société à Mission
               </span>
             </div>
@@ -124,13 +124,15 @@
       </div>
     </section>
 
-    <!-- CTA -->
-    <CtaSection
-      heading="Déployez votre carte"
-      heading-line2="pour votre territoire"
-      heading-gradient="text-gradient-green"
-      subtitle="Demandez une démo personnalisée et découvrez Open Projets en quelques minutes."
-    />
+    <!-- CTA (substituable : la version 2 y place son propre bloc de clôture) -->
+    <slot name="cta">
+      <CtaSection
+        heading="Déployez votre carte"
+        heading-line2="pour votre territoire"
+        heading-gradient="text-gradient-green"
+        subtitle="Demandez une démo personnalisée et découvrez Open Projets en quelques minutes."
+      />
+    </slot>
   </div>
 </template>
 
@@ -157,7 +159,7 @@ const pillars = [
     title: 'Entreprise française',
     desc: 'Créée à Lyon, inscrite au RCS, équipe basée en France. La prise de décision est locale, la réactivité est réelle. Aucun capital étranger, aucune dépendance à un acteur américain.',
     bgClass: 'bg-primary/10',
-    iconClass: 'text-primary',
+    iconClass: 'text-primary-ink',
     accentGradient: 'linear-gradient(to right, #FF0037, #F2B327)',
     tags: ['Lyon / Villeurbanne', 'SASU - RCS Lyon', 'Équipe locale'],
   },
@@ -166,7 +168,7 @@ const pillars = [
     title: 'Données souveraines',
     desc: 'Hébergement en Europe, zéro publicité, zéro revente de données. Notre mesure d\'audience est hébergée dans l\'UE et refusable en un clic. Vos données appartiennent à votre collectivité - exportables et auditables à tout moment.',
     bgClass: 'bg-green/10',
-    iconClass: 'text-green',
+    iconClass: 'text-green-ink',
     accentGradient: 'linear-gradient(to right, #5AAB7D, #2563EB)',
     tags: ['Hébergement UE', 'Zéro publicité', 'RGPD natif'],
   },
@@ -187,14 +189,14 @@ const whyVazy = [
     title: 'Engagement statué',
     desc: 'VAZY est une Société à Mission au sens de la loi PACTE. Ses obligations sociales et environnementales sont inscrites dans ses statuts - vérifiables publiquement au RCS de Lyon.',
     bgClass: 'bg-green/10',
-    iconClass: 'text-green',
+    iconClass: 'text-green-ink',
   },
   {
     icon: Users,
     title: 'Un seul interlocuteur',
     desc: 'Configuration initiale, personnalisation, formation des équipes, support technique : une seule équipe gère l\'ensemble du déploiement. Pas de prestataire intermédiaire.',
     bgClass: 'bg-primary/10',
-    iconClass: 'text-primary',
+    iconClass: 'text-primary-ink',
   },
   {
     icon: Code,
@@ -208,7 +210,7 @@ const whyVazy = [
     title: 'Données sous votre contrôle',
     desc: 'Hébergement en Europe, conformité RGPD, export complet à tout moment. Vos données restent vôtres - même si vous résiliez demain.',
     bgClass: 'bg-amber/10',
-    iconClass: 'text-amber',
+    iconClass: 'text-amber-ink',
   },
 ]
 </script>

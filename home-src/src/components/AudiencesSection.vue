@@ -4,7 +4,7 @@
 
       <!-- Heading -->
       <div class="max-w-[680px] mb-16">
-        <span class="inline-flex items-center gap-2.5 text-xs font-semibold text-primary uppercase tracking-widest mb-5">
+        <span class="inline-flex items-center gap-2.5 text-xs font-semibold text-primary-ink uppercase tracking-widest mb-5">
           <span class="w-5 h-px bg-primary inline-block" />
           Pour qui ?
         </span>
@@ -50,7 +50,7 @@
                 :key="j"
                 class="flex items-start gap-3 text-sm text-gray-text leading-relaxed"
               >
-                <Check class="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <Check class="w-4 h-4 text-primary-ink shrink-0 mt-0.5" />
                 <span>{{ feature }}</span>
               </li>
             </ul>
@@ -73,7 +73,7 @@ const audiences = [
     icon: UserCircle,
     title: 'Élus & direction',
     bgClass: 'bg-primary-10',
-    iconClass: 'text-primary',
+    iconClass: 'text-primary-ink',
     accentGradient: 'linear-gradient(to right, #FF0037, #F2B327)',
     features: [
       'Valorisez l\'action publique et renforcez la transparence',
@@ -85,7 +85,7 @@ const audiences = [
     icon: Settings,
     title: 'Services techniques',
     bgClass: 'bg-amber/10',
-    iconClass: 'text-amber',
+    iconClass: 'text-amber-ink',
     accentGradient: 'linear-gradient(to right, #F2B327, #5AAB7D)',
     features: [
       'Publiez et gérez les projets depuis un back-office simple',

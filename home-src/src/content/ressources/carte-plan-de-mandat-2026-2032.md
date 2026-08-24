@@ -1,8 +1,8 @@
 ---
 title: Publier la carte de son plan de mandat 2026-2032 : le mode d'emploi
 description: Entre le débat d'orientation budgétaire et le vote du budget 2027, votre commune va annoncer son plan de mandat. Voici comment le rendre lisible par les habitants, projet par projet, sur une carte.
-date: 2026-07-24
-updated: 2026-07-24
+date: 2026-05-26
+updated: 2026-05-26
 tag: Plan de mandat
 readingTime: 10
 solutionHeading: La carte du mandat, prête pour l'annonce du budget 2027

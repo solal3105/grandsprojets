@@ -17,7 +17,7 @@
           <div class="mt-10 flex flex-col sm:flex-row gap-4">
             <router-link
               to="/contact" v-tilt-btn
-              class="inline-flex items-center gap-2.5 bg-primary text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-colors shadow-lg shadow-primary/20"
+              class="inline-flex items-center gap-2.5 bg-primary-ink text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-colors shadow-lg shadow-primary/20"
             >
               Demander une démo
               <ArrowRight class="w-4 h-4" />
@@ -106,7 +106,7 @@ const sections = [
     bg: 'bg-white',
     icon: markRaw(MapPin),
     iconBg: 'bg-primary/10',
-    accent: 'text-primary',
+    accent: 'text-primary-ink',
     badge: '01 - Contributions',
     title: 'Publiez un projet en quelques minutes, pas en quelques semaines.',
     description: "Votre agent dessine la zone sur la carte, rédige une fiche, ajoute une photo. Le projet apparaît instantanément. Interface intuitive - opérationnel en quelques minutes, sans formation, sans ticket, sans délai.",
@@ -125,7 +125,7 @@ const sections = [
     bg: 'bg-gray-bg',
     icon: markRaw(HardHat),
     iconBg: 'bg-amber/15',
-    accent: 'text-amber',
+    accent: 'text-amber-ink',
     badge: '02 - Module Travaux',
     title: "Un chantier en cours ? Vos riverains ont l'info sans vous appeler.",
     description: "Un module dédié aux chantiers, séparé de la carte des projets. Vos riverains trouvent l'info en deux clics - sans appeler la mairie.",
@@ -163,7 +163,7 @@ const sections = [
     bg: 'bg-gray-bg',
     icon: markRaw(Palette),
     iconBg: 'bg-primary/10',
-    accent: 'text-primary',
+    accent: 'text-primary-ink',
     badge: '04 - Branding',
     title: 'Vos couleurs, votre logo, votre identité - la carte fait partie de votre communication.',
     description: "En quelques clics, votre carte adopte les couleurs de votre charte graphique, vos logos, votre fond de carte. Vos agents s'y retrouvent. Vos habitants aussi.",
@@ -182,7 +182,7 @@ const sections = [
     bg: 'bg-white',
     icon: markRaw(Users),
     iconBg: 'bg-green/15',
-    accent: 'text-green',
+    accent: 'text-green-ink',
     badge: '05 - Équipe',
     title: 'Vos agents publient. Vous gardez le contrôle.',
     description: "Deux niveaux de permissions, une logique claire. L'agent de terrain publie les chantiers. L'administrateur configure l'espace. Chacun dans son rôle, sans marcher sur les plates-bandes de l'autre.",

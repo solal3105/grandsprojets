@@ -1,8 +1,8 @@
 ---
 title: Créer la carte des travaux de sa commune : le guide complet
 description: La loi confie déjà au maire la coordination de tous les chantiers de voirie. Voici comment transformer cette information, que votre mairie possède déjà, en carte des travaux utile aux habitants.
-date: 2026-07-24
-updated: 2026-07-24
+date: 2026-03-05
+updated: 2026-03-05
 tag: Travaux
 readingTime: 11
 solutionHeading: La méthode de ce guide, appliquée sans SIG

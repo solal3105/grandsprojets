@@ -42,14 +42,14 @@
               class="inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 font-medium text-sm transition-colors duration-200"
               :class="optedOut
                 ? 'bg-gray-bg text-dark border border-gray-border hover:bg-white'
-                : 'bg-primary text-white hover:bg-red-700 shadow-lg shadow-primary/30'"
+                : 'bg-primary-ink text-white hover:bg-red-700 shadow-lg shadow-primary/30'"
               @click="toggle"
             >
               <component :is="optedOut ? Check : Ban" class="w-4 h-4" />
               {{ optedOut ? 'Réactiver la mesure d\'audience' : 'Refuser la mesure d\'audience' }}
             </button>
 
-            <p class="text-sm font-medium" :class="optedOut ? 'text-primary' : 'text-gray-text'">
+            <p class="text-sm font-medium" :class="optedOut ? 'text-primary-ink' : 'text-gray-text'">
               {{ etat }}
             </p>
           </div>
@@ -114,7 +114,7 @@
         <p class="mt-12 text-gray-text leading-relaxed">
           Pour exercer vos droits d'accès, de rectification ou d'effacement, ou
           pour toute question sur ce traitement, écrivez-nous depuis la
-          <router-link to="/contact" class="text-primary font-medium hover:underline">page contact</router-link>.
+          <router-link to="/contact" class="text-primary-ink font-medium hover:underline">page contact</router-link>.
         </p>
         </div>
       </div>
@@ -200,7 +200,7 @@ const blocks = [
   {
     icon: BarChart3,
     bgClass: 'bg-primary/10',
-    iconClass: 'text-primary',
+    iconClass: 'text-primary-ink',
     title: 'Ce que nous mesurons',
     lines: [
       'Les pages consultées et l\'espace d\'où elles viennent.',
@@ -213,7 +213,7 @@ const blocks = [
   {
     icon: ShieldOff,
     bgClass: 'bg-amber/10',
-    iconClass: 'text-amber',
+    iconClass: 'text-amber-ink',
     title: 'Ce que nous ne faisons pas',
     lines: [
       'Aucune publicité, aucun reciblage, aucune revente de données.',

@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import { alternatives } from '@/data/alternatives.js'
+import { setMeta, setCanonical } from '@/lib/head.js'
+
+// Ré-exportées : les vues qui les importaient d'ici continuent de marcher.
+export { setMeta, setCanonical }
 
 const BASE = 'https://openprojets.com/home'
 const DEFAULT_TITLE = 'Open Projets - La carte interactive pour votre collectivité'
@@ -149,17 +153,6 @@ router.beforeEach((to, from) => {
 })
 
 // Mettre à jour les balises <head> SEO à chaque navigation
-// (exportées : les vues à routes dynamiques comme /ressources/:slug les réutilisent)
-export function setMeta(name, content, attr = 'name') {
-  let el = document.querySelector(`meta[${attr}="${name}"]`)
-  if (!el) { el = document.createElement('meta'); el.setAttribute(attr, name); document.head.appendChild(el) }
-  el.setAttribute('content', content)
-}
-export function setCanonical(href) {
-  let el = document.querySelector('link[rel="canonical"]')
-  if (!el) { el = document.createElement('link'); el.setAttribute('rel', 'canonical'); document.head.appendChild(el) }
-  el.setAttribute('href', href)
-}
 router.afterEach((to) => {
   const { title, description, canonical, robots } = to.meta
   if (title) {

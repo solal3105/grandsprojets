@@ -1,8 +1,8 @@
 ---
 title: Un QR code sur le panneau de chantier : ce que le droit permet, ce qui marche vraiment
 description: Depuis 2023, le code du travail reconnaît le QR code sur les chantiers. Taille, contraste, destination du lien : le guide complet pour transformer une palissade en canal d'information des habitants.
-date: 2026-07-24
-updated: 2026-07-24
+date: 2026-04-02
+updated: 2026-04-02
 tag: Chantier
 readingTime: 10
 solutionHeading: La page derrière le code, prête à imprimer

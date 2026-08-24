@@ -18,7 +18,7 @@
       <!-- Breadcrumb -->
       <nav v-if="currentRole" class="flex items-center gap-2 text-[13px] mb-8" aria-label="Fil d'ariane">
         <button
-          class="inline-flex items-center gap-1.5 text-gray-text hover:text-primary transition-colors"
+          class="inline-flex items-center gap-1.5 text-gray-text hover:text-primary-ink transition-colors"
           @click="goHome"
         ><Home class="w-3.5 h-3.5" /><span>Accueil</span></button>
 
@@ -26,7 +26,7 @@
 
         <button
           v-if="currentCategory"
-          class="text-gray-text hover:text-primary transition-colors"
+          class="text-gray-text hover:text-primary-ink transition-colors"
           @click="goRole"
         >{{ roleLabels[currentRole] }}</button>
         <span v-else class="text-dark font-semibold">{{ roleLabels[currentRole] }}</span>
@@ -46,7 +46,7 @@
             @click="showRole('admin')"
           >
             <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
-              <ShieldCheck class="w-7 h-7 text-primary" />
+              <ShieldCheck class="w-7 h-7 text-primary-ink" />
             </div>
             <h3 class="font-heading font-bold text-lg text-dark mb-2">Je suis Administrateur</h3>
             <p class="text-sm text-gray-text leading-relaxed">Je gère ma structure, j'approuve les projets et j'invite des utilisateurs</p>
@@ -57,7 +57,7 @@
             @click="showRole('contrib')"
           >
             <div class="w-14 h-14 rounded-full bg-green/10 flex items-center justify-center mx-auto mb-5">
-              <PenLine class="w-7 h-7 text-green" />
+              <PenLine class="w-7 h-7 text-green-ink" />
             </div>
             <h3 class="font-heading font-bold text-lg text-dark mb-2">Je suis Contributeur</h3>
             <p class="text-sm text-gray-text leading-relaxed">Je propose des projets et je gère mes propres contributions</p>
@@ -69,7 +69,7 @@
           <div class="flex items-center justify-between mb-1">
             <p class="text-xs font-semibold uppercase tracking-wider text-gray-text/60">Choisissez un sujet</p>
             <button
-              class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-text hover:text-primary transition-colors px-3 py-1.5 rounded-lg border border-gray-border hover:border-primary/30 bg-white"
+              class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-text hover:text-primary-ink transition-colors px-3 py-1.5 rounded-lg border border-gray-border hover:border-primary/30 bg-white"
               @click="openPrintGuide('admin')"
             ><Download class="w-3.5 h-3.5" /> Télécharger le guide PDF</button>
           </div>
@@ -86,7 +86,7 @@
           <div class="flex items-center justify-between mb-1">
             <p class="text-xs font-semibold uppercase tracking-wider text-gray-text/60">Choisissez un sujet</p>
             <button
-              class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-text hover:text-primary transition-colors px-3 py-1.5 rounded-lg border border-gray-border hover:border-primary/30 bg-white"
+              class="inline-flex items-center gap-1.5 text-xs font-medium text-gray-text hover:text-primary-ink transition-colors px-3 py-1.5 rounded-lg border border-gray-border hover:border-primary/30 bg-white"
               @click="openPrintGuide('contrib')"
             ><Download class="w-3.5 h-3.5" /> Télécharger le guide PDF</button>
           </div>
@@ -135,12 +135,12 @@ const CategoryCard = {
         h('div', { class: 'flex items-center gap-2' }, [
           h('h4', { class: 'text-[15px] font-semibold text-dark' }, props.title),
           props.badge
-            ? h('span', { class: 'inline-block text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary' }, props.badge)
+            ? h('span', { class: 'inline-block text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/10 text-primary-ink' }, props.badge)
             : null
         ]),
         h('p', { class: 'text-[13px] text-gray-text' }, props.desc)
       ]),
-      h(ChevronRight, { class: 'w-4 h-4 text-gray-300 shrink-0 group-hover:text-primary transition-colors' })
+      h(ChevronRight, { class: 'w-4 h-4 text-gray-300 shrink-0 group-hover:text-primary-ink transition-colors' })
     ])
   }
 }

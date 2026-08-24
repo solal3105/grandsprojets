@@ -1,5 +1,9 @@
 [build]
-  command = "cd home-src && npm ci && npm run build"
+  # build:v2 produit la refonte temporaire servie sous /home2/ (noindex).
+  # Volontairement non bloquant : une refonte cassee ne doit jamais empecher la
+  # mise en ligne du site de production. A retirer avec le reste de la refonte,
+  # voir la liste en tete de home-src/vite.config.v2.js.
+  command = "cd home-src && npm ci && npm run build && { npm run build:v2 || echo '[build] refonte /home2 en echec, deploiement du site poursuivi'; }"
   publish = "."
   edge_functions = "netlify/edge-functions"
 

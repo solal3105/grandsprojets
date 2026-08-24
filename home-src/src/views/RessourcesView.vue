@@ -29,17 +29,17 @@
             class="group block rounded-2xl border border-gray-border p-8 h-full transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-white"
           >
             <div class="flex items-center gap-3 mb-5">
-              <span v-if="article.tag" class="text-xs font-medium text-primary bg-primary-10 px-2.5 py-1 rounded-full">
+              <span v-if="article.tag" class="text-xs font-medium text-primary-ink bg-primary-10 px-2.5 py-1 rounded-full">
                 {{ article.tag }}
               </span>
               <span class="text-xs text-gray-text">{{ formatDateFr(article.date) }}</span>
               <span v-if="article.readingTime" class="text-xs text-gray-text">{{ article.readingTime }} min de lecture</span>
             </div>
-            <h2 class="font-heading font-bold text-xl sm:text-2xl text-dark leading-snug mb-3 group-hover:text-primary transition-colors duration-200">
+            <h2 class="font-heading font-bold text-xl sm:text-2xl text-dark leading-snug mb-3 group-hover:text-primary-ink transition-colors duration-200">
               {{ article.title }}
             </h2>
             <p class="text-sm text-gray-text leading-relaxed mb-6">{{ article.description }}</p>
-            <span class="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+            <span class="inline-flex items-center gap-1.5 text-sm font-medium text-primary-ink">
               Lire le guide
               <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
             </span>
@@ -48,13 +48,15 @@
       </div>
     </section>
 
-    <!-- CTA -->
-    <CtaSection
-      heading="Vos projets méritent"
-      heading-line2="mieux qu'un PDF"
-      heading-gradient="text-gradient-green"
-      subtitle="Demandez une démo personnalisée : on prépare la carte de votre commune avant l'appel."
-    />
+    <!-- CTA (substituable : la version 2 y place son propre bloc de clôture) -->
+    <slot name="cta">
+      <CtaSection
+        heading="Vos projets méritent"
+        heading-line2="mieux qu'un PDF"
+        heading-gradient="text-gradient-green"
+        subtitle="Demandez une démo personnalisée : on prépare la carte de votre commune avant l'appel."
+      />
+    </slot>
   </div>
 </template>
 

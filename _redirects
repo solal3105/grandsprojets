@@ -18,6 +18,10 @@
 /home               /home/index.html      200
 /home/*             /home/index.html      200
 
+# Refonte en cours (temporaire) - fallback SPA, la page est en noindex
+/home2              /home2/index.html     200
+/home2/*            /home2/index.html     200
+
 # Ancienne landing-page redirigée vers /home
 /landing-page       /home/                    301
 /landing-page/*     /home/                    301

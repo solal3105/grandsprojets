@@ -5,14 +5,14 @@
     <div class="max-w-container mx-auto px-6">
       <div class="rounded-3xl bg-white border border-gray-border shadow-card p-8 sm:p-12 lg:p-14">
         <div class="max-w-[660px]">
-          <span class="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-primary bg-primary-10 px-3 py-1.5 rounded-full mb-6">
+          <span class="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-primary-ink bg-primary-10 px-3 py-1.5 rounded-full mb-6">
             <Sparkles class="w-3 h-3" />
             À essayer maintenant
           </span>
 
           <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[42px] leading-[1.1] tracking-tight text-dark">
             Et si la carte des projets
-            <span class="text-primary">de votre commune</span>
+            <span class="text-primary-ink">de votre commune</span>
             existait déjà ?
           </h2>
 
@@ -25,7 +25,7 @@
             <a
               :href="DEMO_KIOSK_URL"
               target="_blank" rel="noopener noreferrer" v-tilt-btn
-              class="group inline-flex items-center justify-center gap-2.5 bg-primary text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-all duration-200 shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40"
+              class="group inline-flex items-center justify-center gap-2.5 bg-primary-ink text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-all duration-200 shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40"
             >
               Générer la carte de ma commune
               <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />

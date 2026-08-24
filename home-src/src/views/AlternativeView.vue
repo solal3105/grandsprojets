@@ -20,7 +20,7 @@
             <a
               href="#tester"
               v-tilt-btn
-              class="group inline-flex items-center gap-2.5 bg-primary text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-all duration-200 shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40"
+              class="group inline-flex items-center gap-2.5 bg-primary-ink text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-all duration-200 shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40"
             >
               Demander une démo
               <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
@@ -31,7 +31,7 @@
               v-tilt-btn
               class="inline-flex items-center gap-2.5 bg-white text-dark text-sm font-medium px-7 py-4 rounded-full border border-gray-border hover:border-gray-300 transition-colors"
             >
-              <MapIcon class="w-4 h-4 text-primary" />
+              <MapIcon class="w-4 h-4 text-primary-ink" />
               Voir des exemples réels
               <ArrowUpRight class="w-3.5 h-3.5 text-gray-400" />
             </a>
@@ -109,9 +109,9 @@
           <div class="relative max-w-[760px]">
             <div class="inline-flex items-center gap-2 mb-5">
               <span class="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <ArrowRight class="w-4 h-4 text-primary" />
+                <ArrowRight class="w-4 h-4 text-primary-ink" />
               </span>
-              <span class="text-xs font-bold uppercase tracking-widest text-primary">{{ alt.bridge.title }}</span>
+              <span class="text-xs font-bold uppercase tracking-widest text-primary-ink">{{ alt.bridge.title }}</span>
             </div>
             <p class="text-white/85 text-lg sm:text-xl leading-relaxed font-light">{{ alt.bridge.desc }}</p>
           </div>
@@ -169,7 +169,7 @@
                 <td class="px-5 py-4 text-gray-text">{{ row.label }}</td>
                 <td class="px-5 py-4 bg-primary/[0.03]">
                   <span class="inline-flex items-center gap-2 font-medium text-dark">
-                    <Check class="w-4 h-4 text-green shrink-0" />
+                    <Check class="w-4 h-4 text-green-ink shrink-0" />
                     {{ row.op }}
                   </span>
                 </td>
@@ -188,7 +188,7 @@
         <!-- Note coexistence (positive) -->
         <div class="mt-10 flex items-start gap-4 rounded-2xl bg-white border border-gray-border p-6 sm:p-8 max-w-[860px]">
           <span class="w-10 h-10 rounded-xl bg-green/10 flex items-center justify-center shrink-0">
-            <Puzzle class="w-5 h-5 text-green" />
+            <Puzzle class="w-5 h-5 text-green-ink" />
           </span>
           <div>
             <h3 class="font-heading font-bold text-base text-dark mb-1.5">{{ alt.coexist.title }}</h3>
@@ -262,14 +262,14 @@ const pillars = [
   {
     icon: Map,
     bg: 'bg-primary/10',
-    accent: 'text-primary',
+    accent: 'text-primary-ink',
     title: 'Une carte publique',
     desc: 'Tous vos projets localisés sur une carte à vos couleurs. Recherche, filtres, catégories - sans inscription.',
   },
   {
     icon: FileText,
     bg: 'bg-amber/10',
-    accent: 'text-amber',
+    accent: 'text-amber-ink',
     title: 'Une fiche par projet',
     desc: 'Photo, description, statut et calendrier. Une page dédiée et partageable pour chaque projet.',
   },
@@ -283,7 +283,7 @@ const pillars = [
   {
     icon: QrCode,
     bg: 'bg-green/10',
-    accent: 'text-green',
+    accent: 'text-green-ink',
     title: 'Sans application',
     desc: "Accessible d'un lien, d'un QR code ou en iframe sur votre site. Vos habitants n'installent rien.",
   },
@@ -295,7 +295,7 @@ const showcase = [
     bg: 'bg-white',
     icon: Pencil,
     iconBg: 'bg-primary/10',
-    accent: 'text-primary',
+    accent: 'text-primary-ink',
     badge: 'Back-office no-code',
     title: 'Vos équipes publient en quelques clics',
     description: "Géolocalisez le projet, rédigez la fiche, ajoutez une photo : aucune compétence technique, aucune dépendance à un prestataire. Vos agents sont autonomes dès le premier jour.",
@@ -312,7 +312,7 @@ const showcase = [
     bg: 'bg-gray-bg',
     icon: Palette,
     iconBg: 'bg-amber/10',
-    accent: 'text-amber',
+    accent: 'text-amber-ink',
     badge: 'Marque blanche',
     title: 'La carte adopte votre identité',
     description: "Couleurs, logotype, favicon et fond de carte : votre espace reprend automatiquement la charte de votre collectivité. La carte est à votre nom, sur votre domaine - elle vous appartient.",

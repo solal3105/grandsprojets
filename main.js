@@ -463,6 +463,27 @@
           win.ParticiperNav?.register();
         });
       }
+
+      // Ouverture directe d'un module par l'URL (?module=travaux). Sert aux
+      // liens partages et a l'integration en iframe : sans ca, l'iframe
+      // atterrit sur le module par defaut et le visiteur doit chercher.
+      // La cle n'est jamais passee telle quelle : elle doit correspondre a un
+      // module reellement actif sur la ville, sinon on l'ignore.
+      if (win.SidebarModule || win.NavPanel) {
+        safePhase('openModuleFromUrl', () => {
+          const asked = new URLSearchParams(location.search).get('module');
+          if (!asked || !/^[a-z0-9-]+$/i.test(asked)) return;
+          const known = (win._cityModules || []).find(
+            (m) => m.module_key === asked.toLowerCase() && m.enabled
+          );
+          if (!known) return;
+          // Passer par la barre laterale : elle allume le bouton du module
+          // puis delegue au panneau. Appeler NavPanel directement ouvrirait
+          // le panneau en laissant le bouton eteint.
+          if (win.SidebarModule?.openModule) win.SidebarModule.openModule(known.module_key);
+          else win.NavPanel?.openModule(known.module_key);
+        });
+      }
       const contributionsByCategory = {};
       allContributions.forEach(contrib => {
         const cat = contrib.category;

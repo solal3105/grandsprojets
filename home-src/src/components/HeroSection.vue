@@ -23,7 +23,7 @@
         <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <router-link
             to="/contact" v-tilt-btn
-            class="inline-flex items-center gap-2.5 bg-primary text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-colors shadow-lg shadow-primary/20"
+            class="inline-flex items-center gap-2.5 bg-primary-ink text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-colors shadow-lg shadow-primary/20"
           >
             Demander une démo
             <ArrowRight class="w-4 h-4" />

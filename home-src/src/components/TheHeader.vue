@@ -93,7 +93,7 @@ function isActive(to) {
   @apply text-dark bg-gray-100;
 }
 .nav-link--active {
-  @apply text-primary bg-primary-light;
+  @apply text-primary-ink bg-primary-light;
 }
 
 .slide-enter-active,

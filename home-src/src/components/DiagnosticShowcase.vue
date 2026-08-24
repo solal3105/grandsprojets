@@ -47,6 +47,9 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { ScanSearch, Sparkles, MapPinned, ShieldCheck } from 'lucide-vue-next'
 
+// Le registre passe la cle du module a toutes les vitrines
+defineProps({ moduleKey: { type: String, default: 'diagnostic' } })
+
 const TEAL = '#0E7C86', AMBER = '#E0940E', PURPLE = '#6D4BFF'
 const CENTER = [4.8565, 45.7668]
 
@@ -173,10 +176,10 @@ onUnmounted(() => { observer?.disconnect(); map?.remove() })
   border-radius: 999px; padding: 5px 11px; box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.3);
 }
 .dg-chip b { color: #0E7C86; }
-.dg-attr { position: absolute; right: 8px; bottom: 6px; z-index: 2; font-size: 9px; color: rgba(0, 0, 0, 0.4); background: rgba(255, 255, 255, 0.6); padding: 1px 5px; border-radius: 4px; }
+.dg-attr { position: absolute; right: 8px; bottom: 6px; z-index: 2; font-size: 9px; color: rgba(0, 0, 0, 0.62); background: rgba(255, 255, 255, 0.6); padding: 1px 5px; border-radius: 4px; }
 
 .dg-read { padding: 18px 18px 16px; background: #fff; display: flex; flex-direction: column; }
-.dg-read-head { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #9a9a9a; margin: 0 0 14px; }
+.dg-read-head { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6B6B6B; margin: 0 0 14px; }
 .dg-src { margin-bottom: 15px; opacity: 0; transform: translateY(8px); }
 .is-visible .dg-src { animation: dgrise .5s ease var(--d) forwards; }
 .dg-src-top { display: flex; align-items: center; gap: 9px; }
@@ -185,7 +188,7 @@ onUnmounted(() => { observer?.disconnect(); map?.remove() })
 .dg-code.is-amber { background: #B87E0C; }
 .dg-code.is-purple { background: #4E2BFF; }
 .dg-src-name { font-size: 13px; font-weight: 600; color: #111; }
-.dg-src-n { margin-left: auto; font-size: 11.5px; color: #777; font-variant-numeric: tabular-nums; }
+.dg-src-n { margin-left: auto; font-size: 11.5px; color: #5F5F5F; font-variant-numeric: tabular-nums; }
 .dg-src-syn { margin: 5px 0 0; font-size: 12.5px; line-height: 1.5; color: #555; }
 .dg-guar { display: flex; align-items: center; gap: 9px; margin-top: auto; padding-top: 13px; border-top: 1px solid rgba(0, 0, 0, 0.06); font-size: 11.5px; line-height: 1.4; color: #666; }
 .dg-guar b { color: #111; font-weight: 600; }

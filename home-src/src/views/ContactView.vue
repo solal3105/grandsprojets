@@ -59,7 +59,7 @@ const trustItems = [
     icon: ShieldCheck,
     label: 'RGPD conforme, hébergement européen',
     bgClass: 'bg-primary/[0.03]',
-    iconClass: 'text-primary',
+    iconClass: 'text-primary-ink',
   },
   {
     icon: Github,
@@ -71,13 +71,13 @@ const trustItems = [
     icon: Wallet,
     label: 'Tarif transparent, aucun frais caché',
     bgClass: 'bg-green/[0.03]',
-    iconClass: 'text-green',
+    iconClass: 'text-green-ink',
   },
   {
     icon: UserCircle,
     label: 'Démo personnalisée sous 48h',
     bgClass: 'bg-amber/[0.03]',
-    iconClass: 'text-amber',
+    iconClass: 'text-amber-ink',
   },
 ]
 </script>

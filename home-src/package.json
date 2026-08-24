@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build && node scripts/prerender.mjs",
     "build:coverage": "vite build --sourcemap && node scripts/prerender.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:v2": "vite --config vite.config.v2.js",
+    "build:v2": "vite build --config vite.config.v2.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",

@@ -20,7 +20,7 @@
       <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
         <router-link
           to="/contact" v-tilt-btn
-          class="group inline-flex items-center gap-2.5 bg-primary text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-all duration-200 shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40"
+          class="group inline-flex items-center gap-2.5 bg-primary-ink text-white text-sm font-medium px-7 py-4 rounded-full hover:bg-red-700 transition-all duration-200 shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40"
         >
           Demander une démo
           <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
@@ -28,7 +28,7 @@
 
         <a
           href="https://openprojets.com/default"
-          target="_blank" v-tilt-btn
+          target="_blank" rel="noopener" v-tilt-btn
           class="inline-flex items-center gap-2.5 bg-white/10 text-white text-sm font-medium px-7 py-4 rounded-full border border-white/20 hover:bg-white/20 transition-all duration-200"
         >
           <MapIcon class="w-4 h-4" />

@@ -4,7 +4,7 @@
 
       <!-- Heading -->
       <div class="text-center max-w-[680px] mx-auto mb-10 sm:mb-14">
-        <span class="inline-flex items-center justify-center gap-2.5 text-xs font-semibold text-primary uppercase tracking-widest mb-5">
+        <span class="inline-flex items-center justify-center gap-2.5 text-xs font-semibold text-primary-ink uppercase tracking-widest mb-5">
           <span class="w-5 h-px bg-primary" />
           Aller plus loin
           <span class="w-5 h-px bg-primary" />
@@ -36,7 +36,7 @@
           <!-- En plus avec Open Projets -->
           <div class="flex items-start gap-3 px-5 py-5 bg-white border-t border-gray-border">
             <div class="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-              <Check class="w-3 h-3 text-primary" />
+              <Check class="w-3 h-3 text-primary-ink" />
             </div>
             <div>
               <p class="text-[10px] font-bold uppercase tracking-widest text-primary/60 mb-1.5">En plus avec Open Projets</p>
@@ -61,7 +61,7 @@
           </div>
           <div class="flex items-center gap-2.5 px-5 py-3 rounded-xl bg-primary-light">
             <span class="w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-              <Check class="w-3 h-3 text-primary" />
+              <Check class="w-3 h-3 text-primary-ink" />
             </span>
             <span class="text-xs font-bold uppercase tracking-widest text-primary/70">En plus avec Open Projets</span>
           </div>
@@ -89,7 +89,7 @@
             <!-- Right: what they gain -->
             <div class="flex items-start gap-4 px-8 py-5 bg-white border-l border-gray-border group-hover:bg-gray-bg transition-colors duration-200">
               <div class="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                <Check class="w-3.5 h-3.5 text-primary" />
+                <Check class="w-3.5 h-3.5 text-primary-ink" />
               </div>
               <div>
                 <p class="text-dark font-semibold text-base leading-snug">{{ pair.after.title }}</p>
@@ -105,7 +105,7 @@
       <div class="mt-12 flex justify-center">
         <router-link
           to="/fonctionnalites"
-          class="inline-flex items-center gap-2 text-primary text-sm font-semibold hover:underline underline-offset-4"
+          class="inline-flex items-center gap-2 text-primary-ink text-sm font-semibold hover:underline underline-offset-4"
         >
           Découvrir toutes les fonctionnalités
           <ArrowRight class="w-4 h-4" />

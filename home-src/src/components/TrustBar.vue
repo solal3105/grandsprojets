@@ -6,7 +6,7 @@
         :key="item.label"
         class="group flex items-center gap-2.5 cursor-default"
       >
-        <component :is="item.icon" class="w-3.5 h-3.5 text-primary transition-all duration-200 group-hover:scale-125 group-hover:-rotate-12" />
+        <component :is="item.icon" class="w-3.5 h-3.5 text-primary-ink transition-all duration-200 group-hover:scale-125 group-hover:-rotate-12" />
         <span class="text-[13px] text-gray-text tracking-wide transition-colors duration-200 group-hover:text-dark">{{ item.label }}</span>
       </div>
     </div>

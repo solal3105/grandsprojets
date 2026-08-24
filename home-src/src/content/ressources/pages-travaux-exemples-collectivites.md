@@ -1,8 +1,8 @@
 ---
 title: Page travaux de la mairie : 9 exemples réels passés au crible
 description: De Saint-Cergues (3 700 habitants) à Paris, nous avons visité et inspecté 9 pages travaux de collectivités : ce qui marche, ce qui manque, et les leçons transférables à n'importe quelle commune.
-date: 2026-07-24
-updated: 2026-07-24
+date: 2026-04-16
+updated: 2026-04-16
 tag: Exemples
 readingTime: 12
 solutionHeading: Le même exercice, appliqué à notre propre outil
