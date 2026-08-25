@@ -123,6 +123,7 @@ html[data-theme='dark'] .kiosk__logo--dark { display: block; }
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+.theme-toggle[hidden] { display: none; }
 .theme-toggle:hover { transform: scale(1.08); }
 .theme-toggle svg { width: 20px; height: 20px; }
 /* L'icône annonce la destination : lune en clair, soleil en sombre */
@@ -331,40 +332,44 @@ html[data-theme='dark'] .theme-toggle__sun { display: block; }
 }
 
 /* Pilule de statut : l'action en cours, sous le stepper, lisible à 3 mètres */
-/* L'identité de la commune : au-dessus de la barre, le logo en avant */
-.city-badge {
+/* L'identité de la commune : le logo SEUL, autoportant - il est sa propre
+   carte blanche, sans conteneur. Le nom prend sa place quand il n'y en a pas. */
+.city-logo,
+.city-name {
   position: fixed;
   top: 14px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 7;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 7px 20px 7px 9px;
+  animation: pillIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.city-logo[hidden],
+.city-name[hidden] { display: none; }
+/* La HAUTEUR est fixée, la largeur suit le logo : un blason carré reste
+   carré, un logo panoramique (le cas le plus courant) garde sa longueur et
+   reste lisible. L'enfermer dans un carré le réduisait à un timbre-poste.
+   Le fond blanc est nécessaire : ces logos sont transparents et disparaîtraient
+   en thème sombre. */
+.city-logo {
+  height: 58px;
+  width: auto;
+  max-width: min(420px, 60vw);
+  object-fit: contain;
+  padding: 9px 18px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 40px -12px var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.city-name {
+  padding: 9px 22px;
+  border-radius: 999px;
   background: color-mix(in srgb, var(--glass-tint) 82%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
   border: 1px solid var(--glass-border);
-  border-radius: 999px;
   box-shadow: 0 18px 50px -16px var(--glass-shadow), inset 0 1px 0 var(--glass-shimmer);
-  animation: pillIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.city-badge[hidden] { display: none; }
-.city-badge__logo {
-  width: 42px;
-  height: 42px;
-  object-fit: contain;
-  border-radius: 10px;
-  background: #fff;
-  padding: 4px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-  animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.city-badge__logo[hidden] { display: none; }
-.city-badge__name {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 1.08rem;
+  font-size: 1.05rem;
   color: var(--accent);
   white-space: nowrap;
 }
@@ -393,6 +398,7 @@ html[data-theme='dark'] .theme-toggle__sun { display: block; }
 .hud__icon { width: 30px; height: 30px; display: grid; place-items: center; flex-shrink: 0; }
 .hud__texts { display: flex; flex-direction: column; min-width: 0; max-width: 340px; }
 .hud__label {
+  overflow-wrap: anywhere;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 600;
   font-size: 1.02rem;
@@ -454,6 +460,7 @@ html[data-theme='dark'] .theme-toggle__sun { display: block; }
 .bench__stage-icon img { width: 21px; height: 21px; border-radius: 5px; }
 .bench__stage-body { display: flex; flex-direction: column; min-width: 0; flex: 0 1 auto; text-align: left; }
 .bench__stage-text {
+  overflow-wrap: anywhere;
   color: var(--on-glass);
   font-size: 0.96rem;
   font-weight: 500;
@@ -997,7 +1004,9 @@ html[data-theme='dark'] .fx-sonar { mix-blend-mode: screen; }
   transform: translateX(-50%);
   bottom: 16px;
   z-index: 5;
-  width: min(1280px, 96vw);
+  /* Largeur COMMUNE au plateau et à la main : une rangée de cartes plus large
+     que la citation qu'elle surmonte déséquilibrait tout le bas d'écran */
+  width: min(1040px, 92vw);
   display: flex;
   flex-direction: column;
   pointer-events: auto;
@@ -1066,6 +1075,12 @@ html[data-theme='dark'] .fx-sonar { mix-blend-mode: screen; }
 .bench__title {
   flex: 1;
   min-width: 0;
+  /* Un intitulé d'un seul tenant (nom de fichier, référence) doit pouvoir se
+     couper, sinon il déborde de sa carte */
+  overflow-wrap: anywhere;
+  /* Borné à la part visible de la carte : sous une pile serrée, un titre
+     coupé net vaut mieux qu'un titre qui disparaît sous la voisine */
+  max-width: calc(var(--visible, 190px) - 46px);
   font-size: 12px;
   line-height: 1.3;
   color: var(--on-glass);
@@ -1074,6 +1089,8 @@ html[data-theme='dark'] .fx-sonar { mix-blend-mode: screen; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* Le favicon annonce la source, au bord gauche : c'est la part de la carte
+   qui reste visible quand la main se resserre */
 .bench__favicon {
   flex: none;
   width: 18px;

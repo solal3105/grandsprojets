@@ -53,6 +53,11 @@
        génération lancée, le HUD occupe le haut de l'écran et le logo se
        retrouve derrière l'interface au lieu de la coiffer. */
     if (brand) brand.hidden = name !== 'input';
+    /* L'interrupteur clair/sombre n'a de sens qu'AVANT la génération : la
+       scène rejoue tout son décor à la bascule, ce qui coupe le spectacle en
+       plein milieu. Il revient à l'écran de saisie. */
+    const bascule = document.querySelector('.theme-toggle');
+    if (bascule) bascule.hidden = name !== 'input';
   };
 
   const escapeHtml = (s) => String(s || '').replace(/[&<>"']/g, (c) => (
@@ -317,14 +322,13 @@
         if (hasFx) window.MapFX.setAccent(f.color);
       }
       // Logo de la mairie posé à côté du nom de la commune dans le HUD
+      /* Le logo REMPLACE le nom : il porte l'identité à lui seul. Le nom ne
+         reste que pour les communes sans logo, ou si l'image ne charge pas. */
       if (f.iconUrl) {
         const logo = $('hud-logo');
+        logo.onload = () => { logo.hidden = false; $('hud-commune').hidden = true; };
         logo.onerror = () => { logo.hidden = true; $('hud-commune').hidden = false; };
-        // Le logo suffit comme identité : le nom ne sert qu'aux communes qui
-        // n'en ont pas, il s'efface dès que le logo est là
-        logo.onload = () => { $('hud-commune').hidden = true; };
         logo.src = f.iconUrl;
-        logo.hidden = false;
       }
       plateauActivite('mairie', f.title, f.color ? `identité et couleurs récupérées · ${f.color}` : 'site officiel', f.iconUrl);
       return;
@@ -412,10 +416,16 @@
     const pas = m > 1 ? Math.min(CARTE_LARGEUR + 10, (L - CARTE_LARGEUR) / (m - 1)) : 0;
     const depart = Math.max(0, (L - (CARTE_LARGEUR + pas * (m - 1))) / 2);
     visibles.forEach((c, i) => {
-      // La plus récente (fin du DOM) prend la place de GAUCHE : la rangée
-      // coulisse vers la droite à chaque arrivée, le débord absorbe la queue
+      /* La plus récente (fin du DOM) prend la place de GAUCHE : la rangée
+         coulisse vers la droite à chaque arrivée, le débord absorbe la queue.
+         Chaque carte passe SOUS sa voisine de droite : c'est son bord gauche
+         qui reste visible, donc son favicon et le début de son titre. */
       const x = depart + (m - 1 - i) * pas;
       c.dataset.cx = (x + CARTE_LARGEUR / 2).toFixed(0);
+      c.style.zIndex = String(m - i);
+      // Le titre est borné à la part RÉELLEMENT visible de la carte
+      const visible = i === 0 ? CARTE_LARGEUR : Math.min(CARTE_LARGEUR, pas);
+      c.style.setProperty('--visible', `${visible.toFixed(0)}px`);
       c.style.setProperty('--slot', `translate3d(${x.toFixed(1)}px, 0, 0)`);
       c.style.setProperty('--chute', `translate3d(${x.toFixed(1)}px, -150px, 0)`);
     });
@@ -437,7 +447,7 @@
         const d = Math.abs(e.clientX - bord - Number(c.dataset.cx || 0));
         const k = Math.max(0, 1 - d / MAGNIFY_RAYON);
         c.style.setProperty('--mag', `translateY(${(-8 * k * k).toFixed(1)}px) scale(${(1 + 0.16 * k * k).toFixed(3)})`);
-        c.style.zIndex = String(10 + Math.round(k * 20));
+        if (k > 0.15) c.style.zIndex = String(100 + Math.round(k * 40));
       }
     });
   }
@@ -445,7 +455,8 @@
     const zone = $('hand');
     cancelAnimationFrame(magnifyRaf);
     zone.classList.remove('is-magnify');
-    for (const c of zone.children) { c.style.removeProperty('--mag'); c.style.removeProperty('z-index'); }
+    for (const c of zone.children) c.style.removeProperty('--mag');
+    mainLayout(); // rend à chaque carte son rang de recouvrement
   }
   $('hand')?.addEventListener('mousemove', mainMagnify);
   $('hand')?.addEventListener('mouseleave', mainMagnifyFin);
@@ -477,7 +488,7 @@
     /* Le favicon de la source dit sa provenance sans manger la place du
        titre. Le service d'icones de Google le fournit pour tout domaine ;
        en echec, la carte vit tres bien sans. */
-    carte.innerHTML = `<span class="bench__title"></span>${domain ? `<img class="bench__favicon" alt="" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64" onerror="this.remove()">` : ''}`;
+    carte.innerHTML = `${domain ? `<img class="bench__favicon" alt="" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64" onerror="this.remove()">` : ''}<span class="bench__title"></span>`;
     carte.querySelector('.bench__title').textContent = title;
     zone.appendChild(carte);
     mainLayout();
@@ -759,12 +770,13 @@
     progressPct = 0;
     setProgress(2);
     setPill('Préparation...', '', false);
+    // Le nom tient l'affiche jusqu'à l'arrivée du logo de la mairie
     $('hud-commune').textContent = commune.nom;
     $('hud-commune').hidden = false;
-    $('city-badge').hidden = false;
     // Le logo de la commune precedente s'efface, celui-ci arrive avec les sources
     $('hud-logo').hidden = true;
     $('hud-logo').removeAttribute('src');
+
     resetIssue();
     show('progress');
 
@@ -1157,7 +1169,7 @@
     if (survol) { survol.hidden = true; survol.classList.remove('is-on'); }
     $('hud-logo').hidden = true;
     $('hud-logo').removeAttribute('src');
-    $('city-badge').hidden = true;
+    $('hud-commune').hidden = true;
     progressPct = 0;
     setProgress(0);
     ['stat-sources', 'stat-verified', 'stat-precise', 'stat-illustrated'].forEach((id) => { $(id).textContent = '0'; });

@@ -68,6 +68,9 @@
     ovPdf:        $('fv2-ov-pdf'),
     pdfTitle:     $('fv2-pdf-title'),
     pdfFrame:     $('fv2-pdf-frame'),
+    pdfFallback:  $('fv2-pdf-fallback'),
+    pdfOpen:      $('fv2-pdf-open'),
+    pdfDl:        $('fv2-pdf-dl'),
     lightbox:     $('fv2-lightbox'),
     lbImg:        $('fv2-lb-img'),
   };
@@ -165,6 +168,11 @@
     overlay.classList.remove('is-open');
     overlay.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
+    // Le document reste sinon chargé en mémoire, et se rouvre sur l'ancien
+    if (overlay === el.ovPdf) {
+      clearTimeout(pdfTimer);
+      setTimeout(() => { if (!overlay.classList.contains('is-open')) el.pdfFrame.removeAttribute('src'); }, 300);
+    }
   }
 
   function bindOverlayClose(overlay) {
@@ -502,8 +510,19 @@
     el.docsCard.hidden = false;
 
     el.docs.innerHTML = '';
+    /* Les intitulés viennent parfois d'un nom de fichier brut, sans le moindre
+       espace : « 220405_-_cp_conjoint_musee_vienne_diagnostic_archeo ». On
+       les rend lisibles - séparateurs en espaces, extension retirée - sans
+       toucher aux titres qui ont été VRAIMENT rédigés (ceux qui ont déjà des
+       espaces sont laissés intacts). */
+    const lisible = (brut) => {
+      const t = String(brut || '').trim().replace(/\.pdf$/i, '');
+      if (!t) return 'Document';
+      return /\s/.test(t) ? t : t.replace(/[_-]+/g, ' ').trim();
+    };
+
     docs.forEach(doc => {
-      const title = doc.title || 'Document';
+      const title = lisible(doc.title);
 
       const item = document.createElement('div');
       item.className = 'fv2-doc';
@@ -529,11 +548,7 @@
       viewBtn.className = 'fv2-doc__btn';
       viewBtn.setAttribute('aria-label', 'Ouvrir');
       viewBtn.innerHTML = '<i class="fa-solid fa-eye"></i>';
-      viewBtn.addEventListener('click', () => {
-        el.pdfTitle.textContent = title;
-        el.pdfFrame.src = sanitizeUrl(doc.pdf_url);
-        openOverlay(el.ovPdf);
-      });
+      viewBtn.addEventListener('click', () => openPdf(title, doc.pdf_url));
 
       const dlBtn = document.createElement('a');
       dlBtn.className = 'fv2-doc__btn';
@@ -547,6 +562,36 @@
       item.append(icon, info, btns);
       el.docs.appendChild(item);
     });
+  }
+
+  /* ═══════════════ PDF PREVIEW ═══════════════
+     L'aperçu intégré dépend de la visionneuse du navigateur : elle est absente
+     sur mobile, désactivable sur poste, et le chargement échoue alors en
+     silence en laissant un cadre vide. On lui laisse sa chance, mais si le
+     document ne s'affiche pas dans le délai, le volet bascule sur les deux
+     gestes qui marchent partout : ouvrir dans un onglet, ou télécharger. */
+  const PDF_DELAI_MS = 2600;
+  let pdfTimer = null;
+
+  function openPdf(title, url) {
+    const href = sanitizeUrl(url);
+    if (!href) return;
+    el.pdfTitle.textContent = title;
+    el.pdfOpen.href = href;
+    el.pdfDl.href = href;
+    el.pdfFallback.hidden = true;
+    el.pdfFrame.hidden = false;
+    clearTimeout(pdfTimer);
+    let affiche = false;
+    el.pdfFrame.onload = () => { affiche = true; };
+    el.pdfFrame.src = href;
+    pdfTimer = setTimeout(() => {
+      if (affiche) return;
+      el.pdfFrame.hidden = true;
+      el.pdfFrame.removeAttribute('src');
+      el.pdfFallback.hidden = false;
+    }, PDF_DELAI_MS);
+    openOverlay(el.ovPdf);
   }
 
   /* ═══════════════ RELATED PROJECTS ═══════════════ */

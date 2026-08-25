@@ -982,7 +982,12 @@ body { margin: 0; }
 }
 
 .fv2-doc__title {
-  display: block;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* Même raison : un nom de fichier d'un seul tenant doit pouvoir se couper */
+  overflow-wrap: anywhere;
   font-size: .82rem;
   font-weight: 600;
   color: var(--text-primary);
@@ -1234,6 +1239,13 @@ body { margin: 0; }
 
 .fv2-overlay__title {
   flex: 1;
+  min-width: 0;
+  /* Les intitulés de documents sont souvent des noms de fichiers sans le
+     moindre espace : sans point de coupe, ils débordaient de leur bloc et
+     poussaient la croix de fermeture hors de la barre */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: .85rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -1256,7 +1268,31 @@ body { margin: 0; }
   color: var(--text-primary);
 }
 
-.fv2-overlay__body { flex: 1; overflow: auto; }
+.fv2-overlay__body { flex: 1; overflow: auto; position: relative; }
+.fv2-pdf-fallback[hidden] { display: none; }
+/* Repli d'aperçu : centré, sobre, il propose les deux gestes qui marchent */
+.fv2-pdf-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  text-align: center;
+}
+.fv2-pdf-fallback i { font-size: 44px; color: var(--text-tertiary); }
+.fv2-pdf-fallback__msg { margin: 0; color: var(--text-secondary); font-size: 15px; max-width: 420px; overflow-wrap: anywhere; }
+.fv2-pdf-fallback__btns { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+/* Le bouton 3d attend ses jetons de couleur : sans variante, le second bouton
+   restait en texte blanc sur fond clair, donc invisible */
+.fv2-pdf-fallback__btns .fv2-btn-3d:not(.fv2-btn-3d--primary) {
+  --_bg: var(--surface-raised);
+  --_fg: var(--text-primary);
+  --_edge: var(--border-medium);
+  --_glow: rgba(0, 0, 0, 0.12);
+}
 
 /* ═══════════════ LIGHTBOX ═══════════════ */
 .fv2-lightbox {

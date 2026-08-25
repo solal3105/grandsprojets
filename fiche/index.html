@@ -49,7 +49,11 @@
   <link rel="stylesheet" href="/styles/gp-custom-markers.css">
 
   <!-- Page styles -->
-  <link rel="stylesheet" href="/fiche/fiche-v2.css">
+  <!-- ?v= : marque de version. Les fichiers statiques sont servis avec 24 h de
+       cache alors que le HTML est revalidé : sans elle, un visiteur récupérait
+       la nouvelle page avec l'ANCIEN script, et l'aperçu des documents cassait.
+       À INCRÉMENTER à chaque modification de fiche-v2.js ou fiche-v2.css. -->
+  <link rel="stylesheet" href="/fiche/fiche-v2.css?v=2">
 
   <!-- Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-8LGDVJXTPK"></script>
@@ -209,6 +213,17 @@
     </div>
     <div class="fv2-overlay__body">
       <iframe id="fv2-pdf-frame" title="PDF" style="width:100%;height:100%;border:none"></iframe>
+      <!-- Repli : tous les navigateurs n'affichent pas un PDF intégré (mobile
+           en tête, ou visionneuse désactivée). Plutôt qu'un cadre blanc, on
+           propose les deux gestes qui, eux, marchent partout. -->
+      <div class="fv2-pdf-fallback" id="fv2-pdf-fallback" hidden>
+        <i class="fa-solid fa-file-pdf"></i>
+        <p class="fv2-pdf-fallback__msg">Ce navigateur n'affiche pas les documents PDF directement.</p>
+        <div class="fv2-pdf-fallback__btns">
+          <a class="fv2-btn-3d fv2-btn-3d--primary" id="fv2-pdf-open" target="_blank" rel="noopener noreferrer">Ouvrir le document</a>
+          <a class="fv2-btn-3d" id="fv2-pdf-dl" download>Télécharger</a>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -231,6 +246,6 @@
   <script src="/modules/security-utils.js"></script>
   <script src="/modules/datamodule.js"></script>
   <script src="/modules/markdownutils.js"></script>
-  <script src="/fiche/fiche-v2.js"></script>
+  <script src="/fiche/fiche-v2.js?v=2"></script>
 </body>
 </html>
