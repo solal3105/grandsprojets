@@ -727,7 +727,10 @@
           if (window.supabaseService?.fetchProjectByCategoryAndName) {
             const contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(cat, project);
             if (contributionProject && window.NavigationModule?.showProjectDetailById) {
-              window.NavigationModule.showProjectDetailById(contributionProject.id);
+              window.NavigationModule.showProjectDetailById(contributionProject.id, null, {
+                projectName: contributionProject.project_name,
+                category: contributionProject.category,
+              });
               return true;
             }
           }

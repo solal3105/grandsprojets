@@ -344,7 +344,71 @@ const NavigationModule = (() => {
   let _lastShownProject = null;
   let _showProjectDebounceTimer = null;
 
-  async function showProjectDetailById(projectId, event) {
+  // ── Carte périmée ────────────────────────────────────────────────────────
+  // Un onglet laissé ouvert pendant qu'un espace est régénéré (démo salon) ou
+  // republié continue d'afficher des projets supprimés : leur fiche n'existe
+  // plus côté serveur. Plutôt que d'afficher une impasse, on resynchronise les
+  // données de la carte, une seule fois par fenêtre de temps pour ne jamais
+  // boucler si le serveur est réellement en panne.
+  const RESYNC_COOLDOWN_MS = 30000;
+  let _lastResyncAt = 0;
+  let _resyncPromise = null;
+
+  /**
+   * @returns {Promise<boolean>} true si une resynchronisation vient d'avoir lieu
+   */
+  async function resyncStaleProjects() {
+    if (_resyncPromise) {
+      await _resyncPromise;
+      return true;
+    }
+    if (_lastResyncAt && Date.now() - _lastResyncAt < RESYNC_COOLDOWN_MS) return false;
+    const resync = window.DataModule?.resyncContributions;
+    if (typeof resync !== 'function') return false;
+
+    _lastResyncAt = Date.now();
+    _resyncPromise = (async () => {
+      try {
+        await resync(window.supabaseService?.getActiveCity?.());
+      } catch (e) {
+        console.debug('[NavigationModule] Resynchronisation des projets impossible:', e);
+      }
+    })();
+    try {
+      await _resyncPromise;
+    } finally {
+      _resyncPromise = null;
+    }
+    return true;
+  }
+
+  /**
+   * Message affiché quand un projet a disparu de la carte entre son affichage
+   * et le clic. Seul endroit qui rend ce cas - la fiche ne parle jamais de base
+   * de données au visiteur.
+   * @param {HTMLElement|null} panel
+   * @param {string} [projectName]
+   */
+  function renderProjectGone(panel, projectName) {
+    if (!panel) return;
+    const named = projectName ? ` « ${window.SecurityUtils.escapeHtml(String(projectName))} »` : '';
+    panel.style.display = 'flex';
+    panel.innerHTML = `
+      <div class="project-detail__gone">
+        <i class="fas fa-rotate" aria-hidden="true"></i>
+        <h3>Ce projet n'est plus sur la carte</h3>
+        <p>Le projet${named} a été retiré ou remplacé depuis l'ouverture de cette page. La carte vient d'être mise à jour.</p>
+      </div>
+    `;
+  }
+
+  /**
+   * @param {number|string} projectId
+   * @param {Event} [event]
+   * @param {{projectName?:string, category?:string}} [fallback] - identité de la
+   *   feature cliquée : le nom survit à une régénération, l'identifiant non.
+   */
+  async function showProjectDetailById(projectId, event, fallback = null) {
     if (!projectId) return;
     // Guard: éviter les appels redondants
     const projectKey = `id::${projectId}`;
@@ -358,17 +422,14 @@ const NavigationModule = (() => {
     }
     if (!contributionProject) {
       _lastShownProject = null;
-      const errorPanel = document.getElementById('project-detail');
-      if (errorPanel) {
-        errorPanel.style.display = 'flex';
-        errorPanel.innerHTML = `
-        <div style="padding: 2em; text-align: center; color: var(--text-secondary, #666);">
-          <h3>Projet non trouvé</h3>
-          <p>Le projet n'a pas été trouvé dans la base de données.</p>
-          <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
-        </div>
-        `;
+      // La carte affiche un projet que le serveur ne connaît plus : on
+      // resynchronise, puis on retente par le nom, qui lui a survécu.
+      const resynced = await resyncStaleProjects();
+      if (resynced && fallback?.projectName && fallback?.category) {
+        await showProjectDetail(fallback.projectName, fallback.category, event);
+        return;
       }
+      renderProjectGone(document.getElementById('project-detail'), fallback?.projectName);
       return;
     }
     // Délègue au rendu complet avec toutes les données
@@ -480,13 +541,12 @@ const NavigationModule = (() => {
     // Vérifier si contributionProject existe avant d'accéder à ses propriétés
     if (!contributionProject) {
       _lastShownProject = null; // allow re-click after dismissal
-      panel.innerHTML = `
-      <div style="padding: 2em; text-align: center; color: var(--text-secondary, #666);">
-        <h3>Projet non trouvé</h3>
-        <p>Le projet "${projectName}" n'a pas été trouvé dans la base de données.</p>
-        <p>Seuls les projets de la table contribution_uploads sont disponibles.</p>
-      </div>
-      `;
+      // Le projet a disparu du serveur : la carte affiche encore ses points,
+      // on la remet à jour avant de l'annoncer au visiteur. Le cooldown de
+      // resyncStaleProjects évite d'enchaîner deux resynchronisations quand
+      // l'appel vient déjà de la route par identifiant.
+      await resyncStaleProjects();
+      renderProjectGone(panel, projectName);
       return;
     }
 

@@ -107,21 +107,25 @@ window.DataModule = (function() {
 	const _esc = window.SecurityUtils.escapeHtml;
 
 	// Agrégation serveur : 1 requête pour TOUTES les contributions d'une ville
-	async function preloadAllContributions(ville) {
-		if (_contribPreloaded) return;
+	// `force` : ignore le préchargement déjà fait, le prefetch inline et le cache
+	// HTTP (la fonction Netlify est servie avec un max-age d'une minute). Seul
+	// resyncContributions s'en sert, pour repartir de l'état réel du serveur.
+	async function preloadAllContributions(ville, { force = false } = {}) {
+		if (_contribPreloaded && !force) return;
 		try {
 			// Consommer le prefetch si la ville correspond (lancé par le bloc
 			// de prefetch inline en tête d'index.html)
 			let data = null;
-			if (window.__earlyFetches?.contribGeojson && window.__earlyCity === ville) {
+			if (!force && window.__earlyFetches?.contribGeojson && window.__earlyCity === ville) {
 				try {
 					data = await window.__earlyFetches.contribGeojson;
 					delete window.__earlyFetches.contribGeojson;
 				} catch { data = null; }
 			}
 			if (!data) {
-				const fnUrl = `/.netlify/functions/contributions-geojson?ville=${encodeURIComponent(ville)}`;
-				const resp = await fetch(fnUrl);
+				const fnUrl = `/.netlify/functions/contributions-geojson?ville=${encodeURIComponent(ville)}`
+					+ (force ? `&_=${Date.now()}` : '');
+				const resp = await fetch(fnUrl, force ? { cache: 'no-store' } : undefined);
 				if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 				data = await resp.json();
 			}
@@ -611,6 +615,35 @@ window.DataModule = (function() {
 		}
 	}
 
+	/**
+	 * Resynchronise les contributions d'une ville sur l'état réel du serveur.
+	 *
+	 * Un onglet resté ouvert pendant qu'un espace est régénéré (démo salon) ou
+	 * republié garde en mémoire des projets supprimés : la carte les affiche
+	 * encore, mais leur fiche n'existe plus. On oublie ce qu'on avait, on
+	 * redemande la collection sans passer par les caches, puis on redessine les
+	 * couches de catégories actuellement affichées.
+	 * @param {string} [ville]
+	 */
+	async function resyncContributions(ville) {
+		const city = ville || window.CityManager?.getActiveCity?.() || 'metropole-lyon';
+		const categories = (typeof window.getAllCategories === 'function') ? window.getAllCategories() : [];
+		const isTravaux = (name) => !!window.LayerRegistry?.isTravauxLayer?.(name);
+		const displayed = Object.keys(MapModule?.layers || {})
+			.filter(name => categories.includes(name) && !isTravaux(name));
+
+		categories.forEach(clearLayerCache);
+		_contribPreloaded = false;
+
+		await preloadAllContributions(city, { force: true });
+
+		// loadLayer (et non reloadLayer) : le préchargement vient de repeupler le
+		// cache, reloadLayer le reviderait juste avant de le relire.
+		await Promise.all(displayed.map(name => loadLayer(name).catch(err => {
+			console.debug(`[DataModule] Redessin de la couche "${name}" impossible :`, err);
+		})));
+	}
+
 	async function openTravauxModal(props) {
 		try {
 			const panel = document.getElementById('project-detail');
@@ -762,6 +795,7 @@ window.DataModule = (function() {
 		loadLayer,
 		preloadLayer,
 		preloadAllContributions,
+		resyncContributions,
 		reloadLayer,
 		createGeoJsonLayer,
 		getFeatureStyle,

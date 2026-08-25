@@ -510,6 +510,34 @@
   transform: scale(1.01);
 }
 
+/* Projet disparu de la carte entre son affichage et le clic (espace regenere,
+   projet depublie). Rendu par NavigationModule.renderProjectGone. */
+.project-detail__gone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 24px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.project-detail__gone i {
+  font-size: 1.5rem;
+  color: var(--text-tertiary);
+}
+
+.project-detail__gone h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.project-detail__gone p {
+  margin: 0;
+  max-width: 34ch;
+}
+
 /* ---------------------------------------------------------------------------
    Detail Hero - variante travaux (icône + gradient, sans image)
 --------------------------------------------------------------------------- */

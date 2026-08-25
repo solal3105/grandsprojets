@@ -1239,3 +1239,105 @@ test.describe('0.21 - Contrat d\'enrichissement des features', () => {
     expect(r.client).toBe(false);
   });
 });
+
+// ─────────────────────────────────────────────────────────
+// 0.22 - Projet disparu (carte périmée)
+// ─────────────────────────────────────────────────────────
+// Régression : un onglet resté ouvert pendant qu'un espace est régénéré
+// (démo salon) affiche des projets dont l'identifiant n'existe plus. Le clic
+// répondait « Projet non trouvé - table contribution_uploads ». On attend
+// désormais une resynchronisation des données puis, si le projet existe
+// toujours sous le même nom, l'ouverture normale de sa fiche.
+test.describe('0.22 - Projet disparu de la carte', () => {
+
+  /**
+   * Neutralise les accès réseau de la fiche et compte les resynchronisations.
+   * `retrouveParNom` : ce que renvoie la recherche par nom après resynchro.
+   */
+  async function installStaleStubs(page, retrouveParNom) {
+    await page.evaluate((projet) => {
+      window.__staleCalls = { resync: 0, parNom: 0 };
+      window.DataModule = window.DataModule || {};
+      window.DataModule.resyncContributions = async () => { window.__staleCalls.resync++; };
+      window.supabaseService.getContributionById = async () => null;
+      window.supabaseService.fetchProjectByCategoryAndName = async () => {
+        window.__staleCalls.parNom++;
+        return projet;
+      };
+      window.supabaseService.getConsultationDossiersByProject = async () => [];
+    }, retrouveParNom);
+  }
+
+  test('0.22.1 - Identifiant périmé : la carte se resynchronise et la fiche s\'ouvre par son nom', async ({ page }) => {
+    await waitForMapBoot(page);
+    await installStaleStubs(page, {
+      id: 9999, project_name: 'Parc de la Mairie', category: 'velo',
+      cover_url: null, description: 'Description du parc.', markdown_url: null,
+      ville: 'metropole-lyon', official_url: null, tags: null,
+    });
+
+    const calls = await page.evaluate(async () => {
+      await window.NavigationModule.showProjectDetailById(2316, null, {
+        projectName: 'Parc de la Mairie', category: 'velo',
+      });
+      return window.__staleCalls;
+    });
+
+    expect(calls.resync).toBe(1);
+    expect(calls.parNom).toBe(1);
+    await expect(page.locator('.project-detail__gone')).toHaveCount(0);
+    await expect(page.locator('#project-detail')).toContainText('Parc de la Mairie');
+  });
+
+  test('0.22.2 - Projet vraiment disparu : message lisible, sans jargon technique', async ({ page }) => {
+    await waitForMapBoot(page);
+    await installStaleStubs(page, null);
+
+    await page.evaluate(async () => {
+      await window.NavigationModule.showProjectDetailById(2316, null, {
+        projectName: 'Aire de jeux', category: 'velo',
+      });
+    });
+
+    const panel = page.locator('#project-detail');
+    await expect(panel.locator('.project-detail__gone')).toBeVisible();
+    await expect(panel).toContainText('Ce projet n\'est plus sur la carte');
+    await expect(panel).toContainText('Aire de jeux');
+    const texte = await panel.innerText();
+    expect(texte).not.toContain('contribution_uploads');
+    expect(texte).not.toContain('base de données');
+  });
+
+  test('0.22.4 - La resynchronisation réelle recharge les données sans vider la carte', async ({ page }) => {
+    await waitForMapBoot(page);
+    const r = await page.evaluate(async () => {
+      const categorie = (window.getAllCategories?.() || [])[0];
+      if (!categorie) return { skip: true };
+      await window.DataModule.loadLayer(categorie);
+      const avant = window.DataModule.layerData[categorie]?.features?.length ?? 0;
+      await window.DataModule.resyncContributions();
+      return {
+        skip: false,
+        avant,
+        apres: window.DataModule.layerData[categorie]?.features?.length ?? 0,
+        toujoursAffichee: !!window.MapModule.layers[categorie],
+      };
+    });
+    test.skip(r.skip, 'aucune catégorie sur cette ville');
+    expect(r.apres).toBe(r.avant);
+    expect(r.toujoursAffichee).toBe(true);
+  });
+
+  test('0.22.3 - Deux clics d\'affilée ne déclenchent qu\'une resynchronisation', async ({ page }) => {
+    await waitForMapBoot(page);
+    await installStaleStubs(page, null);
+
+    const calls = await page.evaluate(async () => {
+      await window.NavigationModule.showProjectDetailById(2316, null, { projectName: 'A', category: 'velo' });
+      await window.NavigationModule.showProjectDetailById(2317, null, { projectName: 'B', category: 'velo' });
+      return window.__staleCalls;
+    });
+
+    expect(calls.resync).toBe(1);
+  });
+});

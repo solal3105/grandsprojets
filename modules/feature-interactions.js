@@ -611,7 +611,12 @@
         this._spotlight(feature);
         // Lookup par ID en priorité (depuis refactor ID-based)
         if (p.id != null && win.NavigationModule?.showProjectDetailById) {
-          win.NavigationModule.showProjectDetailById(p.id);
+          // Le nom et la catégorie servent de repli si l'identifiant est
+          // périmé (espace régénéré alors que l'onglet était ouvert).
+          win.NavigationModule.showProjectDetailById(p.id, null, {
+            projectName: p.project_name,
+            category: p.category,
+          });
         } else if (win.UIModule?.showDetailPanel) {
           win.UIModule.showDetailPanel(p.category, { properties: p, geometry: feature.geometry });
         } else if (win.NavigationModule?.showProjectDetail) {
