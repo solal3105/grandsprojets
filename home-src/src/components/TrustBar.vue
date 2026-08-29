@@ -21,6 +21,6 @@ const items = [
   { icon: Github, label: 'Open Source' },
   { icon: Server, label: 'Hébergement UE' },
   { icon: Zap, label: 'Aucune formation requise' },
-  { icon: Unlock, label: 'Sans engagement ni dépendance' },
+  { icon: Unlock, label: 'Sans dépendance' },
 ]
 </script>

@@ -323,7 +323,7 @@
             Déploiement
           </span>
           <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[48px] leading-[1.08] tracking-tight text-dark">
-            Opérationnel en une heure,
+            Un déploiement
             <span class="text-gradient"> sans compétence technique.</span>
           </h2>
         </div>

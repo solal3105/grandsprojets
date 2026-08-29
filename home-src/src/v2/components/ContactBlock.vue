@@ -38,12 +38,12 @@
 </template>
 
 <script setup>
-import { Clock, ShieldCheck, Unlock } from 'lucide-vue-next'
+import { Receipt, ShieldCheck, Unlock } from 'lucide-vue-next'
 import DemoRequestForm from '@/components/DemoRequestForm.vue'
 
 const reassurance = [
-  { icon: Clock, label: 'Espace configuré en moins d\'une heure' },
   { icon: ShieldCheck, label: 'Hébergement en Europe, conforme au RGPD' },
-  { icon: Unlock, label: 'Sans engagement, sans prestataire imposé' },
+  { icon: Unlock, label: 'Sans prestataire imposé' },
+  { icon: Receipt, label: 'Sans frais caché' },
 ]
 </script>

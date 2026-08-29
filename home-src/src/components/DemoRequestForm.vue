@@ -52,13 +52,21 @@
 
       <div>
         <label :for="`${idPrefix}-message`" class="block text-sm text-gray-text mb-1.5">Message</label>
-        <textarea
-          :id="`${idPrefix}-message`"
-          v-model="form.message"
-          rows="4"
-          placeholder="Parlez-nous de votre territoire et de vos besoins…"
-          class="form-input resize-none"
-        />
+        <!-- L'invite n'est pas le placeholder natif : Safari ne le fait pas
+             revenir a la ligne, la phrase sortait du champ. Ce calque se
+             comporte comme du texte ordinaire, et il disparait des le premier
+             caractere saisi. -->
+        <div class="relative">
+          <textarea
+            :id="`${idPrefix}-message`"
+            v-model="form.message"
+            rows="4"
+            class="form-input resize-none"
+            @focus="suspendreInvite"
+            @blur="reprendreInvite"
+          />
+          <p v-if="!form.message" class="form-invite" aria-hidden="true">{{ invite }}</p>
+        </div>
       </div>
 
       <button
@@ -83,9 +91,61 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { Send, ArrowRight } from 'lucide-vue-next'
 import { supabase } from '@/lib/supabase.js'
+
+/* Le champ message s'ecrit tout seul tant qu'on n'y a pas touche.
+ *
+ * Un champ vide avec une consigne generique ne dit pas quoi ecrire : ces
+ * quatre phrases montrent le niveau de detail attendu, et le fait qu'un
+ * message court suffit. Aucune ne nomme de collectivite. */
+const EXEMPLES = [
+  "Nous préparons notre plan de mandat, j'aimerais voir ce que ça donnerait chez nous.",
+  "J'ai vu votre carte des travaux, au plaisir d'en discuter pour notre agglomération.",
+  "Notre service voirie croule sous les arrêtés. Une démonstration serait la bienvenue.",
+  'Nous sommes une commune de 4 000 habitants. Quel budget faut-il prévoir ?',
+]
+const INVITE_FIXE = 'Parlez-nous de votre territoire et de vos besoins…'
+
+const invite = ref(INVITE_FIXE)
+let minuteur = null
+let enPause = false
+
+const doux = () => typeof window !== 'undefined'
+  && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/* Une seule boucle : on ecrit une phrase, on la laisse lire, on l'efface,
+ * on passe a la suivante. */
+function animerInvite() {
+  let phrase = 0
+  let lettres = 0
+  let efface = false
+
+  const etape = () => {
+    if (enPause) { minuteur = setTimeout(etape, 600); return }
+    const texte = EXEMPLES[phrase]
+    lettres += efface ? -1 : 1
+    invite.value = texte.slice(0, lettres) || INVITE_FIXE
+
+    let attente = efface ? 18 : 38
+    if (!efface && lettres >= texte.length) { efface = true; attente = 2600 }
+    else if (efface && lettres <= 0) {
+      efface = false
+      phrase = (phrase + 1) % EXEMPLES.length
+      attente = 700
+    }
+    minuteur = setTimeout(etape, attente)
+  }
+  etape()
+}
+
+// Pendant la saisie, plus rien ne bouge sous les doigts du visiteur.
+const suspendreInvite = () => { enPause = true }
+const reprendreInvite = () => { enPause = false }
+
+onMounted(() => { if (doux()) animerInvite() })
+onUnmounted(() => clearTimeout(minuteur))
 
 const props = defineProps({
   referrer: { type: String, default: 'home' },
@@ -154,5 +214,24 @@ async function handleSubmit() {
 <style scoped>
 .form-input {
   @apply w-full px-4 py-3.5 bg-gray-bg border border-gray-200 rounded-xl text-sm text-dark placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors;
+}
+
+/* Le champ message revenait a la ligne mais gardait une barre de defilement
+   horizontale, et une adresse collee d'un seul tenant le faisait deborder.
+   Seul le defilement vertical a un sens dans un textarea. */
+textarea.form-input {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: break-word;
+}
+
+/* Le calque se cale exactement sur le champ : meme typographie, memes
+   reserves, et une bordure transparente qui remplace celle du champ pour que
+   la premiere lettre tombe au meme endroit. */
+.form-invite {
+  position: absolute; inset: 0; margin: 0; pointer-events: none;
+  border: 1px solid transparent; padding: 14px 16px;
+  font-size: 0.875rem; line-height: 1.25rem; color: #9CA3AF;
+  white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden;
 }
 </style>

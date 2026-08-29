@@ -210,7 +210,7 @@
               <span class="text-gradient">d'Open Projets</span>
             </h2>
             <p class="mt-6 text-white/60 text-base leading-relaxed max-w-[460px]">
-              On configure votre carte ensemble. Démonstration personnalisée sous 48h, sans engagement.
+              On configure votre carte ensemble. Démonstration personnalisée sous 48h.
             </p>
             <div class="mt-10 flex flex-col gap-4">
               <div

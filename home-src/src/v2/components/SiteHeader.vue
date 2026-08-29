@@ -7,59 +7,54 @@
 
       <!-- Navigation desktop -->
       <nav class="hidden md:flex items-center gap-1" aria-label="Principale">
-        <div class="relative" @mouseenter="open = true" @mouseleave="open = false">
-          <button
-            type="button"
-            class="nav-link inline-flex items-center gap-1.5"
-            :class="{ 'nav-link--active': isModuleRoute }"
-            :aria-expanded="open"
-            aria-haspopup="true"
-            @click="open = !open"
-          >
-            Modules
-            <ChevronDown class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-180': open }" />
-          </button>
-
-          <Transition name="drop">
-            <div
-              v-if="open"
-              class="absolute left-0 top-full pt-2 w-[344px]"
+        <!-- L'ordre suit celui de data/nav.js : le deroulant des modules est
+             rendu a sa place dans la liste, pas avant elle. -->
+        <template v-for="link in navLinks" :key="link.label">
+          <div v-if="link.menu" class="relative" @mouseenter="open = true" @mouseleave="open = false">
+            <button
+              type="button"
+              class="nav-link inline-flex items-center gap-1.5"
+              :class="{ 'nav-link--active': isModuleRoute }"
+              :aria-expanded="open"
+              aria-haspopup="true"
+              @click="open = !open"
             >
-              <div class="bg-white border border-gray-border rounded-2xl shadow-card p-2">
-                <router-link
-                  v-for="m in modules"
-                  :key="m.key"
-                  :to="`/modules/${m.key}`"
-                  class="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-bg transition-colors"
-                  @click="open = false"
-                >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :class="m.tone.bg">
-                    <component :is="m.icon" class="w-4 h-4" :class="m.tone.text" />
-                  </span>
-                  <span class="min-w-0">
-                    <span class="block font-heading font-semibold text-sm text-dark">{{ m.name }}</span>
-                    <span class="block text-xs text-gray-text leading-snug mt-0.5">{{ m.tagline }}</span>
-                  </span>
-                </router-link>
-                <router-link
-                  to="/modules"
-                  class="flex items-center justify-between gap-2 mt-1 px-3 py-2.5 rounded-xl bg-gray-bg text-xs font-semibold text-dark hover:bg-gray-100 transition-colors"
-                  @click="open = false"
-                >
-                  Comment les modules s'articulent
-                  <ArrowRight class="w-3.5 h-3.5" />
-                </router-link>
-              </div>
-            </div>
-          </Transition>
-        </div>
+              Modules
+              <ChevronDown class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-180': open }" />
+            </button>
 
-        <template v-for="link in flatLinks" :key="link.label">
+            <Transition name="drop">
+              <div
+                v-if="open"
+                class="absolute left-0 top-full pt-2 w-[344px]"
+              >
+                <div class="bg-white border border-gray-border rounded-2xl shadow-card p-2">
+                  <router-link
+                    v-for="m in modules"
+                    :key="m.key"
+                    :to="`/modules/${m.key}`"
+                    class="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-bg transition-colors"
+                    @click="open = false"
+                  >
+                    <span class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :class="m.tone.bg">
+                      <component :is="m.icon" class="w-4 h-4" :class="m.tone.text" />
+                    </span>
+                    <span class="min-w-0">
+                      <span class="block font-heading font-semibold text-sm text-dark">{{ m.name }}</span>
+                      <span class="block text-xs text-gray-text leading-snug mt-0.5">{{ m.tagline }}</span>
+                    </span>
+                  </router-link>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
           <router-link
-            v-if="link.to"
+            v-else-if="link.to"
             :to="link.to"
             class="nav-link"
-            active-class="nav-link--active"
+            :active-class="link.exact ? '' : 'nav-link--active'"
+            exact-active-class="nav-link--active"
           >{{ link.label }}</router-link>
           <a
             v-else
@@ -73,7 +68,7 @@
         </template>
 
         <router-link
-          to="/contact" v-tilt-btn
+          :to="{ path: '/', hash: '#contact' }" v-tilt-btn
           class="ml-2 inline-flex items-center gap-2 bg-primary-ink text-white text-[13px] font-medium px-5 py-2 rounded-full hover:bg-red-700 transition-colors"
         >
           Demander une démo
@@ -116,7 +111,8 @@
               v-if="link.to"
               :to="link.to"
               class="nav-link text-base py-2"
-              active-class="nav-link--active"
+              :active-class="link.exact ? '' : 'nav-link--active'"
+              exact-active-class="nav-link--active"
               @click="mobileOpen = false"
             >{{ link.label }}</router-link>
             <a
@@ -130,7 +126,7 @@
             </a>
           </template>
           <router-link
-            to="/contact"
+            :to="{ path: '/', hash: '#contact' }"
             class="inline-flex items-center justify-center gap-2 bg-primary-ink text-white text-sm font-medium px-5 py-3 rounded-full mt-3"
           >
             Demander une démo
@@ -151,10 +147,10 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { ChevronDown, ArrowRight, ArrowUpRight } from 'lucide-vue-next'
+import { ChevronDown, ArrowUpRight } from 'lucide-vue-next'
 import LogoSvg from '@/components/LogoSvg.vue'
 import { modules } from '../data/modules.js'
-import { flatLinks } from '../data/nav.js'
+import { flatLinks, navLinks } from '../data/nav.js'
 import { DEMO_KIOSK_URL } from '@/data/siteUrls.js'
 
 const route = useRoute()

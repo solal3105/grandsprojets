@@ -4,12 +4,10 @@ import { moduleByKey } from './data/modules.js'
 
 const routes = [
   { path: '/', name: 'home', component: HomeView, meta: { title: 'Open Projets - La plateforme cartographique des collectivités' } },
-  {
-    path: '/modules',
-    name: 'modules',
-    component: () => import('./views/ModulesIndexView.vue'),
-    meta: { title: 'Les modules - Open Projets' },
-  },
+  // L'index des modules n'existe plus : l'accueil deroule une section par
+  // module, avec sa capture. L'adresse reste redirigee pour les liens deja
+  // partages.
+  { path: '/modules', redirect: '/' },
   {
     path: '/modules/:key',
     name: 'module',
@@ -33,13 +31,9 @@ const routes = [
     component: () => import('./views/AboutView.vue'),
     meta: { title: 'À propos - Open Projets' },
   },
-  {
-    // Aucun bloc de clôture à substituer : la vue partagée est montée telle quelle.
-    path: '/contact',
-    name: 'contact',
-    component: () => import('@/views/ContactView.vue'),
-    meta: { title: 'Contact - Open Projets' },
-  },
+  // La page de contact n'existe plus : le formulaire est en bas de chaque
+  // page, l'adresse reste vivante pour les liens deja partages.
+  { path: '/contact', redirect: { path: '/', hash: '#contact' } },
   {
     // La v2 charge la mesure d'audience : la page qui documente le refus doit
     // etre atteignable depuis la v2, pas seulement depuis le site v1.

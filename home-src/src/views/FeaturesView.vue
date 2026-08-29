@@ -76,7 +76,7 @@
       heading="Prêt à mettre vos projets"
       heading-line2="sur la carte ?"
       heading-gradient="text-gradient-purple"
-      subtitle="Demandez une démo - on configure votre espace ensemble, en moins d'une heure."
+      subtitle="Demandez une démo, on configure votre espace ensemble."
     />
   </div>
 </template>

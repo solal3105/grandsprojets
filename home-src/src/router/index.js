@@ -64,7 +64,7 @@ const routes = [
     component: () => import('@/views/ContactView.vue'),
     meta: {
       title: 'Contact - Open Projets',
-      description: 'Demandez une démo d\'Open Projets. On configure votre espace ensemble, en moins d\'une heure.',
+      description: 'Demandez une démo d\'Open Projets. On configure votre espace ensemble, sans frais caché.',
       canonical: `${BASE}/contact`,
     },
   },

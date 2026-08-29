@@ -1,1 +1,0 @@
-import{G as n,H as r,J as a}from"./index-B1icOkD6.js";function l(){const t=a([]);let e=null;return n(()=>{e=new IntersectionObserver(s=>{s.forEach(o=>{o.isIntersecting&&(o.target.classList.add("is-visible"),e.unobserve(o.target))})},{threshold:.1,rootMargin:"0px 0px -60px 0px"}),t.value.forEach(s=>{s&&e.observe(s)})}),r(()=>{e==null||e.disconnect()}),{revealEls:t}}export{l as u};

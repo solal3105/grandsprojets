@@ -18,7 +18,7 @@
 
           <p class="mt-6 text-gray-text text-base sm:text-lg leading-relaxed">
             Tapez son nom. En quelques minutes, nous recensons ses projets sur le web public et sa
-            carte prend vie sous vos yeux. Sans compte, sans installation, sans engagement.
+            carte prend vie sous vos yeux. Sans compte et sans installation.
           </p>
 
           <div class="mt-9 flex flex-col sm:flex-row sm:items-center gap-4">

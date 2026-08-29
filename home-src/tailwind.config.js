@@ -26,6 +26,25 @@ export default {
         'chantiers-ink': '#09773C', // 5,7:1 sur blanc : le seul cran lisible en texte
         'chantiers-border': '#B9EFD2',
         'chantiers-bg': '#F0FCF6',
+        /* Les cinq modules, en une seule gamme. Meme profondeur, meme
+         * intensite, cinq teintes assez espacees sur la roue pour qu'on ne
+         * confonde jamais deux sections : cramoisi, ocre, emeraude, bleu,
+         * violet. Chaque ton tient au moins 5:1 sur blanc, il sert donc aussi
+         * bien de fond de capture que de texte d'accent.
+         * Le cramoisi est celui de la marque, les quatre autres sont cales
+         * dessus. Le ton `-soft` est le meme melange a 10% sur blanc. */
+        mod: {
+          carte: '#C4002A',
+          'carte-soft': '#F9E6EA',
+          travaux: '#B45309',
+          'travaux-soft': '#F8EEE6',
+          chantiers: '#0B7A4A',
+          'chantiers-soft': '#E7F2ED',
+          participer: '#1B5FA8',
+          'participer-soft': '#E8EFF6',
+          diagnostic: '#7546CC',
+          'diagnostic-soft': '#F1ECFA',
+        },
         dark: '#111111',
         'gray-text': '#555555',
         // Gris secondaire reellement lisible (5,3:1). Remplace les opacites
@@ -43,6 +62,9 @@ export default {
       },
       letterSpacing: {
         'tight-hero': '-1.824px',
+        // Le nom d'un module, en gros et en Space Grotesk : resserre juste
+        // assez pour qu'il se tienne comme un logotype.
+        'tight-name': '-0.6px',
       },
       boxShadow: {
         card: '0 24px 64px -12px rgba(0, 0, 0, 0.10)',
