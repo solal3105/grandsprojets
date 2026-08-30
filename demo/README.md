@@ -154,6 +154,23 @@ réserve écartée se rouvre si le géocodage fait descendre la carte sous huit
 projets. Mesure sur Lyon : les douze projets venus du site de la ville ont tous
 une vraie photo, les sept venus d'avis n'en avaient aucune.
 
+## Le réseau de transport de la commune
+
+À la fin de la création, l'espace reçoit une couche « transports en commun »
+construite depuis OpenStreetMap (`netlify/functions/lib/transit-osm.mjs`) :
+le TRANSPORT LOURD uniquement (métro, tramway, funiculaire), une entité par
+ligne, la couleur officielle portée par chaque tracé (propriété `_color`, lue
+nativement par la carte, sans table de correspondance), chaque rue comptée
+une fois par ligne, opacité contenue (0,55) : le réseau est un fond de
+contexte sous les projets, pas le sujet de la carte. Les réseaux de bus
+complets ont été essayés et retirés : des dizaines de lignes recouvraient la
+carte au point d'étouffer les projets. Le fichier va dans le storage
+(`layer/<ville>/transports.geojson`), la couche `transports` (affichée par
+défaut) et la catégorie sont inscrites pour la ville. Un échec du service
+Overpass est silencieux et ne bloque jamais la création ; « Refaire le
+recensement » reconstruit aussi cette couche. Aucune ligne de transport
+lourd : pas de couche du tout.
+
 ## Thème d'affichage
 
 L'écran s'affiche **en clair par défaut** : verre blanc, fond **Voyager**
@@ -487,8 +504,10 @@ SUPABASE_SERVICE_ROLE_KEY=<la clé service>
    `delete from city_modules where ville like 'essai-%';`
    `delete from city_branding where ville like 'essai-%';`
    `delete from category_icons where ville like 'essai-%';`
+   `delete from layers where ville like 'essai-%';` (couches réseau de transport)
    `drop table demo_leads;` (référence demo_runs), `drop table demo_runs;`,
-   `drop table demo_instances;` et vider le dossier `uploads/demo/` +
+   `drop table demo_instances;` et vider les dossiers `uploads/demo/`,
+   `uploads/layer/essai-*` (fichiers réseau de transport) +
    `uploads/branding/essai-*` du storage
 5. Supprimer les specs `tests/unauth.demo.spec.js`,
    `tests/unauth.demo-generate.spec.js`, `tests/unauth.demo-mail.spec.js` et

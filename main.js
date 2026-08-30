@@ -290,7 +290,6 @@
 
       const {
         layersConfig: _layersConfigRaw,
-        metroColors: _metroColorsRaw,
         filtersConfig: _filtersConfig,
         basemaps: _remoteBasemapsRaw,
         categoryIcons: _initCategoryIconsRaw,
@@ -300,15 +299,13 @@
       // Normaliser : chaque phase utilise `forEach`/`.length` sur ces tableaux,
       // un `undefined` ici ferait crasher l'init et afficher le banner rouge.
       const layersConfig = Array.isArray(_layersConfigRaw) ? _layersConfigRaw : [];
-      const metroColors = _metroColorsRaw || {};
       const remoteBasemaps = Array.isArray(_remoteBasemapsRaw) ? _remoteBasemapsRaw : [];
       const initCategoryIcons = Array.isArray(_initCategoryIconsRaw) ? _initCategoryIconsRaw : [];
       const initCityModules = Array.isArray(_initCityModulesRaw) ? _initCityModulesRaw : [];
 
       // PHASE 4 : Carte et couches
       window.dataConfig = window.dataConfig || {};
-      window.dataConfig.metroColors = metroColors;
-      
+
       // Les basemaps ne sont PAS filtrées par ville (disponibles partout)
       const basemapsForCity = remoteBasemaps || [];
       
@@ -418,8 +415,16 @@
       win._cityModules = cityModules;
 
       const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
-      
-      const categoriesFiltered = categoriesWithData.filter(cat => cat !== 'travaux');
+
+      /* Une catégorie peut n'exister que par ses COUCHES (réseau de transport
+         en commun, open data...) : elle a sa place au panneau même sans fiche.
+         Sans cette union, une catégorie de couches restait invisible. */
+      const categoriesWithLayers = allCategoryIconsFromDB
+        .filter((icon) => Array.isArray(icon.layers_to_display) && icon.layers_to_display.length)
+        .map((icon) => icon.category);
+
+      const categoriesFiltered = [...new Set([...categoriesWithData, ...categoriesWithLayers])]
+        .filter(cat => cat !== 'travaux');
 
       const activeCategoryIcons = categoriesFiltered.map((category, index) => {
         const existingIcon = allCategoryIconsFromDB.find(icon => icon.category === category);

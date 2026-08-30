@@ -1,0 +1,21 @@
+-- Réseau de transport en commun : couche de données native, une seule
+-- mécanique pour toutes les villes.
+--
+-- Chaque ville reçoit une couche `transports` (table layers) : un GeoJSON
+-- construit depuis OpenStreetMap, une entité par ligne, la couleur officielle
+-- portée par chaque tracé (propriété `_color`, lue nativement par la carte).
+-- La table de correspondance `metro_colors`, exception lyonnaise (le front
+-- résolvait la couleur des lignes de métro via cette table), disparaît.
+--
+-- Archive de son contenu au moment de la suppression, si un retour arrière
+-- était nécessaire :
+--   A  #E8308A | B  #0075BF | C  #F59C00 | D  #009E3D | F1 #95C23D | F2 #95C23D
+--
+-- Les anciennes couches lyonnaises `bus`, `tramway`, `metroFuniculaire`
+-- (villes metropole-lyon, fdlm, keolis, lumieres) sont remplacées par la
+-- couche `transports` via le script de reprise (données + fichiers storage,
+-- hors migration). Leurs URL de l'époque, pour mémoire : flux WFS
+-- data.grandlyon.com sytral tcllignebus_2_0_0 / tcllignetram_2_0_0 /
+-- tcllignemf_2_0_0, styles à couleur unique ({color:'#666'|'#8C368C'|'green'}).
+
+drop table if exists public.metro_colors;

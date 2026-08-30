@@ -25,6 +25,10 @@ import zlib from 'node:zlib';
 // Socle de rédaction partagé avec l'outil de l'admin : structure de l'article,
 // nettoyage des liens, construction du bloc de sources citées.
 import { promptArticle, retirerLesLiens, sourcesDesAnnotations, blocSources, hoteLisible } from './lib/redaction.mjs';
+import {
+  chargerReseau, reseauEnGeojson, zoneParInsee,
+  STYLE_COUCHE_TRANSPORTS, NOM_COUCHE_TRANSPORTS, CATEGORIE_TRANSPORTS,
+} from './lib/transit-osm.mjs';
 // Mecanique d'exploration : registre des pages vues, file de ce qui reste a
 // ouvrir, rapprochement des projets decrits par plusieurs pages.
 import {
@@ -5306,6 +5310,39 @@ async function runCreate(send, step, ville, runState) {
     category_styles: { color: CATEGORY_META[slug]?.color || '#6366F1' },
   })));
   createItem(`${usedSlugs.length} catégorie(s) créée(s), avec icônes et couleurs`);
+
+  /* Réseau de transport LOURD (métro, tram, funiculaire) : couche de données
+     NATIVE de l'espace, construite depuis OpenStreetMap, couleur officielle
+     portée par chaque tracé, affichée par défaut. Une seule ligne suffit :
+     le tram d'une ville moyenne est précisément ce qu'on veut montrer. Un
+     seul tour de service et un échec silencieux : le réseau est un bonus, il
+     ne retarde ni ne fait échouer la création. « Refaire le recensement » le
+     reconstruit, comme le reste de l'espace. */
+  try {
+    const data = await chargerReseau(zoneParInsee(commune.code), { timeoutMs: 15000, tours: 1 });
+    const reseau = reseauEnGeojson(data);
+    if (reseau.features.length >= 1) {
+      const reseauUrl = await uploadToStorage(
+        `layer/${ville}/transports.geojson`,
+        JSON.stringify(reseau),
+        'application/json'
+      );
+      await deleteWhere('layers', { ville: `eq.${ville}`, name: `eq.${NOM_COUCHE_TRANSPORTS}` });
+      await insertRows('layers', [{
+        ville,
+        name: NOM_COUCHE_TRANSPORTS,
+        url: reseauUrl,
+        style: STYLE_COUCHE_TRANSPORTS,
+        is_default: true,
+        icon: null,
+        icon_color: null,
+      }]);
+      await insertRows('category_icons', [{ ville, ...CATEGORIE_TRANSPORTS, display_order: usedSlugs.length + 1 }]);
+      createItem(`Réseau de transport ajouté (${reseau.features.length} lignes)`);
+    }
+  } catch (e) {
+    console.warn(`[demo-generate] réseau de transport indisponible pour ${ville} :: ${e?.message}`);
+  }
 
   await updateInstance(ville, {
     status: 'ready',

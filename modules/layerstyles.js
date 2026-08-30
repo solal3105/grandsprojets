@@ -28,11 +28,6 @@
       };
     }
 
-    // Métro et Funiculaire - Couleurs par ligne
-    if (win.LayerRegistry?.isMetroLayer && win.LayerRegistry.isMetroLayer(layerName)) {
-      return applyMetroLineColor(p, baseStyle);
-    }
-
     // Travaux-like layers (centralized via LayerRegistry) - Gradient de couleur selon avancement
     if (win.LayerRegistry?.isTravauxLayer && win.LayerRegistry.isTravauxLayer(layerName)) {
       const styledFeature = applyTravauxProgressColor(p, baseStyle);
@@ -51,34 +46,10 @@
     return baseStyle;
   }
 
-  /**
-   * Applique la couleur spécifique à chaque ligne de métro/funiculaire
-   */
-  function applyMetroLineColor(properties, baseStyle) {
-    const metroColors = win.dataConfig?.metroColors || {};
-    const rawLine = properties.ligne || properties.LIGNE || properties.Line;
-    let lineColor = null;
-    
-    if (rawLine != null) {
-      const upper = String(rawLine).toUpperCase();
-      const compact = upper.replace(/^LIGNE\s+|^METRO\s+|^M\s*|^L\.?\s*/,'').replace(/\s+/g,'');
-      
-      if (metroColors[compact]) {
-        lineColor = metroColors[compact];
-      } else {
-        const token = upper.match(/F\d|[A-Z]/);
-        if (token && metroColors[token[0]]) {
-          lineColor = metroColors[token[0]];
-        }
-      }
-    }
-    
-    return {
-      ...baseStyle,
-      color: lineColor || baseStyle.color,
-      weight: baseStyle.weight || 3
-    };
-  }
+  /* Plus aucune table de correspondance de couleurs par ligne : un tracé qui
+     doit porter sa couleur l'embarque dans sa propriété `_color`, lue
+     nativement par le rendu (expression pilotée par la donnée). C'est le
+     contrat des couches de réseau de transport générées depuis OpenStreetMap. */
 
   /**
    * Applique une couleur de carte selon l'avancement des travaux.

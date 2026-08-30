@@ -88,7 +88,13 @@
       if (panel._currentModule !== 'carte') return;
 
       if (!projects?.length) {
-        panel._level3.innerHTML = '<div class="nav-panel__empty"><i class="fas fa-folder-open"></i><span>Aucun projet disponible</span></div>';
+        /* Catégorie sans fiches mais avec des couches (réseau de transport
+           généré, open data...) : les tracés sont sur la carte, le panneau le
+           dit au lieu d'annoncer un vide qui n'en est pas un. */
+        const hasLayers = (win.categoryLayersMap?.[category] || []).length > 0;
+        panel._level3.innerHTML = hasLayers
+          ? '<div class="nav-panel__empty"><i class="fas fa-map"></i><span>Ces informations s\'affichent directement sur la carte.</span></div>'
+          : '<div class="nav-panel__empty"><i class="fas fa-folder-open"></i><span>Aucun projet disponible</span></div>';
         return;
       }
 

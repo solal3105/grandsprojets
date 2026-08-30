@@ -127,6 +127,7 @@ peut empêcher le chargement, aucune fonctionnalité ne doit en dépendre.
 
 ## Supabase
 - Client instancié une seule fois sur `win.__supabaseClient` (partagé `auth.js` + `supabaseservice.js`)
+- **Couches par ville** : table `layers` (`name`, `url`, `style` jsonb, `is_default`, `icon`). Un tracé portant `properties._color` est colorié par la donnée (expression MapLibre native du shim) - JAMAIS de table de correspondance de couleurs par ville. C'est le contrat des couches `transports` générées depuis OpenStreetMap par `netlify/functions/lib/transit-osm.mjs` (transport lourd uniquement : métro/tram/funiculaire, une entité par ligne, couleur officielle, opacité 0.55, affichée par défaut) ; une catégorie `category_icons` avec `layers_to_display` en fait un filtre activable dans le panneau carte (une catégorie peut exister par ses seules couches, sans fiche)
 - `window.supabaseService` = couche données centralisée - toute requête passe par là
 - **City-scoping** : toujours `supabaseService.getActiveCity()` (fallback `metropole-lyon`)
 - Clé anon hardcodée (RLS protège les données) - cache TTL 10 min dans `datamodule.js` (override : 1 h pour `layer_travaux`)

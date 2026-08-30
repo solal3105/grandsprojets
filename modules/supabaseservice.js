@@ -631,26 +631,6 @@
     },
 
     /**
-     * Récupère la config des couleurs métro
-     * @returns {Promise<Record<string,string>>} ex : { A: '#F15A24', B: '#8C368C', … }
-     */
-    fetchMetroColors: async function() {
-      const { data, error } = await supabaseClient
-        .from('metro_colors')
-        .select('ligne, color');
-      if (error) {
-        return {};
-      }
-      // Normaliser les clés en MAJUSCULE pour simplifier la résolution côté front
-      return (data || []).reduce((acc, { ligne, color }) => {
-        const key = String(ligne ?? '').trim().toUpperCase();
-        if (key) acc[key] = color;
-        return acc;
-      }, {});
-    },
-
-
-    /**
      * Récupère tous les projets depuis contribution_uploads.
      *
      * Colonnes limitées à ce que les trois consommateurs lisent réellement :
@@ -1363,7 +1343,7 @@
 
     /**
      * Charge toutes les données fetch* en parallèle,
-     * injecte window.<nom> et retourne un objet agrégé (ex: { layersConfig, metroColors, mobilityData, filtersConfig, basemaps, ... }).
+     * injecte window.<nom> et retourne un objet agrégé (ex: { layersConfig, mobilityData, filtersConfig, basemaps, ... }).
      * Note: projectPages (legacy) n'est plus chargé automatiquement.
      * @returns {Promise<Record<string, any>>}
      */
@@ -1409,7 +1389,6 @@
         let prop;
         switch(key) {
           case 'fetchLayersConfig': prop = 'layersConfig'; break;
-          case 'fetchMetroColors':   prop = 'metroColors';   break;
           case 'fetchBasemaps':             prop = 'basemaps';             break;
           default:
             const name = key.replace(/^fetch/, '');

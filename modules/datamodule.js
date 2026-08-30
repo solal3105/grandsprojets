@@ -474,10 +474,10 @@ window.DataModule = (function() {
 		}
 
 		// Layers with per-feature styling must use SourcePool path (PathLayer objects)
-		// Travaux uses direct path with pre-computed _color (data-driven MapLibre expression)
+		// Travaux et transports use direct path with per-feature _color
+		// (data-driven MapLibre expression) - the colour travels IN the data
 		// All others use the direct path (raw GeoJSON → MapLibre source, zero overhead)
-		const needsPerFeatureStyle = window.LayerRegistry?.isMetroLayer?.(layerName) ||
-			window.LayerRegistry?.isPluLayer?.(layerName);
+		const needsPerFeatureStyle = window.LayerRegistry?.isPluLayer?.(layerName);
 
 		const geojsonLayer = L.geoJSON(null, {
 			_directPath: !needsPerFeatureStyle,
