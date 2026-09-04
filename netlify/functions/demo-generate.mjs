@@ -5571,7 +5571,17 @@ export default async (req, context) => {
             // qu'aucune invocation ne tient plus.
             await sweepStaleRuns();
             const [byIp, global] = await Promise.all([countToday('ip_hash', ipHash), countToday(null, null)]);
-            if (global >= MAX_GLOBAL_PER_DAY || (!kioskOk && byIp >= MAX_PER_IP_PER_DAY)) {
+            /* La cle de kiosque leve les DEUX plafonds, pas seulement celui par
+               adresse. Elle est secrete et n'est jamais publiee, donc le
+               garde-fou qui protege la demo ouverte reste entier ; en revanche
+               un lot de generations mene depuis un poste connu se faisait
+               couper net au quatre-vingtieme run. Le plafond absolu, lui, ne
+               bouge pas : il continue de bloquer toutes les phases au double de
+               la limite, cle ou pas. */
+            const plafondAtteint = kioskOk
+              ? false
+              : (global >= MAX_GLOBAL_PER_DAY || byIp >= MAX_PER_IP_PER_DAY);
+            if (plafondAtteint) {
               send({ type: 'error', kind: 'quota', message: 'Le quota de démonstrations du jour est atteint.' });
             } else {
               // Le run est ouvert AVANT le recensement : une commune introuvable
