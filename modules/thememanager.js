@@ -69,8 +69,10 @@
       if (!Array.isArray(list) || list.length === 0) return null;
       const lc = (s) => String(s || '').toLowerCase();
 
-      // 1) Propriété explicite `theme` si fournie par la base ("dark" | "light")
-      let bm = list.find(b => lc(b.theme) === theme);
+      // 1) Propriété explicite `theme` si fournie par la base ("dark" | "light").
+      //    Parmi les fonds du thème, celui marqué `is_default` prime sur l'ordre de tri.
+      const sameTheme = list.filter(b => lc(b.theme) === theme);
+      let bm = sameTheme.find(b => b.is_default) || sameTheme[0];
       if (bm) return bm;
 
       // 2) Heuristiques sur les labels/noms

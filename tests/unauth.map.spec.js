@@ -587,6 +587,25 @@ test.describe('0.10 - Fond de carte', () => {
     // Le panel se ferme après un délai (300ms dans uimodule.js)
     await expect(panel).not.toHaveClass(/dock-panel--open/, { timeout: 5000 });
   });
+
+  test('0.10.4 - Le fond actif au démarrage est celui marqué par défaut pour le thème clair', async ({ page }) => {
+    await waitForMapBoot(page);
+    // Non-régression : le fond `is_default` du thème doit primer sur l'ordre de tri
+    // (avant, le premier fond clair de la liste gagnait, quel que soit le défaut).
+    const expected = await page.evaluate(() => {
+      if (window._cityPreferredBasemap) return null;
+      const light = (window.basemaps || []).filter(b => String(b.theme).toLowerCase() === 'light');
+      const bm = light.find(b => b.is_default) || light[0];
+      return bm ? bm.label : null;
+    });
+    test.skip(expected === null, 'ville avec fond configuré ou sans fond clair');
+
+    await page.locator('#basemap-toggle').click();
+    const panel = page.locator('#basemap-menu');
+    await expect(panel).toHaveClass(/dock-panel--open/);
+    const activeLabel = panel.locator('.dock-panel__item.is-active .dock-panel__item-label');
+    await expect(activeLabel).toHaveText(expected, { timeout: 5000 });
+  });
 });
 
 // ─────────────────────────────────────────────────────────

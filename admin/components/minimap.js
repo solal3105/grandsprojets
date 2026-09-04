@@ -50,7 +50,9 @@ export function pickBasemap(basemaps, { preferred, theme = 'light' } = {}) {
     const bm = list.find((b) => lc(b.name) === lc(preferred) || lc(b.label) === lc(preferred));
     if (bm) return bm;
   }
-  let bm = list.find((b) => lc(b.theme) === theme);
+  // Parmi les fonds du thème, celui marqué `is_default` prime sur l'ordre de tri
+  const sameTheme = list.filter((b) => lc(b.theme) === theme);
+  let bm = sameTheme.find((b) => b.is_default) || sameTheme[0];
   if (bm) return bm;
   const darkKeys = ['dark', 'noir', 'sombre', 'night', 'nuit'];
   const lightKeys = ['light', 'clair', 'day', 'jour', 'positron', 'osm', 'streets', 'standard'];
