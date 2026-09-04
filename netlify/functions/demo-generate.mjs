@@ -1572,15 +1572,47 @@ Fie-toi à la description officielle autant qu'à l'objet : un intitulé « Marc
 
 // POST vers l'API Responses, avec retry sur erreur réseau ("fetch failed") et
 // backoff croissant : survit aux coupures de socket transitoires (bursts)
+/* Attente conseillee par le serveur. OpenAI renvoie soit `retry-after` en
+   secondes, soit `retry-after-ms` en millisecondes ; on plafonne pour ne pas
+   immobiliser une invocation deja bornee en duree. */
+function attenteConseillee(headers) {
+  const ms = Number(headers.get('retry-after-ms'));
+  if (Number.isFinite(ms) && ms > 0) return Math.min(ms, 20000);
+  const s = Number(headers.get('retry-after'));
+  if (Number.isFinite(s) && s > 0) return Math.min(s * 1000, 20000);
+  return null;
+}
+
 async function postOpenAI(body, timeoutMs = 120000, tries = 5) {
   let lastErr;
+  let derniereReponse = null;
   for (let i = 0; i < tries; i++) {
     try {
-      return await fetchWithTimeout(OPENAI_RESPONSES_URL, {
+      const r = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
         method: 'POST',
         headers: { Authorization: `Bearer ${openaiKey()}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }, timeoutMs);
+      /* Cadence depassee (429) ou panne passagere (5xx) : la reponse ARRIVE,
+         donc l'ancien code la rendait telle quelle et l'appelant levait
+         aussitot. Une lecture de page etait alors definitivement perdue, jamais
+         retentee, et la commune sortait appauvrie sans qu'aucune erreur ne le
+         signale : seul le nombre de fiches trahissait le trou. Mesure du
+         04/09/2026 sur un lot de generations simultanees : a quatre communes de
+         front, 118 pages de mairie et 47 articles perdus de cette facon, contre
+         zero a trois. Les coupures reseau, elles, etaient deja retentees plus
+         bas : c'est la meme reprise, etendue aux refus qui repondent. */
+      if (r.status === 429 || r.status >= 500) {
+        derniereReponse = r;
+        // Corps consomme pour liberer la connexion ; l'appelant ne lit que le statut
+        try { await r.arrayBuffer(); } catch { /* corps deja clos */ }
+        if (i === tries - 1) break;
+        const attente = attenteConseillee(r.headers) ?? Math.min(1000 * 2 ** i, 8000);
+        console.warn(`[demo-generate] OpenAI ${r.status}, nouvelle tentative ${i + 1}/${tries} dans ${Math.round(attente / 1000)} s`);
+        await sleep(attente + Math.floor(Math.random() * 400));
+        continue;
+      }
+      return r;
     } catch (e) {
       lastErr = e;
       // e.cause.code precise la nature (ECONNRESET socket, ENOTFOUND dns...)
@@ -1591,6 +1623,9 @@ async function postOpenAI(body, timeoutMs = 120000, tries = 5) {
       await sleep(Math.min(1000 * 2 ** i, 8000) + Math.floor(Math.random() * 400));
     }
   }
+  // Toutes les tentatives epuisees sur un refus qui repond : on rend la derniere
+  // reponse, l'appelant produit alors le meme message d'erreur qu'avant
+  if (derniereReponse) return derniereReponse;
   throw lastErr;
 }
 
@@ -5234,9 +5269,19 @@ async function runCreate(send, step, ville, runState) {
       }
     }
   }
-  if (dossierRows.length) {
-    await insertRows('consultation_dossiers', dossierRows, { onConflict: 'project_name,pdf_url' });
-    createItem(`${dossierRows.length} document(s) officiel(s) rattaché(s) aux fiches`);
+  /* Dedoublonnage sur la cle de conflit AVANT l'insertion. Deux fiches portant
+     le meme intitule, ou un meme PDF cite par deux articles, produisaient deux
+     lignes de meme (project_name, pdf_url) dans un seul ordre SQL : Postgres
+     refuse alors tout le lot (21000, « ON CONFLICT DO UPDATE command cannot
+     affect row a second time ») et la phase de creation echoue en entier.
+     Constate le 04/09/2026 sur Le Havre : 38 projets localises perdus a la
+     derniere etape, apres dix minutes de collecte. */
+  const dossiersUniques = [...new Map(
+    dossierRows.map((d) => [`${d.project_name}\u0000${d.pdf_url}`, d])
+  ).values()];
+  if (dossiersUniques.length) {
+    await insertRows('consultation_dossiers', dossiersUniques, { onConflict: 'project_name,pdf_url' });
+    createItem(`${dossiersUniques.length} document(s) officiel(s) rattaché(s) aux fiches`);
   }
   step('publish', 'done', 'Fiches publiées', `${rows.length} projets sur la carte de ${commune.nom}`);
 
