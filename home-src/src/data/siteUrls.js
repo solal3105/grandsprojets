@@ -12,6 +12,12 @@ export const DEMO_KIOSK_URL = `${SITE_URL}/demo/`
 // Espace de démonstration Métropole de Lyon, alimenté pour de vrai.
 export const MAP_LYON_URL = `${SITE_URL}/default`
 
+// Index de toutes les villes qui ont une page de projets (pré-rendu edge ville-hub).
+export const VILLES_URL = `${SITE_URL}/ville/`
+
+// Les cartes des communes construites par la démo (pré-rendu edge cartes).
+export const CARTES_URL = `${SITE_URL}/cartes/`
+
 /* Espaces publics montres en direct dans la vitrine.
  *
  * `?module=` ouvre la carte directement sur le bon module (voir main.js,

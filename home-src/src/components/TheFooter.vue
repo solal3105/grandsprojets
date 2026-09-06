@@ -2,7 +2,7 @@
   <footer class="bg-dark text-white">
     <div class="max-w-container mx-auto px-6 pt-20 pb-8">
       <!-- Top row -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-12 mb-16">
         <!-- Brand -->
         <div>
           <LogoSvg variant="white" :width="46" :height="46" />
@@ -24,6 +24,25 @@
               >
                 {{ link.label }}
               </router-link>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Explorer : les pages publiques hors du site vitrine. Elles ne sont
+             reliées nulle part ailleurs depuis ici, et c'est le pied de page
+             qui porte le plus de liens entrants du site. -->
+        <div>
+          <h4 class="text-[13px] font-semibold uppercase tracking-wider text-white/40 mb-5">
+            Explorer
+          </h4>
+          <ul class="space-y-3">
+            <li v-for="link in exploreLinks" :key="link.href">
+              <a
+                :href="link.href"
+                class="text-sm text-white/70 hover:text-white transition-colors"
+              >
+                {{ link.label }}
+              </a>
             </li>
           </ul>
         </div>
@@ -66,6 +85,14 @@
 <script setup>
 import LogoSvg from './LogoSvg.vue'
 import { navLinks } from '@/data/navLinks.js'
+import { MAP_LYON_URL, DEMO_KIOSK_URL, VILLES_URL, CARTES_URL } from '@/data/siteUrls.js'
 
 const legalLinks = ['Open Source', 'RGPD Conforme', 'Hébergement UE']
+
+const exploreLinks = [
+  { href: MAP_LYON_URL, label: 'La carte de la Métropole de Lyon' },
+  { href: VILLES_URL, label: 'Les projets urbains par ville' },
+  { href: CARTES_URL, label: 'Les cartes des communes' },
+  { href: DEMO_KIOSK_URL, label: 'Générer la carte de ma commune' },
+]
 </script>

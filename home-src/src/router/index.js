@@ -7,8 +7,8 @@ import { setMeta, setCanonical } from '@/lib/head.js'
 export { setMeta, setCanonical }
 
 const BASE = 'https://openprojets.com/home'
-const DEFAULT_TITLE = 'Open Projets - La carte interactive pour votre collectivité'
-const DEFAULT_DESC = 'Open Projets transforme vos projets urbains en carte interactive. Publiez vos projets, informez vos habitants - sans une ligne de code.'
+const DEFAULT_TITLE = 'La carte interactive des projets de votre collectivité | Open Projets'
+const DEFAULT_DESC = 'Publiez les projets urbains et les chantiers de votre commune sur une carte interactive à vos couleurs, sans développement. Vos habitants consultent sans compte.'
 
 // Pages SEO « Alternative à … » générées depuis data/alternatives.js
 const alternativeRoutes = Object.entries(alternatives).map(([key, alt]) => ({
@@ -39,8 +39,8 @@ const routes = [
     name: 'fonctionnalites',
     component: () => import('@/views/FeaturesView.vue'),
     meta: {
-      title: 'Fonctionnalités - Open Projets',
-      description: 'Contributions, module travaux, catégories personnalisées, branding, gestion d\'équipe - découvrez toutes les fonctionnalités d\'Open Projets.',
+      title: 'Fonctionnalités : carte des projets, travaux, diagnostic | Open Projets',
+      description: 'Fiches projet géolocalisées, module travaux pour les riverains, catégories et identité visuelle de votre collectivité, gestion d\'équipe, diagnostic de terrain par l\'IA.',
       canonical: `${BASE}/fonctionnalites`,
     },
   },
@@ -53,8 +53,8 @@ const routes = [
     name: 'a-propos',
     component: () => import('@/views/AboutView.vue'),
     meta: {
-      title: 'À propos - Open Projets',
-      description: 'Open Projets transforme les données publiques en information citoyenne, accessible et transparente pour tous.',
+      title: 'À propos : un outil français et open source pour les collectivités | Open Projets',
+      description: 'Open Projets est édité à Lyon par VAZY, Société à Mission. Code ouvert, hébergement en Europe, données sous le contrôle de votre collectivité.',
       canonical: `${BASE}/a-propos`,
     },
   },
@@ -63,8 +63,8 @@ const routes = [
     name: 'contact',
     component: () => import('@/views/ContactView.vue'),
     meta: {
-      title: 'Contact - Open Projets',
-      description: 'Demandez une démo d\'Open Projets. On configure votre espace ensemble, sans frais caché.',
+      title: 'Demander une démo | Open Projets',
+      description: 'Demandez une démonstration d\'Open Projets : nous préparons la carte de votre commune avant l\'appel et configurons votre espace ensemble, sans frais caché.',
       canonical: `${BASE}/contact`,
     },
   },
@@ -99,8 +99,8 @@ const routes = [
     name: 'aide',
     component: () => import('@/views/HelpView.vue'),
     meta: {
-      title: 'Aide - Open Projets',
-      description: 'Guides d\'utilisation et documentation pour administrateurs et contributeurs Open Projets.',
+      title: 'Centre d\'aide : guides administrateur et contributeur | Open Projets',
+      description: 'Comment publier un projet, gérer les catégories, inviter un agent ou activer le module travaux : les guides d\'utilisation d\'Open Projets, pour administrateurs et contributeurs.',
       canonical: `${BASE}/aide`,
     },
   },
