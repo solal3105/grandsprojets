@@ -112,11 +112,32 @@ test.describe('0.26 - Hub ville : SSR', () => {
     expect(response.headers()['x-robots-tag']).toContain('noindex');
   });
 
-  test('0.26.6 - /ville/ sans slug → coquille en noindex', async ({ page }) => {
+  test('0.26.6 - /ville/ sans slug → index de toutes les villes, indexable', async ({ page }) => {
     const response = await page.request.get('/ville/');
     expect(response.status()).toBe(200);
+    expect(response.headers()['x-robots-tag']).toMatch(/^index/);
     const html = await response.text();
-    expect(html).toMatch(/<meta name="robots" content="noindex/);
+    expect(html).toMatch(/<meta name="robots" content="index/);
+    expect(html).toContain('<link rel="canonical" href="https://openprojets.com/ville/">');
+    expect(html).toMatch(/<title>[^<]*par ville[^<]*<\/title>/);
+    // Le hub de la ville découverte est relié depuis l'index, avec son compte
+    if (CITY) {
+      expect(html).toContain(`href="/ville/${encodeURIComponent(CITY.ville)}"`);
+    }
+    expect(html).toMatch(/class="vh-ville__count">\d+ projets?</);
+    // JSON-LD : une ItemList des villes
+    expect(html).toMatch(/"@type":"ItemList","numberOfItems":\d+/);
+  });
+
+  test('0.26.6b - /ville/ : chaque ville reliée répond en 200 et indexable (échantillon)', async ({ page }) => {
+    const html = await (await page.request.get('/ville/')).text();
+    const villes = [...html.matchAll(/href="\/ville\/([a-z0-9-]+)"/g)].map((m) => m[1]);
+    expect(villes.length).toBeGreaterThan(1);
+    for (const v of villes.slice(0, 3)) {
+      const r = await page.request.get(`/ville/${v}`);
+      expect(r.status(), v).toBe(200);
+      expect(r.headers()['x-robots-tag'], v).toMatch(/^index/);
+    }
   });
 
   test('0.26.7 - Le sitemap référence le hub de la ville', async ({ page }) => {

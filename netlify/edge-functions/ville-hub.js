@@ -1,5 +1,5 @@
 /* ============================================================================
-   EDGE FUNCTION - Hub ville : /ville/{ville}
+   EDGE FUNCTION - Hub ville : /ville/{ville}, et index des villes : /ville/
 
    Rend côté serveur la liste complète des projets d'une ville :
    • <title>, meta description, OG/Twitter, canonical, robots
@@ -29,6 +29,7 @@ import {
   absUrl,
   safeHexColor,
   fetchRows,
+  fetchAllRows,
   SUPABASE_URL,
 } from './_lib/seo.js';
 
@@ -323,15 +324,192 @@ ${filterbar}
     </div>`;
 }
 
+/* ─── Index des villes : /ville/ ───
+   La seule page du site qui relie toutes les pages ville entre elles : sans
+   elle, un hub n'est atteignable que par le sitemap et par ses propres fiches. */
+
+/** Villes ayant au moins une fiche publiée, avec leur nombre de projets. */
+async function fetchVillesIndex() {
+  const [rows, brandings] = await Promise.all([
+    fetchAllRows('contribution_uploads', {
+      select: 'ville,project_name,category',
+      approved: 'eq.true',
+      ville: 'not.is.null',
+      slug: 'not.is.null',
+      category_slug: 'not.is.null',
+      order: 'id.asc',
+    }),
+    fetchAllRows('city_branding', { select: 'ville,brand_name,primary_color', order: 'ville.asc' }),
+  ]);
+  const brandBy = new Map(brandings.map(b => [String(b?.ville || '').toLowerCase(), b]));
+  const counts = new Map();
+  for (const r of rows) {
+    const ville = String(r?.ville || '').toLowerCase();
+    if (!/^[a-z0-9-]{1,60}$/.test(ville) || isTestEntry(r?.project_name, r?.category)) continue;
+    counts.set(ville, (counts.get(ville) || 0) + 1);
+  }
+  return [...counts].map(([slug, count]) => {
+    const b = brandBy.get(slug);
+    return {
+      slug,
+      count,
+      label: String(b?.brand_name || '').trim() || humanize(slug),
+      color: safeHexColor(b?.primary_color),
+      // Cartes d'essai générées depuis le web public (voir /cartes/)
+      essai: slug.startsWith('essai-'),
+    };
+  });
+}
+
+function renderVilleItem(v) {
+  const word = v.count > 1 ? 'projets' : 'projet';
+  return `
+        <li class="vh-ville"${v.color ? ` style="--ville-color:${v.color}"` : ''}>
+          <a class="vh-ville__link" href="/ville/${encodeURIComponent(v.slug)}">
+            <span class="vh-ville__dot" aria-hidden="true"></span>
+            <span class="vh-ville__name">${escHtml(v.label)}</span>
+            <span class="vh-ville__count">${v.count} ${word}</span>
+          </a>
+        </li>`;
+}
+
+function buildIndexContent(villes) {
+  const espaces = villes.filter(v => !v.essai).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'fr'));
+  const essais = villes.filter(v => v.essai).sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+  const total = villes.reduce((n, v) => n + v.count, 0);
+
+  const section = (title, intro, list) => list.length ? `
+      <section class="vh-section">
+        <h2 class="vh-section__title">${title}</h2>
+        <p class="vh-section__intro">${intro}</p>
+        <ul class="vh-villes">${list.map(renderVilleItem).join('')}
+        </ul>
+      </section>` : '';
+
+  return `
+    <div class="vh-index" id="vh-index">
+      <header class="vh-hero">
+        <div class="vh-hero__scrim" aria-hidden="true"></div>
+        <div class="vh-hero__inner">
+          <nav class="vh-breadcrumb" aria-label="Fil d'Ariane">
+            <a href="/">Open Projets</a>
+            <span aria-hidden="true">›</span>
+            <span aria-current="page">Par ville</span>
+          </nav>
+          <h1 class="vh-hero__title">Les grands projets urbains, ville par ville</h1>
+          <p class="vh-hero__intro">${villes.length} villes et collectivités publient leurs projets sur Open Projets, soit ${total} projets avec leur fiche, leur avancement et leur carte.</p>
+        </div>
+      </header>
+${section(
+    'Les espaces des collectivités',
+    'Ces cartes sont alimentées par les équipes de chaque collectivité, à partir de leurs propres documents.',
+    espaces,
+  )}
+${section(
+    'Les cartes construites depuis le web public',
+    'Ces cartes d\'essai ont été générées automatiquement à partir du site de la commune, de la presse locale et des marchés publics, sans la commune. Elles sont forcément incomplètes. <a href="/cartes/">Voir toutes les cartes des communes</a>.',
+    essais,
+  )}
+      <footer class="vh-foot">
+        <span class="vh-foot__b2b">Vous représentez une collectivité ?
+          <a href="/home/">Découvrir Open Projets</a>
+        </span>
+      </footer>
+    </div>`;
+}
+
+function injectIndexIntoHtml(html, villes) {
+  const canonical = `${BASE_ORIGIN}/ville/`;
+  const title = 'Les projets urbains par ville | Open Projets';
+  const total = villes.reduce((n, v) => n + v.count, 0);
+  const metaDesc = truncate(
+    `${villes.length} villes et collectivités publient leurs projets urbains sur Open Projets, soit ${total} projets. Pour chaque ville : la liste des projets, leurs catégories et leur carte.`,
+    160,
+  );
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: 'Les projets urbains par ville',
+    description: metaDesc,
+    url: canonical,
+    inLanguage: 'fr',
+    isPartOf: { '@type': 'WebSite', name: 'Open Projets', url: BASE_ORIGIN },
+    mainEntity: {
+      '@type': 'ItemList',
+      numberOfItems: villes.length,
+      itemListElement: villes.map((v, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name: v.label,
+        url: `${BASE_ORIGIN}/ville/${encodeURIComponent(v.slug)}`,
+      })),
+    },
+  };
+  const breadcrumb = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Open Projets', item: BASE_ORIGIN },
+      { '@type': 'ListItem', position: 2, name: 'Par ville', item: canonical },
+    ],
+  };
+  const ldJson = obj => JSON.stringify(obj).replace(/</g, '\\u003c');
+
+  html = html.replace(/<title>[^<]*<\/title>/, () => `<title>${escHtml(title)}</title>`);
+  html = html.replace(/(<meta\s+name="robots"\s+content=")[^"]*"/, (_, p1) => `${p1}index, follow, max-image-preview:large, max-snippet:-1"`);
+  html = html.replace(/(<meta\s+name="description"\s+content=")[^"]*"/, (_, p1) => `${p1}${escAttr(metaDesc)}"`);
+  html = html.replace(/(<link\s+rel="canonical"\s+href=")[^"]*"/, (_, p1) => `${p1}${escAttr(canonical)}"`);
+  html = html.replace(/(<link\s+rel="alternate"\s+hreflang="fr"\s+href=")[^"]*"/, (_, p1) => `${p1}${escAttr(canonical)}"`);
+  html = html.replace(/(<meta\s+property="og:title"\s+content=")[^"]*"/, (_, p1) => `${p1}${escAttr(title)}"`);
+  html = html.replace(/(<meta\s+property="og:description"\s+content=")[^"]*"/, (_, p1) => `${p1}${escAttr(metaDesc)}"`);
+  html = html.replace(/(<meta\s+property="og:url"\s+content=")[^"]*"/, (_, p1) => `${p1}${escAttr(canonical)}"`);
+  html = html.replace(/(<meta\s+name="twitter:title"\s+content=")[^"]*"/, (_, p1) => `${p1}${escAttr(title)}"`);
+  html = html.replace(/(<meta\s+name="twitter:description"\s+content=")[^"]*"/, (_, p1) => `${p1}${escAttr(metaDesc)}"`);
+  html = html.replace(/<script\s+type="application\/ld\+json"\s+id="vh-jsonld">[^<]*<\/script>/, () =>
+    `<script type="application/ld+json" id="vh-jsonld">${ldJson(jsonLd)}</script>\n  <script type="application/ld+json">${ldJson(breadcrumb)}</script>`);
+  html = html.replace(/<!--VH:CONTENT-START-->[\s\S]*?<!--VH:CONTENT-END-->/, () => buildIndexContent(villes));
+  return html;
+}
+
+async function renderIndex(context) {
+  const responsePromise = context.next();
+  let villes = [];
+  try {
+    villes = await fetchVillesIndex();
+  } catch (e) {
+    console.error('[ville-hub] Index des villes : lecture Supabase échouée :', e);
+  }
+  const response = await responsePromise;
+  let html = '';
+  try { html = await response.text(); } catch { html = ''; }
+
+  // Base injoignable ou coquille sans corps : coquille telle quelle, jamais
+  // indexée ni mise en cache, le prochain passage retentera
+  if (!villes.length || !html) {
+    return new Response(html || response.body, {
+      status: response.status === 304 ? 200 : response.status,
+      headers: { ...safeShellHeaders(response), 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' },
+    });
+  }
+
+  return new Response(injectIndexIntoHtml(html, villes), {
+    status: 200,
+    headers: {
+      ...safeShellHeaders(response),
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, s-maxage=600, max-age=60, stale-while-revalidate=3600',
+      'X-Robots-Tag': 'index, follow, max-image-preview:large, max-snippet:-1',
+    },
+  });
+}
+
 /* ─── Injection dans la coquille ─── */
 
 function injectIntoHtml(html, { villeLabel, metaDesc, canonical, ogImage, jsonLd, brandColor, basemapsJson, content }) {
   const title = `${villeLabel} : les grands projets urbains à suivre | Open Projets`;
 
   html = html.replace(/<title>[^<]*<\/title>/, () => `<title>${escHtml(title)}</title>`);
-  // Villes essai-* : démos générées automatiquement, jamais indexées
-  const isDemoVille = /\/ville\/essai-/.test(canonical || '');
-  html = html.replace(/(<meta\s+name="robots"\s+content=")[^"]*"/, (_, p1) => `${p1}${isDemoVille ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1'}"`);
+  html = html.replace(/(<meta\s+name="robots"\s+content=")[^"]*"/, (_, p1) => `${p1}index, follow, max-image-preview:large, max-snippet:-1"`);
   html = html.replace(/(<meta\s+name="description"\s+content=")[^"]*"/, (_, p1) => `${p1}${escAttr(metaDesc)}"`);
   html = html.replace(/(<link\s+rel="canonical"\s+href=")[^"]*"/, (_, p1) => `${p1}${escAttr(canonical)}"`);
   html = html.replace(/(<link\s+rel="alternate"\s+hreflang="fr"\s+href=")[^"]*"/, (_, p1) => `${p1}${escAttr(canonical)}"`);
@@ -385,7 +563,12 @@ export default async (request, context) => {
     return await context.next();
   }
 
-  // Slug absent/invalide ou segments en trop → coquille statique (noindex par défaut)
+  // /ville/ sans slug : l'index de toutes les villes
+  if (parts.length === 1 && !villeSlug) {
+    return await renderIndex(context);
+  }
+
+  // Slug invalide ou segments en trop → coquille statique (noindex par défaut)
   if (!villeSlug || parts.length > 2 || !/^[a-z0-9-]{1,60}$/.test(villeSlug)) {
     return await context.next();
   }
