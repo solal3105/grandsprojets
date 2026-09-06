@@ -1,195 +1,125 @@
-const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
-const BASE_ORIGIN = 'https://openprojets.com';
+/**
+ * /sitemap.xml - plan du site pour les moteurs de recherche.
+ *
+ * Une seule source d'inventaire, partagée avec /llms.txt : lib/projects-index.mjs
+ * (lecture paginée de la base, filtres, doublons). Les pages y figurent dans
+ * l'ordre : accueil et site vitrine, guides Ressources, index des villes et
+ * hubs de chaque ville, puis les fiches (avec leur image de couverture pour
+ * Google Images).
+ *
+ * Pas de <lastmod> inventé : les pages statiques n'en portent pas (Google
+ * ignore les dates qu'il constate fausses, et finit par ignorer toutes celles
+ * du site), les fiches portent leur date de création, les villes la date de
+ * leur fiche la plus récente, les guides leur date de mise à jour.
+ */
+
+import {
+  BASE_ORIGIN,
+  fetchIndexableProjects,
+  groupByVille,
+  ficheUrl,
+  villeUrl,
+  toDay,
+} from './lib/projects-index.mjs';
+
+// Pages du site vitrine et pages d'entrée, dans l'ordre de lecture souhaité
+const STATIC_PAGES = [
+  '/',
+  '/home/',
+  '/home/fonctionnalites',
+  '/home/ressources',
+  '/home/a-propos',
+  '/home/contact',
+  '/home/aide',
+  '/home/alternative-panneaupocket',
+  '/home/alternative-cityall-lumiplan',
+  '/home/alternative-neocity',
+  '/home/confidentialite',
+  '/cartes/',
+  '/demo/',
+  '/ville/',
+];
+
+const escapeXml = (s) => String(s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+
+/** Guides de la section Ressources : manifest écrit par le prerender du home. */
+async function fetchRessources() {
+  try {
+    const resp = await fetch(`${BASE_ORIGIN}/home/ressources/manifest.json`);
+    if (!resp.ok) return [];
+    const list = await resp.json();
+    return Array.isArray(list) ? list.filter((a) => a?.slug) : [];
+  } catch {
+    return []; // pas de manifest : sitemap sans les guides
+  }
+}
+
+function renderUrl(u) {
+  const parts = ['  <url>', `    <loc>${escapeXml(u.loc)}</loc>`];
+  if (u.lastmod) parts.push(`    <lastmod>${u.lastmod}</lastmod>`);
+  if (u.image) {
+    parts.push('    <image:image>');
+    parts.push(`      <image:loc>${escapeXml(u.image.loc)}</image:loc>`);
+    if (u.image.title) parts.push(`      <image:title>${escapeXml(u.image.title)}</image:title>`);
+    if (u.image.caption) parts.push(`      <image:caption>${escapeXml(u.image.caption)}</image:caption>`);
+    parts.push('    </image:image>');
+  }
+  parts.push('  </url>');
+  return parts.join('\n');
+}
 
 export default async (_request, _context) => {
   try {
+    const [projects, ressources] = await Promise.all([
+      fetchIndexableProjects('cover_url'),
+      fetchRessources(),
+    ]);
 
-    // Récupérer les projets avec les infos de ville
-    const url = new URL('/rest/v1/contribution_uploads', SUPABASE_URL);
-    url.searchParams.set('select', 'project_name,category,category_slug,slug,markdown_url,cover_url,description,ville,created_at');
-    url.searchParams.set('order', 'created_at.desc');
-    url.searchParams.set('approved', 'eq.true');
-    url.searchParams.set('markdown_url', 'not.is.null');
+    const urlset = STATIC_PAGES.map((path) => ({ loc: `${BASE_ORIGIN}${path}` }));
 
-    const resp = await fetch(url.toString(), {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        Accept: 'application/json'
-      }
-    });
-
-    if (!resp.ok) {
-      const txt = await resp.text().catch(() => '');
-      return new Response(`Supabase error ${resp.status}: ${txt}`, { status: 500 });
-    }
-
-    const rows = await resp.json();
-    const items = Array.isArray(rows) ? rows : [];
-
-    const fmtDate = (d) => {
-      try {
-        if (!d) return null;
-        const dt = new Date(d);
-        if (isNaN(dt.getTime())) return null;
-        return dt.toISOString().slice(0, 10);
-      } catch (e) { console.debug('[netlify] fmtDate', e); return null; }
-    };
-
-    const escapeXml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-
-    const urlset = [];
-
-    // Date la plus récente pour la page d'accueil
-    const latestDate = items.length > 0 ? fmtDate(items[0]?.created_at) : fmtDate(new Date().toISOString());
-
-    // Accueil
-    urlset.push({
-      loc: `${BASE_ORIGIN}/`,
-      lastmod: latestDate,
-      changefreq: 'daily',
-      priority: '1.0'
-    });
-
-    // Page /home/
-    urlset.push({
-      loc: `${BASE_ORIGIN}/home/`,
-      lastmod: latestDate,
-      changefreq: 'weekly',
-      priority: '1.0'
-    });
-
-    // Pages Home SPA
-    const homePages = [
-      { path: '/home/fonctionnalites', priority: '0.9' },
-      { path: '/home/a-propos', priority: '0.9' },
-      { path: '/home/contact', priority: '0.9' },
-      { path: '/home/aide', priority: '0.8' },
-      { path: '/home/confidentialite', priority: '0.3' },
-      { path: '/home/alternative-panneaupocket', priority: '0.9' },
-      { path: '/home/alternative-cityall-lumiplan', priority: '0.9' },
-      { path: '/home/alternative-neocity', priority: '0.9' },
-      { path: '/home/ressources', priority: '0.9' },
-    ];
-    for (const hp of homePages) {
+    for (const article of ressources) {
       urlset.push({
-        loc: `${BASE_ORIGIN}${hp.path}`,
-        lastmod: latestDate,
-        changefreq: 'monthly',
-        priority: hp.priority,
+        loc: `${BASE_ORIGIN}/home/ressources/${encodeURIComponent(article.slug)}`,
+        lastmod: toDay(article.updated || article.date),
       });
     }
 
-    // Articles Ressources - manifest généré par le prerender de home-src
-    try {
-      const manifestResp = await fetch(`${BASE_ORIGIN}/home/ressources/manifest.json`);
-      if (manifestResp.ok) {
-        const ressources = await manifestResp.json();
-        for (const article of ressources) {
-          if (!article?.slug) continue;
-          urlset.push({
-            loc: `${BASE_ORIGIN}/home/ressources/${encodeURIComponent(article.slug)}`,
-            lastmod: article.updated || article.date || latestDate,
-            changefreq: 'monthly',
-            priority: '0.8',
-          });
-        }
-      }
-    } catch { /* pas de manifest : sitemap sans les articles */ }
-
-    // Filtrer les entrées de test E2E
-    const isTestEntry = (name, cat) => {
-      const lower = name.toLowerCase();
-      return lower.startsWith('e2e-') || lower.startsWith('e2e_') ||
-        lower.startsWith('test ') || lower === 'test' ||
-        cat.startsWith('e2e-') || cat.startsWith('e2e_');
-    };
-
-    // Hubs par ville - /ville/{slug} (items trié par created_at desc :
-    // la première occurrence d'une ville porte son lastmod le plus récent)
-    const villeLastmod = new Map();
-    for (const it of items) {
-      const name = it?.project_name || '';
-      const cat = String(it?.category || '').toLowerCase();
-      const ville = String(it?.ville || '').toLowerCase();
-      if (!name || !cat || !ville || isTestEntry(name, cat)) continue;
-      if (ville.startsWith('essai-')) continue; // démos générées : hors index
-      if (!villeLastmod.has(ville)) villeLastmod.set(ville, fmtDate(it?.created_at));
-    }
-    for (const [ville, lastmod] of villeLastmod) {
-      urlset.push({
-        loc: `${BASE_ORIGIN}/ville/${encodeURIComponent(ville)}`,
-        lastmod,
-        changefreq: 'weekly',
-        priority: '0.9',
-      });
+    for (const [ville, info] of groupByVille(projects)) {
+      urlset.push({ loc: villeUrl(ville), lastmod: info.lastmod });
     }
 
-    // Fiches individuelles avec images pour Google Images
-    for (const it of items) {
-      const name = it?.project_name || '';
-      const cat = String(it?.category || '').toLowerCase();
-      const ville = it?.ville || '';
-      const catSlug = it?.category_slug || '';
-      const projSlug = it?.slug || '';
-      if (!name || !cat) continue;
-      if (!ville || !catSlug || !projSlug) continue; // ignorer les entrées sans slugs
-      if (isTestEntry(name, cat)) continue;
-      if (String(ville).toLowerCase().startsWith('essai-')) continue; // démos générées : hors index
-      const loc = `${BASE_ORIGIN}/fiche/${encodeURIComponent(ville)}/${encodeURIComponent(catSlug)}/${encodeURIComponent(projSlug)}`;
-      const lastmod = fmtDate(it?.created_at) || undefined;
-
-      const entry = { loc, lastmod, changefreq: 'weekly', priority: '0.8' };
-
-      // Image sitemap extension - permet l'indexation dans Google Images
-      if (it.cover_url) {
+    for (const p of projects) {
+      const entry = { loc: ficheUrl(p), lastmod: toDay(p.created_at) };
+      // Extension image : uniquement des URLs absolues, seules valables ici
+      if (/^https?:\/\//i.test(String(p.cover_url || ''))) {
         entry.image = {
-          loc: it.cover_url,
-          title: name,
-          caption: it.description ? it.description.slice(0, 200) : undefined,
+          loc: p.cover_url,
+          title: p.project_name,
+          caption: p.description ? String(p.description).replace(/\s+/g, ' ').trim().slice(0, 200) : undefined,
         };
       }
-
       urlset.push(entry);
     }
 
-    // Générer le XML avec support image:image (Google Image Sitemap extension)
-    const xmlNs = 'xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"';
-
     const xml = [
       '<?xml version="1.0" encoding="UTF-8"?>',
-      `<urlset ${xmlNs}>`,
-      ...urlset.map((u) => {
-        const parts = [
-          '  <url>',
-          `    <loc>${escapeXml(u.loc)}</loc>`,
-          u.lastmod ? `    <lastmod>${u.lastmod}</lastmod>` : '',
-          u.changefreq ? `    <changefreq>${u.changefreq}</changefreq>` : '',
-          u.priority ? `    <priority>${u.priority}</priority>` : '',
-        ];
-        // Google Image Sitemap extension
-        if (u.image) {
-          parts.push('    <image:image>');
-          parts.push(`      <image:loc>${escapeXml(u.image.loc)}</image:loc>`);
-          if (u.image.title) parts.push(`      <image:title>${escapeXml(u.image.title)}</image:title>`);
-          if (u.image.caption) parts.push(`      <image:caption>${escapeXml(u.image.caption)}</image:caption>`);
-          parts.push('    </image:image>');
-        }
-        parts.push('  </url>');
-        return parts.filter(Boolean).join('\n');
-      }),
-      '</urlset>'
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">',
+      ...urlset.map(renderUrl),
+      '</urlset>',
     ].join('\n');
 
     return new Response(xml, {
       status: 200,
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600'
-      }
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+      },
     });
   } catch (e) {
+    // Jamais un sitemap partiel en 200 : un 500 laisse aux moteurs la version
+    // précédente, un inventaire tronqué leur ferait oublier des pages
     return new Response(`Sitemap generation failed: ${e?.message || e}`, { status: 500 });
   }
 };
