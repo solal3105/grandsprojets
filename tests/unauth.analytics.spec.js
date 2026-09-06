@@ -23,6 +23,7 @@ const SPACES = [
   { n: 6, path: '/carte-postale/', space: 'carte-postale' },
   { n: 7, path: '/ville/', space: 'ville' },
   { n: 8, path: '/home/', space: 'home' },
+  { n: 9, path: '/cartes/', space: 'cartes' },
 ];
 
 /** SPA : leurs pages vues sont émises par leur routeur, jamais automatiquement. */
@@ -47,7 +48,7 @@ test.describe('15.1 Mesure d\'audience - chargement par espace', () => {
   for (const { n, path, space } of SPA) {
     // Sans cet attribut, PostHog compterait la page d'entrée en plus de celle
     // qu'émet le routeur : toutes les sessions de la SPA seraient doublées.
-    test(`15.1.${8 + n} ${path} (${space}) déclare ses pages vues en manuel`, async ({ page }) => {
+    test(`15.1.${SPACES.length + n} ${path} (${space}) déclare ses pages vues en manuel`, async ({ page }) => {
       await page.goto(path, { waitUntil: 'domcontentloaded' });
       const attr = await page.getAttribute('script[data-op-space]', 'data-op-pageview');
       expect(attr).toBe('manual');

@@ -30,6 +30,7 @@ capte rien : aucune page n'est cassée pendant l'attente.
 | Fiche projet | `fiche/index.html` | `fiche` | automatiques |
 | Hub ville | `ville/index.html` | `ville` | automatiques |
 | Démo salon | `demo/index.html` | `demo` | automatiques |
+| Les cartes des communes (stand) | `cartes/index.html` | `cartes` | automatiques |
 | Carte postale | `carte-postale/index.html` | `carte-postale` | automatiques |
 | Connexion | `login/index.html` | `login` | automatiques |
 | Déconnexion | `logout/index.html` | `logout` | automatiques |
@@ -86,6 +87,10 @@ rejoués. Il n'y a donc pas d'ordre d'initialisation à respecter.
 | `demo_lead_submitted` | demo | La conversion de la démo salon |
 | `demo_space_opened` | demo | Le visiteur ouvre-t-il l'espace généré |
 | `demo_theme_toggled` | demo | Le stand préfère-t-il montrer la démo en clair ou en sombre |
+| `cartes_ville_ouverte` | cartes | Quelles cartes déjà construites les passants ouvrent (scène, ruban, recherche ou retour de génération) |
+| `cartes_generation_lancee` | cartes | Combien de passants demandent la carte d'une commune qui n'en a pas encore |
+| `cartes_adresse_laissee` | cartes | La conversion d'une carte déjà construite (lien envoyé ou non) |
+| `cartes_retour_veille` | cartes | Combien de cartes sont refermées par la veille, sans geste du visiteur |
 | `contact_request_submitted` | home | La conversion du site vitrine, par `referrer` |
 | `contact_request_failed` | home | Les demandes perdues sur erreur technique |
 | `login_link_sent` | login | Les connexions demandées |

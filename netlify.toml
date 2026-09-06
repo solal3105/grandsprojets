@@ -79,6 +79,10 @@
   path = "/ville/*"
   function = "ville-hub"
 
+[[edge_functions]]
+  path = "/cartes/"
+  function = "cartes"
+
 # Prerendering pour les crawlers (Google, Bing, etc.)
 # Netlify sert une version pré-rendue du SPA aux bots
 [build.processing]
@@ -153,6 +157,12 @@
 # le jour J. Le trafic de cette page est négligeable, la fraîcheur prime.
 [[headers]]
   for = "/demo/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Même règle pour la page des cartes, qui tourne sur le même écran de salon
+[[headers]]
+  for = "/cartes/*"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <!-- interactive-widget : sur une tablette, le clavier virtuel réduit la
+       fenêtre au lieu de recouvrir la saisie -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+  <title>Les cartes des projets des communes, construites depuis le web public | Open Projets</title>
+  <meta name="description" content="Des dizaines de communes ont déjà leur carte des projets, construite en quelques minutes depuis leur site, la presse locale et les marchés publics. Tapez le nom de la vôtre." />
+  <link rel="canonical" href="https://openprojets.com/cartes/" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Open Projets" />
+  <meta property="og:title" content="Les cartes des projets des communes, construites depuis le web public" />
+  <meta property="og:description" content="Tapez le nom de votre commune : si sa carte existe déjà, elle s'ouvre. Sinon, nous la construisons devant vous en quelques minutes." />
+  <meta property="og:url" content="https://openprojets.com/cartes/" />
+  <meta property="og:image" content="https://openprojets.com/img/cover/meta.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="theme-color" content="#05070d" />
+  <link rel="icon" type="image/png" href="/img/logos/favicon.png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/img/logos/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://data.geopf.fr" />
+  <link rel="preconnect" href="https://wqqsuybmyqemhojsamgq.supabase.co" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <!-- Le thème est celui de l'écran de génération (même clé, même interrupteur) :
+       celui qui tient le stand ne règle la tablette qu'une fois. Sur le stand,
+       le premier réglage est le sombre : c'est lui qui laisse les vues
+       aériennes porter l'écran. Posé AVANT la feuille de style, aucun éclair
+       de mauvais thème. -->
+  <script>
+    (function () {
+      if (!/[?&]kiosk=1(&|$)/.test(location.search)) return;
+      try { if (!localStorage.getItem('demo-theme')) localStorage.setItem('demo-theme', 'dark'); } catch (e) { /* stockage indisponible */ }
+    })();
+  </script>
+  <script src="/demo/theme.js?v=15"></script>
+  <link rel="stylesheet" href="cartes.css" />
+  <script defer src="/modules/analytics.js" data-op-space="cartes"></script>
+</head>
+<body>
+
+  <!-- L'entrée de la page : le ciel, l'en-tête, la promesse, la recherche.
+       Sur le site c'est un bandeau ; sur le stand, ces blocs rejoignent la
+       grille de l'écran et le ciel occupe tout l'écran, derrière tout. -->
+  <div class="hero">
+
+    <!-- Le ciel : la France vue du ciel (IGN) avec, posées dessus, les
+         communes déjà cartographiées ; puis deux calques qui se relaient pour
+         les vues aériennes des communes mises en scène. Un voile assure la
+         lecture du texte. Une seule image par vue, à la taille de l'écran. -->
+    <div class="ciel" id="ciel" aria-hidden="true">
+      <div class="ciel__calque ciel__calque--france is-on" id="ciel-france">
+        <div class="ciel__cadre">
+          <img class="ciel__image" id="ciel-france-image" src="" alt="" decoding="async" fetchpriority="high" />
+          <svg class="constellation" id="constellation" viewBox="-1664034 -6762437 3172285 1784411" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
+            <path class="constellation__contour" d="M793746 -6024571L777670 -6022675L779121 -6016216L765808 -6000771L780586 -6003158L784380 -5995609L772880 -5989170L774250 -5982017L750285 -5959729L745802 -5948449L716081 -5930428L718964 -5907619L680245 -5873190L685333 -5868196L675042 -5847303L686812 -5839509L679343 -5826149L681748 -5820666L665517 -5815185L663026 -5801542L682013 -5802887L698794 -5814968L702122 -5821378L694388 -5824904L701729 -5839238L711336 -5835030L725032 -5845456L748386 -5845902L757665 -5841515L753702 -5837405L764154 -5825815L756587 -5802591L767924 -5800012L765058 -5788694L773839 -5788358L784122 -5768117L772513 -5755822L759075 -5754139L757910 -5736414L779313 -5722830L779273 -5701284L799750 -5685901L791884 -5673416L794571 -5662050L786733 -5654656L775424 -5654319L767479 -5643174L753405 -5646705L737769 -5637470L742773 -5624895L750674 -5624028L751486 -5606681L764012 -5598034L779990 -5596260L779189 -5588435L786560 -5576547L787820 -5571428L774502 -5569691L771666 -5554505L762985 -5547695L772239 -5533612L767311 -5530792L766705 -5521486L780133 -5502104L819142 -5483745L855444 -5492412L858727 -5475573L834362 -5444156L838254 -5432701L806378 -5417499L802219 -5410766L796809 -5412030L792790 -5397524L773912 -5393719L767192 -5377435L749593 -5373913L746949 -5364571L732913 -5354276L745522 -5352609L736960 -5336465L729855 -5340643L713019 -5334679L708640 -5325520L691081 -5329713L685778 -5325573L685402 -5316290L680910 -5317947L681932 -5323781L659082 -5330851L658625 -5325019L648860 -5319489L647200 -5328292L629240 -5340527L623490 -5336746L615744 -5344303L594543 -5344700L598067 -5349350L592649 -5366460L560817 -5362188L548959 -5378137L541487 -5374009L540462 -5362737L518947 -5364849L507929 -5368787L507851 -5379684L463715 -5384080L456526 -5396737L446523 -5396441L407670 -5371873L390705 -5353457L377029 -5355321L363285 -5346873L344297 -5322502L338728 -5305909L338087 -5255230L340317 -5241794L349334 -5238423L353348 -5226453L343469 -5224933L338496 -5232119L328062 -5233426L297641 -5221769L297420 -5212224L286962 -5214748L282757 -5211107L251217 -5226884L225255 -5214340L215438 -5229168L192719 -5235078L193243 -5243805L198831 -5247297L193469 -5252996L172462 -5259723L164764 -5259060L160317 -5251815L151165 -5268769L129336 -5268093L123228 -5277376L102811 -5280120L78856 -5290900L71750 -5279012L74648 -5264890L48496 -5264961L40034 -5269964L32597 -5262622L19564 -5271991L-1184 -5264055L-11404 -5269690L-17781 -5281185L-34892 -5289073L-43704 -5281512L-56734 -5285432L-61360 -5278169L-80740 -5295444L-83672 -5306941L-105358 -5304982L-140740 -5318758L-145667 -5322432L-142514 -5329983L-149855 -5325856L-150810 -5316306L-160435 -5319023L-163737 -5325942L-157571 -5331392L-153916 -5350565L-167572 -5356643L-179076 -5350394L-180627 -5357842L-192554 -5357086L-199147 -5369082L-178273 -5378158L-160569 -5413654L-146495 -5485588L-140108 -5550507L-132642 -5568267L-113188 -5566489L-129777 -5586212L-140491 -5563804L-126506 -5702329L-118096 -5710067L-93295 -5681226L-75999 -5633918L-67743 -5623946L-65753 -5628128L-74336 -5641485L-81746 -5679777L-89244 -5694158L-112392 -5718298L-137728 -5733344L-138323 -5745415L-126024 -5749143L-128372 -5758319L-122551 -5759895L-118480 -5772326L-122334 -5778828L-117185 -5782141L-125691 -5800720L-136241 -5806982L-123694 -5822329L-125725 -5830211L-133825 -5831132L-134407 -5823171L-149662 -5835318L-163188 -5835383L-167218 -5844255L-201897 -5860087L-206611 -5878416L-238338 -5912376L-239897 -5924081L-220459 -5946794L-228592 -5957451L-247889 -5963473L-241237 -5969241L-241563 -5986007L-256218 -5980747L-263799 -5987477L-271839 -5984712L-279847 -5988656L-278623 -5995901L-284860 -6003429L-272828 -6011777L-278158 -6017030L-278468 -6022356L-271756 -6023453L-274530 -6026000L-295254 -6030580L-298477 -6023384L-317201 -6023861L-323863 -6033956L-307506 -6030080L-302280 -6036694L-306633 -6046501L-322172 -6037580L-347680 -6035533L-344478 -6021175L-348362 -6019760L-349515 -6037198L-357308 -6047285L-347980 -6060971L-353589 -6062830L-357889 -6048034L-372795 -6061829L-384360 -6056319L-391951 -6066634L-392179 -6081795L-393919 -6067457L-415886 -6074588L-428698 -6072975L-442972 -6091075L-442819 -6082552L-463485 -6081801L-464771 -6086245L-465651 -6073735L-485621 -6072941L-484269 -6083132L-492421 -6100688L-505451 -6108980L-523144 -6111454L-525021 -6117253L-477069 -6124298L-479020 -6139326L-496813 -6146579L-506963 -6134812L-505893 -6147075L-512786 -6150354L-506857 -6163402L-504839 -6154246L-470112 -6156291L-486157 -6164228L-494509 -6161391L-492583 -6173258L-513041 -6163252L-520800 -6166191L-531250 -6161795L-533767 -6175851L-530148 -6195639L-503117 -6213089L-493345 -6213193L-484242 -6220151L-470188 -6215405L-466088 -6221827L-451688 -6222299L-443434 -6228548L-439652 -6216164L-434536 -6218108L-428084 -6211800L-425327 -6224339L-407336 -6223249L-407334 -6217233L-398663 -6219055L-395219 -6232237L-398960 -6236087L-394171 -6244908L-378213 -6241120L-358418 -6252234L-356536 -6246827L-344469 -6252434L-343252 -6245602L-335476 -6244735L-339013 -6238936L-326052 -6233186L-327847 -6227620L-314693 -6215777L-313876 -6206171L-302813 -6199766L-300389 -6191399L-274737 -6215610L-257653 -6219742L-260206 -6210581L-251972 -6214611L-245504 -6203708L-236410 -6208003L-234998 -6213890L-226008 -6211139L-219560 -6196265L-225529 -6215939L-215746 -6223175L-205782 -6223218L-208352 -6215245L-197479 -6207845L-160705 -6211895L-155090 -6215769L-173679 -6230094L-178659 -6247400L-171813 -6263166L-179159 -6288324L-176918 -6314562L-181639 -6311289L-190486 -6330205L-201159 -6338200L-209915 -6367057L-205400 -6380568L-216648 -6390069L-216210 -6398882L-180858 -6385274L-158203 -6395120L-141145 -6393678L-136818 -6378786L-144296 -6374399L-145423 -6366806L-130021 -6344382L-131199 -6339323L-124636 -6335411L-120027 -6341040L-104572 -6342160L-91862 -6335747L-46181 -6331995L-25124 -6322816L-56 -6330284L14444 -6343519L37735 -6350012L13497 -6353824L7742 -6361227L21329 -6395573L63779 -6420291L113551 -6431760L134239 -6441688L161845 -6465405L172371 -6483632L187440 -6478034L171204 -6495374L172649 -6507168L182736 -6507487L173175 -6515434L176487 -6539861L180259 -6539497L175507 -6545971L173738 -6568341L178601 -6579448L176280 -6598651L198228 -6613315L283456 -6636946L293069 -6611748L288319 -6606995L293325 -6588239L302588 -6588318L313172 -6571377L322646 -6567385L336413 -6581081L350879 -6582883L362722 -6568512L365855 -6538149L375839 -6531761L386720 -6539197L391779 -6537325L389209 -6533091L401539 -6532846L407899 -6525131L407237 -6510836L413043 -6498945L417159 -6507274L435148 -6503356L448327 -6508419L459121 -6493796L468381 -6493684L459407 -6469690L467212 -6469742L470607 -6460086L460460 -6449821L460962 -6442598L467089 -6438606L502097 -6437047L520381 -6445692L521281 -6458198L530121 -6469931L543191 -6472646L533233 -6441085L544269 -6430657L540499 -6410394L556468 -6411592L575100 -6393263L586350 -6393884L593556 -6386704L591300 -6379616L604575 -6376049L609019 -6359652L642805 -6370933L653345 -6359922L664776 -6358642L665973 -6351745L696461 -6361849L729628 -6346153L731197 -6333590L748029 -6312509L750128 -6302677L760817 -6300601L760911 -6310795L772048 -6312641L783057 -6307108L785281 -6293994L790678 -6298735L810695 -6294726L828780 -6306192L834228 -6303695L838122 -6291372L849956 -6284056L867689 -6286032L875949 -6280659L883279 -6284676L900728 -6273039L915351 -6270785L901278 -6242749L887186 -6233466L872724 -6214228L861165 -6174358L862173 -6162880L843503 -6126903L842869 -6111910L848487 -6102243L836427 -6057556L844326 -6036813L821643 -6012852L806654 -6011263L798252 -6014908L800007 -6022627ZM-139179 -5755700L-154597 -5773509L-157343 -5787862L-137595 -5777388L-132294 -5762219L-137129 -5748639ZM1046656 -5139837L1044934 -5110204L1033918 -5102610L1034790 -5098766L1042511 -5100719L1026806 -5077830L1029731 -5072777L1026140 -5066808L1012156 -5071324L1012703 -5078019L1006292 -5081713L989031 -5087127L976926 -5100010L992359 -5114615L966925 -5123312L977874 -5135609L977422 -5149684L958843 -5146200L957092 -5153978L972839 -5170377L954840 -5184460L953006 -5196529L967380 -5202746L959003 -5213491L951981 -5213158L958285 -5223624L963496 -5223459L964639 -5238232L974760 -5246849L978172 -5244940L980606 -5251142L1003031 -5257389L1015741 -5271213L1026440 -5271815L1034528 -5262530L1037788 -5266132L1041844 -5312995L1053478 -5309902L1056543 -5280816L1051545 -5262418L1060575 -5246160L1064183 -5203220L1063099 -5176595L1047938 -5154346Z" vector-effect="non-scaling-stroke" />
+            <g id="points"><!-- cartes:points --></g>
+          </svg>
+        </div>
+      </div>
+      <div class="ciel__calque ciel__calque--ville" id="ciel-ville-a"><div class="ciel__cadre"><img class="ciel__image" alt="" decoding="async" /></div></div>
+      <div class="ciel__calque ciel__calque--ville" id="ciel-ville-b"><div class="ciel__cadre"><img class="ciel__image" alt="" decoding="async" /></div></div>
+      <div class="ciel__voile"></div>
+      <div class="ciel__nuit" id="ciel-nuit"></div>
+    </div>
+
+    <header class="entete">
+      <a class="entete__logo" href="/home/" aria-label="Open Projets, accueil du site">
+        <img src="/home/img/logos/classic_color.png" alt="Open Projets" width="256" height="93" decoding="async" />
+      </a>
+      <nav class="entete__nav" aria-label="Sur cette page">
+        <a href="#communes">Les communes</a>
+        <a href="#scene-comment">Comment la carte se construit</a>
+        <a class="entete__demo" href="/home/contact">Demander une démo</a>
+      </nav>
+      <!-- Les commandes de celui qui tient le stand : discrètes, en haut à droite -->
+      <div class="commandes">
+        <button type="button" id="plein-ecran" class="commande" aria-label="Passer en plein écran" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+        </button>
+        <button id="theme-toggle" class="commande" type="button" aria-label="Passer en mode sombre">
+          <svg class="commande__lune" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8"/></svg>
+          <svg class="commande__soleil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Scène d'accueil : la promesse. Sur le stand, c'est l'écran auquel
+         tout revient. -->
+    <section id="scene-accueil" class="scene scene--accueil is-active" data-scene="accueil" aria-labelledby="titre-accueil">
+      <div class="scene__texte">
+        <h1 id="titre-accueil" class="titre">Voyez la carte des projets de votre commune</h1>
+        <p class="scene__sous">Tapez son nom. Nous lisons son site, la presse locale et les marchés publics, et sa carte se construit sous vos yeux, projet par projet, en quelques minutes.</p>
+        <p id="compte" class="scene__compte" hidden><!-- cartes:compte --></p>
+      </div>
+    </section>
+
+    <!-- La seule action de la page. Elle garde la même place sur toutes les
+         scènes : un visiteur qui l'a vue une fois sait où la retrouver. -->
+    <form class="recherche" id="recherche" role="search" autocomplete="off" novalidate>
+      <label class="recherche__champ">
+        <span class="visually-hidden">Nom de votre commune</span>
+        <input id="recherche-champ" type="text" placeholder="Tapez le nom de votre commune" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="search" />
+      </label>
+      <button type="submit" class="bouton bouton--principal">Voir ma carte</button>
+      <ul id="recherche-suggestions" class="suggestions" role="listbox" aria-label="Communes proposées" hidden></ul>
+    </form>
+  </div>
+
+  <main id="principal" class="principal">
+
+    <!-- Une commune mise en scène : sa vue du ciel derrière, ses fiches en
+         tirages photo devant. Pré-rendue avec la commune la plus illustrée ;
+         sur le stand, rejouée pour chaque commune de la vitrine. -->
+    <section id="scene-ville" class="scene scene--ville" data-scene="ville" aria-label="Une commune qui a déjà sa carte">
+      <!-- cartes:vedette -->
+    </section>
+
+    <!-- Les trois temps de la construction : une vraie suite, donc numérotée -->
+    <section id="scene-comment" class="scene scene--comment" data-scene="comment" aria-labelledby="titre-comment">
+      <div class="scene__texte scene__texte--large">
+        <h2 id="titre-comment" class="titre titre--2">Comment la carte se construit</h2>
+        <ol class="etapes">
+          <li><span class="etapes__n" aria-hidden="true">1</span><p>Vous tapez le nom de votre commune.</p></li>
+          <li><span class="etapes__n" aria-hidden="true">2</span><p>Nous lisons son site, la presse locale et les avis de marchés publics, puis nous situons chaque projet à son adresse réelle.</p></li>
+          <li><span class="etapes__n" aria-hidden="true">3</span><p>Sa carte est prête, avec une fiche illustrée par projet. Comptez trois minutes pour un village, jusqu'à huit pour une métropole. Vous repartez avec le lien.</p></li>
+        </ol>
+        <p class="regles">Nous ne plaçons aucun projet dont l'emplacement n'est pas vérifié, nous n'écrivons rien qui ne vienne d'une source citée, et une fiche sans photo fiable reçoit la vue aérienne du lieu. Une carte construite sans la commune reste incomplète : c'est ce que votre collectivité apporte ensuite.</p>
+      </div>
+    </section>
+
+    <!-- Toutes les communes qui ont déjà leur carte. Sur le site, une grille
+         qui mène à leur page ; sur le stand, un ruban à faire défiler du doigt. -->
+    <section id="communes" class="communes" aria-labelledby="titre-communes">
+      <h2 id="titre-communes" class="titre titre--3">Les communes qui ont déjà leur carte</h2>
+      <ul class="communes__liste" id="communes-liste"><!-- cartes:communes --></ul>
+    </section>
+
+    <!-- L'espace de démonstration de la Métropole de Lyon : ce que devient une
+         carte quand elle est alimentée pour de vrai. Sur le stand, il passe
+         dans la rotation comme une scène de commune. -->
+    <section id="lyon" class="lyon" aria-label="L'espace de démonstration de la Métropole de Lyon">
+      <div class="lyon__inner"><!-- cartes:lyon --></div>
+    </section>
+
+  </main>
+
+  <footer class="pied">
+    <p class="pied__appel">Vous représentez une collectivité ? <a href="/home/contact">Demandez une démo</a>, nous configurons votre espace ensemble.</p>
+    <p class="pied__liens"><a href="/home/">Open Projets</a> <a href="/home/confidentialite">Confidentialité</a> <a href="/demo/">Construire la carte d'une commune</a> <span class="pied__credit">Vues aériennes IGN, BD ORTHO (Géoplateforme)</span></p>
+  </footer>
+
+  <!-- La couche : une carte ouverte par-dessus l'accueil, jamais à sa place.
+       Une barre pour en sortir ou l'emporter, la carte en dessous. -->
+  <div id="couche" class="couche" hidden>
+    <div class="couche__barre">
+      <button type="button" class="bouton bouton--retour" id="couche-retour">Revenir à l'accueil</button>
+      <p class="couche__identite"><img id="couche-logo" alt="" width="40" height="40" decoding="async" hidden /><span id="couche-nom"></span></p>
+      <button type="button" class="bouton bouton--emporter" id="couche-emporter">Emporter cette carte</button>
+    </div>
+    <iframe id="couche-cadre" class="couche__cadre" title="La carte de la commune" src="about:blank" allow="geolocation" loading="eager"></iframe>
+
+    <!-- Emporter la carte : un code à scanner, ou le lien par e-mail -->
+    <div id="emporter" class="emporter" hidden>
+      <div class="emporter__panneau" role="dialog" aria-labelledby="emporter-titre" aria-modal="true">
+        <button type="button" class="emporter__fermer" id="emporter-fermer" aria-label="Fermer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <h2 id="emporter-titre" class="emporter__titre">Emportez la carte de <span id="emporter-nom"></span></h2>
+        <div class="emporter__colonnes">
+          <figure class="emporter__qr">
+            <img id="emporter-qr" alt="Code à scanner pour ouvrir la carte sur votre téléphone" width="240" height="240" />
+            <figcaption>Scannez ce code pour ouvrir la carte sur votre téléphone.</figcaption>
+          </figure>
+          <form id="emporter-form" class="emporter__form" novalidate>
+            <label for="emporter-email" class="emporter__label">Ou recevez le lien par e-mail</label>
+            <div class="emporter__champ">
+              <input id="emporter-email" type="email" name="email" placeholder="prenom.nom@ville.fr" autocomplete="email" inputmode="email" />
+              <button type="submit" class="bouton bouton--principal" id="emporter-envoyer">Envoyer</button>
+            </div>
+            <p id="emporter-erreur" class="emporter__erreur" role="alert" hidden></p>
+            <p id="emporter-merci" class="emporter__merci" role="status" hidden></p>
+            <p class="emporter__mention">Votre adresse sert à vous envoyer ce lien, puis à vous recontacter une fois. Répondez au message pour ne plus l'être.</p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- La saisie sur le stand : plein écran, le champ en haut, le clavier de
+       la tablette en bas, les propositions entre les deux. -->
+  <div id="saisie" class="saisie" hidden>
+    <div class="saisie__haut">
+      <label for="saisie-champ" class="saisie__titre">Tapez le nom de votre commune</label>
+      <button type="button" class="bouton bouton--retour" id="saisie-fermer">Revenir à l'accueil</button>
+    </div>
+    <input id="saisie-champ" class="saisie__champ" type="text" placeholder="Le nom de votre commune" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="search" />
+    <ul id="saisie-suggestions" class="saisie__suggestions" role="listbox" aria-label="Communes proposées"></ul>
+    <p class="saisie__aide">Si sa carte existe déjà, elle s'ouvre. Sinon, nous la construisons devant vous : trois minutes pour un village, jusqu'à huit pour une métropole.</p>
+  </div>
+
+  <!-- Le rappel avant le retour à l'accueil : discret, et un geste suffit -->
+  <p id="veille" class="veille" role="status" hidden>L'écran revient à l'accueil dans <b id="veille-s">10</b> s. Touchez l'écran pour rester.</p>
+
+  <!-- Le catalogue que la page rejoue, posé par le rendu serveur. S'il manque,
+       la page le reconstruit elle-même. -->
+  <script type="application/json" id="catalogue"><!-- cartes:catalogue --></script>
+  <!-- cartes:jsonld -->
+  <script type="module" src="cartes.js"></script>
+</body>
+</html>
