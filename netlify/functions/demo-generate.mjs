@@ -1065,6 +1065,15 @@ const LOGO_MAUVAISE_VARIANTE = /blanc|white|negatif|negative|inverse|dark|footer
 // Active et Sportive » sur Tassin, le magazine « Vannes & vous » sur Vannes).
 const LOGO_PARASITE = /thumbnail|vignette|csm_|label|partenaire|sponsor|certifi|magazine|journal|active|sportive|fleuri|handicap|qualite|charte|prix|trophee/i;
 
+/* Valeur d'un attribut HTML, entre guillemets doubles, simples, ou SANS
+   guillemets : les sites minifiés les retirent (« <a class=logo> »,
+   « <img src=/assets/logo.svg> », relevé sur Rennes), et une lecture limitée
+   aux valeurs entre guillemets ne voyait ni la classe ni l'adresse. */
+function attributHtml(tag, nom) {
+  const m = new RegExp(`(?:^|\\s)${nom}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>"']+))`, 'i').exec(tag);
+  return m ? (m[1] ?? m[2] ?? m[3] ?? '') : '';
+}
+
 function findSiteLogo(html, baseUrl) {
   const zone = html.slice(0, 60000);
   const hits = [];
@@ -1072,20 +1081,26 @@ function findSiteLogo(html, baseUrl) {
     // La position prime : le logo d'identite est dans l'en-tete, les logos de
     // labels et de partenaires arrivent plus bas dans la page.
     const at = zone.indexOf(tag);
-    const alt = /alt=["']([^"']*)["']/i.exec(tag)?.[1] || '';
-    const cls = /class=["']([^"']*)["']/i.exec(tag)?.[1] || '';
+    const alt = attributHtml(tag, 'alt');
+    const cls = attributHtml(tag, 'class');
     // srcset : on prend la plus grande definition proposee
-    const srcset = /srcset=["']([^"']+)["']/i.exec(tag)?.[1];
+    const srcset = attributHtml(tag, 'srcset');
     const fromSet = srcset
       ? srcset.split(',').map((s) => s.trim().split(/\s+/)).sort((a, b) => (parseInt(b[1], 10) || 0) - (parseInt(a[1], 10) || 0))[0]?.[0]
       : null;
-    const src = fromSet || /(?:data-src|src)=["']([^"']+)["']/i.exec(tag)?.[1];
+    const src = fromSet || attributHtml(tag, 'data-src') || attributHtml(tag, 'src');
     if (!src || /^data:/i.test(src)) continue;
-    const hay = `${src} ${alt} ${cls}`;
+    /* Le mot « logo » est souvent porté par le lien ou le bloc qui ENTOURE
+       l'image (« <a class="logo"><img src="marque.png"> »), pas par l'image
+       elle-même : relevé sur Rennes, dont l'image ne dit que le nom de la
+       ville. On lit donc aussi la balise ouvrante qui précède immédiatement. */
+    const avant = zone.slice(Math.max(0, at - 400), at);
+    const parent = /<(?:a|div|span|picture|figure)\b[^>]*(?:class|id|aria-label|title)\s*=\s*(?:["'][^"']*(?:logo|blason|armoirie)[^"']*["']|[^\s>"']*(?:logo|blason|armoirie)[^\s>"']*)[^>]*>\s*(?:<(?:source|span|div|picture)\b[^>]*>\s*)*$/i.test(avant) ? ' logo' : '';
+    const hay = `${src} ${alt} ${cls}${parent}`;
     if (!/logo|blason|armoirie/i.test(hay)) continue;
 
-    const w = parseInt(/width=["']?(\d+)/i.exec(tag)?.[1] || '0', 10);
-    const h = parseInt(/height=["']?(\d+)/i.exec(tag)?.[1] || '0', 10);
+    const w = parseInt(attributHtml(tag, 'width') || '0', 10);
+    const h = parseInt(attributHtml(tag, 'height') || '0', 10);
     let score = 100;
     // Decroissance douce avec la position : elle doit departager deux logos
     // credibles, pas eliminer un logo legitime place tard dans le HTML (mesure :
@@ -1179,11 +1194,16 @@ async function inspectMairieSite(siteUrl, communeNom, onFinding, echeance = Infi
 
   const logoCandidats = findSiteLogo(html, finalUrl);
   const icone = new URL(iconCandidates[0]?.href || '/favicon.ico', finalUrl).toString();
-  // L'icône du site ferme la liste : c'est le repli quand aucun logo n'est
-  // reconnaissable, et c'est au moins la marque de la commune.
-  if (!logoCandidats.includes(icone)) logoCandidats.push(icone);
-  out.logoCandidats = logoCandidats;
-  out.logoUrl = logoCandidats[0];
+  /* L'icône du site est tenue À PART : c'est le dernier recours de
+     l'installation quand aucun logo n'a pu être téléchargé, jamais un
+     candidat. Mêlée aux candidats, elle était la seule image que le juge
+     visuel savait regarder quand le vrai logo est un .svg (le cas le plus
+     fréquent sur les sites de mairie) : il la désignait, elle passait en tête,
+     et le logo trouvé n'était jamais essayé. Relevé en base : 53 espaces sur
+     78 portaient l'icône de l'onglet à la place du logo. */
+  out.logoCandidats = logoCandidats.filter((u) => u !== icone);
+  out.iconeUrl = icone;
+  out.logoUrl = out.logoCandidats[0] || icone;
   // Le finding logo est émis par coreSources, une fois que la vision a tranché
   // entre les candidats et donné la couleur de la commune
 
@@ -2203,6 +2223,33 @@ function typeImageReel(buffer) {
     return { ext: 'svg', ct: 'image/svg+xml' };
   }
   return null;
+}
+
+/* Couleur de marque d'un logo SVG : la couleur saturée la plus présente dans
+   ses attributs et ses styles, en ignorant les blancs, noirs et gris. Rend
+   null si le logo est monochrome. Sans IA : le fichier dit tout. */
+function couleurDepuisSvg(texte) {
+  const t = String(texte || '');
+  const comptes = new Map();
+  const re = /(?:fill|stop-color|stroke)\s*[:=]\s*["']?\s*(#[0-9a-f]{3}(?:[0-9a-f]{3})?|rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\))/gi;
+  let m;
+  while ((m = re.exec(t)) !== null) {
+    let hex = m[1].toLowerCase();
+    if (hex.startsWith('rgb')) {
+      const [r, g, b] = hex.match(/\d+/g).map((n) => Math.min(255, parseInt(n, 10)));
+      hex = `#${[r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('')}`;
+    } else if (hex.length === 4) {
+      hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+    }
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    // Saturation et luminosité : ni gris, ni presque blanc, ni presque noir
+    if (max === 0 || (max - min) / max < 0.25 || max < 40 || (min > 225)) continue;
+    comptes.set(hex, (comptes.get(hex) || 0) + 1);
+  }
+  if (!comptes.size) return null;
+  return [...comptes.entries()].sort((a, b) => b[1] - a[1])[0][0];
 }
 
 /* Logo de la commune ET sa couleur, en UN SEUL appel de vision.
@@ -3375,6 +3422,7 @@ async function coreSources(send, step, insee, runState) {
       host: mairie.host,
       logoUrl: mairie.logoUrl,
       logoCandidats: (mairie.logoCandidats || []).slice(0, 4),
+      iconeUrl: mairie.iconeUrl || null,
       themeColor: mairie.themeColor,
       pdfs: mairie.pdfs,
       pdfTextes: mairie.pdfTextes || [],
@@ -5295,9 +5343,11 @@ async function runCreate(send, step, ville, runState) {
      espaces sur 27 sans logo, dont deux communes dont le logo se télécharge
      parfaitement quand on rejoue la séquence. */
   let logoUrl = null;
-  const candidatsLogo = [mairie.logoUrl, ...(mairie.logoCandidats || [])]
+  // L'icône du site ferme la cascade : elle n'est installée que si aucun logo
+  // n'a pu l'être
+  const candidatsLogo = [mairie.logoUrl, ...(mairie.logoCandidats || []), mairie.iconeUrl]
     .filter((u, i, tous) => u && tous.indexOf(u) === i)
-    .slice(0, 5);
+    .slice(0, 6);
   for (const candidat of candidatsLogo) {
     try {
       // Délai propre, plus large que celui du moissonnage : c'est un fichier
@@ -5314,7 +5364,14 @@ async function runCreate(send, step, ville, runState) {
         continue;
       }
       logoUrl = await uploadToStorage(`branding/${ville}/logo.${vrai.ext}`, img.data, vrai.ct);
-      createItem('Logo de la mairie installé');
+      /* Un logo SVG porte ses couleurs en clair : quand ni le site ni le juge
+         visuel (qui ne lit pas les SVG) n'ont donné la couleur de la commune,
+         elle se lit dans le fichier lui-même. */
+      if (!mairie.themeColor && vrai.ext === 'svg') {
+        const couleur = couleurDepuisSvg(new TextDecoder('utf-8', { fatal: false }).decode(img.data));
+        if (couleur) mairie.themeColor = couleur;
+      }
+      createItem(candidat === mairie.iconeUrl ? 'Icône du site installée, faute de logo' : 'Logo de la mairie installé');
       break;
     } catch (e) {
       console.warn(`[demo-generate] logo échec sur ${candidat} :: ${e?.message}`);
@@ -5692,6 +5749,9 @@ export const config = { path: '/api/demo-generate' };
  */
 export const _internals = {
   INSEE_RE,
+  findSiteLogo,
+  attributHtml,
+  couleurDepuisSvg,
   inChunks,
   lireFluxBorne,
   lireJson,

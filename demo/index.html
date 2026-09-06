@@ -26,8 +26,8 @@
        demo.js, map-fx.js ou theme.js. -->
   <!-- Thème AVANT la feuille de style : l'attribut data-theme est posé avant
        le premier rendu, aucun éclair de mauvais thème -->
-  <script src="theme.js?v=14"></script>
-  <link rel="stylesheet" href="demo.css?v=14" />
+  <script src="theme.js?v=15"></script>
+  <link rel="stylesheet" href="demo.css?v=15" />
   <script defer src="/modules/analytics.js" data-op-space="demo"></script>
 </head>
 <body>
@@ -208,6 +208,11 @@
     </section>
   </main>
 
+  <!-- Retour à la page des cartes : n'existe que lorsque cet écran a été
+       ouvert par elle (paramètre retour, mode salon). Commande de celui qui
+       tient le stand, pour reprendre la main pendant une génération. -->
+  <button id="btn-retour" class="btn-retour" type="button" hidden>Revenir à l'accueil</button>
+
   <!-- Interrupteur clair/sombre : commande de celui qui tient le stand.
        L'icône annonce la destination (lune en clair, soleil en sombre),
        le libellé est tenu à jour par theme.js. -->
@@ -217,7 +222,7 @@
   </button>
 
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
-  <script src="map-fx.js?v=14"></script>
-  <script src="demo.js?v=14"></script>
+  <script src="map-fx.js?v=15"></script>
+  <script src="demo.js?v=15"></script>
 </body>
 </html>

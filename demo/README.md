@@ -386,6 +386,28 @@ rejoue la séquence. Trois corrections :
 Chaque échec est désormais journalisé avec son motif. Auparavant le `catch`
 était muet : l'espace prenait le logo Open Projets et personne ne savait que la
 commune en avait un.
+
+**L'icône du site n'est plus un candidat.** Relevé en base le 6 septembre 2026 :
+sur 78 espaces d'essai dotés d'un fichier, 53 portaient l'icône de l'onglet du
+navigateur (un carré de 180 ou 192 pixels) à la place du logo. La cause : le
+vrai logo est le plus souvent un `.svg`, que le juge visuel ne sait pas lire et
+qui était donc retiré de sa liste, tandis que l'icône, un `.png`, lui était
+toujours présentée ; il la désignait, elle passait en tête, et le logo trouvé
+n'était jamais essayé. L'icône est désormais tenue à part (`iconeUrl`) et
+ferme la cascade d'installation : elle n'est installée que si aucun logo n'a
+pu l'être. Le juge visuel ne tranche plus qu'entre de vrais candidats ; quand
+tous sont des `.svg`, le tri par position et par nom fait foi. Un logo SVG
+n'est pas converti en image matricielle : les navigateurs l'affichent tel
+quel, et sa couleur de marque se lit directement dans le fichier
+(`couleurDepuisSvg`, la couleur saturée la plus présente, hors blancs, noirs et
+gris), là où seul le juge visuel savait la donner. Deux autres trous comblés
+au passage : les attributs HTML sans guillemets (`<a class=logo><img
+src=/logo.svg>`, relevé sur Rennes, où la détection ne trouvait rien) et le
+mot « logo » porté par le lien ou le bloc qui entoure l'image plutôt que par
+l'image elle-même. Restent hors de portée : les logos dessinés en SVG
+directement dans la page ou construits par script (Bordeaux, Montpellier,
+Paris, Strasbourg), et les sites qui bloquent la lecture automatique. Tests :
+section 0.84 de `tests/unauth.demo-generate.spec.js`.
 - `themes_illustration` remplace 18 familles d'ouvrages écrites en dur, dont les
   requêtes étaient en français alors que Wikimedia Commons est indexé en
   anglais.

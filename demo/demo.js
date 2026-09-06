@@ -26,6 +26,20 @@
      commune ne doit pas la régénérer à l'insu du visiteur. */
   let regenEnAttente = URL_PARAMS.get('regen') === '1';
   const kioskParam = KIOSK_KEY ? `&k=${encodeURIComponent(KIOSK_KEY)}` : '';
+  /* Adresse de retour, donnée par la page des cartes (/cartes/) quand elle
+     confie une génération à cet écran. En mode salon, revenir à l'accueil
+     veut alors dire retourner là-bas, et l'espace généré s'ouvre là-bas aussi,
+     en couche : rien ne quitte l'écran du stand. Même origine uniquement, un
+     chemin absolu et jamais une adresse complète (pas de redirection ouverte). */
+  const RETOUR = (() => {
+    const r = URL_PARAMS.get('retour') || '';
+    return KIOSK && /^\/(?!\/)\S*$/.test(r) ? r : '';
+  })();
+  function urlDeRetour(params) {
+    const u = new URL(RETOUR, window.location.origin);
+    Object.entries(params || {}).forEach(([k, v]) => { if (v) u.searchParams.set(k, v); });
+    return u.pathname + u.search;
+  }
 
   let es = null;
   let selectedIndex = -1;
@@ -98,6 +112,26 @@
     if (hasFx) window.MapFX.attractStart();
     clearTimeout(typeTimer);
     typewriter();
+    armerFiletSaisie();
+  }
+
+  /* Sur le stand, l'écran de saisie appartient à la page des cartes : sans
+     frappe ni geste pendant une minute, on la lui rend. Le filet ne vaut que
+     tant que l'écran de saisie est affiché, une génération lancée le lève. */
+  const SAISIE_ABANDON_MS = 60000;
+  let saisieTimer = null;
+  function armerFiletSaisie() {
+    clearTimeout(saisieTimer);
+    if (!RETOUR || !screens.input.classList.contains('is-active')) return;
+    saisieTimer = setTimeout(() => window.location.replace(RETOUR), SAISIE_ABANDON_MS);
+  }
+  if (RETOUR) {
+    ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, armerFiletSaisie, { passive: true, capture: true }));
+    const retour = $('btn-retour');
+    if (retour) {
+      retour.hidden = false;
+      retour.addEventListener('click', () => window.location.replace(RETOUR));
+    }
   }
 
   /* ─── Autocomplétion ─── */
@@ -735,6 +769,7 @@
   // `regen` refait le recensement d'une commune déjà générée au lieu d'ouvrir
   // l'espace existant. L'adresse de l'espace ne change pas.
   function start(commune, { regen = false } = {}) {
+    clearTimeout(saisieTimer);
     const relance = regen || regenEnAttente;
     regenEnAttente = false;
     currentCommune = commune;
@@ -769,7 +804,7 @@
     resetStages();
     progressPct = 0;
     setProgress(2);
-    setPill('Préparation...', '', false);
+    setPill('Préparation...', `Comptez ${dureeEstimee(commune.population).texte}`, false);
     // Le nom tient l'affiche jusqu'à l'arrivée du logo de la mairie
     $('hud-commune').textContent = commune.nom;
     $('hud-commune').hidden = false;
@@ -828,7 +863,12 @@
     $('done-commune').textContent = msg.communeNom || currentCommune?.nom || '';
     $('done-detail').textContent = detailDeFin(msg, elapsedTxt);
     $('btn-open').href = targetUrl;
-    if (KIOSK) $('btn-open').target = '_blank';
+    if (RETOUR) {
+      $('btn-open').href = urlDeRetour({ ouvrir: msg.ville, nom: msg.communeNom || currentCommune?.nom || '' });
+      $('btn-open').removeAttribute('target');
+    } else if (KIOSK) {
+      $('btn-open').target = '_blank';
+    }
     $('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(targetUrl)}`;
     /* Toute commune de la démo est un espace d'ESSAI : elle doit pouvoir être
        refaite depuis zéro à tout moment, pas seulement quand on retombe sur un
@@ -1148,6 +1188,9 @@
   function reset() {
     clearTimeout(redirectTimer);
     clearTimeout(leadTimer);
+    clearTimeout(saisieTimer);
+    // L'accueil du stand est la page des cartes : on la lui rend
+    if (RETOUR) { window.location.replace(RETOUR); return; }
     if (es) { es.close(); es = null; }
     lastDone = null;
     startCountdown.cible = null;
@@ -1195,6 +1238,16 @@
     clearTimeout(leadTimer);
     start(currentCommune, { regen: true });
   });
+
+  /* Durée à annoncer selon la population : mesures relevées sur les
+     générations réelles (README), même barème que cartes/catalogue.js. */
+  function dureeEstimee(population) {
+    const p = Number(population) || 0;
+    if (p < 3000) return { texte: 'environ 3 minutes' };
+    if (p < 20000) return { texte: '3 à 4 minutes' };
+    if (p < 100000) return { texte: '4 à 6 minutes' };
+    return { texte: '6 à 8 minutes' };
+  }
 
   /* ─── Lancement ─── */
 

@@ -1562,3 +1562,55 @@ test.describe('0.83 - Démo : le nom de l\'intercommunalité se retrouve dans l\
   });
 
 });
+
+/**
+ * Le logo de la commune. Relevé en base avant correction : sur 78 espaces
+ * d'essai avec un fichier, 53 portaient l'icône de l'onglet du navigateur à la
+ * place du logo, parce que l'icône était mêlée aux candidats et que le juge
+ * visuel, aveugle aux .svg (le format le plus fréquent des logos de mairie),
+ * la désignait faute de mieux. Et Rennes n'avait aucun candidat : ses
+ * attributs HTML sont sans guillemets.
+ */
+test.describe('0.84 - Démo : le logo de la commune', () => {
+  const { findSiteLogo, attributHtml, couleurDepuisSvg } = _internals;
+  const BASE = 'https://www.ville.fr/';
+
+  test('0.84.1 - Les attributs se lisent avec ou sans guillemets', () => {
+    expect(attributHtml('<img src="/a.png" class=\'logo x\' width=178>', 'src')).toBe('/a.png');
+    expect(attributHtml('<img src="/a.png" class=\'logo x\' width=178>', 'class')).toBe('logo x');
+    expect(attributHtml('<img src=/assets/logo.svg alt="Ville" width=178>', 'src')).toBe('/assets/logo.svg');
+    expect(attributHtml('<img src=/assets/logo.svg alt="Ville" width=178>', 'width')).toBe('178');
+    // data-src n'est pas src : le nom d'attribut est borné par un espace
+    expect(attributHtml('<img data-src="/lazy.png">', 'src')).toBe('');
+    expect(attributHtml('<img data-src="/lazy.png">', 'data-src')).toBe('/lazy.png');
+  });
+
+  test('0.84.2 - Un logo en attributs sans guillemets, nommé par le lien qui l\'entoure, est trouvé (Rennes)', () => {
+    const html = '<header><div class=header-mobile-logo><a class=logo href=https://www.ville.fr/ title="Accueil">'
+      + '<img src=/assets/images/ville-metropole_noir.svg alt="Ville et Métropole" height=34 width=178></a></div></header>';
+    expect(findSiteLogo(html, BASE)).toEqual(['https://www.ville.fr/assets/images/ville-metropole_noir.svg']);
+  });
+
+  test('0.84.3 - Le mot logo porté par le bloc parent suffit, mais pas un bloc lointain', () => {
+    const proche = '<a class="site-logo" href="/"><picture><source srcset="/marque.webp"><img src="/marque.png" alt="Ville"></picture></a>';
+    expect(findSiteLogo(proche, BASE)).toEqual(['https://www.ville.fr/marque.png']);
+    const lointain = '<div class="logo"><p>Texte</p></div><section><img src="/photo.jpg" alt="Photo"></section>';
+    expect(findSiteLogo(lointain, BASE)).toEqual([]);
+  });
+
+  test('0.84.4 - Le logo SVG de l\'en-tête passe devant les logos de labels en PNG', () => {
+    const html = '<header><a class="logo" href="/"><img src="/img/logo-ville.svg" alt="Ville" width="200"></a></header>'
+      + '<footer><img src="/img/logo-label-villes-fleuries.png" alt="Villes fleuries" width="200"></footer>';
+    const c = findSiteLogo(html, BASE);
+    expect(c[0]).toBe('https://www.ville.fr/img/logo-ville.svg');
+  });
+
+  test('0.84.5 - La couleur de marque se lit dans un logo SVG, en ignorant blancs, noirs et gris', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><path fill="#FFFFFF" d="M0 0"/><path fill="#1a1a1a" d="M0 0"/>'
+      + '<path fill="#e30613" d="M0 0"/><path fill="#e30613" d="M1 1"/><path style="fill:#888888" d="M2 2"/>'
+      + '<stop stop-color="rgb(0, 91, 172)"/></svg>';
+    expect(couleurDepuisSvg(svg)).toBe('#e30613');
+    expect(couleurDepuisSvg('<svg><path fill="#fff"/><path fill="#333"/></svg>')).toBeNull();
+    expect(couleurDepuisSvg('<svg><path fill="#0af"/></svg>')).toBe('#00aaff');
+  });
+});

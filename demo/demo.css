@@ -105,6 +105,25 @@ html[data-theme='dark'] .kiosk__logo--light { display: none; }
 html[data-theme='dark'] .kiosk__logo--dark { display: block; }
 
 /* ─── Interrupteur clair/sombre : commande de celui qui tient le stand ─── */
+/* Retour à la page des cartes : même hauteur que l'interrupteur, à sa gauche */
+.btn-retour {
+  position: fixed;
+  top: 18px;
+  right: 74px;
+  z-index: 8;
+  height: 44px;
+  padding: 0 18px;
+  font: 600 0.95rem 'Inter', system-ui, sans-serif;
+  color: var(--on-glass);
+  background: color-mix(in srgb, var(--glass-tint) 80%, transparent);
+  backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  box-shadow: 0 14px 40px -12px var(--glass-shadow), inset 0 1.5px 0 var(--glass-shimmer);
+  cursor: pointer;
+}
+.btn-retour[hidden] { display: none; }
+
 .theme-toggle {
   position: fixed;
   top: 18px;

@@ -532,3 +532,102 @@ test.describe('Démo salon - bandeau de marque', () => {
     await expect(page.locator('#kiosk-brand')).toBeHidden();
   });
 });
+
+/**
+ * Confié par la page des cartes (/cartes/, écran de salon), l'écran de
+ * génération reçoit une adresse de retour : revenir à l'accueil du stand,
+ * c'est y retourner, et l'espace généré s'y ouvre en couche au lieu d'un
+ * nouvel onglet. Une adresse hors du site est ignorée.
+ *
+ * Section : 0.37 - Retour vers la page des cartes
+ */
+test.describe('Démo salon - retour vers la page des cartes', () => {
+  const RETOUR = '/cartes/?kiosk=1';
+  const AVEC_RETOUR = `/demo/?kiosk=1&retour=${encodeURIComponent(RETOUR)}`;
+  const COMMUNE = { nom: 'Oyonnax', code: '01283', population: 22000, centre: { type: 'Point', coordinates: [5.655, 46.257] } };
+  const DONE = {
+    type: 'done', url: '/?city=essai-oyonnax', ville: 'essai-oyonnax',
+    communeNom: 'Oyonnax', communeInsee: '01283', projectsCount: 12,
+    stats: { sources: 38, verified: 12, precise: 12, illustrated: 8 },
+  };
+  const SANS_PROJET = { type: 'error', kind: 'sans-projet', message: 'Aucun projet documenté.' };
+
+  // La page des cartes est remplacée par une coquille : seul le retour compte ici
+  const coquilleCartes = (page) => page.route((url) => url.pathname === '/cartes/', (route) => route.fulfill({
+    status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><html lang="fr"><body><h1>Les cartes</h1></body></html>',
+  }));
+
+  async function lancerFlux(page, url) {
+    await page.addInitScript(() => {
+      class FauxEventSource {
+        constructor(u) { this.url = u; window.__sse = this; }
+        close() { /* le double ne tient aucune connexion */ }
+      }
+      window.EventSource = FauxEventSource;
+      window.__envoyer = (o) => window.__sse?.onmessage?.({ data: JSON.stringify(o) });
+    });
+    await page.route('**/geo.api.gouv.fr/**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(route.request().url().includes('communes?nom=') ? [COMMUNE] : COMMUNE),
+    }));
+    await page.route('**/api.qrserver.com/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: '' }));
+    await coquilleCartes(page);
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await page.locator('#commune-input').fill('Oyonnax');
+    await page.locator('#suggestions li').first().click();
+    await page.waitForFunction(() => window.__sse);
+  }
+
+  const envoyer = (page, msg) => page.evaluate((m) => window.__envoyer(m), msg);
+
+  test('0.37.1 - « Découvrir l\'espace » ouvre la carte dans la page des cartes, pas dans un nouvel onglet', async ({ page }) => {
+    await lancerFlux(page, AVEC_RETOUR);
+    await expect(page.locator('#btn-retour')).toBeVisible();
+    await envoyer(page, DONE);
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await page.locator('#lead-email').fill('vazy');
+    await page.locator('#lead-submit').click();
+    const ouvrir = page.locator('#btn-open');
+    await expect(ouvrir).toBeVisible();
+    await expect(ouvrir).toHaveAttribute('href', '/cartes/?kiosk=1&ouvrir=essai-oyonnax&nom=Oyonnax');
+    await expect(ouvrir).not.toHaveAttribute('target', '_blank');
+  });
+
+  test('0.37.2 - « Autre commune » rend l\'écran à la page des cartes', async ({ page }) => {
+    await lancerFlux(page, AVEC_RETOUR);
+    await envoyer(page, SANS_PROJET);
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await page.locator('#btn-again').click();
+    await page.waitForURL(/\/cartes\/\?kiosk=1$/);
+  });
+
+  test('0.37.3 - une adresse de retour hors du site est ignorée', async ({ page }) => {
+    for (const piege of ['https://exemple.invalid/piege', '//exemple.invalid/piege']) {
+      await page.goto(`/demo/?kiosk=1&retour=${encodeURIComponent(piege)}`, { waitUntil: 'domcontentloaded' });
+      await expect(page.locator('#btn-retour')).toBeHidden();
+    }
+    await lancerFlux(page, `/demo/?kiosk=1&retour=${encodeURIComponent('https://exemple.invalid/piege')}`);
+    await envoyer(page, SANS_PROJET);
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await page.locator('#btn-again').click();
+    await expect(page.locator('#screen-input')).toHaveClass(/is-active/);
+    expect(new URL(page.url()).pathname).toBe('/demo/');
+  });
+
+  test('0.37.4 - sans frappe pendant une minute, l\'écran de saisie rend la main', async ({ page }) => {
+    // Sans WebGL, la scène ne tourne pas : l'horloge simulée n'a que des minuteurs à jouer
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, ...args) {
+        return /webgl/i.test(String(type)) ? null : original.call(this, type, ...args);
+      };
+    });
+    await page.clock.install();
+    await coquilleCartes(page);
+    await page.goto(AVEC_RETOUR, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#btn-retour')).toBeVisible();
+    await page.clock.runFor(61000);
+    await page.waitForURL(/\/cartes\/\?kiosk=1$/);
+  });
+});
