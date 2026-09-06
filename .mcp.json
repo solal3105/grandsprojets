@@ -14,6 +14,16 @@
       "headers": {
         "Authorization": "Bearer ${POSTHOG_MCP_KEY}"
       }
+    },
+    "gsc": {
+      "command": "npx",
+      "args": ["-y", "suganthan-gsc-mcp@2.2.2"],
+      "env": {
+        "GSC_AUTH_MODE": "${GSC_AUTH_MODE:-oauth}",
+        "GSC_OAUTH_SECRETS_FILE": "${HOME}/.config/gsc/client_secrets.json",
+        "GSC_SITE_URL": "${GSC_SITE_URL:-sc-domain:openprojets.com}",
+        "GSC_SITE_URLS": "${GSC_SITE_URLS:-sc-domain:openprojets.com}"
+      }
     }
   }
 }

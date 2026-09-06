@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Open Projets - Accessibilité et écoconception</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  /* Palette de marque Open Projets, reprise telle quelle de home-src/tailwind.config.js.
+     Les crans "ink" sont les seuls lisibles en texte sur blanc : on ne compose pas
+     un document sur l'accessibilite avec des couleurs qui echouent au contraste. */
+  :root {
+    --primary: #FF0037;
+    --primary-ink: #C4002A;
+    --primary-light: rgba(255, 0, 55, 0.06);
+    --amber: #F2B327;
+    --amber-ink: #8A5D00;
+    --green: #5AAB7D;
+    --green-ink: #2F7551;
+    --purple: #5D3FF3;
+    --chantiers-ink: #09773C;
+    --dark: #111111;
+    --gray-text: #555555;
+    --gray-muted: #6B6B6B;
+    --gray-bg: #FAFAFA;
+    --gray-border: rgba(0, 0, 0, 0.10);
+  }
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: var(--dark);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 10pt;
+    line-height: 1.58;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    position: relative;
+    width: 210mm;
+    height: 297mm;
+    padding: 22mm 20mm 20mm;
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
+    display: flex;
+    flex-direction: column;
+  }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .page > * { flex-shrink: 0; }
+
+  h1, h2, h3 {
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-weight: 600;
+    color: var(--dark);
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+
+  p { margin: 0 0 10px; color: var(--gray-text); }
+  p.lead { font-size: 11.5pt; line-height: 1.58; color: var(--dark); }
+  strong { color: var(--dark); font-weight: 600; }
+
+  /* ---------- Couverture ---------- */
+
+  .cover {
+    justify-content: space-between;
+    background:
+      radial-gradient(120% 90% at 100% 0%, rgba(255, 0, 55, 0.07) 0%, rgba(255, 0, 55, 0) 55%),
+      radial-gradient(90% 70% at 0% 100%, rgba(93, 63, 243, 0.06) 0%, rgba(93, 63, 243, 0) 55%);
+  }
+  .cover__top { display: flex; align-items: center; gap: 12px; }
+  .cover__logo { width: 42px; height: auto; display: block; }
+  .cover__wordmark {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 15pt;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--dark);
+  }
+  .cover__center { margin-bottom: auto; margin-top: 42mm; }
+  .cover__eyebrow {
+    display: inline-block;
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--primary-ink);
+    background: var(--primary-light);
+    border: 1px solid rgba(255, 0, 55, 0.18);
+    border-radius: 999px;
+    padding: 5px 14px;
+    margin-bottom: 22px;
+  }
+  .cover h1 {
+    font-size: 30pt;
+    line-height: 1.16;
+    letter-spacing: -0.035em;
+    margin-bottom: 18px;
+    max-width: 15.5cm;
+  }
+  .cover h1 em { font-style: normal; color: var(--primary-ink); }
+  .cover__sub {
+    font-size: 12.5pt;
+    line-height: 1.58;
+    color: var(--gray-text);
+    max-width: 14.5cm;
+  }
+  .cover__rule {
+    height: 4px;
+    width: 92px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--amber) 48%, var(--green) 100%);
+    margin: 30px 0 26px;
+  }
+  .cover__meta {
+    display: flex;
+    gap: 34px;
+    border-top: 1px solid var(--gray-border);
+    padding-top: 14px;
+  }
+  .cover__meta div { flex: 1; }
+  .cover__meta dt {
+    font-size: 7.5pt;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gray-muted);
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+  .cover__meta dd { margin: 0; font-size: 10pt; color: var(--dark); font-weight: 500; }
+
+  /* ---------- Pages interieures ---------- */
+
+  .kicker {
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--primary-ink);
+    margin-bottom: 9px;
+  }
+  .page h2 {
+    font-size: 17.5pt;
+    line-height: 1.26;
+    margin-bottom: 14px;
+    max-width: 15cm;
+  }
+  .page h3 {
+    font-size: 11.5pt;
+    line-height: 1.35;
+    margin: 16px 0 6px;
+  }
+
+  .divider {
+    height: 3px;
+    width: 56px;
+    border-radius: 999px;
+    background: var(--primary);
+    margin: 0 0 18px;
+  }
+
+  /* Encadre de mise en avant */
+  .callout {
+    border-left: 3px solid var(--primary);
+    background: var(--primary-light);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 18px;
+    margin: 18px 0;
+  }
+  .callout p { margin: 0; color: var(--dark); font-size: 10pt; }
+  .callout--neutral {
+    border-left-color: var(--gray-muted);
+    background: var(--gray-bg);
+  }
+
+  /* Grille de preuves */
+  .facts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 15px 0 4px;
+  }
+  .fact {
+    border: 1px solid var(--gray-border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: #fff;
+  }
+  .fact__title {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 9.5pt;
+    font-weight: 600;
+    color: var(--dark);
+    margin: 0 0 4px;
+    line-height: 1.32;
+  }
+  .fact p { margin: 0; font-size: 9pt; line-height: 1.52; color: var(--gray-text); }
+
+  /* Chiffres */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 11px;
+    margin: 18px 0;
+  }
+  .stat {
+    border: 1px solid var(--gray-border);
+    border-radius: 12px;
+    padding: 14px 15px;
+    background: var(--gray-bg);
+  }
+  .stat__value {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 20pt;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--primary-ink);
+    line-height: 1.05;
+    display: block;
+    margin-bottom: 5px;
+  }
+  .stat__label { font-size: 9pt; line-height: 1.45; color: var(--gray-text); margin: 0; }
+
+  /* Liste d'engagements */
+  ul.plain { list-style: none; margin: 12px 0; padding: 0; }
+  ul.plain li {
+    position: relative;
+    padding-left: 21px;
+    margin-bottom: 9px;
+    color: var(--gray-text);
+    line-height: 1.58;
+  }
+  ul.plain li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    background: var(--primary);
+  }
+  ul.plain li strong { color: var(--dark); }
+
+  /* Tableau du plan d'action */
+  table.plan {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 6px;
+    font-size: 10pt;
+  }
+  table.plan th {
+    text-align: left;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 8pt;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gray-muted);
+    font-weight: 600;
+    padding: 0 10px 8px 0;
+    border-bottom: 1px solid var(--gray-border);
+  }
+  table.plan td {
+    padding: 11px 10px 11px 0;
+    border-bottom: 1px solid var(--gray-border);
+    vertical-align: top;
+    color: var(--gray-text);
+    line-height: 1.5;
+  }
+  table.plan td:first-child {
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 600;
+    color: var(--primary-ink);
+    width: 3.9cm;
+    padding-right: 14px;
+  }
+  table.plan td strong { display: block; color: var(--dark); margin-bottom: 2px; font-weight: 600; }
+
+  /* Pied de page */
+  .foot {
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--gray-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 8pt;
+    color: var(--gray-muted);
+    letter-spacing: 0.02em;
+  }
+  .foot__num {
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 600;
+    color: var(--dark);
+  }
+
+  /* Derniere page : bloc de contact */
+  .signoff {
+    border: 1px solid var(--gray-border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    background: var(--gray-bg);
+    margin-top: auto;
+  }
+  .signoff h3 { margin-top: 0; }
+  .signoff p:last-child { margin-bottom: 0; }
+</style>
+</head>
+<body>
+
+<!-- =============== 1. Couverture =============== -->
+<section class="page cover">
+  <div class="cover__top">
+    <svg class="cover__logo" viewBox="0 0 568 531" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Logo Open Projets">
+      <path d="M409.02 346.761L398.849 349.951L440.009 322.511C464.501 306.183 481.174 280.477 486.095 251.457C491.965 216.845 480.492 181.516 456.469 155.917C453.155 152.385 449.85 148.846 446.603 145.355C419.139 115.827 380.226 99.5343 339.935 101.192C304.184 102.663 259.736 104.311 224.142 105.054C202.426 105.508 180.822 108.158 159.768 113.498L108.708 126.45C84.1024 132.692 62.3533 147.121 47.0379 167.366C29.3519 190.744 21.5556 220.133 25.3281 249.203L29.4571 281.021L9.20524 222.695C3.11145 205.145 0 186.699 0 168.121C0 110.806 29.4997 57.5262 78.0761 27.1071L79.9055 25.9615C106.996 8.99688 138.315 0 170.279 0H364.244C376.671 0 389.06 1.37949 401.183 4.11313C463.597 18.1868 512.591 66.5031 527.533 128.715L529.04 134.989C550.936 226.156 498.484 318.706 409.02 346.761Z" fill="url(#g0)"/>
+      <path d="M146.881 530.713L146.045 527.266C134.524 479.813 134.811 430.259 146.881 382.942L227 359.5L381 352.5L334.425 370.276C255.258 400.49 188.991 457.179 146.881 530.713Z" fill="url(#g1)"/>
+      <path d="M163.268 394.465L141.394 408.865L147.566 370.757C152.373 341.08 166.011 313.54 186.7 291.728C214.947 261.948 254.189 245.083 295.234 245.083H323.477C333.937 245.083 344.277 242.861 353.814 238.563L361.599 235.055C424.283 206.805 414.293 114.87 347.005 100.743L365.337 99.402C423.844 95.121 476.37 135.112 487.81 192.65C506.768 274.294 446.728 353.026 362.977 356.344L270.499 360.008C232.286 361.522 195.21 373.436 163.268 394.465Z" fill="url(#g2)"/>
+      <path d="M76.5882 358.198L39.059 299.963C30.0056 285.915 23.9487 270.15 21.267 253.654C12.2504 198.188 42.4556 143.778 94.299 122.098L109.219 115.858C126.568 108.603 145.186 104.867 163.992 104.867H230.354L211.17 106.296C187.453 108.062 164.612 116.003 144.915 129.331C102.912 157.752 80.1645 207.146 85.871 257.539L100.5 386.725L76.5882 358.198Z" fill="url(#g3)"/>
+      <defs>
+        <radialGradient id="g0" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(283.967 174.975) rotate(67.2649) scale(315.554 307.782)">
+          <stop stop-color="#CE2445"/><stop offset="0.475962" stop-color="#FF0037"/><stop offset="1" stop-color="#C00B34"/>
+        </radialGradient>
+        <linearGradient id="g1" x1="202.98" y1="349.95" x2="202.98" y2="530.713" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#389035"/><stop offset="0.456731" stop-color="#489C56"/><stop offset="1" stop-color="#5AAB7D"/>
+        </linearGradient>
+        <linearGradient id="g2" x1="350.834" y1="91.9063" x2="350.834" y2="407.097" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#F36133"/><stop offset="0.399038" stop-color="#F2B327"/><stop offset="1" stop-color="#D4483E"/>
+        </linearGradient>
+        <linearGradient id="g3" x1="118.123" y1="104.867" x2="118.123" y2="395.314" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#5D3FF3"/><stop offset="1" stop-color="#5D3FF3"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    <span class="cover__wordmark">Open Projets</span>
+  </div>
+
+  <div class="cover__center">
+    <span class="cover__eyebrow">Note de présentation</span>
+    <h1>L'accessibilité et la sobriété ne sont pas des options que nous ajoutons, <em>elles décident de la façon dont nous construisons</em>.</h1>
+    <p class="cover__sub">Ce document montre comment les choix d'architecture et de design d'Open Projets servent le RGAA et le RGESN, avec des preuves observables sur le service tel qu'il fonctionne aujourd'hui.</p>
+    <div class="cover__rule"></div>
+  </div>
+
+  <dl class="cover__meta">
+    <div>
+      <dt>Destinataires</dt>
+      <dd>Collectivités clientes et candidates</dd>
+    </div>
+    <div>
+      <dt>Version</dt>
+      <dd>Août 2026</dd>
+    </div>
+    <div>
+      <dt>Référentiels</dt>
+      <dd>RGAA 4.1 et RGESN</dd>
+    </div>
+  </dl>
+</section>
+
+<!-- =============== 2. La verite d'abord =============== -->
+<section class="page">
+  <div class="kicker">Notre méthode</div>
+  <h2>Nous traitons ces deux exigences à la racine, là où elles se décident.</h2>
+  <div class="divider"></div>
+
+  <p class="lead">Un service numérique ne devient pas accessible ni sobre parce qu'on l'a décidé à la fin. Il l'est parce que les choix faits au départ ne permettaient pas qu'il en aille autrement. C'est de cette façon qu'Open Projets a été construit, et c'est ce que ce document vous montre, preuve par preuve.</p>
+
+  <p>Du côté de l'architecture, nous nous appuyons sur des données cartographiques ouvertes, nous n'empilons pas les bibliothèques, nos traitements ne s'exécutent qu'à la demande et vos données sont hébergées en France. Du côté de l'interface, nos couleurs de marque portent leurs rapports de contraste dans le code, la navigation au clavier est outillée composant par composant, et notre mesure d'audience est réglée pour ne jamais constituer de profil individuel.</p>
+
+  <p>Ces choix ont une conséquence directe pour vous : ils sont durables. Une couleur lisible inscrite dans l'outil de fabrication reste lisible à la version suivante, une architecture sobre le demeure quand le service grandit, et un réglage de confidentialité écrit dans le code ne dépend pas d'un interrupteur qu'on oublierait de remettre. C'est une avance structurelle qu'aucun correctif de fin de projet ne rattrape.</p>
+
+  <div class="callout">
+    <p><strong>Ce que vous pouvez vérifier vous-même, aujourd'hui.</strong> Toutes les affirmations de ce document portent sur le service en production et s'observent depuis n'importe quel navigateur, sans accès privilégié. Notre base de données est hébergée en France, sur l'infrastructure Amazon de la région de Paris, ce que vous pouvez vérifier vous-même en résolvant l'adresse de notre serveur.</p>
+  </div>
+
+  <h3>Les deux référentiels ne se jouent pas au même endroit.</h3>
+  <p>Le RGAA se joue dans l'interface, sur le contraste, le clavier, le nom des éléments et la structure des pages. Le RGESN se joue beaucoup plus tôt, dans l'architecture : ce qu'on décide de charger, d'où viennent les données, ce qui tourne en permanence et ce qui ne tourne que sur demande. C'est la seconde partie qui est la plus difficile à corriger après coup, et c'est précisément celle où nous sommes les plus solides.</p>
+
+  <div class="foot"><span>Open Projets, accessibilité et écoconception</span><span class="foot__num">2</span></div>
+</section>
+
+<!-- =============== 3. Ecoconception =============== -->
+<section class="page">
+  <div class="kicker">Écoconception, RGESN</div>
+  <h2>La sobriété de l'outil vient de son architecture, pas d'un réglage activé à la fin.</h2>
+  <div class="divider"></div>
+
+  <p class="lead">Un service numérique consomme d'abord ce que son architecture l'oblige à consommer. Nos choix fondateurs limitent cette consommation avant même qu'une ligne d'interface soit écrite.</p>
+
+  <div class="stats">
+    <div class="stat">
+      <span class="stat__value">0</span>
+      <p class="stat__label">serveur qui tourne en continu : les traitements ne s'exécutent qu'à la demande et s'éteignent ensuite.</p>
+    </div>
+    <div class="stat">
+      <span class="stat__value">&lt; 2 Mo</span>
+      <p class="stat__label">pour la totalité du code du site public, dont un visiteur ne télécharge qu'une fraction.</p>
+    </div>
+    <div class="stat">
+      <span class="stat__value">100 %</span>
+      <p class="stat__label">du fond cartographique issu de données ouvertes, sans licence propriétaire ni quota facturé.</p>
+    </div>
+  </div>
+
+  <div class="facts">
+    <div class="fact">
+      <p class="fact__title">Le fond de carte repose sur des données ouvertes.</p>
+      <p>Nos cartes s'appuient sur OpenStreetMap et sur une diffusion ouverte des tuiles. Aucun appel à un service cartographique propriétaire n'est nécessaire au fonctionnement, ce qui supprime à la fois une dépendance économique et un transfert de données de navigation vers un tiers.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">La carte publique fonctionne sans framework lourd.</p>
+      <p>L'interface cartographique est écrite en JavaScript standard, sans surcouche applicative. Le navigateur du citoyen exécute donc le strict nécessaire à l'affichage, là où un site équivalent construit sur un framework moderne transporterait plusieurs fois ce volume.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Les traitements ne s'exécutent que lorsqu'on les appelle.</p>
+      <p>Les fonctions serveur sont déclenchées à la demande puis libérées. Il n'y a pas de machine allumée en permanence pour attendre une requête, ce qui est le poste d'énergie le plus souvent oublié dans les évaluations RGESN.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Tout ce qui transite est compressé et mis en cache.</p>
+      <p>Les contenus sont compressés à la diffusion et les données de référence sont conservées côté navigateur pendant une durée définie. Une consultation répétée ne redemande pas au réseau ce qu'elle possède déjà.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">La mesure d'audience est unique, européenne et refusable.</p>
+      <p>Nous n'empilons pas les traceurs. Notre outil de mesure principal est hébergé dans l'Union européenne et appelé depuis notre propre domaine. Le visiteur peut le couper en un clic depuis la page de confidentialité, et ce refus vaut pour tous nos espaces.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Un projet publié reste consultable sans compte.</p>
+      <p>La carte, les fiches de projet et les pages de ville sont accessibles sans inscription, sans cookie de confort et sans étape intermédiaire. Moins de parcours obligatoire, c'est moins de pages chargées pour la même information obtenue.</p>
+    </div>
+  </div>
+
+  <div class="foot"><span>Open Projets, accessibilité et écoconception</span><span class="foot__num">3</span></div>
+</section>
+
+<!-- =============== 4. Accessibilite =============== -->
+<section class="page">
+  <div class="kicker">Accessibilité, RGAA</div>
+  <h2>L'accessibilité se décide dans le système de design, pas dans une passe de corrections.</h2>
+  <div class="divider"></div>
+
+  <p class="lead">La plupart des défauts d'accessibilité ne viennent pas d'un oubli ponctuel, mais d'une palette et de composants qui ne pouvaient pas être lisibles dès le départ. Nous avons traité le problème à cet endroit.</p>
+
+  <h3>Nos couleurs de marque portent leur rapport de contraste dans le code.</h3>
+  <p>Le rouge d'Open Projets plafonne à un rapport de 3,96 pour 1 sur fond blanc, ce qui est insuffisant pour du texte courant. Plutôt que de l'ignorer, notre système de design définit pour chaque couleur de marque une déclinaison lisible, mesurée et commentée : 5,6 pour 1 pour le rouge, 5,7 pour 1 pour le vert du module chantiers, 5,3 pour 1 pour le gris secondaire. Ces déclinaisons sont celles que le code utilise pour le texte. La contrainte d'accessibilité est ainsi inscrite dans l'outil de fabrication, là où elle ne peut pas être oubliée.</p>
+
+  <div class="facts">
+    <div class="fact">
+      <p class="fact__title">La langue du contenu est déclarée partout.</p>
+      <p>Chacun de nos espaces annonce le français au navigateur et aux technologies d'assistance, ce qui conditionne la prononciation correcte par un lecteur d'écran.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Les commandes de la carte sont nommées.</p>
+      <p>Les boutons d'interface qui ne portent qu'une icône sont dotés d'un nom accessible, afin qu'un utilisateur non voyant sache ce qu'il déclenche avant de le déclencher.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Les champs de l'espace agent portent des étiquettes explicites.</p>
+      <p>Une cinquantaine de champs de saisie sont associés à une étiquette nommant ce qu'on attend d'eux, condition de base pour qu'un agent en situation de handicap puisse tenir son poste sur notre outil.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Le mode sombre est un vrai thème, pas un filtre.</p>
+      <p>L'affichage sombre redéfinit une palette complète au lieu d'inverser les couleurs, ce qui préserve la lisibilité au lieu de la dégrader pour les personnes sensibles à la luminosité.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Les animations se coupent pour qui les refuse.</p>
+      <p>Nos démonstrations respectent la préférence système de réduction des animations, un point déterminant pour les personnes sujettes aux troubles vestibulaires.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Les informations essentielles existent en texte.</p>
+      <p>Une fiche de projet est produite côté serveur avec un titre, des sections hiérarchisées et des données structurées. Elle reste donc lisible par un lecteur d'écran comme par un moteur de recherche, sans dépendre de l'affichage de la carte.</p>
+    </div>
+  </div>
+
+  <p style="margin-top: 16px;">Ces choix sont inscrits dans les fichiers que nos développeurs utilisent tous les jours, ce qui rend le contournement plus coûteux que le respect. C'est ainsi qu'une exigence d'accessibilité survit à la pression d'une date de livraison.</p>
+
+  <div class="foot"><span>Open Projets, accessibilité et écoconception</span><span class="foot__num">4</span></div>
+</section>
+
+<!-- =============== 5. Navigation clavier =============== -->
+<section class="page">
+  <div class="kicker">Navigation au clavier</div>
+  <h2>La navigation au clavier est outillée, pas seulement possible.</h2>
+  <div class="divider"></div>
+
+  <p class="lead">Un site où l'on peut atteindre les éléments au clavier n'est pas encore un site utilisable au clavier. Il faut voir où l'on se trouve, pouvoir refermer ce que l'on ouvre, et savoir dans quel état sont les commandes. Nous avons traité les trois.</p>
+
+  <div class="facts">
+    <div class="fact">
+      <p class="fact__title">L'indicateur de focus est dessiné, pas hérité du navigateur.</p>
+      <p>Les cartes de projet, les boutons de la barre latérale, le sélecteur de couches, la visionneuse d'images et les cartes de sélection portent un contour de focus qui leur est propre. Une personne qui tabule voit toujours où elle se trouve, y compris par-dessus la carte.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">La touche Échap referme systématiquement ce qui est ouvert.</p>
+      <p>Onze composants de l'application écoutent cette touche : panneaux, fenêtres modales, visionneuse, recherche, sélecteur d'icônes, assistant de diagnostic. Aucun n'enferme l'utilisateur dans une couche qu'il ne pourrait quitter qu'à la souris.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Entrée et Espace activent les commandes personnalisées.</p>
+      <p>Partout où l'interface utilise un élément qui n'est pas un bouton natif, les deux touches d'activation attendues sont gérées explicitement. C'est le point que la plupart des interfaces cartographiques oublient.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Les flèches parcourent les résultats de recherche.</p>
+      <p>La recherche d'adresse se pilote entièrement au clavier, de la saisie à la sélection du résultat, sans jamais avoir à viser une suggestion à la souris.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">L'état des commandes est annoncé aux lecteurs d'écran.</p>
+      <p>Les panneaux dépliants annoncent s'ils sont ouverts, les filtres actifs annoncent qu'ils sont enfoncés, et les zones qui se mettent à jour toutes seules préviennent de leur changement au lieu de le faire en silence.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Les décorations sont masquées aux technologies d'assistance.</p>
+      <p>Une cinquantaine d'éléments purement visuels sont explicitement retirés de l'arbre d'accessibilité, et une quarantaine de rôles sont déclarés là où le balisage seul ne suffisait pas. Un lecteur d'écran ne lit donc pas l'habillage graphique.</p>
+    </div>
+  </div>
+
+  <div class="foot"><span>Open Projets, accessibilité et écoconception</span><span class="foot__num">5</span></div>
+</section>
+
+<!-- =============== 6. Donnees et vie privee =============== -->
+<section class="page">
+  <div class="kicker">Données et vie privée</div>
+  <h2>Notre mesure d'audience est construite pour ne pas savoir qui vous êtes.</h2>
+  <div class="divider"></div>
+
+  <p class="lead">Nous mesurons l'audience de nos espaces pour une seule raison, comprendre ce que les gens y cherchent afin d'améliorer le service. Rien dans cette mesure ne sert à identifier un visiteur, à le revendre ou à le retrouver ailleurs, et chaque réglage qui le garantit est écrit dans notre code plutôt que laissé à un interrupteur d'interface.</p>
+
+  <div class="facts">
+    <div class="fact">
+      <p class="fact__title">Aucune fiche personne n'est créée pour un visiteur anonyme.</p>
+      <p>Les pages vues sont comptées, mais tant qu'une personne ne se connecte pas à un compte, notre outil ne constitue aucun profil individuel. C'est un réglage explicite de notre part, pas un comportement par défaut.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Les identifiants publicitaires sont retirés des adresses.</p>
+      <p>Les marqueurs déposés dans les adresses par les régies publicitaires sont supprimés avant tout enregistrement. Nous ne les exploitons pas et nous ne les conservons pas.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Les jetons personnels ne sortent jamais du navigateur.</p>
+      <p>Un lien de connexion ou un lien de suivi de signalement contient un jeton propre à une personne. Notre code le masque avant que l'adresse ne soit enregistrée, afin qu'il ne puisse jamais atterrir dans une statistique.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Aucune saisie n'est enregistrée telle quelle.</p>
+      <p>Les champs de formulaire sont masqués, le presse-papiers n'est jamais capté, et la console technique n'est jamais enregistrée, précisément parce qu'elle peut contenir une adresse saisie par un usager.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Le refus tient en un clic et vaut partout.</p>
+      <p>Un visiteur coupe la mesure depuis notre page de confidentialité, ou en ajoutant un paramètre à n'importe quelle adresse du site. Ce refus s'applique immédiatement à l'ensemble de nos espaces, carte comprise.</p>
+    </div>
+    <div class="fact">
+      <p class="fact__title">Le cookie est de première partie et ne suit personne.</p>
+      <p>Il est déposé sur notre domaine seul, jamais partagé avec un sous-domaine ni avec un tiers. Il ne permet aucun recoupement d'un site à l'autre, ce qui est précisément ce qu'un cookie publicitaire cherche à faire.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <p><strong>Nous ne vendons aucune donnée et nous n'en tirons aucun revenu indirect.</strong> Notre modèle est l'abonnement payé par la collectivité. La donnée d'usage sert à l'analyse d'audience et à rien d'autre, elle est hébergée dans l'Union européenne et n'est accessible qu'à notre équipe.</p>
+  </div>
+
+  <div class="foot"><span>Open Projets, accessibilité et écoconception</span><span class="foot__num">6</span></div>
+</section>
+
+<!-- =============== 7. Ce que cela change pour vous =============== -->
+<section class="page">
+  <div class="kicker">Ce que cela change pour vous</div>
+  <h2>Voici ce que ces choix produisent concrètement pour votre collectivité.</h2>
+  <div class="divider"></div>
+
+  <p class="lead">Une architecture sobre et une interface pensée pour tout le monde ne sont pas des arguments abstraits. Elles se traduisent par six bénéfices que vos services, vos agents et vos administrés constatent au quotidien.</p>
+
+  <ul class="plain">
+    <li><strong>Vos données restent en France.</strong> Notre base est hébergée sur l'infrastructure Amazon de la région de Paris, et vous pouvez le vérifier vous-même sans nous le demander.</li>
+    <li><strong>Votre fond de carte ne dépend d'aucun fournisseur propriétaire.</strong> Il repose sur des données ouvertes, sans licence à renégocier, sans quota facturé au succès et sans transfert de la navigation de vos administrés vers un tiers.</li>
+    <li><strong>Vos administrés consultent sans compte et sans cookie de confort.</strong> La carte, les fiches de projet et les pages de ville sont accessibles directement, ce qui est à la fois plus sobre et plus respectueux.</li>
+    <li><strong>Vos agents travaillent sur une interface étiquetée et pilotable au clavier.</strong> C'est la condition pour qu'un agent en situation de handicap puisse tenir son poste sur l'outil que vous lui donnez.</li>
+    <li><strong>Votre service reste utilisable sur une connexion modeste.</strong> L'interface cartographique est écrite sans surcouche applicative, les contenus sont compressés et mis en cache, et l'ensemble du code de notre site public tient sous deux mégaoctets.</li>
+    <li><strong>Votre obligation de confidentialité est tenue par le code.</strong> Aucun profil individuel pour un visiteur anonyme, aucune saisie enregistrée, un refus qui tient en un clic et qui vaut sur tous nos espaces.</li>
+  </ul>
+
+  <h3>Le service que vous achetez appartient d'abord à vos administrés.</h3>
+  <p>Une carte des projets urbains n'a de sens que si elle est consultable par tout le monde, y compris par une personne qui navigue au clavier, qui lit avec une synthèse vocale, qui vit avec une connexion lente ou un téléphone ancien. C'est la même exigence que celle d'un service public physique, et c'est la raison pour laquelle nous avons traité ces deux référentiels comme une question de conception plutôt que comme une formalité administrative.</p>
+
+  <div class="signoff">
+    <h3>Nous répondons à vos questions techniques directement.</h3>
+    <p>Si votre service informatique, votre référent accessibilité ou votre délégué à la protection des données souhaite entrer dans le détail, nous échangeons volontiers avec eux avant la contractualisation, y compris pour répondre à une grille d'évaluation qui vous serait propre.</p>
+    <p><strong>openprojets.com</strong></p>
+  </div>
+
+  <div class="foot"><span>Open Projets, accessibilité et écoconception, août 2026</span><span class="foot__num">7</span></div>
+</section>
+
+</body>
+</html>
