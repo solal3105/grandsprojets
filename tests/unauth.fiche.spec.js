@@ -480,6 +480,44 @@ test.describe('0.8 - Fiche : SSR', () => {
     expect(article).not.toContain('<script');
   });
 
+  test('0.8.16 - Doublon (même ville, nom, catégorie) : canonical vers la page de référence', async ({ page }) => {
+    // Cherche un groupe de doublons en base ; sans doublon, le test est sauté
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
+    const pair = await page.evaluate(async () => {
+      try {
+        const { data } = await window.__supabaseClient
+          .from('contribution_uploads')
+          .select('project_name, category_slug, slug, ville, created_at')
+          .eq('approved', true)
+          .not('ville', 'is', null)
+          .not('slug', 'is', null)
+          .not('category_slug', 'is', null)
+          .order('created_at', { ascending: true })
+          .limit(1000);
+        const seen = new Map();
+        for (const r of data || []) {
+          const key = `${r.ville}|${String(r.project_name).trim().toLowerCase()}|${r.category_slug}`;
+          if (seen.has(key) && seen.get(key).slug !== r.slug) return { ref: seen.get(key), dup: r };
+          if (!seen.has(key)) seen.set(key, r);
+        }
+      } catch { /* pas de client */ }
+      return null;
+    });
+    test.skip(!pair, 'Aucun doublon en base');
+    if (!pair) return;
+    const refUrl = ficheUrl(pair.ref.slug, pair.ref.category_slug, pair.ref.ville);
+    const dupHtml = await (await page.request.get(ficheUrl(pair.dup.slug, pair.dup.category_slug, pair.dup.ville))).text();
+    const canonical = dupHtml.match(/rel="canonical"\s+href="([^"]*)"/)?.[1];
+    expect(canonical).toBe(`https://openprojets.com${refUrl}`);
+    // La page de référence se désigne elle-même, et le doublon reste indexable
+    const refHtml = await (await page.request.get(refUrl)).text();
+    expect(refHtml.match(/rel="canonical"\s+href="([^"]*)"/)?.[1]).toBe(`https://openprojets.com${refUrl}`);
+    const sitemap = await (await page.request.get('/sitemap.xml')).text();
+    expect(sitemap).toContain(`https://openprojets.com${refUrl}</loc>`);
+    expect(sitemap).not.toContain(`https://openprojets.com${ficheUrl(pair.dup.slug, pair.dup.category_slug, pair.dup.ville)}</loc>`);
+  });
+
   test('0.8.15 - Projet sans markdown : fallback sur la description seule', async ({ page }) => {
     const proj = NOMD_PROJECT;
     test.skip(!proj, 'Aucun projet sans markdown en base');
@@ -552,6 +590,34 @@ test.describe('0.9 - Fiche : états d\'erreur', () => {
       { timeout: 15000 }
     );
     await expect(page.locator('#fv2-error')).toBeVisible();
+  });
+
+  test('0.9.6 - /fiche/ sans projet est servie en noindex (jamais canonical des anciennes adresses)', async ({ page }) => {
+    const response = await page.request.get('/fiche/');
+    expect(response.status()).toBe(200);
+    expect(response.headers()['x-robots-tag']).toContain('noindex');
+  });
+
+  test('0.9.7 - Ancienne adresse ?cat=&project=&city= → 301 vers la fiche', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    const legacy = `/fiche/?cat=${encodeURIComponent(VALID_CAT)}&project=${encodeURIComponent(VALID_PROJECT_NAME)}&city=${encodeURIComponent(VALID_CITY)}`;
+    const response = await page.request.get(legacy, { maxRedirects: 0 });
+    expect(response.status()).toBe(301);
+    expect(response.headers()['location']).toBe(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+  });
+
+  test('0.9.8 - Ancienne adresse sans ville → 301 vers la fiche du même nom', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    const legacy = `/fiche/?project=${encodeURIComponent(VALID_PROJECT_NAME)}`;
+    const response = await page.request.get(legacy, { maxRedirects: 0 });
+    expect(response.status()).toBe(301);
+    expect(response.headers()['location']).toMatch(/^\/fiche\/[^/]+\/[^/]+\/[^/]+$/);
+  });
+
+  test('0.9.9 - Ancienne adresse d\'un projet inconnu → page servie en noindex, pas de redirection', async ({ page }) => {
+    const response = await page.request.get('/fiche/?cat=velo&project=projet-inconnu-xyz-999', { maxRedirects: 0 });
+    expect(response.status()).toBe(200);
+    expect(response.headers()['x-robots-tag']).toContain('noindex');
   });
 });
 

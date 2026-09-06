@@ -23,6 +23,7 @@ import {
   stripMarkdown,
   safeUrl,
   safeHexColor,
+  isValidCityCode,
   fetchRows,
 } from './_lib/seo.js';
 
@@ -247,21 +248,85 @@ function fetchProjectBySlug(villeSlug, categorySlug, projSlug) {
   }).then(rows => rows[0] || null);
 }
 
-/** Label d'une catégorie : la table n'a pas de colonne label, le nom EST le label */
-function fetchCategoryLabel(category, ville) {
-  if (!category) return Promise.resolve(humanizeCategory(category));
-  return fetchRows('category_icons', {
-    select: 'category',
-    category: `eq.${category}`,
-    ...(ville ? { ville: `eq.${ville}` } : {}),
-    limit: '1',
-  }).then(rows => humanizeCategory(rows[0]?.category || category));
+/** Label d'une catégorie : la table category_icons n'a pas de colonne label,
+    le nom EST le label (« renovation urbaine », « mobilités et voirie »). On le
+    sert tel quel avec une majuscule initiale, comme le hub de la ville - la
+    capitalisation de chaque mot (« Mobilités Et Voirie ») n'est pas française. */
+function categoryLabel(category, categorySlug) {
+  const raw = String(category || '').trim() || humanizeCategory(categorySlug);
+  return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '';
 }
 
-function fetchRelatedProjects(category, excludeName) {
+/** Échappe les jokers PostgREST d'un motif ilike (% _ \). */
+function escapeLike(value) {
+  return String(value).replace(/[\\%_]/g, c => `\\${c}`);
+}
+
+/**
+ * Page de référence d'un projet saisi plusieurs fois (même ville, même nom,
+ * même catégorie) : la plus ancienne. Le hub national « france » compte des
+ * centaines de doublons avec un suffixe numérique de slug ; les autres pages
+ * du groupe pointent vers celle-ci en canonical, et le sitemap ne liste
+ * qu'elle (même règle dans netlify/functions/lib/projects-index.mjs).
+ */
+function fetchReferenceSibling(project) {
+  return fetchRows('contribution_uploads', {
+    select: 'slug,category_slug,ville',
+    ville: `eq.${project.ville}`,
+    category_slug: `eq.${project.category_slug}`,
+    project_name: `ilike.${escapeLike(String(project.project_name || '').trim())}`,
+    approved: 'eq.true',
+    order: 'created_at.asc,id.asc',
+    limit: '1',
+  }).then(rows => rows[0] || null);
+}
+
+/**
+ * Ancien format d'adresse, encore présent dans l'index de Google et dans des
+ * liens partagés : /fiche/?cat={catégorie}&project={nom}&city={ville}.
+ * Le client ne le comprend plus (il ne lit que le chemin) : ces visiteurs
+ * tombaient sur « Projet introuvable ». Retourne le chemin canonique du projet
+ * ou null. Avec plusieurs candidats : la ville demandée d'abord, puis la
+ * catégorie demandée, puis le plus ancien (la page de référence).
+ */
+async function resolveLegacyUrl(searchParams) {
+  const name = String(searchParams.get('project') || '').trim();
+  if (!name || name.length > 200) return null;
+  const city = String(searchParams.get('city') || '').trim().toLowerCase();
+  const cat = String(searchParams.get('cat') || '').trim().toLowerCase();
+  const catSlug = cat.replace(/\s+/g, '-');
+
+  let rows = [];
+  try {
+    rows = await fetchRows('contribution_uploads', {
+      select: 'ville,category,category_slug,slug,created_at',
+      project_name: `ilike.${escapeLike(name)}`,
+      approved: 'eq.true',
+      order: 'created_at.asc,id.asc',
+      limit: '20',
+    });
+  } catch (e) {
+    console.error('[fiche-ssr] Résolution ancienne URL échouée :', e);
+    return null;
+  }
+
+  const candidates = rows.filter(r => r.ville && r.category_slug && r.slug && isValidCityCode(r.ville));
+  if (!candidates.length) return null;
+  const score = r => (city && String(r.ville).toLowerCase() === city ? 2 : 0)
+    + (cat && (String(r.category_slug).toLowerCase() === catSlug || String(r.category || '').toLowerCase() === cat) ? 1 : 0);
+  candidates.sort((a, b) => score(b) - score(a)); // tri stable : l'ordre chronologique départage
+  const best = candidates[0];
+  return `/fiche/${encodeURIComponent(best.ville)}/${encodeURIComponent(best.category_slug)}/${encodeURIComponent(best.slug)}`;
+}
+
+/** Projets de la même catégorie DANS LE MÊME ESPACE (même règle que le
+    client) : la fiche d'une collectivité ne renvoie pas vers les projets
+    d'une autre, et le maillage reste à l'intérieur de son hub. */
+function fetchRelatedProjects(category, excludeName, ville) {
   return fetchRows('contribution_uploads', {
     select: 'project_name,description,cover_url,slug,category_slug,ville',
     category: `eq.${category}`,
+    ...(ville ? { ville: `eq.${ville}` } : {}),
     approved: 'eq.true',
     project_name: `neq.${excludeName}`,
     limit: '6',
@@ -526,11 +591,6 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
     (_, p1) => `${p1}${escAttr(metaDesc)}"`
   );
 
-  // Fiches des villes essai-* : démos générées automatiquement, jamais indexées
-  if (String(project.ville || '').startsWith('essai-')) {
-    html = html.replace('</head>', '<meta name="robots" content="noindex, nofollow">\n</head>');
-  }
-
   // 3. Open Graph - site_name dynamique (nom de la structure)
   const ogSiteName = structureName || 'Open Projets';
   html = html.replace(
@@ -624,9 +684,23 @@ export default async (request, context) => {
   const categorySlug = decodeURIComponent(parts[2] || '');
   const projSlug     = decodeURIComponent(parts[3] || '');
 
-  // Si l'URL n'a pas les 3 segments attendus → servir la page statique telle quelle
+  // Sans les 3 segments attendus : soit une adresse de l'ancien format à
+  // rediriger (301, définitif : les moteurs reportent l'historique de la page),
+  // soit la coquille /fiche/ nue, servie en 200 mais jamais indexée - sinon
+  // Google la retenait comme canonical de toutes les anciennes adresses.
   if (!villeSlug || !categorySlug || !projSlug) {
-    return await context.next();
+    const target = await resolveLegacyUrl(url.searchParams);
+    if (target) {
+      return new Response(null, {
+        status: 301,
+        headers: { Location: target, 'Cache-Control': 'public, max-age=3600, s-maxage=86400' },
+      });
+    }
+    const response = await context.next();
+    return new Response(response.body, {
+      status: response.status,
+      headers: { ...Object.fromEntries(response.headers.entries()), 'X-Robots-Tag': 'noindex, nofollow' },
+    });
   }
 
   // Lancer le fetch de la page statique immédiatement : il ne dépend d'aucune
@@ -658,19 +732,19 @@ export default async (request, context) => {
     });
   }
 
-  // Récupérer projets liés + branding ville + label catégorie + article markdown en parallèle
-  let catLabel = '';
+  // Récupérer projets liés + branding ville + page de référence + article markdown en parallèle
+  const catLabel = categoryLabel(project.category, project.category_slug);
+  let reference = null;
   let articleMd = '';
   try {
-    [related, cityBrand, catLabel, articleMd] = await Promise.all([
-      fetchRelatedProjects(project.category, project.project_name),
+    [related, cityBrand, reference, articleMd] = await Promise.all([
+      fetchRelatedProjects(project.category, project.project_name, project.ville),
       fetchCityBranding(project.ville),
-      fetchCategoryLabel(project.category, project.ville),
+      fetchReferenceSibling(project),
       fetchMarkdownArticle(project.markdown_url),
     ]);
   } catch (e) {
-    console.error('[fiche-ssr] Fetch related/branding/label failed:', e);
-    catLabel = catLabel || humanizeCategory(categorySlug);
+    console.error('[fiche-ssr] Fetch related/branding/reference failed:', e);
   }
 
   // Conversion markdown → HTML + texte brut (jamais bloquante : en cas d'échec,
@@ -696,8 +770,11 @@ export default async (request, context) => {
   const response = await responsePromise;
   let html = await response.text();
 
-  // Canonical URL - format propre /fiche/{ville}/{category_slug}/{slug}
-  const canonical = `${BASE_ORIGIN}/fiche/${encodeURIComponent(project.ville)}/${encodeURIComponent(project.category_slug)}/${encodeURIComponent(project.slug)}`;
+  // Canonical URL - format propre /fiche/{ville}/{category_slug}/{slug}.
+  // Un doublon (même ville, nom, catégorie) désigne la page de référence du
+  // groupe : la page reste servie et indexable, Google consolide sur l'autre.
+  const ref = (reference?.slug && reference?.category_slug && reference?.ville) ? reference : project;
+  const canonical = `${BASE_ORIGIN}/fiche/${encodeURIComponent(ref.ville)}/${encodeURIComponent(ref.category_slug)}/${encodeURIComponent(ref.slug)}`;
 
   // Injecter le SEO dans le HTML
   html = injectIntoHtml(html, project, project.category, catLabel, canonical, related, cityBrand, articleHtml, articlePlain);

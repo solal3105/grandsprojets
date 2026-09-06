@@ -111,3 +111,30 @@ export async function fetchRows(path, params) {
   const rows = await resp.json();
   return Array.isArray(rows) ? rows : [];
 }
+
+/**
+ * Lecture PostgREST complète, page par page. PostgREST plafonne chaque
+ * réponse à 1 000 lignes sans le signaler : une lecture en un seul appel
+ * s'arrête au premier millier, silencieusement. Lève en cas d'erreur HTTP.
+ * @param {string} path - nom de la table
+ * @param {Object} params - paramètres PostgREST (le tri doit être stable)
+ * @param {number} [maxRows] - garde-fou
+ * @returns {Promise<Array>}
+ */
+export async function fetchAllRows(path, params, maxRows = 20000) {
+  const PAGE = 1000;
+  const rows = [];
+  for (let offset = 0; offset < maxRows; offset += PAGE) {
+    const url = new URL(`/rest/v1/${path}`, SUPABASE_URL);
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+    url.searchParams.set('limit', String(PAGE));
+    url.searchParams.set('offset', String(offset));
+    const resp = await fetch(url.toString(), { headers: supaHeaders });
+    if (!resp.ok) throw new Error(`${path} ${resp.status}`);
+    const chunk = await resp.json();
+    if (!Array.isArray(chunk)) break;
+    rows.push(...chunk);
+    if (chunk.length < PAGE) break;
+  }
+  return rows;
+}
