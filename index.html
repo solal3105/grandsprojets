@@ -5,27 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
   <meta name="googlebot" content="index, follow">
-  <meta name="description" content="Carte des grands projets d'urbanisme et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <meta name="description" content="Carte interactive des projets urbains et des travaux de la Métropole de Lyon : tramway, voies lyonnaises, aménagements. Chaque projet a sa fiche, ses concertations et ses liens officiels.">
   <meta name="theme-color" content="#2563eb">
   <meta name="apple-mobile-web-app-title" content="Open Projets">
   <meta name="application-name" content="Open Projets">
   <link rel="icon" type="image/png" href="/img/logos/favicon.png" sizes="32x32">
   <link rel="apple-touch-icon" href="/img/logos/favicon.png">
-  <title>Carte des grands projets urbains | Open Projets</title>
+  <title>Carte des grands projets et travaux de la Métropole de Lyon | Open Projets</title>
   <link rel="canonical" href="https://openprojets.com/">
   <meta property="og:site_name" content="Open Projets">
   <meta property="og:locale" content="fr_FR">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Open Projets - Carte des grands projets urbains">
-  <meta property="og:description" content="Carte des projets urbains et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <meta property="og:title" content="Carte des grands projets et travaux de la Métropole de Lyon | Open Projets">
+  <meta property="og:description" content="Carte interactive des projets urbains et des travaux de la Métropole de Lyon : tramway, voies lyonnaises, aménagements. Chaque projet a sa fiche, ses concertations et ses liens officiels.">
   <meta property="og:url" content="https://openprojets.com/">
   <meta property="og:image" content="https://openprojets.com/img/cover/meta.png">
   <meta property="og:image:width" content="1024">
   <meta property="og:image:height" content="773">
   <meta property="og:image:alt" content="Carte interactive des grands projets urbains de Lyon">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Open Projets - Carte des grands projets urbains">
-  <meta name="twitter:description" content="Carte des projets urbains et de mobilité de la Métropole de Lyon: tram, projets urbains, travaux, voies lyonnaises... Dossiers, concertations et liens officiels.">
+  <meta name="twitter:title" content="Carte des grands projets et travaux de la Métropole de Lyon | Open Projets">
+  <meta name="twitter:description" content="Carte interactive des projets urbains et des travaux de la Métropole de Lyon : tramway, voies lyonnaises, aménagements. Chaque projet a sa fiche, ses concertations et ses liens officiels.">
   <meta name="twitter:image" content="https://openprojets.com/img/cover/meta.png">
   <meta name="twitter:image:alt" content="Carte interactive des grands projets urbains de Lyon">
   
@@ -52,53 +52,47 @@
   <link rel="preload" fetchpriority="high" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" as="script" crossorigin="anonymous">
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin="anonymous">
   
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "Open Projets",
-    "alternateName": "Carte des projets urbains",
-    "description": "Carte interactive des projets d'urbanisme et de mobilité de la Métropole de Lyon : tramway, voies lyonnaises, travaux, projets urbains.",
-    "url": "https://openprojets.com",
-    "applicationCategory": "UtilitiesApplication",
-    "operatingSystem": "Any",
-    "inLanguage": "fr",
-    "image": "https://openprojets.com/img/cover/meta.png",
-    "browserRequirements": "Requires JavaScript. Requires WebGL.",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "EUR"
-    },
-    "author": {
-      "@type": "Organization",
-      "name": "Open Projets",
-      "url": "https://openprojets.com"
-    }
-  }
-  </script>
+  <!-- Données structurées : le site (avec son éditeur, le même @id que sur
+       /home/) et l'application. Pas de SearchAction : la carte n'a pas de
+       page de résultats adressable par ?q=, Google refuserait l'action. -->
   <script type="application/ld+json" id="site-jsonld">
   {
     "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": "Open Projets",
-    "url": "https://openprojets.com/",
-    "inLanguage": "fr",
-    "description": "Carte interactive des grands projets d'urbanisme et de mobilité.",
-    "publisher": {
-      "@type": "Organization",
-      "name": "Open Projets",
-      "url": "https://openprojets.com",
-      "logo": {
-        "@type": "ImageObject",
-        "url": "https://openprojets.com/img/logos/classic_color-1.png"
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://openprojets.com/#website",
+        "name": "Open Projets",
+        "url": "https://openprojets.com/",
+        "inLanguage": "fr",
+        "description": "Carte interactive des grands projets urbains et des travaux des collectivités.",
+        "publisher": { "@id": "https://openprojets.com/home/#organization" }
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://openprojets.com/home/#organization",
+        "name": "Open Projets",
+        "legalName": "VAZY",
+        "url": "https://openprojets.com/home/",
+        "logo": { "@type": "ImageObject", "url": "https://openprojets.com/img/logos/classic_color-1.png" },
+        "sameAs": ["https://fr.linkedin.com/company/vazyapp", "https://vazy.app/"]
+      },
+      {
+        "@type": "WebApplication",
+        "name": "Open Projets",
+        "alternateName": "Carte des projets urbains",
+        "description": "Carte interactive des projets urbains et des travaux de la Métropole de Lyon : tramway, voies lyonnaises, aménagements, projets urbains.",
+        "url": "https://openprojets.com/",
+        "isPartOf": { "@id": "https://openprojets.com/#website" },
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Any",
+        "inLanguage": "fr",
+        "image": "https://openprojets.com/img/cover/meta.png",
+        "browserRequirements": "Requires JavaScript. Requires WebGL.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+        "author": { "@id": "https://openprojets.com/home/#organization" }
       }
-    },
-    "potentialAction": {
-      "@type": "SearchAction",
-      "target": "https://openprojets.com/?q={search_term_string}",
-      "query-input": "required name=search_term_string"
-    }
+    ]
   }
   </script>
   <script src="modules/theme-init.js"></script>
@@ -405,13 +399,21 @@
   </a>
   <noscript>
     <div style="padding:2rem;text-align:center;font-family:sans-serif">
-      <h1>Open Projets - Carte des grands projets urbains</h1>
-      <p>Cette application nécessite JavaScript pour fonctionner. Veuillez activer JavaScript dans votre navigateur.</p>
-      <p>Découvrez les grands projets d'urbanisme et de mobilité : tramway, voies lyonnaises, travaux, projets urbains.</p>
+      <h1>Carte des grands projets et travaux de la Métropole de Lyon</h1>
+      <p>Cette carte interactive a besoin de JavaScript. Sans lui, les projets restent consultables sous forme de liste.</p>
+      <p><a href="/ville/metropole-lyon">Tous les projets de la Métropole de Lyon</a> · <a href="/ville/">Les projets urbains par ville</a> · <a href="/cartes/">Les cartes des communes</a> · <a href="/home/">Open Projets pour les collectivités</a></p>
     </div>
   </noscript>
   <div id="container">
-    <h1 class="visually-hidden">Carte interactive des grands projets urbains - Open Projets</h1>
+    <h1 class="visually-hidden">Carte interactive des grands projets et des travaux de la Métropole de Lyon - Open Projets</h1>
+    <!-- Liens de navigation pour les lecteurs d'écran et les robots : la carte
+         n'a aucun lien HTML vers les pages qui listent ses projets -->
+    <nav class="visually-hidden" aria-label="Pages de projets">
+      <a href="/ville/metropole-lyon">Tous les projets de la Métropole de Lyon</a>
+      <a href="/ville/">Les projets urbains par ville</a>
+      <a href="/cartes/">Les cartes des communes</a>
+      <a href="/home/">Open Projets pour les collectivités</a>
+    </nav>
     <div id="map" role="application" aria-label="Carte interactive des projets urbains"></div>
 
 

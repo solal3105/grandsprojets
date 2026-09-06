@@ -19,9 +19,10 @@ Build home : `cd home-src && npm ci && npm run build` → output dans `/home/`.
 | **Carte** (`/index.html` + `main.js` à la racine) | Vanilla JS, modules IIFE sur `window`, pas de bundler |
 | **Admin** (`/admin/`) | Vanilla JS, **ES modules**, routeur pushState custom |
 | **Fiche** (`/fiche/`) | Vanilla JS, IIFE autonome (`fiche-v2.js`) |
+| **Cartes des communes** (`/cartes/`) | Vanilla JS, module ES (`cartes.js` + `catalogue.js` partagé avec l'edge `cartes`), page site + écran de salon `?kiosk=1` - doc `cartes/README.md` |
 | **Home** (`/home-src/` → `/home/`) | Vue 3 + Vite + Tailwind, build séparé |
 | **Fonctions** (`/netlify/functions/`) | Node.js ESM `.mjs`, Netlify Functions v2 |
-| **Edge Functions** (`/netlify/edge-functions/`) | SEO/SSR : `domain-redirect`, `fiche-ssr`, `home-seo` - routes dans `netlify.toml [[edge_functions]]` |
+| **Edge Functions** (`/netlify/edge-functions/`) | SEO/SSR : `domain-redirect`, `fiche-ssr`, `ville-hub`, `home-seo`, `cartes` - routes dans `netlify.toml [[edge_functions]]` - doc `docs/seo.md` |
 
 ## Patterns de code
 
@@ -93,6 +94,7 @@ La carte publique utilise un **système de modules enregistrables** piloté par 
 - L'URL de base de production (`https://openprojets.com/home`) et les URLs d'exemple ne doivent pas être dupliquées - les centraliser ou utiliser `import.meta.env`
 - Chemins d'assets : toujours `` `${import.meta.env.BASE_URL}img/...` `` - jamais de chemin absolu `/img/...` ou `/home/img/...` hardcodé
 - Toute nouvelle page home indexable → ajouter sa route `home-seo` dans `netlify.toml [[edge_functions]]`
+- Titre et description d'une page home : définis **deux fois**, dans `src/router/index.js` (rendu client + pré-rendu) et dans `netlify/edge-functions/home-seo.js` (réécriture à la volée) - les garder identiques
 
 ### Design system - `ds-bundle/` (généré)
 `.design-sync/config.json` pilote un export **tokens-only** du design system vers `ds-bundle/` (sources de vérité : `home-src/tailwind.config.js` + `home-src/src/style.css`). Ne jamais éditer `ds-bundle/` à la main - modifier les sources de tokens puis re-synchroniser.
@@ -102,14 +104,15 @@ La carte publique utilise un **système de modules enregistrables** piloté par 
 - `ai-generate.mjs` : protégée par JWT Supabase (vérif via `/auth/v1/user`) - `OPENAI_API_KEY` injectée automatiquement par `netlify dev`
 - `ai-diagnostic.mjs` : analyse IA de zone (Diagnostic terrain) - JWT + vérification serveur du rôle admin/ville, sortie JSON contrainte (`json_schema` strict), SSE - route `/api/ai-diagnostic`
 - `auth-token.mjs` : échange token Azure B2C → session Supabase (SSO Phaos), vérif JWKS - route `/api/auth/token`
-- `contributions-geojson`, `travaux-geojson`, `sitemap` : GET publics (CORS seul, pas d'auth)
+- `contributions-geojson`, `travaux-geojson`, `sitemap`, `llms-txt` : GET publics (CORS seul, pas d'auth)
+- `sitemap` et `llms-txt` partagent `lib/projects-index.mjs` : lecture **paginée** de `contribution_uploads` (PostgREST plafonne à 1 000 lignes par réponse, silencieusement), filtres et doublons identiques - toute lecture complète d'une table passe par `fetchAllRows`
 
 ### Edge Functions (`netlify/edge-functions/`)
-- `domain-redirect` (toutes les routes), `fiche-ssr` (pré-rendu SEO de `/fiche/` et `/fiche/*/*/*`), `home-seo` (meta SSR des pages home)
+- `domain-redirect` (toutes les routes), `fiche-ssr` (pré-rendu SEO de `/fiche/*/*/*`, 301 des anciennes adresses `/fiche/?cat=&project=`, canonical des doublons vers la page la plus ancienne), `ville-hub` (`/ville/` = index des villes, `/ville/{ville}` = hub), `home-seo` (meta SSR des pages home), `cartes` (`/cartes/`)
 - Routées via `[[edge_functions]]` dans `netlify.toml` - pas de détection automatique par chemin
 
 ### Mesure d'audience (`modules/analytics.js`)
-Module PostHog **partagé par les 8 espaces**, chargé par une balise
+Module PostHog **partagé par les 9 espaces**, chargé par une balise
 `<script defer src="/modules/analytics.js" data-op-space="<espace>">`. Expose
 `window.OPAnalytics` (`capture`, `pageview`, `identify`, `reset`, `setCity`,
 `optOut`). Toujours appeler en optional chaining : un bloqueur de traceurs
@@ -224,7 +227,7 @@ La suite couvre l'**admin**, la **carte publique** (UI/navigation), la **fiche**
 
 **Admin** : édition/suppression catégorie, upload Supabase Storage, comportement hors-ligne, refresh token
 
-**Edge Functions** : `fiche-ssr`, `home-seo`, `domain-redirect` - aucun test
+**Edge Functions** : `home-seo`, `domain-redirect` - aucun test dédié (`fiche-ssr` et `ville-hub` sont couverts par `unauth.fiche` / `unauth.ville`, le sitemap par `unauth.sitemap`)
 
 ## Pièges courants
 - `modules/ui/toggles.js` est le seul `<script type="module">` de la carte

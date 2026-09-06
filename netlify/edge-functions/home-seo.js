@@ -16,56 +16,66 @@ const BASE_ORIGIN = 'https://openprojets.com';
 const BASE = `${BASE_ORIGIN}/home`;
 
 const DEFAULT = {
-  title: 'Open Projets - La carte interactive pour votre collectivité',
-  description: 'Open Projets transforme vos projets urbains en carte interactive. Publiez vos projets, informez vos habitants - sans une ligne de code.',
+  title: 'La carte interactive des projets de votre collectivité | Open Projets',
+  description: 'Publiez les projets urbains et les chantiers de votre commune sur une carte interactive à vos couleurs, sans développement. Vos habitants consultent sans compte.',
   canonical: `${BASE}/`,
 };
 
-// SEO par route (chemins relatifs à /home/)
+// SEO par route (chemins relatifs à /home/) - breadcrumb = libellé court du
+// fil d'Ariane (JSON-LD), le titre complet serait trop long dans les résultats
 const PAGES = {
   '': DEFAULT,
   '/': DEFAULT,
   '/fonctionnalites': {
-    title: 'Fonctionnalités - Open Projets',
-    description: 'Contributions citoyennes, module travaux, catégories personnalisées, branding, gestion d\'équipe - toutes les fonctionnalités d\'Open Projets.',
+    breadcrumb: 'Fonctionnalités',
+    title: 'Fonctionnalités : carte des projets, travaux, diagnostic | Open Projets',
+    description: 'Fiches projet géolocalisées, module travaux pour les riverains, catégories et identité visuelle de votre collectivité, gestion d\'équipe, diagnostic de terrain par l\'IA.',
     canonical: `${BASE}/fonctionnalites`,
   },
   '/a-propos': {
-    title: 'À propos - Open Projets',
-    description: 'Open Projets transforme les données publiques en information citoyenne, accessible et transparente pour tous.',
+    breadcrumb: 'À propos',
+    title: 'À propos : un outil français et open source pour les collectivités | Open Projets',
+    description: 'Open Projets est édité à Lyon par VAZY, Société à Mission. Code ouvert, hébergement en Europe, données sous le contrôle de votre collectivité.',
     canonical: `${BASE}/a-propos`,
   },
   '/contact': {
-    title: 'Contact - Open Projets',
-    description: 'Demandez une démo d\'Open Projets. On configure votre espace ensemble, en moins d\'une heure.',
+    breadcrumb: 'Contact',
+    title: 'Demander une démo | Open Projets',
+    description: 'Demandez une démonstration d\'Open Projets : nous préparons la carte de votre commune avant l\'appel et configurons votre espace ensemble, sans frais caché.',
     canonical: `${BASE}/contact`,
   },
   '/aide': {
-    title: 'Aide - Open Projets',
-    description: 'Guides d\'utilisation et documentation pour administrateurs et contributeurs Open Projets.',
+    breadcrumb: 'Aide',
+    title: 'Centre d\'aide : guides administrateur et contributeur | Open Projets',
+    description: 'Comment publier un projet, gérer les catégories, inviter un agent ou activer le module travaux : les guides d\'utilisation d\'Open Projets, pour administrateurs et contributeurs.',
     canonical: `${BASE}/aide`,
   },
   '/confidentialite': {
+    breadcrumb: 'Confidentialité',
     title: 'Confidentialité et mesure d\'audience - Open Projets',
     description: 'Ce qu\'Open Projets mesure sur ses espaces, ce qu\'il ne mesure pas, et comment refuser cette mesure en un clic depuis votre navigateur.',
     canonical: `${BASE}/confidentialite`,
   },
   '/alternative-panneaupocket': {
+    breadcrumb: 'Alternative à PanneauPocket',
     title: 'Alternative à PanneauPocket : la carte des projets urbains | Open Projets',
     description: 'Vous utilisez PanneauPocket pour vos alertes ? Open Projets le complète avec une carte interactive de vos projets et chantiers, consultable sans application.',
     canonical: `${BASE}/alternative-panneaupocket`,
   },
   '/alternative-cityall-lumiplan': {
+    breadcrumb: 'Alternative à CityAll',
     title: 'Alternative à CityAll (Lumiplan) : la carte web des projets | Open Projets',
     description: 'CityAll de Lumiplan est une app citoyenne mutualisée. Open Projets apporte la carte web de vos projets et chantiers, à vos couleurs, accessible sans application.',
     canonical: `${BASE}/alternative-cityall-lumiplan`,
   },
   '/alternative-neocity': {
+    breadcrumb: 'Alternative à Neocity',
     title: 'Alternative à Neocity : la carte des projets sans app | Open Projets',
     description: 'Neocity est une app citoyenne complète. Open Projets apporte une carte web de vos projets et chantiers, accessible par lien ou QR code, sans installation.',
     canonical: `${BASE}/alternative-neocity`,
   },
   '/ressources': {
+    breadcrumb: 'Ressources',
     title: 'Ressources : communiquer sur les projets de sa collectivité | Open Projets',
     description: 'Guides pratiques pour les communes : plan de mandat, carte des travaux, information des riverains. Des méthodes concrètes issues du terrain, sans jargon.',
     canonical: `${BASE}/ressources`,
@@ -136,6 +146,22 @@ const ORGANIZATION = {
   ],
 };
 
+/** Fil d'Ariane : Accueil › Ressources › Article, ou Accueil › Page. */
+function buildBreadcrumb(meta) {
+  const items = [{ name: 'Open Projets', item: `${BASE}/` }];
+  if (meta.article) {
+    items.push({ name: 'Ressources', item: `${BASE}/ressources` });
+    items.push({ name: meta.article.title, item: meta.canonical });
+  } else if (meta.canonical !== `${BASE}/`) {
+    items.push({ name: meta.breadcrumb || meta.title.replace(/\s*[|-]\s*Open Projets\s*$/, ''), item: meta.canonical });
+  }
+  if (items.length < 2) return null;
+  return {
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((it, i) => ({ '@type': 'ListItem', position: i + 1, name: it.name, item: it.item })),
+  };
+}
+
 function buildJsonLd(meta) {
   const page = meta.article
     ? {
@@ -160,9 +186,10 @@ function buildJsonLd(meta) {
         publisher: { '@id': ORG_ID },
       };
 
+  const breadcrumb = buildBreadcrumb(meta);
   return {
     '@context': 'https://schema.org',
-    '@graph': [page, ORGANIZATION],
+    '@graph': breadcrumb ? [page, breadcrumb, ORGANIZATION] : [page, ORGANIZATION],
   };
 }
 

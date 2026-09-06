@@ -3,6 +3,7 @@ Allow: /
 Allow: /fiche/
 Allow: /home/
 Allow: /ville/
+Allow: /cartes/
 Allow: /img/
 Allow: /styles/
 
@@ -18,5 +19,8 @@ Disallow: /playwright-report/
 Disallow: /_headers
 Disallow: /*.json
 Disallow: /netlify/
+# Les fonctions ne se consultent pas directement : /sitemap.xml et /llms.txt
+# sont leurs seules adresses publiques (sinon Google indexe deux fois le plan)
+Disallow: /.netlify/
 
 Sitemap: https://openprojets.com/sitemap.xml
