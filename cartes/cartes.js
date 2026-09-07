@@ -9,9 +9,11 @@
    Les scènes se relaient toutes seules (l'accueil, trois communes vues du
    ciel, comment ça marche, la Métropole de Lyon...) ; tout ce qu'un visiteur
    ouvre se pose en COUCHE par-dessus l'accueil (une carte, la saisie, le
-   panneau pour emporter la carte), et un compteur de veille referme chaque
-   couche sans geste. La génération d'une nouvelle carte est confiée à
-   l'écran /demo/, avec une adresse de retour : il revient ici de lui-même.
+   panneau pour emporter la carte, la génération d'une nouvelle carte par
+   l'écran /demo/, lui aussi en couche), et un compteur de veille referme
+   chaque couche sans geste. Changer de page ferait sortir la tablette du
+   plein écran : l'écran de génération prévient la page quand il a fini, et
+   c'est elle qui ouvre la carte construite.
 
    Tablette modeste : un seul minuteur de veille (une fois par seconde), une
    seule chaîne de minuteurs pour les scènes, une seule image aérienne par
@@ -35,8 +37,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@,;]+\.[a-z]{2,}$/i;
 
 // Durée d'affichage des scènes (ms)
 const DUREES = { accueil: 15000, ville: 12000, comment: 11000 };
-// Veille (s) : ce qui se referme sans geste du visiteur
-const VEILLE = { couche: 75, prevenir: 10, saisie: 45, reprise: 20 };
+// Veille (s) : ce qui se referme sans geste du visiteur. La génération se
+// referme d'elle-même (l'écran /demo/ rend la main) : son délai n'est qu'un
+// filet, pour le cas où cet écran serait tombé en panne.
+const VEILLE = { couche: 75, prevenir: 10, saisie: 45, reprise: 20, generation: 20 * 60 };
 // Hygiène mémoire : la page se recharge d'elle-même, seulement à un moment calme
 const RECHARGE = { apresMs: 3 * 3600 * 1000, calmeMs: 10 * 60 * 1000 };
 // Délai accordé à une vue aérienne avant de montrer la scène sans elle (ms)
@@ -56,7 +60,8 @@ function urlAccueil() {
 }
 
 /* L'écran de génération. Sur le stand, il reçoit l'adresse de retour : c'est
-   lui qui ramène ici à la fin, ou après un abandon. */
+   le signe qu'il est ouvert par le stand, et l'adresse de repli s'il devait
+   se retrouver seul. Ouvert en couche, il prévient la page par message. */
 function urlDemo(commune) {
   const u = new URL('/demo/', window.location.origin);
   if (commune?.code) {
@@ -431,6 +436,7 @@ const rappel = {
 
 const couche = { ouverte: false, slug: '', nom: '' };
 const saisie = { ouverte: false };
+const generation = { ouverte: false };
 
 /* Un seul minuteur, une fois par seconde, qui regarde depuis combien de temps
    personne n'a touché l'écran et referme ce qui doit l'être. */
@@ -442,11 +448,17 @@ const veille = (() => {
 
   function toucher() {
     dernierGeste = Date.now();
-    if (!couche.ouverte && !saisie.ouverte) boucle.suspendre();
+    if (!couche.ouverte && !saisie.ouverte && !generation.ouverte) boucle.suspendre();
   }
 
   function tic() {
     const calme = (Date.now() - dernierGeste) / 1000;
+    if (generation.ouverte) {
+      // L'écran de génération tient ses propres délais : on ne le referme
+      // que s'il a cessé de répondre depuis très longtemps
+      if (calme >= VEILLE.generation) fermerGeneration('veille');
+      return;
+    }
     if (couche.ouverte) {
       const reste = VEILLE.couche - calme;
       if (reste <= 0) fermerCouche('veille');
@@ -529,9 +541,45 @@ function fermerCouche(motif) {
   if (KIOSK) boucle.reprendre();
 }
 
+/* ─── Un lien resté fermé : l'explication ─── */
+
+const EXPLICATIONS = {
+  ailleurs: 'Les autres sites ne s\'ouvrent pas sur cet écran. Emportez la carte sur votre téléphone pour suivre ce lien.',
+  stand: 'Cet écran reste sur les cartes des communes. Pour découvrir Open Projets, rendez-vous sur openprojets.com.',
+};
+
+/* La bulle se pose près du doigt (en dessous, ou au-dessus quand la place
+   manque) et s'efface d'elle-même. Un seul minuteur : une nouvelle bulle
+   remplace la précédente. */
+const explication = (() => {
+  const el = $('lien-bloque');
+  let minuteur = null;
+  function montrer(motif, x, y) {
+    if (!el) return;
+    clearTimeout(minuteur);
+    el.textContent = EXPLICATIONS[motif] || EXPLICATIONS.ailleurs;
+    const L = window.innerWidth;
+    const H = window.innerHeight;
+    const px = Number.isFinite(x) ? Math.min(Math.max(x, 0.22 * L), 0.78 * L) : L / 2;
+    let py = Number.isFinite(y) ? y + 18 : H * 0.72;
+    if (py > H * 0.78) py = Math.max(24, (Number.isFinite(y) ? y : H * 0.72) - 120);
+    el.style.setProperty('--x', `${Math.round(px)}px`);
+    el.style.setProperty('--y', `${Math.round(py)}px`);
+    el.hidden = false;
+    minuteur = setTimeout(cacher, 6000);
+  }
+  function cacher() {
+    clearTimeout(minuteur);
+    minuteur = null;
+    if (el && !el.hidden) el.hidden = true;
+  }
+  return { montrer, cacher };
+})();
+
 /* La carte tourne dans une iframe de MÊME origine : on peut y poser nos
    écouteurs. Rien ne doit en sortir : les liens vers d'autres sites sont
-   neutralisés, les nouveaux onglets ramenés dans le cadre. */
+   neutralisés (et le visiteur sait pourquoi), les nouveaux onglets ramenés
+   dans le cadre. */
 cadre.addEventListener('load', () => {
   let doc;
   try {
@@ -555,6 +603,9 @@ cadre.addEventListener('load', () => {
     if (cible.origin !== window.location.origin) {
       e.preventDefault();
       e.stopPropagation();
+      // Le doigt est dans le cadre : ses coordonnées se lisent dans la page
+      const r = cadre.getBoundingClientRect();
+      explication.montrer('ailleurs', r.left + e.clientX, r.top + e.clientY);
       return;
     }
     if (a.target === '_blank') a.target = '_self';
@@ -564,6 +615,7 @@ cadre.addEventListener('load', () => {
       try {
         const u = new URL(String(url || ''), doc.baseURI);
         if (u.origin === window.location.origin) cadre.contentWindow.location.href = u.href;
+        else explication.montrer('ailleurs');
       } catch { /* adresse illisible : ignorée */ }
       return null;
     };
@@ -571,6 +623,56 @@ cadre.addEventListener('load', () => {
 });
 
 $('couche-retour').addEventListener('click', () => fermerCouche('bouton'));
+
+/* ─── La génération : l'écran /demo/ ouvert en couche ─── */
+
+const cadreGeneration = $('generation-cadre');
+
+function ouvrirGeneration(commune) {
+  boucle.arreter();
+  fermerSaisie();
+  explication.cacher();
+  generation.ouverte = true;
+  cadreGeneration.src = urlDemo(commune);
+  $('generation').hidden = false;
+  document.body.classList.add('is-generation');
+  veille.toucher();
+}
+
+function fermerGeneration(motif) {
+  if (!generation.ouverte) return;
+  generation.ouverte = false;
+  // src vidé : la scène WebGL de l'écran de génération rend sa mémoire
+  cadreGeneration.src = 'about:blank';
+  $('generation').hidden = true;
+  document.body.classList.remove('is-generation');
+  if (motif === 'veille') mesurer('cartes_retour_veille', { depuis: 'generation' });
+  if (KIOSK && !couche.ouverte) boucle.reprendre();
+}
+
+// Les gestes faits dans l'écran de génération comptent pour la veille
+cadreGeneration.addEventListener('load', () => {
+  let doc;
+  try {
+    doc = cadreGeneration.contentDocument;
+  } catch {
+    return;
+  }
+  if (!doc || !cadreGeneration.src || cadreGeneration.src === 'about:blank') return;
+  veille.brancher(doc);
+});
+
+/* L'écran de génération rend la main : « Revenir à l'accueil », l'abandon,
+   ou « Découvrir l'espace » avec la carte à ouvrir. Seuls ses messages, de
+   même origine, sont écoutés. */
+window.addEventListener('message', (e) => {
+  if (!generation.ouverte || e.origin !== window.location.origin || e.source !== cadreGeneration.contentWindow) return;
+  const d = e.data;
+  if (!d || d.type !== 'cartes:retour') return;
+  fermerGeneration('message');
+  const slug = String(d.ouvrir || '').toLowerCase();
+  if (OUVRABLE_RE.test(slug)) ouvrirCouche(slug, String(d.nom || '').slice(0, 120), 'generation');
+});
 
 /* ─── Emporter la carte : un code à scanner, ou le lien par e-mail ─── */
 
@@ -754,7 +856,9 @@ function choisir(commune) {
     return;
   }
   mesurer('cartes_generation_lancee', { commune: commune.code || null, population: commune.population || null, kiosk: KIOSK });
-  window.location.href = urlDemo(commune);
+  // Sur le stand, la génération se fait en couche : la page reste en plein écran
+  if (KIOSK) ouvrirGeneration(commune);
+  else window.location.href = urlDemo(commune);
 }
 
 /* Un champ, une liste, un clavier : la même mécanique sert la recherche du
@@ -839,7 +943,7 @@ function fermerSaisie(motif) {
   ciel.nuit(document.body.dataset.scene === 'comment');
   $('saisie-champ').blur();
   if (motif === 'veille') mesurer('cartes_retour_veille', { depuis: 'saisie' });
-  if (KIOSK && !couche.ouverte) boucle.reprendre();
+  if (KIOSK && !couche.ouverte && !generation.ouverte) boucle.reprendre();
 }
 
 function lierRecherche() {
@@ -889,16 +993,19 @@ function initPleinEcran() {
 }
 
 /* Sur le stand, aucun lien ne quitte la page : ceux qui désignent une commune
-   ouvrent sa carte en couche, les autres sont inertes. */
+   ouvrent sa carte en couche, les autres restent fermés et le disent. */
 function neutraliserLiens() {
   document.addEventListener('click', (e) => {
-    if (couche.ouverte) return;
+    if (couche.ouverte || generation.ouverte) return;
     const a = e.target instanceof Element ? e.target.closest('a[href]') : null;
     if (!a) return;
     e.preventDefault();
     const porteur = a.closest('[data-ville]');
     const slug = a.dataset.ville || porteur?.dataset.ville || '';
-    if (!slug) return;
+    if (!slug) {
+      explication.montrer('stand', e.clientX, e.clientY);
+      return;
+    }
     const nom = a.dataset.nom || porteur?.dataset.nom || '';
     ouvrirCouche(slug, nom, a.classList.contains('commune__lien') ? 'ruban' : 'scene');
   }, true);

@@ -273,6 +273,14 @@ Suivi : `select mail_status, count(*) from demo_leads group by 1;`
   `netlify/functions/demo-generate.mjs`). Pour le salon : définir la variable
   d'env `DEMO_KIOSK_KEY` et ouvrir `/demo/?kiosk=1&k=<clé>` : le quota par IP
   est levé pour cet écran (le plafond global reste)
+- Tenu par le stand (`/cartes/?kiosk=1`, voir `cartes/README.md`) : l'écran
+  reçoit `retour=<chemin>` et est ouvert en couche (iframe) par-dessus la page
+  des cartes, pour que la tablette reste en plein écran. Il ne navigue alors
+  pas : « Revenir à l'accueil », l'abandon de la saisie et « Découvrir
+  l'espace » envoient un message à la page (`postMessage`, même origine,
+  `{ type: 'cartes:retour', ouvrir?, nom? }`), qui referme la couche et ouvre
+  la carte. Ouvert seul avec `retour`, il navigue vers ce chemin (même
+  origine, chemin absolu uniquement)
 - Diagnostic : `DEMO_DEBUG=1` en variable d'env renvoie le détail technique
   des erreurs au navigateur (désactivé par défaut)
 - Génération en 6 invocations SSE courtes (sources → ai → locate → media →

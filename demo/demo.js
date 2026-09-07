@@ -40,6 +40,21 @@
     Object.entries(params || {}).forEach(([k, v]) => { if (v) u.searchParams.set(k, v); });
     return u.pathname + u.search;
   }
+  /* Sur le stand, la page des cartes ouvre cet écran en COUCHE (une iframe
+     par-dessus elle) plutôt qu'à sa place : changer de page ferait sortir la
+     tablette du plein écran et remonter la barre du navigateur. Revenir, c'est
+     alors le lui dire (postMessage, même origine), et c'est elle qui referme
+     la couche et ouvre la carte demandée. Ouvert seul, l'écran navigue. */
+  const EN_COUCHE = !!RETOUR && window.self !== window.top;
+  function revenir(params) {
+    if (EN_COUCHE) {
+      try {
+        window.parent.postMessage({ type: 'cartes:retour', ...params }, window.location.origin);
+        return;
+      } catch { /* parent inaccessible : on navigue */ }
+    }
+    window.location.replace(urlDeRetour(params));
+  }
 
   let es = null;
   let selectedIndex = -1;
@@ -123,14 +138,14 @@
   function armerFiletSaisie() {
     clearTimeout(saisieTimer);
     if (!RETOUR || !screens.input.classList.contains('is-active')) return;
-    saisieTimer = setTimeout(() => window.location.replace(RETOUR), SAISIE_ABANDON_MS);
+    saisieTimer = setTimeout(() => revenir(), SAISIE_ABANDON_MS);
   }
   if (RETOUR) {
     ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, armerFiletSaisie, { passive: true, capture: true }));
     const retour = $('btn-retour');
     if (retour) {
       retour.hidden = false;
-      retour.addEventListener('click', () => window.location.replace(RETOUR));
+      retour.addEventListener('click', () => revenir());
     }
   }
 
@@ -864,6 +879,8 @@
     $('done-detail').textContent = detailDeFin(msg, elapsedTxt);
     $('btn-open').href = targetUrl;
     if (RETOUR) {
+      // Le lien reste vrai (il mène à la page des cartes) ; en couche, le clic
+      // est intercepté plus bas et la page des cartes ouvre la carte elle-même
       $('btn-open').href = urlDeRetour({ ouvrir: msg.ville, nom: msg.communeNom || currentCommune?.nom || '' });
       $('btn-open').removeAttribute('target');
     } else if (KIOSK) {
@@ -1190,7 +1207,7 @@
     clearTimeout(leadTimer);
     clearTimeout(saisieTimer);
     // L'accueil du stand est la page des cartes : on la lui rend
-    if (RETOUR) { window.location.replace(RETOUR); return; }
+    if (RETOUR) { revenir(); return; }
     if (es) { es.close(); es = null; }
     lastDone = null;
     startCountdown.cible = null;
@@ -1226,8 +1243,12 @@
   $('btn-again').addEventListener('click', reset);
   // Liaison unique : posée dans onDone(), elle s'empilait à chaque génération
   // et un seul clic émettait autant d'événements que de communes déjà jouées.
-  $('btn-open').addEventListener('click', () => {
+  $('btn-open').addEventListener('click', (e) => {
     window.OPAnalytics?.capture('demo_space_opened', { municipality: lastDone?.communeNom || null });
+    if (EN_COUCHE && lastDone?.ville) {
+      e.preventDefault();
+      revenir({ ouvrir: lastDone.ville, nom: lastDone.communeNom || currentCommune?.nom || '' });
+    }
   });
 
   // Refaire le recensement d'une commune déjà générée : l'adresse de l'espace

@@ -35,7 +35,7 @@
       try { if (!localStorage.getItem('demo-theme')) localStorage.setItem('demo-theme', 'dark'); } catch (e) { /* stockage indisponible */ }
     })();
   </script>
-  <script src="/demo/theme.js?v=15"></script>
+  <script src="/demo/theme.js?v=16"></script>
   <link rel="stylesheet" href="cartes.css" />
   <script defer src="/modules/analytics.js" data-op-space="cartes"></script>
 </head>
@@ -188,6 +188,20 @@
       </div>
     </div>
   </div>
+
+  <!-- La génération d'une nouvelle carte, sur le stand : l'écran /demo/ ouvert
+       en couche lui aussi, jamais à la place de la page. Changer de page
+       ferait sortir la tablette du plein écran et remonter la barre du
+       navigateur ; ici, l'écran de génération prévient la page quand il a
+       fini (postMessage), et c'est elle qui referme la couche et ouvre la
+       carte construite. -->
+  <div id="generation" class="generation" hidden>
+    <iframe id="generation-cadre" class="generation__cadre" title="La construction de la carte de la commune" src="about:blank" loading="eager"></iframe>
+  </div>
+
+  <!-- Ce qui explique un lien resté fermé : sur le stand, aucun lien ne quitte
+       l'écran. La bulle se pose près du doigt et s'efface d'elle-même. -->
+  <p id="lien-bloque" class="lien-bloque" role="status" hidden></p>
 
   <!-- La saisie sur le stand : plein écran, le champ en haut, le clavier de
        la tablette en bas, les propositions entre les deux. -->

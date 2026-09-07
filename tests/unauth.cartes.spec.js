@@ -7,20 +7,22 @@ import { test, expect } from '@playwright/test';
  * (liste des communes avec un lien vers leur page ville, contour de la France,
  * commune vedette, JSON-LD, catalogue embarqué), et écran de salon en
  * ?kiosk=1 : rotation des scènes, veille, cartes ouvertes en couche, saisie
- * plein écran, panneau pour emporter la carte.
+ * plein écran, panneau pour emporter la carte, génération d'une nouvelle
+ * carte par l'écran /demo/ ouvert en couche (jamais à la place de la page :
+ * la tablette resterait sinon hors du plein écran).
  *
  * Les cartes ouvertes en couche sont remplacées par une coquille : aucun test
- * ne démarre l'application carte (WebGL) dans l'iframe.
+ * ne démarre l'application carte (WebGL) dans l'iframe. L'écran de génération,
+ * lui, est le vrai, avec un flux de génération simulé.
  *
  * Section : 0.38 - Les cartes des communes
  */
 
 const KIOSK = '/cartes/?kiosk=1';
 
-/** Une carte ouverte en couche, ou l'écran de génération : des coquilles */
+/** Une carte ouverte en couche, et une fiche : des coquilles */
 const estUneCarte = (url) => /^\/(essai-[a-z0-9-]+|metropole-lyon)$/.test(url.pathname);
 const estUneFiche = (url) => url.pathname.startsWith('/fiche/essai-test/');
-const estLaDemo = (url) => url.pathname === '/demo/';
 
 async function coquilles(page) {
   await page.route(estUneCarte, (route) => route.fulfill({
@@ -33,9 +35,40 @@ async function coquilles(page) {
   await page.route(estUneFiche, (route) => route.fulfill({
     status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><html lang="fr"><body><h1>Fiche</h1></body></html>',
   }));
-  await page.route(estLaDemo, (route) => route.fulfill({
-    status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><html lang="fr"><body><h1>Génération</h1></body></html>',
+}
+
+/** Le vrai écran de génération, avec un flux simulé : le double d'EventSource
+ *  vaut dans toutes les frames de la page, `window.__envoyer` y joue le serveur */
+async function generationSimulee(page) {
+  await page.addInitScript(() => {
+    class FauxEventSource {
+      constructor(u) { this.url = u; window.__sse = this; }
+      close() { /* le double ne tient aucune connexion */ }
+    }
+    window.EventSource = FauxEventSource;
+    window.__envoyer = (o) => window.__sse?.onmessage?.({ data: JSON.stringify(o) });
+  });
+  await page.route('**/api.qrserver.com/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: '' }));
+}
+
+/** Lance depuis la saisie du stand la génération d'une commune inconnue et
+ *  rend la frame de l'écran de génération, prête à recevoir des messages */
+async function lancerGeneration(page) {
+  await page.route('**/geo.api.gouv.fr/**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(route.request().url().includes('communes?nom=') ? [INCONNUE] : INCONNUE),
   }));
+  await page.locator('#recherche-champ').click();
+  await page.locator('#saisie-champ').fill('Trif');
+  await page.locator('#saisie-suggestions li').first().click();
+  await expect(page.locator('#generation')).toBeVisible();
+  // La frame n'a pas encore quitté about:blank au moment où la couche s'affiche
+  const frame = await (await page.locator('#generation-cadre').elementHandle()).contentFrame();
+  expect(frame).toBeTruthy();
+  await frame.waitForURL(/\/demo\//);
+  await frame.waitForFunction(() => window.__sse);
+  return frame;
 }
 
 async function catalogueDe(page) {
@@ -192,11 +225,15 @@ test.describe('0.38 - Les cartes des communes : le stand', () => {
     await expect(page.locator('#couche-cadre')).toHaveAttribute('src', `/${slug}`);
     expect(new URL(page.url()).pathname).toBe('/cartes/');
 
-    // Un lien vers un autre site est neutralisé, un nouvel onglet ramené dans le cadre
+    // Un lien vers un autre site est neutralisé, et le visiteur sait pourquoi ;
+    // un nouvel onglet est ramené dans le cadre
     const cadre = page.frameLocator('#couche-cadre');
     await expect(cadre.locator('h1')).toHaveText('Carte');
+    await expect(page.locator('#lien-bloque')).toBeHidden();
     await cadre.locator('#dehors').click();
     await expect(cadre.locator('h1')).toHaveText('Carte');
+    await expect(page.locator('#lien-bloque')).toBeVisible();
+    await expect(page.locator('#lien-bloque')).toContainText('ne s\'ouvrent pas sur cet écran');
     await cadre.locator('#dedans').click();
     await expect(cadre.locator('h1')).toHaveText('Fiche');
     expect(page.context().pages().length).toBe(1);
@@ -259,23 +296,59 @@ test.describe('0.38 - Les cartes des communes : le stand', () => {
     await expect(page.locator('#scene-accueil')).toBeVisible();
   });
 
-  test('0.38.9 - une commune sans carte part vers l\'écran de génération, avec l\'adresse de retour', async ({ page }) => {
+  test('0.38.9 - une commune sans carte se construit en couche, la page reste en place, puis sa carte s\'ouvre', async ({ page }) => {
     await coquilles(page);
+    await generationSimulee(page);
     await ouvrirKiosque(page, '/cartes/?kiosk=1&k=stand');
-    await geoDouble(page, [INCONNUE]);
-    await page.locator('#recherche-champ').click();
-    await page.locator('#saisie-champ').fill('Trif');
-    await page.locator('#saisie-suggestions li').first().click();
-    await page.waitForURL(/\/demo\/\?/);
-    const u = new URL(page.url());
+    const frame = await lancerGeneration(page);
+    // L'écran de génération est ouvert PAR-DESSUS la page, jamais à sa place :
+    // la tablette ne sort pas du plein écran
+    expect(new URL(page.url()).pathname).toBe('/cartes/');
+    const u = new URL(await page.locator('#generation-cadre').getAttribute('src') || '', 'http://stand.test');
+    expect(u.pathname).toBe('/demo/');
     expect(u.searchParams.get('commune')).toBe('00002');
     expect(u.searchParams.get('auto')).toBe('1');
     expect(u.searchParams.get('kiosk')).toBe('1');
     expect(u.searchParams.get('k')).toBe('stand');
     expect(u.searchParams.get('retour')).toBe('/cartes/?kiosk=1&k=stand');
+    await expect(page.locator('#saisie')).toBeHidden();
+
+    // La génération aboutit : l'adresse est donnée, « Découvrir l'espace »
+    // ouvre la carte construite en couche, dans la page des cartes
+    await frame.evaluate((m) => window.__envoyer(m), {
+      type: 'done', url: '/?city=essai-trifouillis-les-oies', ville: 'essai-trifouillis-les-oies',
+      communeNom: 'Trifouillis-les-Oies', communeInsee: '00002', projectsCount: 7,
+      stats: { sources: 20, verified: 7, precise: 7, illustrated: 4 },
+    });
+    await expect(frame.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await frame.locator('#lead-email').fill('vazy');
+    await frame.locator('#lead-submit').click();
+    await expect(frame.locator('#btn-open')).toBeVisible();
+    await frame.locator('#btn-open').click();
+    await expect(page.locator('#generation')).toBeHidden();
+    await expect(page.locator('#generation-cadre')).toHaveAttribute('src', 'about:blank');
+    await expect(page.locator('#couche')).toBeVisible();
+    await expect(page.locator('#couche-nom')).toHaveText('Trifouillis-les-Oies');
+    await expect(page.locator('#couche-cadre')).toHaveAttribute('src', '/essai-trifouillis-les-oies');
+    expect(new URL(page.url()).pathname).toBe('/cartes/');
+    expect(page.context().pages().length).toBe(1);
   });
 
-  test('0.38.10 - emporter une carte : un code à scanner, et le lien par e-mail', async ({ page }) => {
+  test('0.38.10 - « Revenir à l\'accueil » depuis l\'écran de génération referme la couche et la rotation repart', async ({ page }) => {
+    await coquilles(page);
+    await generationSimulee(page);
+    await ouvrirKiosque(page);
+    const frame = await lancerGeneration(page);
+    await expect(frame.locator('#btn-retour')).toBeVisible();
+    await frame.locator('#btn-retour').click();
+    await expect(page.locator('#generation')).toBeHidden();
+    await expect(page.locator('#couche')).toBeHidden();
+    await expect(page.locator('body')).toHaveAttribute('data-scene', 'accueil');
+    await expect(page.locator('#scene-accueil')).toHaveClass(/is-active/);
+    expect(new URL(page.url()).pathname).toBe('/cartes/');
+  });
+
+  test('0.38.11 - emporter une carte : un code à scanner, et le lien par e-mail', async ({ page }) => {
     await coquilles(page);
     await ouvrirKiosque(page);
     let recu = null;
@@ -302,7 +375,7 @@ test.describe('0.38 - Les cartes des communes : le stand', () => {
     expect(recu.kiosk).toBe(true);
   });
 
-  test('0.38.11 - la Métropole de Lyon s\'emporte par le code seulement', async ({ page }) => {
+  test('0.38.12 - la Métropole de Lyon s\'emporte par le code seulement', async ({ page }) => {
     await coquilles(page);
     await ouvrirKiosque(page);
     await page.locator('#communes-liste .commune__lien[href="/ville/metropole-lyon"]').click();
@@ -313,7 +386,7 @@ test.describe('0.38 - Les cartes des communes : le stand', () => {
     await expect(page.locator('#emporter-qr')).toBeVisible();
   });
 
-  test('0.38.12 - au retour de l\'écran de génération, la carte demandée s\'ouvre d\'elle-même', async ({ page }) => {
+  test('0.38.13 - au retour de l\'écran de génération, la carte demandée s\'ouvre d\'elle-même', async ({ page }) => {
     await coquilles(page);
     await ouvrirKiosque(page, '/cartes/?kiosk=1&ouvrir=essai-trifouillis&nom=Trifouillis');
     await expect(page.locator('#couche')).toBeVisible();
@@ -325,11 +398,14 @@ test.describe('0.38 - Les cartes des communes : le stand', () => {
     expect(new URL(page.url()).search).toBe('?kiosk=1');
   });
 
-  test('0.38.13 - sur le stand, aucun lien ne quitte la page', async ({ page }) => {
+  test('0.38.14 - sur le stand, aucun lien ne quitte la page, et le visiteur sait pourquoi', async ({ page }) => {
     await ouvrirKiosque(page);
+    await expect(page.locator('#lien-bloque')).toBeHidden();
     await page.locator('.entete__logo').click();
     await page.waitForTimeout(400);
     expect(new URL(page.url()).pathname).toBe('/cartes/');
     await expect(page.locator('body')).toHaveClass(/is-kiosk/);
+    await expect(page.locator('#lien-bloque')).toBeVisible();
+    await expect(page.locator('#lien-bloque')).toContainText('openprojets.com');
   });
 });

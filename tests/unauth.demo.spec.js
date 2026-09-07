@@ -581,6 +581,35 @@ test.describe('Démo salon - retour vers la page des cartes', () => {
 
   const envoyer = (page, msg) => page.evaluate((m) => window.__envoyer(m), msg);
 
+  /* Même préparation, mais l'écran de génération vit dans une iframe de la
+     page hôte : les doubles valent dans toutes les frames */
+  async function lancerFluxDans(page, hote) {
+    await page.addInitScript(() => {
+      class FauxEventSource {
+        constructor(u) { this.url = u; window.__sse = this; }
+        close() { /* le double ne tient aucune connexion */ }
+      }
+      window.EventSource = FauxEventSource;
+      window.__envoyer = (o) => window.__sse?.onmessage?.({ data: JSON.stringify(o) });
+    });
+    await page.route('**/geo.api.gouv.fr/**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(route.request().url().includes('communes?nom=') ? [COMMUNE] : COMMUNE),
+    }));
+    await page.route('**/api.qrserver.com/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: '' }));
+    await page.goto(hote, { waitUntil: 'domcontentloaded' });
+    const frame = await (await page.locator('#cadre').elementHandle()).contentFrame();
+    await frame.waitForURL(/\/demo\//);
+    // Le bouton de retour n'apparaît qu'une fois le script de l'écran chargé
+    // (après maplibre, depuis le réseau) : taper avant serait taper dans le vide
+    await expect(frame.locator('#btn-retour')).toBeVisible({ timeout: 30000 });
+    await frame.locator('#commune-input').fill('Oyonnax');
+    await frame.locator('#suggestions li').first().click();
+    await frame.waitForFunction(() => window.__sse);
+    return frame;
+  }
+
   test('0.37.1 - « Découvrir l\'espace » ouvre la carte dans la page des cartes, pas dans un nouvel onglet', async ({ page }) => {
     await lancerFlux(page, AVEC_RETOUR);
     await expect(page.locator('#btn-retour')).toBeVisible();
@@ -613,6 +642,43 @@ test.describe('Démo salon - retour vers la page des cartes', () => {
     await page.locator('#btn-again').click();
     await expect(page.locator('#screen-input')).toHaveClass(/is-active/);
     expect(new URL(page.url()).pathname).toBe('/demo/');
+  });
+
+  /**
+   * Ouvert EN COUCHE par la page des cartes (une iframe par-dessus elle, pour
+   * que la tablette reste en plein écran), l'écran ne navigue plus : il
+   * prévient la page par message, et c'est elle qui referme la couche et
+   * ouvre la carte. Ici, une coquille tient lieu de page des cartes et note
+   * ce qu'elle reçoit.
+   */
+  test('0.37.5 - ouvert en couche, l\'écran prévient la page des cartes au lieu de naviguer', async ({ page }) => {
+    await page.route((url) => url.pathname === '/stand-coquille/', (route) => route.fulfill({
+      status: 200,
+      contentType: 'text/html; charset=utf-8',
+      body: `<!doctype html><html lang="fr"><body><h1>Le stand</h1>
+        <iframe id="cadre" src="${AVEC_RETOUR}" style="width:1000px;height:700px"></iframe>
+        <script>window.__recus = []; window.addEventListener('message', (e) => { window.__recus.push({ origine: e.origin, data: e.data }); });</script>
+        </body></html>`,
+    }));
+    const frame = await lancerFluxDans(page, '/stand-coquille/');
+    await frame.evaluate((m) => window.__envoyer(m), DONE);
+    await expect(frame.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await frame.locator('#lead-email').fill('vazy');
+    await frame.locator('#lead-submit').click();
+    await frame.locator('#btn-open').click();
+    await expect.poll(() => page.evaluate(() => window.__recus.length)).toBe(1);
+    const recus = await page.evaluate(() => window.__recus);
+    expect(recus[0].origine).toBe(new URL(page.url()).origin);
+    expect(recus[0].data).toEqual({ type: 'cartes:retour', ouvrir: 'essai-oyonnax', nom: 'Oyonnax' });
+    // L'écran n'a pas bougé : la page des cartes décide seule de la suite
+    expect(new URL(frame.url()).pathname).toBe('/demo/');
+    await expect(page.locator('h1')).toHaveText('Le stand');
+
+    // « Revenir à l'accueil » : même chose, sans carte à ouvrir
+    await frame.locator('#btn-retour').click();
+    await expect.poll(() => page.evaluate(() => window.__recus.length)).toBe(2);
+    expect((await page.evaluate(() => window.__recus))[1].data).toEqual({ type: 'cartes:retour' });
+    expect(new URL(frame.url()).pathname).toBe('/demo/');
   });
 
   test('0.37.4 - sans frappe pendant une minute, l\'écran de saisie rend la main', async ({ page }) => {

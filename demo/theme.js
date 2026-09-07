@@ -48,5 +48,16 @@
   // est posé une fois le document construit.
   document.addEventListener('DOMContentLoaded', () => apply(theme));
 
+  /* Le stand ouvre l'écran de génération en couche : une bascule faite dans
+     l'un doit se voir dans l'autre. Le stockage partagé prévient l'autre page
+     (l'événement ne part jamais vers la page qui a écrit). */
+  window.addEventListener('storage', (e) => {
+    if (e.key !== KEY) return;
+    const next = e.newValue === 'dark' ? 'dark' : 'light';
+    if (next === theme) return;
+    apply(next);
+    window.MapFX?.setTheme?.(next);
+  });
+
   window.DemoTheme = { current: () => theme, toggle };
 })();

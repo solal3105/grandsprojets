@@ -77,8 +77,14 @@ scènes. Sur le stand, il ouvre une saisie plein écran (le champ en haut, le
 clavier de la tablette en bas, les propositions entre les deux ; le focus est
 donné dans le geste du visiteur, Android n'ouvre son clavier qu'ainsi) : si la
 carte de la commune existe déjà, elle s'ouvre ; sinon, la génération est
-confiée à l'écran `/demo/`, qui reçoit une **adresse de retour** et ramène ici
-de lui-même. Chaque proposition annonce la durée à prévoir selon la population
+confiée à l'écran `/demo/`, ouvert **en couche lui aussi** (une iframe
+par-dessus la page, jamais à sa place : changer de page ferait sortir la
+tablette du plein écran et remonter la barre du navigateur). Il reçoit une
+**adresse de retour**, le signe qu'il est tenu par le stand ; ouvert en
+couche, il ne navigue pas mais prévient la page par message (`postMessage`,
+même origine, `{ type: 'cartes:retour', ouvrir, nom }`), et c'est elle qui
+referme la couche et ouvre la carte construite. Une bascule de thème faite
+sur l'un des deux écrans se voit sur l'autre (événement `storage`). Chaque proposition annonce la durée à prévoir selon la population
 (`dureeEstimee` : environ 3 minutes sous 3 000 habitants, 3 à 4 jusqu'à
 20 000, 4 à 6 jusqu'à 100 000, 6 à 8 au-delà ; mesures de `demo/README.md`,
 même barème repris par l'écran de génération dans sa première étape). Les
@@ -90,6 +96,11 @@ de la commune, « Emporter cette carte » (un code à scanner, et le lien par
 e-mail via `/api/demo-lead`, réservé aux cartes d'essai puisque l'API n'accepte
 qu'elles). La carte tourne dans une iframe de même origine : les liens vers
 d'autres sites y sont neutralisés et les nouveaux onglets ramenés dans le cadre.
+Un lien resté fermé ne reste pas muet : une bulle se pose près du doigt et
+explique que les autres sites ne s'ouvrent pas sur cet écran, et qu'il faut
+emporter la carte sur son téléphone pour suivre ce lien (même chose, avec un
+autre texte, pour les liens de la page elle-même, comme le logo). Elle
+s'efface d'elle-même après six secondes.
 
 ## Les filets de la veille
 
@@ -137,6 +148,8 @@ détruite (`src` vidé) pour rendre sa mémoire.
   L'adresse est nettoyée à la fermeture.
 - `/demo/?kiosk=1&retour=<chemin>` : l'écran de génération revient à ce chemin
   (même origine uniquement, un chemin absolu, jamais une adresse complète).
+  Ouvert en couche par le stand, il ne navigue pas : il envoie un message à la
+  page, et le chemin ne sert que de repli s'il se retrouve seul.
 
 ## Comment la page est construite
 
