@@ -42,6 +42,15 @@ const routes = [
     component: () => import('@/views/ConfidentialiteView.vue'),
     meta: { title: "Confidentialité et mesure d'audience - Open Projets" },
   },
+  {
+    /* L'estimateur de prix. Volontairement hors de tout menu et de tout plan
+       du site : il sert en rendez-vous, on y vient par son adresse. La refonte
+       entière est en noindex (index-v2.html). */
+    path: '/tarification',
+    name: 'tarification',
+    component: () => import('./views/TarificationView.vue'),
+    meta: { title: 'Tarification - Open Projets' },
+  },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 
