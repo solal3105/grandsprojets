@@ -30,3 +30,6 @@ docs/cahier-des-charges/*.pdf
 
 # Refonte temporaire : produite par la commande de build Netlify
 home2
+
+# Cache de la ligne de commande Supabase, recréé à chaque appel
+supabase/.temp/
