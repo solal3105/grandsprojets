@@ -51,6 +51,15 @@ const routes = [
     component: () => import('./views/TarificationView.vue'),
     meta: { title: 'Tarification - Open Projets' },
   },
+  {
+    /* L'estimation budgétaire à envoyer à une collectivité : un document A4,
+       imprimé en PDF par le navigateur. `document` : sans en-tête ni pied de
+       page du site. */
+    path: '/tarification/estimation',
+    name: 'estimation',
+    component: () => import('./views/EstimationView.vue'),
+    meta: { title: 'Estimation budgétaire - Open Projets', document: true },
+  },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 

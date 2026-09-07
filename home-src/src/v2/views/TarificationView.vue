@@ -172,6 +172,45 @@
                 </button>
               </div>
             </div>
+
+            <!-- L'estimation à envoyer : un document A4 à enregistrer en PDF,
+                 avec le destinataire et notre numéro de suivi. Rien n'est
+                 enregistré : tout passe dans l'adresse du document. -->
+            <form id="estimation-form" class="rounded-3xl border border-gray-border bg-white p-6 sm:p-8 shadow-pill" @submit.prevent="ouvrirEstimation">
+              <div class="flex items-center gap-3">
+                <span class="w-8 h-8 rounded-full bg-primary-ink text-white flex items-center justify-center"><FileText class="w-4 h-4" /></span>
+                <h2 class="font-heading font-bold text-xl sm:text-2xl tracking-tight text-dark">Préparer l'estimation à envoyer</h2>
+              </div>
+              <p class="mt-3 text-sm text-gray-text leading-relaxed">
+                Un document d'une page, aux réglages ci-dessus, à enregistrer en PDF. Il indique qu'il
+                s'agit d'une estimation, pas d'un devis.
+              </p>
+              <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label class="block">
+                  <span class="block text-xs font-medium text-gray-text mb-1.5">Collectivité destinataire</span>
+                  <input v-model="destinataire.collectivite" type="text" required maxlength="120" placeholder="Ville de ..." class="champ" />
+                </label>
+                <label class="block">
+                  <span class="block text-xs font-medium text-gray-text mb-1.5">À l'attention de <span class="text-gray-muted">(facultatif)</span></span>
+                  <input v-model="destinataire.contact" type="text" maxlength="120" placeholder="Prénom Nom, fonction" class="champ" />
+                </label>
+                <label class="block">
+                  <span class="block text-xs font-medium text-gray-text mb-1.5">Notre numéro de suivi <span class="text-gray-muted">(facultatif)</span></span>
+                  <input v-model="destinataire.suivi" type="text" maxlength="40" placeholder="EST-2026-001" class="champ" />
+                </label>
+                <label class="block">
+                  <span class="block text-xs font-medium text-gray-text mb-1.5">Valable jusqu'au</span>
+                  <input v-model="destinataire.valide" type="date" class="champ" />
+                </label>
+              </div>
+              <button
+                type="submit" v-tilt-btn
+                class="mt-6 inline-flex items-center gap-2.5 bg-dark text-white text-[15px] font-medium px-6 py-3.5 rounded-full hover:bg-black transition-colors"
+              >
+                Voir le document
+                <ArrowRight class="w-4 h-4" />
+              </button>
+            </form>
           </div>
 
           <!-- Le résultat, qui suit le défilement -->
@@ -351,7 +390,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, Check, AlertTriangle, ShieldCheck, Users, Layers, CalendarClock, Wrench } from 'lucide-vue-next'
+import { ArrowRight, Check, AlertTriangle, ShieldCheck, Users, Layers, CalendarClock, Wrench, FileText } from 'lucide-vue-next'
 import HeroGround from '../components/HeroGround.vue'
 import ContactBlock from '../components/ContactBlock.vue'
 import { modules, moduleByKey } from '../data/modules.js'
@@ -441,6 +480,32 @@ onMounted(() => {
   if (!route.query.population) router.replace({ query: { population: String(population.value), modules: retenus.value.join(','), annees: String(annees.value) } })
 })
 
+/* Le destinataire de l'estimation. La validité par défaut : soixante jours. */
+const dansSoixanteJours = () => {
+  const d = new Date()
+  d.setDate(d.getDate() + 60)
+  return d.toISOString().slice(0, 10)
+}
+const destinataire = ref({
+  collectivite: String(route.query.collectivite || ''),
+  contact: String(route.query.contact || ''),
+  suivi: String(route.query.suivi || ''),
+  valide: String(route.query.valide || dansSoixanteJours()),
+})
+
+function ouvrirEstimation() {
+  const q = {
+    population: String(population.value),
+    modules: retenus.value.join(','),
+    annees: String(annees.value),
+    collectivite: destinataire.value.collectivite.trim(),
+  }
+  if (destinataire.value.contact.trim()) q.contact = destinataire.value.contact.trim()
+  if (destinataire.value.suivi.trim()) q.suivi = destinataire.value.suivi.trim()
+  if (destinataire.value.valide) q.valide = destinataire.value.valide
+  router.push({ name: 'estimation', query: q })
+}
+
 const regles = [
   {
     icon: Users,
@@ -470,6 +535,18 @@ const regles = [
 </script>
 
 <style scoped>
+.champ {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #FAFAFA;
+  font-size: 15px;
+  color: #111111;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.champ:focus { border-color: #FF0037; background: #ffffff; }
 /* Le curseur : une piste fine, remplie jusqu'au curseur, et un bouton rond
    assez large pour le pouce. */
 .curseur {

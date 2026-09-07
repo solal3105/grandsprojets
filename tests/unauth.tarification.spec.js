@@ -131,4 +131,26 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     expect(attendu({ population: 150000, poids: tous(150000), annees: 4 }).total).toBeGreaterThan(216000);
     await expect(page.locator('#tarif-seuil')).toContainText('procédure formalisée');
   });
+
+  test('0.39.4 - l\'estimation à envoyer est un document sans en-tête de site, avec le destinataire et notre numéro de suivi', async ({ page }) => {
+    await page.goto(`${PAGE}?population=12000&modules=carte,travaux&annees=3`, { waitUntil: 'domcontentloaded' });
+    await page.locator('#estimation-form input[type="text"]').nth(0).fill('Ville de Trifouillis');
+    await page.locator('#estimation-form input[type="text"]').nth(1).fill('Camille Dupont, DGS');
+    await page.locator('#estimation-form input[type="text"]').nth(2).fill('EST-2026-042');
+    await page.locator('#estimation-form button[type="submit"]').click();
+    await expect(page).toHaveURL(/\/tarification\/estimation\?/);
+    await expect(page.locator('#estimation-collectivite')).toHaveText('Ville de Trifouillis');
+    await expect(page.locator('#estimation-suivi')).toHaveText('EST-2026-042');
+    await expect(page.locator('#estimation')).toContainText('Camille Dupont, DGS');
+    await expect(page.locator('#estimation')).toContainText('non contractuel');
+    // Le document porte les mêmes montants que l'estimateur
+    const a = attendu({ population: 12000, poids: [1, 0.6], annees: 3 });
+    await expect.poll(() => page.locator('#estimation-total').textContent().then(nombreDe)).toBe(Math.round(a.total));
+    // Ni menu du site, ni pied de page : le document se suffit
+    expect(await page.locator('header nav').count()).toBe(0);
+    expect(await page.locator('footer a[href]').count()).toBe(0);
+    // Le retour ramène à l'estimateur avec les mêmes réglages
+    await page.getByRole('link', { name: 'Modifier l\'estimation' }).click();
+    await expect(page).toHaveURL(/\/tarification\?.*population=12000/);
+  });
 });
