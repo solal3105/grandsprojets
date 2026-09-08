@@ -106,7 +106,7 @@ function fetchProjects(ville) {
 
 function fetchCityBranding(ville) {
   return fetchRows('city_branding', {
-    select: 'brand_name,logo_url,dark_logo_url,primary_color,center_lat,center_lng,zoom',
+    select: 'brand_name,logo_url,dark_logo_url,primary_color,center_lat,center_lng,zoom,indexable',
     ville: `eq.${ville}`,
     limit: '1',
   }).then(rows => rows[0] || null);
@@ -339,13 +339,15 @@ async function fetchVillesIndex() {
       category_slug: 'not.is.null',
       order: 'id.asc',
     }),
-    fetchAllRows('city_branding', { select: 'ville,brand_name,primary_color', order: 'ville.asc' }),
+    fetchAllRows('city_branding', { select: 'ville,brand_name,primary_color,indexable', order: 'ville.asc' }),
   ]);
   const brandBy = new Map(brandings.map(b => [String(b?.ville || '').toLowerCase(), b]));
   const counts = new Map();
   for (const r of rows) {
     const ville = String(r?.ville || '').toLowerCase();
     if (!/^[a-z0-9-]{1,60}$/.test(ville) || isTestEntry(r?.project_name, r?.category)) continue;
+    // Un espace retiré des moteurs n'est pas relié depuis l'index
+    if (brandBy.get(ville)?.indexable === false) continue;
     counts.set(ville, (counts.get(ville) || 0) + 1);
   }
   return [...counts].map(([slug, count]) => {
@@ -505,11 +507,11 @@ async function renderIndex(context) {
 
 /* ─── Injection dans la coquille ─── */
 
-function injectIntoHtml(html, { villeLabel, metaDesc, canonical, ogImage, jsonLd, brandColor, basemapsJson, content }) {
+function injectIntoHtml(html, { villeLabel, metaDesc, canonical, ogImage, jsonLd, brandColor, basemapsJson, content, robots }) {
   const title = `${villeLabel} : les grands projets urbains à suivre | Open Projets`;
 
   html = html.replace(/<title>[^<]*<\/title>/, () => `<title>${escHtml(title)}</title>`);
-  html = html.replace(/(<meta\s+name="robots"\s+content=")[^"]*"/, (_, p1) => `${p1}index, follow, max-image-preview:large, max-snippet:-1"`);
+  html = html.replace(/(<meta\s+name="robots"\s+content=")[^"]*"/, (_, p1) => `${p1}${robots}"`);
   html = html.replace(/(<meta\s+name="description"\s+content=")[^"]*"/, (_, p1) => `${p1}${escAttr(metaDesc)}"`);
   html = html.replace(/(<link\s+rel="canonical"\s+href=")[^"]*"/, (_, p1) => `${p1}${escAttr(canonical)}"`);
   html = html.replace(/(<link\s+rel="alternate"\s+hreflang="fr"\s+href=")[^"]*"/, (_, p1) => `${p1}${escAttr(canonical)}"`);
@@ -661,7 +663,12 @@ export default async (request, context) => {
     });
   }
 
-  html = injectIntoHtml(html, { villeLabel, metaDesc, canonical, ogImage, jsonLd, brandColor, basemapsJson, content });
+  // Un espace retiré des moteurs (city_branding.indexable = false) reste
+  // servi par lien, mais sa page ville dit aux robots de ne pas l'indexer
+  const robots = branding?.indexable === false
+    ? 'noindex, follow'
+    : 'index, follow, max-image-preview:large, max-snippet:-1';
+  html = injectIntoHtml(html, { villeLabel, metaDesc, canonical, ogImage, jsonLd, brandColor, basemapsJson, content, robots });
 
   return new Response(html, {
     status: 200,
@@ -669,7 +676,7 @@ export default async (request, context) => {
       ...safeShellHeaders(response),
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'public, s-maxage=300, max-age=60, stale-while-revalidate=600',
-      'X-Robots-Tag': 'index, follow, max-image-preview:large, max-snippet:-1',
+      'X-Robots-Tag': robots,
     },
   });
 };

@@ -337,7 +337,7 @@ function fetchRelatedProjects(category, excludeName, ville) {
 function fetchCityBranding(ville) {
   if (!ville) return Promise.resolve(null);
   return fetchRows('city_branding', {
-    select: 'brand_name,primary_color,logo_url',
+    select: 'brand_name,primary_color,logo_url,indexable',
     ville: `eq.${ville.toLowerCase()}`,
     limit: '1',
   }).then(rows => rows[0] || null);
@@ -779,6 +779,13 @@ export default async (request, context) => {
   // Injecter le SEO dans le HTML
   html = injectIntoHtml(html, project, project.category, catLabel, canonical, related, cityBrand, articleHtml, articlePlain);
 
+  // Un espace retiré des moteurs (city_branding.indexable = false) : la page
+  // reste servie et lisible par lien, mais dit aux robots de ne pas l'indexer
+  const robots = cityBrand?.indexable === false
+    ? 'noindex, follow'
+    : 'index, follow, max-image-preview:large, max-snippet:-1';
+  html = html.replace(/(<meta\s+name="robots"\s+content=")[^"]*"/, (_, p1) => `${p1}${robots}"`);
+
   // Retourner la page enrichie avec cache court (les données changent)
   return new Response(html, {
     status: 200,
@@ -786,7 +793,7 @@ export default async (request, context) => {
       ...Object.fromEntries(response.headers.entries()),
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'public, s-maxage=300, max-age=60, stale-while-revalidate=600',
-      'X-Robots-Tag': 'index, follow, max-image-preview:large, max-snippet:-1',
+      'X-Robots-Tag': robots,
     },
   });
 };

@@ -83,10 +83,17 @@ export function duplicateKey(p) {
   ].join('|');
 }
 
+/** Espaces retirés des moteurs (city_branding.indexable = false). */
+export async function fetchNoindexVilles() {
+  const rows = await fetchAllRows('city_branding', { select: 'ville', indexable: 'eq.false' });
+  return new Set(rows.map((r) => String(r?.ville || '').toLowerCase()).filter(Boolean));
+}
+
 /**
  * Toutes les fiches référençables, de la plus récente à la plus ancienne :
  * approuvées, avec une adresse complète (ville, catégorie, slug), un contenu
- * (article ou description), hors entrées de test, sans doublon.
+ * (article ou description), hors entrées de test, hors espaces retirés des
+ * moteurs, sans doublon.
  *
  * @param {string} [select] colonnes PostgREST (les colonnes de filtrage sont
  *   toujours ajoutées)
@@ -94,18 +101,22 @@ export function duplicateKey(p) {
 export async function fetchIndexableProjects(select = '') {
   const REQUIRED = ['project_name', 'category', 'category_slug', 'slug', 'ville', 'markdown_url', 'description', 'created_at'];
   const cols = [...new Set([...REQUIRED, ...select.split(',').map((c) => c.trim()).filter(Boolean)])];
-  const rows = await fetchAllRows('contribution_uploads', {
-    select: cols.join(','),
-    approved: 'eq.true',
-    ville: 'not.is.null',
-    slug: 'not.is.null',
-    category_slug: 'not.is.null',
-    // Tri stable : created_at puis id, sinon deux pages pourraient se chevaucher
-    order: 'created_at.desc,id.desc',
-  });
+  const [rows, noindex] = await Promise.all([
+    fetchAllRows('contribution_uploads', {
+      select: cols.join(','),
+      approved: 'eq.true',
+      ville: 'not.is.null',
+      slug: 'not.is.null',
+      category_slug: 'not.is.null',
+      // Tri stable : created_at puis id, sinon deux pages pourraient se chevaucher
+      order: 'created_at.desc,id.desc',
+    }),
+    fetchNoindexVilles(),
+  ]);
 
   const eligible = rows.filter((p) =>
     p?.project_name && p?.category && p?.ville && p?.category_slug && p?.slug &&
+    !noindex.has(String(p.ville).toLowerCase()) &&
     !isTestEntry(p.project_name, p.category) &&
     (p.markdown_url || String(p.description || '').trim())
   );

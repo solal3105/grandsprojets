@@ -20,6 +20,16 @@ base de données, pages servies en production).
 | `/sitemap.xml` | fonction `sitemap` | toutes les adresses ci-dessus |
 | `/llms.txt` | fonction `llms-txt` | le même inventaire, en markdown, pour les assistants IA |
 
+Un espace entier peut être retiré des moteurs sans être fermé :
+`city_branding.indexable = false` (migration du 8 septembre 2026). Le plan du
+site et `llms.txt` l'ignorent (`fetchNoindexVilles` dans `projects-index.mjs`),
+`fiche-ssr` et `ville-hub` servent ses fiches et sa page ville en `noindex,
+follow`, et l'index `/ville/` ne le relie plus. La carte et les liens partagés
+continuent de fonctionner. Premier espace concerné : le hub national `france`
+(974 fiches importées en avril 2026, sans commune derrière), dont les fiches
+courtes étaient explorées puis écartées par Google et diluaient le budget
+d'exploration des espaces des collectivités.
+
 Les pages qui ne doivent pas être indexées le disent elles-mêmes : `/home2/`,
 `/login/`, `/carte-postale/`, les guides imprimables de l'aide et `/home/helios`
 portent un `noindex`. `/fiche/` sans projet, une fiche inconnue et une ville

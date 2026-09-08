@@ -96,4 +96,35 @@ test.describe('0.66 - sitemap.xml : plan du site', () => {
     expect(fromIndex.size).toBe(fromSitemap.size);
     for (const v of fromSitemap) expect(fromIndex.has(v), v).toBe(true);
   });
+
+  /* Un espace retiré des moteurs (city_branding.indexable = false, le hub
+   * national « france » depuis le 8 septembre 2026) : absent du plan du site
+   * et de llms.txt, sa page ville et ses fiches servies en noindex, et l'index
+   * des villes ne le relie plus. Les pages restent lisibles par lien. */
+  test('0.66.8 - Un espace retiré des moteurs est servi mais ni référencé ni indexable', async ({ request }) => {
+    const [xml, llms, index] = await Promise.all([
+      request.get(SITEMAP).then((r) => r.text()),
+      request.get(LLMS).then((r) => r.text()),
+      request.get('/ville/').then((r) => r.text()),
+    ]);
+    expect(xml).not.toContain('/fiche/france/');
+    expect(xml).not.toContain('/ville/france<');
+    expect(llms).not.toContain('/fiche/france/');
+    expect(index).not.toContain('href="/ville/france"');
+
+    const ville = await request.get('/ville/france');
+    expect(ville.status()).toBe(200);
+    expect(ville.headers()['x-robots-tag']).toContain('noindex');
+    expect(await ville.text()).toMatch(/<meta\s+name="robots"\s+content="noindex, follow"/);
+
+    const fiche = await request.get('/fiche/france/equipement-public/village-des-associations');
+    expect(fiche.status()).toBe(200);
+    expect(fiche.headers()['x-robots-tag']).toContain('noindex');
+    expect(await fiche.text()).toMatch(/<meta\s+name="robots"\s+content="noindex, follow"/);
+
+    // Un espace ordinaire reste indexable : le réglage ne déborde pas
+    const temoin = await request.get('/fiche/metropole-lyon/urbanisme/parc-aux-herissons');
+    expect(temoin.headers()['x-robots-tag']).toContain('index, follow');
+    expect(temoin.headers()['x-robots-tag']).not.toContain('noindex');
+  });
 });
