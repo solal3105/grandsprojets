@@ -66,9 +66,13 @@ const routes = [
 const router = createRouter({
   history: createWebHistory('/home2/'),
   routes,
-  scrollBehavior(to) {
+  scrollBehavior(to, from, savedPosition) {
     // Un defilement anime impose est un declencheur connu de gene vestibulaire
     const doux = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    // Même page, seule l'adresse change (l'estimateur y écrit ses réglages à
+    // chaque clic) : on ne bouge pas. Un retour arrière reprend sa position.
+    if (savedPosition) return savedPosition
+    if (from && to.path === from.path && !to.hash) return false
     if (to.hash) {
       // Laisser la route paresseuse se monter avant de viser l'ancre, et
       // compenser l'en-tête fixe.

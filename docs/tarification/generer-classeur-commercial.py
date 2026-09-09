@@ -3,7 +3,7 @@
 nouvelle grille de prix.
 
 Le classeur reproduit, en formules Excel, le modèle de prix de
-`home-src/src/v2/data/tarification.js` : même courbe en puissance, mêmes
+`home-src/src/v2/data/tarification.mjs` : même courbe en puissance, mêmes
 poids, mêmes remises, même mise en service. Chaque réglage y figure deux
 fois : la valeur du site aujourd'hui (grisée, à ne pas toucher) et la
 proposition (jaune, à remplir). Tous les calculs lisent la proposition, et les
@@ -28,7 +28,7 @@ from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 
 # ---------------------------------------------------------------------------
-# La grille du site aujourd'hui : la copie exacte de tarification.js.
+# La grille du site aujourd'hui : la copie exacte de tarification.mjs.
 # Ce bloc est la seule chose à mettre à jour quand la grille du site change.
 # ---------------------------------------------------------------------------
 

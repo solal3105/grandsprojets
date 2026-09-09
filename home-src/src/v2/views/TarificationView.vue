@@ -35,17 +35,20 @@
                 <h2 class="font-heading font-bold text-xl sm:text-2xl tracking-tight text-dark">La taille de votre commune</h2>
               </div>
 
-              <div class="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <div class="mt-6 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <label for="tarif-population" class="sr-only">Nombre d'habitants</label>
                 <!-- Le champ porte sa propre valeur (v-model) : lie directement a
                      la population, chaque rendu declenche par l'animation des
-                     montants remettait le nombre en place et effacait la frappe -->
+                     montants remettait le nombre en place et effacait la frappe.
+                     Sa largeur suit le nombre tape, pour que « habitants » le
+                     suive sans vide. -->
                 <input
                   id="tarif-population"
                   v-model="populationSaisie"
                   type="text"
                   inputmode="numeric"
-                  class="w-[9ch] bg-transparent font-heading font-bold text-4xl sm:text-5xl tracking-tight text-dark tabular-nums outline-none border-b-2 border-transparent focus:border-primary transition-colors"
+                  :style="{ width: `${Math.max(2, String(populationSaisie).length) + 0.5}ch` }"
+                  class="bg-transparent font-heading font-bold text-4xl sm:text-5xl tracking-tight text-dark tabular-nums outline-none border-b-2 border-transparent focus:border-primary transition-colors"
                   @blur="saisirPopulation()"
                   @keydown.enter.prevent="saisirPopulation(); $event.target.blur()"
                 />
@@ -122,12 +125,14 @@
                   </span>
                   <span class="mt-4 block font-heading font-bold text-base text-dark leading-tight">{{ m.name }}</span>
                   <span class="mt-1 block text-xs text-gray-muted leading-snug">{{ m.tagline }}</span>
-                  <span class="mt-4 flex items-baseline gap-1.5">
+                  <!-- Le prix de chaque module ne se lit qu'en mode commercial :
+                       le visiteur voit la fourchette de l'ensemble, à droite -->
+                  <span v-if="exact" class="mt-4 flex flex-wrap items-baseline gap-x-1.5">
                     <span class="font-heading font-semibold text-lg text-dark tabular-nums" :class="{ 'line-through text-gray-muted font-normal': remiseSur(m.key) }">
-                      {{ euros(prixUnitaire(population) * poidsDe(m.key, population)) }}
+                      {{ euros(prixModule(m.key)) }}
                     </span>
                     <span v-if="remiseSur(m.key)" class="font-heading font-semibold text-lg tabular-nums" :class="m.tone.text">
-                      {{ euros(prixUnitaire(population) * poidsDe(m.key, population) * (1 - estimation.remiseModules.taux)) }}
+                      {{ euros(prixModule(m.key) * (1 - estimation.remiseModules.taux)) }}
                     </span>
                     <span class="text-xs text-gray-muted">/ mois HT</span>
                   </span>
@@ -136,7 +141,7 @@
                     class="absolute -top-2.5 right-4 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold text-white"
                     :class="m.tone.socle"
                   >
-                    -{{ pourcent(estimation.remiseModules.taux) }} sur le plus cher
+                    {{ exact ? `-${pourcent(estimation.remiseModules.taux)} sur le plus cher` : `Remise multi-modules -${pourcent(estimation.remiseModules.taux)}` }}
                   </span>
                 </button>
               </div>
@@ -176,7 +181,7 @@
             <!-- L'estimation à envoyer : un document A4 à enregistrer en PDF,
                  avec le destinataire et notre numéro de suivi. Rien n'est
                  enregistré : tout passe dans l'adresse du document. -->
-            <form id="estimation-form" class="rounded-3xl border border-gray-border bg-white p-6 sm:p-8 shadow-pill" @submit.prevent="ouvrirEstimation">
+            <form v-if="exact" id="estimation-form" class="rounded-3xl border border-gray-border bg-white p-6 sm:p-8 shadow-pill" @submit.prevent="ouvrirEstimation">
               <div class="flex items-center gap-3">
                 <span class="w-8 h-8 rounded-full bg-primary-ink text-white flex items-center justify-center"><FileText class="w-4 h-4" /></span>
                 <h2 class="font-heading font-bold text-xl sm:text-2xl tracking-tight text-dark">Préparer l'estimation à envoyer</h2>
@@ -229,11 +234,11 @@
                 </div>
               </div>
 
-              <p class="mt-6 flex items-baseline gap-2">
-                <span id="tarif-principal" class="font-heading font-bold text-5xl sm:text-[56px] leading-none tracking-tight tabular-nums">{{ euros(principalAnime) }}</span>
+              <p class="mt-6 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span id="tarif-principal" class="font-heading font-bold leading-none tracking-tight tabular-nums" :class="exact ? 'text-5xl sm:text-[56px]' : 'text-3xl sm:text-4xl'">{{ exact ? euros(principalAnime) : `de ${eurosFourchette(principalAnime)}` }}</span>
                 <span class="text-white/60 text-sm">HT {{ periode === 'mois' ? 'par mois' : 'par an' }}</span>
               </p>
-              <p class="mt-2 text-sm text-white/60">
+              <p v-if="exact" class="mt-2 text-sm text-white/60">
                 <template v-if="retenus.length">
                   {{ retenus.length }} {{ retenus.length > 1 ? 'modules' : 'module' }}, engagement {{ annees }} {{ annees > 1 ? 'ans' : 'an' }},
                   {{ nombre(population) }} habitants.
@@ -241,35 +246,44 @@
                 <template v-else>Choisissez au moins un module.</template>
               </p>
 
+              <!-- Le visiteur ne voit que la mise en service, en fourchette :
+                   le détail et les seuils sont réservés au mode commercial -->
+              <div v-if="!exact" id="tarif-mise-en-service" class="mt-7 rounded-2xl border border-white/15 p-4">
+                <p class="text-xs font-semibold uppercase tracking-widest text-white/60">Mise en service et formation des équipes</p>
+                <p class="mt-2 font-heading font-bold text-xl tabular-nums">{{ estimation.setupOfferte ? 'Offerte' : eurosFourchette(estimation.setup) }} <span class="text-sm font-normal text-white/60">HT, une seule fois</span></p>
+              </div>
+
               <!-- Le détail : chaque module, puis les remises, puis le prix -->
-              <dl class="mt-7 border-t border-white/10 text-sm">
-                <div v-for="l in estimation.lignes" :key="l.cle" class="flex items-baseline justify-between gap-4 py-2.5 border-b border-white/10">
-                  <dt class="text-white/80">{{ moduleByKey[l.cle]?.name }}</dt>
-                  <dd class="tabular-nums whitespace-nowrap">{{ euros(l.prix * facteur) }}</dd>
-                </div>
+              <dl v-if="exact" class="mt-7 border-t border-white/10 text-sm">
+                <template v-if="exact">
+                  <div v-for="l in estimation.lignes" :key="l.cle" class="flex items-baseline justify-between gap-4 py-2.5 border-b border-white/10">
+                    <dt class="text-white/80">{{ moduleByKey[l.cle]?.name }}</dt>
+                    <dd class="tabular-nums whitespace-nowrap">{{ euros(l.prix * facteur) }}</dd>
+                  </div>
+                </template>
                 <div v-if="estimation.remiseModules.montant > 0" class="flex items-baseline justify-between gap-4 py-2.5 border-b border-white/10">
-                  <dt class="text-white/80">Plusieurs modules, -{{ pourcent(estimation.remiseModules.taux) }} sur {{ moduleByKey[estimation.remiseModules.module]?.short }}</dt>
-                  <dd class="tabular-nums whitespace-nowrap text-green">-{{ euros(estimation.remiseModules.montant * facteur) }}</dd>
+                  <dt class="text-white/80">{{ exact ? `Plusieurs modules, -${pourcent(estimation.remiseModules.taux)} sur ${moduleByKey[estimation.remiseModules.module]?.short}` : 'Remise multi-modules' }}</dt>
+                  <dd class="tabular-nums whitespace-nowrap text-green">-{{ exact ? euros(estimation.remiseModules.montant * facteur) : pourcent(estimation.remiseModules.taux) }}</dd>
                 </div>
                 <div v-if="estimation.remiseEngagement.montant > 0" class="flex items-baseline justify-between gap-4 py-2.5 border-b border-white/10">
                   <dt class="text-white/80">Engagement {{ annees }} ans, -{{ pourcent(estimation.remiseEngagement.taux) }}</dt>
-                  <dd class="tabular-nums whitespace-nowrap text-green">-{{ euros(estimation.remiseEngagement.montant * facteur) }}</dd>
+                  <dd class="tabular-nums whitespace-nowrap text-green">-{{ exact ? euros(estimation.remiseEngagement.montant * facteur) : pourcent(estimation.remiseEngagement.taux) }}</dd>
                 </div>
                 <div class="flex items-baseline justify-between gap-4 py-2.5 border-b border-white/10 font-semibold">
                   <dt>Abonnement {{ periode === 'mois' ? 'mensuel' : 'annuel' }}</dt>
-                  <dd id="tarif-abonnement" class="tabular-nums whitespace-nowrap">{{ euros(estimation.mensuel * facteur) }}</dd>
+                  <dd id="tarif-abonnement" class="tabular-nums whitespace-nowrap">{{ montant(estimation.mensuel * facteur) }}</dd>
                 </div>
                 <div class="flex items-baseline justify-between gap-4 py-2.5 border-b border-white/10">
                   <dt class="text-white/80">Mise en service, une fois<br /><span class="text-xs text-white/50">{{ estimation.setupOfferte ? `Offerte aux communes de moins de ${nombre(MISE_EN_SERVICE.offerteSous)} habitants` : `${MISE_EN_SERVICE.mois} mois d'abonnement, payés la première année` }}</span></dt>
-                  <dd id="tarif-setup" class="tabular-nums whitespace-nowrap">{{ estimation.setupOfferte ? 'Offerte' : euros(estimation.setup) }}</dd>
+                  <dd id="tarif-setup" class="tabular-nums whitespace-nowrap">{{ estimation.setupOfferte ? 'Offerte' : montant(estimation.setup) }}</dd>
                 </div>
               </dl>
 
               <!-- Le total sur la durée, face aux seuils des marchés publics -->
-              <div class="mt-6">
+              <div v-if="exact" class="mt-6">
                 <div class="flex items-baseline justify-between gap-4">
                   <span class="text-sm text-white/80">Total sur {{ annees }} {{ annees > 1 ? 'ans' : 'an' }}, mise en service comprise<br /><span class="text-xs text-white/50">C'est ce montant que la commande publique regarde</span></span>
-                  <span id="tarif-total" class="font-heading font-bold text-2xl tabular-nums whitespace-nowrap">{{ euros(totalAnime) }} <span class="text-sm font-normal text-white/60">HT</span></span>
+                  <span id="tarif-total" class="font-heading font-bold tabular-nums whitespace-nowrap" :class="exact ? 'text-2xl' : 'text-lg'">{{ montant(totalAnime) }} <span class="text-sm font-normal text-white/60">HT</span></span>
                 </div>
 
                 <div class="relative mt-4 h-2 rounded-full bg-white/10" aria-hidden="true">
@@ -303,6 +317,39 @@
                 </p>
               </div>
 
+              <!-- La demande du tarif exact : elle part à l'équipe par
+                   /api/tarif-lead, avec un accusé de réception au demandeur.
+                   La fourchette reste à l'écran : c'est l'équipe qui annonce
+                   le prix, en connaissant le dossier. -->
+              <div v-if="!exact" id="tarif-exact" class="mt-6 rounded-2xl bg-white/10 p-4">
+                <p v-if="demande.envoyee" id="tarif-exact-merci" class="text-sm leading-relaxed" role="status">
+                  Merci, nous avons bien reçu votre demande.
+                  {{ demande.mailee ? `Un message de confirmation vient de partir à ${demande.email}, et un membre de l'équipe vous communique le tarif exact.` : `Un membre de l'équipe vous communique le tarif exact à ${demande.email}.` }}
+                </p>
+                <form v-else id="tarif-exact-form" @submit.prevent="demanderTarifExact">
+                  <p class="text-sm leading-relaxed">Cette fourchette est indicative. Laissez-nous votre adresse e-mail et un membre de l'équipe vous communique le tarif exact pour ces réglages.</p>
+                  <div class="mt-3 grid grid-cols-1 gap-2">
+                    <label class="block">
+                      <span class="sr-only">Adresse e-mail</span>
+                      <input id="tarif-exact-email" v-model="demande.email" type="email" required maxlength="160" autocomplete="email" placeholder="vous@votre-collectivite.fr" class="champ-sombre" />
+                    </label>
+                    <label class="block">
+                      <span class="sr-only">Téléphone, facultatif</span>
+                      <input id="tarif-exact-tel" v-model="demande.telephone" type="tel" maxlength="30" autocomplete="tel" placeholder="Téléphone (facultatif)" class="champ-sombre" />
+                    </label>
+                  </div>
+                  <button
+                    type="submit" :disabled="demande.envoi"
+                    class="mt-3 w-full inline-flex items-center justify-center gap-2.5 bg-white text-dark text-[15px] font-medium px-6 py-3.5 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-60"
+                  >
+                    {{ demande.envoi ? 'Un instant' : 'Demander le tarif exact' }}
+                    <ArrowRight v-if="!demande.envoi" class="w-4 h-4" />
+                  </button>
+                  <p v-if="demande.erreur" class="mt-2 text-xs text-amber" role="alert">{{ demande.erreur }}</p>
+                  <p class="mt-2 text-[11px] text-white/50 leading-relaxed">Nous nous en servons pour vous répondre sur cette estimation, rien d'autre.</p>
+                </form>
+              </div>
+
               <router-link
                 :to="{ hash: '#contact' }" v-tilt-btn
                 class="mt-6 w-full inline-flex items-center justify-center gap-2.5 bg-primary text-white text-[15px] font-medium px-6 py-4 rounded-full hover:bg-red-600 transition-colors"
@@ -316,26 +363,8 @@
       </div>
     </section>
 
-    <!-- Les règles, en clair : ce que le détail du prix applique -->
-    <section class="py-20 sm:py-28 bg-gray-bg">
-      <div class="max-w-container mx-auto px-6">
-        <h2 class="font-heading font-bold text-3xl sm:text-4xl leading-[1.08] tracking-tight text-dark max-w-[720px]">
-          Comment le prix se calcule
-        </h2>
-        <div class="mt-10 grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div v-for="r in regles" :key="r.titre" class="bg-white rounded-3xl border border-gray-border p-7">
-            <span class="w-10 h-10 rounded-xl flex items-center justify-center" :class="r.tone.bg">
-              <component :is="r.icon" class="w-[18px] h-[18px]" :class="r.tone.text" />
-            </span>
-            <h3 class="mt-5 font-heading font-bold text-lg text-dark leading-tight">{{ r.titre }}</h3>
-            <p class="mt-2.5 text-sm text-gray-text leading-relaxed">{{ r.texte }}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- Ce que dit la commande publique. Chaque phrase renvoie a un article
-         du code (voir data/tarification.js) : une collectivite lira cette
+         du code (voir data/tarification.mjs) : une collectivite lira cette
          page avec son service des marches. -->
     <section class="py-20 sm:py-28 bg-white">
       <div class="max-w-container mx-auto px-6">
@@ -390,19 +419,24 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, Check, AlertTriangle, ShieldCheck, Users, Layers, CalendarClock, Wrench, FileText } from 'lucide-vue-next'
+import { ArrowRight, Check, AlertTriangle, ShieldCheck, FileText } from 'lucide-vue-next'
 import HeroGround from '../components/HeroGround.vue'
 import ContactBlock from '../components/ContactBlock.vue'
 import { modules, moduleByKey } from '../data/modules.js'
 import {
   POIDS, POPULATION, REPERES, ENGAGEMENTS, SEUILS, SOUS_LES_SEUILS, MISE_EN_SERVICE,
   estimer, prixUnitaire, poidsDe, curseurVersPopulation, populationVersCurseur, borner,
-  euros, nombre, pourcent,
-} from '../data/tarification.js'
+  euros, eurosFourchette, nombre, pourcent,
+} from '../data/tarification.mjs'
 import { useChiffreAnime } from '../composables/useChiffreAnime.js'
+import { useTarifExact } from '../composables/useTarifExact.js'
 
 const route = useRoute()
 const router = useRouter()
+
+/* Fourchette ou tarif exact : voir composables/useTarifExact.js */
+const exact = useTarifExact(route, router)
+const montant = (v) => (exact.value ? euros(v) : eurosFourchette(v))
 
 /* Les modules qui ont un prix, dans l'ordre de la vitrine */
 const offre = modules.filter((m) => POIDS[m.key] != null)
@@ -451,6 +485,42 @@ function basculer(cle) {
 const estimation = computed(() => estimer({ population: population.value, modules: retenus.value, annees: annees.value }))
 // Le module qui porte la remise multi-modules, quand il y en a une
 const remiseSur = (cle) => estimation.value.remiseModules.taux > 0 && estimation.value.remiseModules.module === cle
+const prixModule = (cle) => prixUnitaire(population.value) * poidsDe(cle, population.value)
+
+/* La demande du tarif exact : une adresse, un téléphone si l'on veut, et les
+ * réglages du moment. La fonction /api/tarif-lead prévient l'équipe, envoie
+ * l'accusé de réception et range la demande avec les demandes de contact.
+ * `mailee` dit si l'accusé est bien parti : l'écran ne promet un message que
+ * s'il a eu lieu. */
+const demande = ref({ email: '', telephone: '', envoi: false, envoyee: false, mailee: false, erreur: '' })
+
+async function demanderTarifExact() {
+  demande.value.envoi = true
+  demande.value.erreur = ''
+  try {
+    const r = await fetch('/api/tarif-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: demande.value.email.trim(),
+        telephone: demande.value.telephone.trim(),
+        population: population.value,
+        modules: retenus.value,
+        annees: annees.value,
+      }),
+    })
+    const corps = await r.json().catch(() => ({}))
+    if (!r.ok || !corps.ok) throw new Error(corps.error || `HTTP ${r.status}`)
+    demande.value.envoyee = true
+    demande.value.mailee = corps.mailed === true
+    window.OPAnalytics?.capture('tarif_demande_envoyee', { has_phone: !!demande.value.telephone.trim(), modules: retenus.value.length, annees: annees.value })
+  } catch (err) {
+    console.error('[Tarification] demande de tarif refusée :', err)
+    demande.value.erreur = "Nous n'avons pas pu envoyer votre demande. Réessayez dans un instant, ou écrivez-nous par le formulaire en bas de page."
+  } finally {
+    demande.value.envoi = false
+  }
+}
 const facteur = computed(() => (periode.value === 'mois' ? 1 : 12))
 const principal = computed(() => estimation.value.mensuel * facteur.value)
 const principalAnime = useChiffreAnime(principal)
@@ -506,32 +576,6 @@ function ouvrirEstimation() {
   router.push({ name: 'estimation', query: q })
 }
 
-const regles = [
-  {
-    icon: Users,
-    tone: { text: 'text-mod-carte', bg: 'bg-mod-carte-soft' },
-    titre: 'Le prix suit la taille de votre commune',
-    texte: "Plus votre commune compte d'habitants, plus sa carte sert de monde, et plus l'abonnement est élevé. La progression reste douce : une ville dix fois plus peuplée qu'une autre paie environ trois fois plus.",
-  },
-  {
-    icon: Layers,
-    tone: { text: 'text-mod-participer', bg: 'bg-mod-participer-soft' },
-    titre: 'Chaque module a son prix, et les combiner coûte moins cher',
-    texte: "Le prix de chaque module est affiché sur sa carte, plus haut dans la page. Dès le deuxième module, le plus cher de ceux que vous activez baisse de 10 % par module ajouté, jusqu'à 40 % avec les cinq. Chantiers et arrêtés est à moitié prix pour les communes de moins de 5 000 habitants.",
-  },
-  {
-    icon: CalendarClock,
-    tone: { text: 'text-mod-travaux', bg: 'bg-mod-travaux-soft' },
-    titre: "S'engager plus longtemps baisse l'abonnement",
-    texte: "Deux ans d'engagement font baisser l'abonnement de 10 % chaque année, trois ans de 15 %, quatre ans de 20 %. Nous nous arrêtons à quatre ans : c'est la durée maximale d'un accord-cadre pour une collectivité.",
-  },
-  {
-    icon: Wrench,
-    tone: { text: 'text-mod-diagnostic', bg: 'bg-mod-diagnostic-soft' },
-    titre: `La mise en service coûte ${MISE_EN_SERVICE.mois} mois d'abonnement`,
-    texte: `Nous montons votre espace avec vous : vos catégories, votre identité visuelle, vos premières fiches, la formation de votre équipe. Ce travail est facturé une seule fois, la première année, et vaut ${MISE_EN_SERVICE.mois} mois d'abonnement au tarif que vous avez obtenu.${MISE_EN_SERVICE.offerteSous > 0 ? ` Il est offert aux communes de moins de ${nombre(MISE_EN_SERVICE.offerteSous)} habitants.` : ''}`,
-  },
-]
 </script>
 
 <style scoped>
@@ -547,6 +591,20 @@ const regles = [
   transition: border-color 0.2s ease;
 }
 .champ:focus { border-color: #FF0037; background: #ffffff; }
+/* Le même champ, posé sur la carte sombre du résultat */
+.champ-sombre {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 15px;
+  color: #ffffff;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.champ-sombre::placeholder { color: rgba(255, 255, 255, 0.45); }
+.champ-sombre:focus { border-color: #ffffff; }
 /* Le curseur : une piste fine, remplie jusqu'au curseur, et un bouton rond
    assez large pour le pouce. */
 .curseur {

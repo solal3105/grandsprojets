@@ -61,6 +61,15 @@ export const CHANTIERS_DEMI_POIDS = { sous: 5000, plein: 20000 }
  * offerte ; un nombre d'habitants l'offrirait aux communes en dessous. */
 export const MISE_EN_SERVICE = { mois: 6, offerteSous: 0 }
 
+/* Ce que voit un visiteur qui n'a pas laissé son adresse : une fourchette
+ * autour du prix, à plus ou moins cette marge, arrondie vers l'extérieur au
+ * pas qui convient au montant (10 € sous 1 000 €, 100 € sous 10 000 €,
+ * 1 000 € sous 100 000 €, 10 000 € au-delà). Le tarif exact se demande (le
+ * visiteur laisse son adresse, l'équipe le rappelle : fonction tarif-lead) et
+ * ne s'affiche d'emblée que pour l'équipe commerciale (`?commercial=1`, voir
+ * composables/useTarifExact.js). */
+export const FOURCHETTE = { marge: 0.2 }
+
 /* Remise sur le module le plus cher : ce taux par module ajouté au premier */
 export const REMISE_PAR_MODULE_AJOUTE = 0.10
 
@@ -232,4 +241,29 @@ export function nombre(n) {
 
 export function pourcent(taux) {
   return `${Math.round((Number(taux) || 0) * 100)} %`
+}
+
+export function pasDArrondi(montant) {
+  const v = Math.abs(Number(montant) || 0)
+  if (v < 1000) return 10
+  if (v < 10000) return 100
+  if (v < 100000) return 1000
+  return 10000
+}
+
+/* La fourchette d'un montant : le bas arrondi vers le bas, le haut vers le
+ * haut, au pas du montant lui-même, pour que le prix exact soit toujours
+ * dedans. */
+export function fourchette(montant) {
+  const v = Math.max(0, Number(montant) || 0)
+  const pas = pasDArrondi(v)
+  return {
+    bas: Math.floor((v * (1 - FOURCHETTE.marge)) / pas) * pas,
+    haut: Math.ceil((v * (1 + FOURCHETTE.marge)) / pas) * pas,
+  }
+}
+
+export function eurosFourchette(montant) {
+  const f = fourchette(montant)
+  return `${formatEntier.format(f.bas)} à ${formatEntier.format(f.haut)} €`
 }
