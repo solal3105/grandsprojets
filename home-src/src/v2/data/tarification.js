@@ -3,13 +3,13 @@
  * Tout ce qui est un chiffre de politique tarifaire est ici, en tête, et
  * nulle part ailleurs : la page ne fait que lire `estimer()`. Les règles :
  *
- *  1. Le prix d'un module suit la population en PUISSANCE 0,6 : une commune
- *     dix fois plus peuplée paie quatre fois plus. C'est la forme des grilles
- *     publiées par le marché (étude de marché conservée hors dépôt,
- *     septembre 2026) ; une droite logarithmique, essayée d'abord, était
- *     quatre à six fois trop chère pour les villages et très en dessous du
- *     marché pour les grandes villes. Une seule ancre fixe toute la courbe :
- *     le prix d'une unité de poids pour 12 000 habitants.
+ *  1. Le prix d'un module suit la population en PUISSANCE 0,5 : une commune
+ *     dix fois plus peuplée paie un peu plus de trois fois plus. C'est la
+ *     forme des grilles publiées par le marché (étude de marché conservée
+ *     hors dépôt, septembre 2026) ; une droite logarithmique, essayée
+ *     d'abord, était quatre à six fois trop chère pour les villages et très
+ *     en dessous du marché pour les grandes villes. Une seule ancre fixe
+ *     toute la courbe : le prix d'une unité de poids pour 12 000 habitants.
  *  2. Chaque module a un POIDS : son prix est l'unité fois son poids. Le
  *     module chantiers est à demi-poids pour les petites communes.
  *  3. Prendre plusieurs modules fait baisser LE PLUS CHER d'entre eux :
@@ -18,18 +18,23 @@
  *  4. L'engagement fait baisser l'abonnement entier, chaque année : 2 ans
  *     -10 %, 3 ans -15 %, 4 ans -20 % (le marché offre trois mois pour deux
  *     ans et six mois pour trois ans).
- *  5. La mise en service coûte trois mois d'abonnement, tel qu'il sort après
- *     toutes les remises, une seule fois. Elle est offerte aux communes de
- *     moins de 2 000 habitants : aucun éditeur à prix public n'en facture sur
- *     ce segment.
+ *  5. La mise en service coûte six mois d'abonnement, tel qu'il sort après
+ *     toutes les remises, une seule fois. Elle n'est offerte à aucune commune
+ *     (le seuil `offerteSous` est à zéro ; un seuil d'habitants la rendrait
+ *     gratuite en dessous).
+ *
+ * Les chiffres en vigueur sont ceux validés par l'équipe commerciale le
+ * 9 septembre 2026 avec le classeur de `docs/tarification/` : quand ils
+ * changent, on met aussi à jour le bloc « site aujourd'hui » du générateur
+ * de ce classeur et le test `tests/unauth.tarification.spec.js`.
  *
  * Tous les montants sont hors taxes. */
 
 /* La courbe : prix mensuel HT d'une unité de poids à l'ancre, et l'exposant
  * qui dit à quelle vitesse il monte avec la population. Ce sont LES deux
  * chiffres à régler pour déplacer toute la grille. */
-export const ANCRE = { population: 12000, prix: 300 }
-export const EXPOSANT = 0.6
+export const ANCRE = { population: 12000, prix: 200 }
+export const EXPOSANT = 0.5
 
 /* La population que la page laisse choisir. En dessous de 500 habitants le
  * curseur n'a plus de sens, au-dessus de 2,5 millions il n'y a plus de
@@ -43,7 +48,7 @@ export const POIDS = {
   travaux: 0.6,
   participer: 2,
   diagnostic: 0.8,
-  chantiers: 4,
+  chantiers: 3,
 }
 
 /* Le module chantiers vaut la moitié de son poids sous 5 000 habitants, son
@@ -52,8 +57,9 @@ export const POIDS = {
  * facture à une ville moyenne. */
 export const CHANTIERS_DEMI_POIDS = { sous: 5000, plein: 20000 }
 
-/* La mise en service : trois mois d'abonnement, offerte sous 2 000 habitants */
-export const MISE_EN_SERVICE = { mois: 3, offerteSous: 2000 }
+/* La mise en service : six mois d'abonnement. `offerteSous` à 0 : jamais
+ * offerte ; un nombre d'habitants l'offrirait aux communes en dessous. */
+export const MISE_EN_SERVICE = { mois: 6, offerteSous: 0 }
 
 /* Remise sur le module le plus cher : ce taux par module ajouté au premier */
 export const REMISE_PAR_MODULE_AJOUTE = 0.10

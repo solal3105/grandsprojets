@@ -511,7 +511,7 @@ const regles = [
     icon: Users,
     tone: { text: 'text-mod-carte', bg: 'bg-mod-carte-soft' },
     titre: 'Le prix suit la taille de votre commune',
-    texte: "Plus votre commune compte d'habitants, plus sa carte sert de monde, et plus l'abonnement est élevé. La progression reste douce : une ville dix fois plus peuplée qu'une autre paie environ quatre fois plus.",
+    texte: "Plus votre commune compte d'habitants, plus sa carte sert de monde, et plus l'abonnement est élevé. La progression reste douce : une ville dix fois plus peuplée qu'une autre paie environ trois fois plus.",
   },
   {
     icon: Layers,
@@ -528,8 +528,8 @@ const regles = [
   {
     icon: Wrench,
     tone: { text: 'text-mod-diagnostic', bg: 'bg-mod-diagnostic-soft' },
-    titre: 'La mise en service coûte trois mois d\'abonnement',
-    texte: "Nous montons votre espace avec vous : vos catégories, votre identité visuelle, vos premières fiches, la formation de votre équipe. Ce travail est facturé une seule fois, la première année, et vaut trois mois d'abonnement au tarif que vous avez obtenu. Il est offert aux communes de moins de 2 000 habitants.",
+    titre: `La mise en service coûte ${MISE_EN_SERVICE.mois} mois d'abonnement`,
+    texte: `Nous montons votre espace avec vous : vos catégories, votre identité visuelle, vos premières fiches, la formation de votre équipe. Ce travail est facturé une seule fois, la première année, et vaut ${MISE_EN_SERVICE.mois} mois d'abonnement au tarif que vous avez obtenu.${MISE_EN_SERVICE.offerteSous > 0 ? ` Il est offert aux communes de moins de ${nombre(MISE_EN_SERVICE.offerteSous)} habitants.` : ''}`,
   },
 ]
 </script>

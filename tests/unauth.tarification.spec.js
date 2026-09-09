@@ -4,11 +4,12 @@ import { test, expect } from '@playwright/test';
 /**
  * L'estimateur de prix de la refonte (/home2/tarification) : une page hors de
  * tout menu, dans une version du site en noindex. Les règles : prix de base
- * en puissance 0,6 de la population, un poids par module (chantiers à
+ * en puissance 0,5 de la population, un poids par module (chantiers à
  * demi-poids sous 5 000 habitants), une remise sur le module le plus cher dès
- * le deuxième, une remise d'engagement, une mise en service de trois mois
- * (offerte sous 2 000 habitants), et le total sur la durée mis en regard des
- * seuils des marchés publics.
+ * le deuxième, une remise d'engagement, une mise en service de six mois
+ * (jamais offerte), et le total sur la durée mis en regard des seuils des
+ * marchés publics. Grille validée par l'équipe commerciale le 9 septembre
+ * 2026.
  *
  * /home2/ est un artefact de build (home-src `npm run build:v2`) qui n'est pas
  * versionné : sans lui, la section est passée, pas échouée.
@@ -21,22 +22,22 @@ const PAGE = '/home2/tarification';
 /* Les mêmes règles que home-src/src/v2/data/tarification.js, recalculées ici
  * à la main : le test vérifie la page, pas le fichier qui la nourrit. */
 function attendu({ population, poids, annees }) {
-  const unite = 300 * (population / 12000) ** 0.6;
+  const unite = 200 * (population / 12000) ** 0.5;
   const prix = poids.map((p) => unite * p);
   const brut = prix.reduce((s, p) => s + p, 0);
   const remiseModules = Math.max(...prix) * 0.1 * (poids.length - 1);
   const remiseEngagement = { 1: 0, 2: 0.1, 3: 0.15, 4: 0.2 }[annees];
   const mensuel = (brut - remiseModules) * (1 - remiseEngagement);
-  const setup = population < 2000 ? 0 : mensuel * 3;
+  const setup = mensuel * 6;
   return { mensuel, annuel: mensuel * 12, setup, total: setup + mensuel * 12 * annees };
 }
 
 /* Le poids du module chantiers : la moitié sous 5 000 habitants, plein à
  * partir de 20 000, en pente logarithmique entre les deux */
 const chantiers = (population) => {
-  if (population <= 5000) return 2;
-  if (population >= 20000) return 4;
-  return 4 * (0.5 + 0.5 * (Math.log(population) - Math.log(5000)) / (Math.log(20000) - Math.log(5000)));
+  if (population <= 5000) return 1.5;
+  if (population >= 20000) return 3;
+  return 3 * (0.5 + 0.5 * (Math.log(population) - Math.log(5000)) / (Math.log(20000) - Math.log(5000)));
 };
 
 const nombreDe = (texte) => Number(String(texte).replace(/[^\d]/g, ''));
@@ -71,7 +72,7 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     }
     // Trois modules : -20 % sur le plus cher, les chantiers
     await expect(page.locator('[data-module="chantiers"]')).toContainText('-20 % sur le plus cher');
-    const a = attendu({ population: 50000, poids: [1, 0.6, 4], annees: 4 });
+    const a = attendu({ population: 50000, poids: [1, 0.6, 3], annees: 4 });
     await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(a.mensuel));
     await expect.poll(() => page.locator('#tarif-setup').textContent().then(nombreDe)).toBe(Math.round(a.setup));
     await expect.poll(() => page.locator('#tarif-total').textContent().then(nombreDe)).toBe(Math.round(a.total));
@@ -90,15 +91,15 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     const b = attendu({ population: 50000, poids: [1, 0.6], annees: 1 });
     await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(b.annuel));
 
-    // Une population tapée à la main est prise telle quelle, et sous 2 000
-    // habitants la mise en service est offerte
+    // Une population tapée à la main est prise telle quelle, et même un
+    // village paie la mise en service
     await page.locator('#tarif-population').fill('800');
     await page.locator('#tarif-population').press('Enter');
     await expect.poll(adresse).toMatch(/population=800(&|$)/);
     const c = attendu({ population: 800, poids: [1, 0.6], annees: 1 });
     await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(c.annuel));
-    await expect(page.locator('#tarif-setup')).toHaveText('Offerte');
-    await expect.poll(() => page.locator('#tarif-total').textContent().then(nombreDe)).toBe(Math.round(c.annuel));
+    await expect.poll(() => page.locator('#tarif-setup').textContent().then(nombreDe)).toBe(Math.round(c.setup));
+    await expect.poll(() => page.locator('#tarif-total').textContent().then(nombreDe)).toBe(Math.round(c.total));
 
     // Le module chantiers est à demi-poids pour un bourg
     await page.locator('#tarif-population').fill('3000');
@@ -113,22 +114,22 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     // Une petite ville, la carte seule, un an : loin sous 60 000 € HT
     await page.goto(`${PAGE}?population=12000&modules=carte&annees=1`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#tarif-seuil')).toContainText('sans publicité ni mise en concurrence');
-    // Une ville moyenne, tous les modules, un an : entre 60 000 et 90 000 €, procédure adaptée
-    await page.goto(`${PAGE}?population=50000&modules=carte,travaux,chantiers,participer,diagnostic&annees=1`, { waitUntil: 'domcontentloaded' });
-    const a = attendu({ population: 50000, poids: tous(50000), annees: 1 });
+    // Une ville moyenne, tous les modules, deux ans : entre 60 000 et 90 000 €, procédure adaptée
+    await page.goto(`${PAGE}?population=50000&modules=carte,travaux,chantiers,participer,diagnostic&annees=2`, { waitUntil: 'domcontentloaded' });
+    const a = attendu({ population: 50000, poids: tous(50000), annees: 2 });
     expect(a.total).toBeGreaterThan(60000);
     expect(a.total).toBeLessThan(90000);
     await expect(page.locator('#tarif-seuil')).toContainText('procédure adaptée');
     await expect(page.locator('#tarif-seuil')).not.toContainText('BOAMP');
-    // La même sur deux ans : la publicité devient obligatoire
-    await page.goto(`${PAGE}?population=50000&modules=carte,travaux,chantiers,participer,diagnostic&annees=2`, { waitUntil: 'domcontentloaded' });
-    const b = attendu({ population: 50000, poids: tous(50000), annees: 2 });
+    // Une grande ville sur quatre ans : la publicité devient obligatoire
+    await page.goto(`${PAGE}?population=150000&modules=carte,travaux,chantiers,participer,diagnostic&annees=4`, { waitUntil: 'domcontentloaded' });
+    const b = attendu({ population: 150000, poids: tous(150000), annees: 4 });
     expect(b.total).toBeGreaterThan(90000);
     expect(b.total).toBeLessThan(216000);
     await expect(page.locator('#tarif-seuil')).toContainText('BOAMP');
-    // Une grande ville sur quatre ans : au-delà du seuil européen, procédure formalisée
-    await page.goto(`${PAGE}?population=150000&modules=carte,travaux,chantiers,participer,diagnostic&annees=4`, { waitUntil: 'domcontentloaded' });
-    expect(attendu({ population: 150000, poids: tous(150000), annees: 4 }).total).toBeGreaterThan(216000);
+    // Une métropole sur quatre ans : au-delà du seuil européen, procédure formalisée
+    await page.goto(`${PAGE}?population=500000&modules=carte,travaux,chantiers,participer,diagnostic&annees=4`, { waitUntil: 'domcontentloaded' });
+    expect(attendu({ population: 500000, poids: tous(500000), annees: 4 }).total).toBeGreaterThan(216000);
     await expect(page.locator('#tarif-seuil')).toContainText('procédure formalisée');
   });
 
