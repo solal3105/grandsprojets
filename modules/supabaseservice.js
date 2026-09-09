@@ -2630,6 +2630,32 @@
      * @param {string} id - UUID de la couche
      * @returns {Promise<{success: boolean, error: Error|null}>}
      */
+    /**
+     * Enregistre l'ordre des couches du diagnostic d'une ville.
+     * @param {string} ville
+     * @param {Array<{id: string, sort_order: number}>} order
+     * @returns {Promise<{success: boolean, error: Error|null}>}
+     */
+    updateDiagnosticLayersOrder: async function(ville, order) {
+      try {
+        if (!ville || !Array.isArray(order)) return { success: false, error: new Error('ville et order requis') };
+        const results = await Promise.all(order.map(({ id, sort_order }) => supabaseClient
+          .from('diagnostic_layers')
+          .update({ sort_order, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .eq('ville', ville)));
+        const failed = results.find((r) => r.error);
+        if (failed) {
+          console.error('[supabaseService] updateDiagnosticLayersOrder error:', failed.error);
+          return { success: false, error: failed.error };
+        }
+        return { success: true, error: null };
+      } catch (e) {
+        console.error('[supabaseService] updateDiagnosticLayersOrder exception:', e);
+        return { success: false, error: e };
+      }
+    },
+
     deleteDiagnosticLayer: async function(ville, id) {
       try {
         if (!ville || !id) return { success: false, error: new Error('ville et id requis') };
@@ -2656,11 +2682,27 @@
     uploadDiagnosticGeoJSON: async function(ville, geojson) {
       try {
         if (!ville || !geojson) throw new Error('Paramètres manquants');
-        const path = `diagnostic/${ville}/${crypto.randomUUID()}.geojson`;
-        const blob = new Blob([JSON.stringify(geojson)], { type: 'application/geo+json' });
+        // Compressé avant l'envoi (gzip natif du navigateur) : une couche de
+        // 100 Mo pèse 10 à 15 Mo, sous le plafond par objet du stockage, et se
+        // recharge d'autant plus vite. Le lecteur (diagnostic/data.js) décompresse.
+        const json = JSON.stringify(geojson);
+        let blob = new Blob([json], { type: 'application/geo+json' });
+        let ext = 'geojson';
+        let contentType = 'application/geo+json';
+        if (typeof CompressionStream === 'function') {
+          const stream = blob.stream().pipeThrough(new CompressionStream('gzip'));
+          blob = await new Response(stream).blob();
+          ext = 'geojson.gz';
+          contentType = 'application/gzip';
+        }
+        const MAX_BYTES = 45 * 1024 * 1024;
+        if (blob.size > MAX_BYTES) {
+          throw new Error(`La couche reste trop volumineuse pour être enregistrée (${Math.round(blob.size / 1048576)} Mo compressés). Gardez moins de colonnes, une seule année ou un territoire plus petit.`);
+        }
+        const path = `diagnostic/${ville}/${crypto.randomUUID()}.${ext}`;
         const { error } = await supabaseClient.storage
           .from('uploads')
-          .upload(path, blob, { contentType: 'application/geo+json', upsert: false });
+          .upload(path, blob, { contentType, upsert: false });
         if (error) {
           console.error('[supabaseService] uploadDiagnosticGeoJSON error:', error);
           throw error;

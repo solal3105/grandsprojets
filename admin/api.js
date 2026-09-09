@@ -221,12 +221,28 @@ export async function upsertDiagnosticLayer(layer) {
   return svc().upsertDiagnosticLayer(requireCity(), layer);
 }
 
+export async function updateDiagnosticLayersOrder(order) {
+  return svc().updateDiagnosticLayersOrder(requireCity(), order);
+}
+
 export async function deleteDiagnosticLayer(id) {
   return svc().deleteDiagnosticLayer(requireCity(), id);
 }
 
+/** Arrondit les coordonnées à 6 décimales (~10 cm) : un tracé de SIG en porte souvent 12 pour rien. */
+function compactGeoJSON(geojson) {
+  const round = (n) => (typeof n === 'number' ? Math.round(n * 1e6) / 1e6 : n);
+  const walk = (c) => (Array.isArray(c) ? (typeof c[0] === 'number' ? c.map(round) : c.map(walk)) : c);
+  return {
+    ...geojson,
+    features: (geojson.features || []).map((f) => (f?.geometry?.coordinates
+      ? { ...f, geometry: { ...f.geometry, coordinates: walk(f.geometry.coordinates) } }
+      : f)),
+  };
+}
+
 export async function uploadDiagnosticGeoJSON(geojson) {
-  return svc().uploadDiagnosticGeoJSON(requireCity(), geojson);
+  return svc().uploadDiagnosticGeoJSON(requireCity(), compactGeoJSON(geojson));
 }
 
 export async function saveDiagnosticReport(report) {

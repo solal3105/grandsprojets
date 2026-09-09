@@ -6,13 +6,19 @@
  */
 
 import { esc, escAttr } from '../../components/ui.js';
-import { dg, onCleanup, safeColor } from './state.js';
+import { dg, onCleanup, safeColor, layerKind } from './state.js';
 import { pointInPolygon, someVertex } from './data.js';
+import { renderPopup } from './popups.js';
 
 const EMPTY_FC = () => ({ type: 'FeatureCollection', features: [] });
 
 // Fond OSM classique - même choix que les cartes des sections Contributions
 // et Travaux : un rendu familier, lisible, sans dépendance de configuration.
+// Photographies aériennes de l'IGN (Géoplateforme, licence ouverte) : la vue
+// « satellite », récente et précise sur tout le territoire français.
+export const IGN_ORTHO_TILES = 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg';
+export const IGN_ATTRIBUTION = '© IGN, photographies aériennes';
+
 const OSM_STYLE = {
   version: 8,
   sources: {
@@ -23,10 +29,54 @@ const OSM_STYLE = {
       maxzoom: 19,
       attribution: '© OpenStreetMap contributors',
     },
+    'ign-ortho': {
+      type: 'raster',
+      tiles: [IGN_ORTHO_TILES],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: IGN_ATTRIBUTION,
+    },
   },
-  layers: [{ id: 'osm-raster-layer', type: 'raster', source: 'osm-raster' }],
+  layers: [
+    { id: 'osm-raster-layer', type: 'raster', source: 'osm-raster' },
+    { id: 'ign-ortho-layer', type: 'raster', source: 'ign-ortho', layout: { visibility: 'none' } },
+  ],
   glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
 };
+
+/** Couche raster du fond actif. */
+const _baseLayerId = () => (dg.basemap === 'satellite' ? 'ign-ortho-layer' : 'osm-raster-layer');
+
+/** Bascule le fond : plan OpenStreetMap ou photographies aériennes. */
+export function setBasemap(kind) {
+  dg.basemap = kind === 'satellite' ? 'satellite' : 'plan';
+  const map = dg.map;
+  if (!map || !dg.mapReady) return;
+  if (map.getLayer('osm-raster-layer')) map.setLayoutProperty('osm-raster-layer', 'visibility', dg.basemap === 'plan' ? 'visible' : 'none');
+  if (map.getLayer('ign-ortho-layer')) map.setLayoutProperty('ign-ortho-layer', 'visibility', dg.basemap === 'satellite' ? 'visible' : 'none');
+  setDarkBase(dg.darkBase);
+}
+
+/* ── Fond sombre ────────────────────────────────────────────────── */
+
+/**
+ * Assombrit le fond OSM (désaturé, luminosité plafonnée) : les traits d'une
+ * carte de flux se détachent comme sur une carte de chaleur, au lieu de se
+ * perdre dans les couleurs du plan. Réversible à tout moment.
+ */
+export function setDarkBase(enabled) {
+  const map = dg.map;
+  if (!map || !dg.mapReady) return;
+  for (const id of ['osm-raster-layer', 'ign-ortho-layer']) {
+    if (!map.getLayer(id)) continue;
+    // Le satellite assombri garde un peu plus de matière que le plan.
+    const sat = id === 'ign-ortho-layer';
+    map.setPaintProperty(id, 'raster-saturation', enabled ? (sat ? -0.6 : -0.95) : 0);
+    map.setPaintProperty(id, 'raster-brightness-max', enabled ? (sat ? 0.42 : 0.28) : 1);
+    map.setPaintProperty(id, 'raster-brightness-min', enabled ? 0.02 : 0);
+    map.setPaintProperty(id, 'raster-contrast', enabled ? 0.15 : 0);
+  }
+}
 
 /* ── Bâtiments 3D ───────────────────────────────────────────────── */
 
@@ -100,6 +150,7 @@ export async function createMap(el) {
 
   await _waitForLoad(map, 12000);
   dg.mapReady = true;
+  setBasemap(dg.basemap);
   // Bâtiments d'abord : ils restent sous la heatmap, la zone et les données.
   setBuildings3D(dg.buildings3D);
   _installUtilitySources(map);
@@ -127,18 +178,80 @@ function _installUtilitySources(map) {
   map.addLayer({ id: 'dg-zone-fill', type: 'fill', source: 'dg-zone-src', paint: { 'fill-color': 'rgb(20,174,92)', 'fill-opacity': 0.06 } });
   map.addLayer({ id: 'dg-zone-line', type: 'line', source: 'dg-zone-src', paint: { 'line-color': '#0ea55a', 'line-width': 2, 'line-dasharray': [3, 2] } });
   map.addSource('dg-sel-src', { type: 'geojson', data: EMPTY_FC() });
-  map.addLayer({ id: 'dg-sel-halo', type: 'circle', source: 'dg-sel-src', paint: { 'circle-radius': 10, 'circle-color': '#14AE5C', 'circle-opacity': 0.18, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#0ea55a' } });
+  // Entités non ponctuelles retenues (tronçons, zonages) : soulignées sur leur tracé.
+  // Trait fin et discret : une zone dense peut retenir des milliers de tronçons.
+  map.addLayer({ id: 'dg-sel-line', type: 'line', source: 'dg-sel-src', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'line-color': '#0ea55a', 'line-width': 2.5, 'line-opacity': 0.35 } });
+  map.addLayer({ id: 'dg-sel-halo', type: 'circle', source: 'dg-sel-src', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 10, 'circle-color': '#14AE5C', 'circle-opacity': 0.18, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#0ea55a' } });
   map.addSource('dg-hov-src', { type: 'geojson', data: EMPTY_FC() });
-  map.addLayer({ id: 'dg-hov', type: 'circle', source: 'dg-hov-src', paint: { 'circle-radius': 11, 'circle-color': '#4E2BFF', 'circle-opacity': 0.35, 'circle-stroke-width': 2, 'circle-stroke-color': '#3416b8' } });
+  map.addLayer({ id: 'dg-hov-line', type: 'line', source: 'dg-hov-src', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'line-color': '#4E2BFF', 'line-width': 6, 'line-opacity': 0.5 } });
+  map.addLayer({ id: 'dg-hov', type: 'circle', source: 'dg-hov-src', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 11, 'circle-color': '#4E2BFF', 'circle-opacity': 0.35, 'circle-stroke-width': 2, 'circle-stroke-color': '#3416b8' } });
 }
 
 /* ── Rendu des couches de données ──────────────────────────────── */
 
 const _srcId = (id) => `dg-src-${id}`;
-const _layerIds = (id) => [`dg-${id}-fill`, `dg-${id}-line`, `dg-${id}-pt`];
+const _layerIds = (id) => [`dg-${id}-fill`, `dg-${id}-glow`, `dg-${id}-line`, `dg-${id}-pt`];
 
-/** Expression de couleur MapLibre depuis la config style d'une couche. */
-export function colorExpression(style) {
+/* ── Couleurs ───────────────────────────────────────────────────── */
+
+function _hexToRgb(hex) {
+  const h = String(hex || '').replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h.slice(0, 6);
+  const n = parseInt(full, 16);
+  if (!isFinite(n) || full.length !== 6) return null;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** Mélange deux couleurs hex (t = 0 → a, t = 1 → b). */
+export function mixHex(a, b, t) {
+  const ca = _hexToRgb(a) || [37, 99, 235];
+  const cb = _hexToRgb(b) || [255, 255, 255];
+  const c = ca.map((v, i) => Math.round(v + (cb[i] - v) * t));
+  return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Palette de chaleur du mode gradué : du bleu (petites valeurs) au rouge
+ * (grandes valeurs), la même que la heatmap de densité pour une lecture
+ * cohérente. Les petites valeurs sont en plus rendues presque transparentes
+ * (voir lineOpacityExpression) : seuls les axes qui comptent ressortent.
+ */
+const HEAT_RAMP = ['#2563eb', '#22d3ee', '#84cc16', '#f59e0b', '#dc2626'];
+
+/** n couleurs échantillonnées le long de la palette de chaleur. */
+export function heatColors(n) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 1 : i / (n - 1);
+    const pos = t * (HEAT_RAMP.length - 1);
+    const k = Math.min(HEAT_RAMP.length - 2, Math.floor(pos));
+    out.push(mixHex(HEAT_RAMP[k], HEAT_RAMP[k + 1], pos - k));
+  }
+  return out;
+}
+
+/** Dégradé d'une seule teinte (pastilles, figures) : du clair au foncé. */
+export function colorRamp(base, n) {
+  const color = safeColor(base);
+  const light = mixHex(color, '#ffffff', 0.72);
+  const dark = mixHex(color, '#000000', 0.38);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 1 : i / (n - 1);
+    out.push(t <= 0.5 ? mixHex(light, color, t * 2) : mixHex(color, dark, (t - 0.5) * 2));
+  }
+  return out;
+}
+
+/** Valeur numérique du champ gradué, 0 si absente. */
+const _valueExpr = (field) => ['to-number', ['get', field], 0];
+
+/**
+ * Expression de couleur MapLibre depuis la config style d'une couche.
+ * @param {Object} style - config `style` de la couche
+ * @param {{stops: number[], colors: string[]}} [ramp] - paliers calculés au chargement (mode gradué)
+ */
+export function colorExpression(style, ramp) {
   const s = style || {};
   if (s.mode === 'category' && s.category_field && s.cat_colors && Object.keys(s.cat_colors).length) {
     const expr = ['match', ['to-string', ['get', s.category_field]]];
@@ -146,11 +259,60 @@ export function colorExpression(style) {
     expr.push(s.color || '#94a3b8');
     return expr;
   }
+  if (s.mode === 'graduated' && s.value_field && ramp?.stops?.length >= 2) {
+    const expr = ['interpolate', ['linear'], _valueExpr(s.value_field)];
+    ramp.stops.forEach((v, i) => expr.push(v, ramp.colors[i]));
+    return expr;
+  }
   return s.color || '#2563EB';
 }
 
-function _radiusExpression(base) {
+const _isGraduated = (s, ramp) => s?.mode === 'graduated' && s.value_field && ramp?.stops?.length >= 2;
+
+/**
+ * Épaisseur de trait : constante, ou croissante avec la valeur en mode gradué.
+ * @param {number} [factor] - multiplicateur (halo) ; appliqué dans chaque
+ *   palier car MapLibre n'accepte « zoom » qu'en tête d'expression.
+ */
+export function lineWidthExpression(style, ramp, factor = 1) {
+  const s = style || {};
+  if (_isGraduated(s, ramp)) {
+    const min = ramp.stops[0];
+    const max = ramp.stops[ramp.stops.length - 1];
+    const byValue = ['interpolate', ['linear'], _valueExpr(s.value_field), min, 0.7, max, 5];
+    return ['interpolate', ['linear'], ['zoom'],
+      10, ['*', byValue, 0.6 * factor], 14, ['*', byValue, factor], 17, ['*', byValue, 1.8 * factor]];
+  }
+  return 2.5 * factor;
+}
+
+/**
+ * Opacité du trait : en mode gradué, les petites valeurs s'effacent (0,12)
+ * et les grandes s'affirment (0,95). C'est ce qui rend une carte de flux
+ * lisible : une ruelle à dix passages ne pèse pas comme un axe à dix mille.
+ */
+export function lineOpacityExpression(style, ramp) {
+  const s = style || {};
+  if (_isGraduated(s, ramp)) {
+    const stops = ramp.stops;
+    const mid = stops[Math.floor(stops.length / 2)];
+    const expr = ['interpolate', ['linear'], _valueExpr(s.value_field), stops[0], 0.12];
+    if (mid > stops[0] && mid < stops[stops.length - 1]) expr.push(mid, 0.55);
+    expr.push(stops[stops.length - 1], 0.95);
+    return expr;
+  }
+  return 0.85;
+}
+
+function _radiusExpression(base, style, ramp) {
   const r = Math.max(2, Math.min(9, Number(base) || 4));
+  const s = style || {};
+  if (s.mode === 'graduated' && s.value_field && ramp?.stops?.length >= 2) {
+    const min = ramp.stops[0];
+    const max = ramp.stops[ramp.stops.length - 1];
+    const byValue = ['interpolate', ['linear'], _valueExpr(s.value_field), min, r * 0.6, max, r * 2.2];
+    return ['interpolate', ['linear'], ['zoom'], 10, ['*', byValue, 0.8], 14, byValue, 17, ['*', byValue, 1.6]];
+  }
   return ['interpolate', ['linear'], ['zoom'], 10, r - 1, 14, r + 1, 17, r + 4];
 }
 
@@ -161,17 +323,25 @@ export function syncLayerRender(layer) {
   if (!map || !dg.mapReady || !rt || rt.status !== 'ready') return;
 
   const srcId = _srcId(layer.id);
-  const [fillId, lineId, ptId] = _layerIds(layer.id);
+  const [fillId, glowId, lineId, ptId] = _layerIds(layer.id);
   const fc = { type: 'FeatureCollection', features: rt.features };
-  const color = colorExpression(layer.style);
-  const radius = _radiusExpression(layer.style?.radius);
+  const color = colorExpression(layer.style, rt.ramp);
+  const width = lineWidthExpression(layer.style, rt.ramp);
+  const opacity = lineOpacityExpression(layer.style, rt.ramp);
+  const radius = _radiusExpression(layer.style?.radius, layer.style, rt.ramp);
+  // Halo lumineux sous les traits d'une carte de flux ; éteint sinon.
+  const glow = _isGraduated(layer.style, rt.ramp);
+  const glowWidth = glow ? lineWidthExpression(layer.style, rt.ramp, 2.6) : 0;
+  const glowOpacity = glow ? ['*', opacity, 0.5] : 0;
+  const lineFilter = ['any', ['==', ['geometry-type'], 'LineString'], ['==', ['geometry-type'], 'Polygon']];
 
   if (!map.getSource(srcId)) {
     map.addSource(srcId, { type: 'geojson', data: fc });
     // Insérées sous le polygone de sélection pour garder halos et zone au-dessus.
     const beforeId = map.getLayer('dg-zone-fill') ? 'dg-zone-fill' : undefined;
     map.addLayer({ id: fillId, type: 'fill', source: srcId, filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': color, 'fill-opacity': 0.14 } }, beforeId);
-    map.addLayer({ id: lineId, type: 'line', source: srcId, filter: ['any', ['==', ['geometry-type'], 'LineString'], ['==', ['geometry-type'], 'Polygon']], paint: { 'line-color': color, 'line-width': 2.5, 'line-opacity': 0.85 } }, beforeId);
+    map.addLayer({ id: glowId, type: 'line', source: srcId, filter: lineFilter, layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': color, 'line-width': glowWidth, 'line-opacity': glowOpacity, 'line-blur': 6 } }, beforeId);
+    map.addLayer({ id: lineId, type: 'line', source: srcId, filter: lineFilter, layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': color, 'line-width': width, 'line-opacity': opacity } }, beforeId);
     map.addLayer({ id: ptId, type: 'circle', source: srcId, filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-color': color, 'circle-radius': radius, 'circle-stroke-width': 1, 'circle-stroke-color': 'rgba(255,255,255,.85)', 'circle-opacity': 0.88 } }, beforeId);
     _wirePopup(layer.id, ptId);
     _wirePopup(layer.id, fillId);
@@ -180,10 +350,31 @@ export function syncLayerRender(layer) {
     map.getSource(srcId).setData(fc);
     map.setPaintProperty(fillId, 'fill-color', color);
     map.setPaintProperty(lineId, 'line-color', color);
+    map.setPaintProperty(lineId, 'line-width', width);
+    map.setPaintProperty(lineId, 'line-opacity', opacity);
+    map.setPaintProperty(glowId, 'line-color', color);
+    map.setPaintProperty(glowId, 'line-width', glowWidth);
+    map.setPaintProperty(glowId, 'line-opacity', glowOpacity);
     map.setPaintProperty(ptId, 'circle-color', color);
     map.setPaintProperty(ptId, 'circle-radius', radius);
   }
   setLayerVisibility(layer.id, rt.visible);
+}
+
+/**
+ * Aligne l'ordre de dessin sur l'ordre de la liste : la première couche de
+ * la liste est dessinée au-dessus des autres. Chaque couche est replacée
+ * juste sous le polygone de sélection, en partant de la dernière : la
+ * première finit donc tout en haut.
+ */
+export function syncLayerOrder() {
+  const map = dg.map;
+  if (!map || !dg.mapReady || !map.getLayer('dg-zone-fill')) return;
+  for (const layer of [...dg.layers].reverse()) {
+    for (const id of _layerIds(layer.id)) {
+      if (map.getLayer(id)) map.moveLayer(id, 'dg-zone-fill');
+    }
+  }
 }
 
 /** Affiche ou masque une couche rendue. */
@@ -215,26 +406,6 @@ export function closePopup() {
   _popup?.remove();
 }
 
-function _popupHtml(layer, props) {
-  const popup = layer.popup || {};
-  const title = popup.title_field && props[popup.title_field] != null && props[popup.title_field] !== ''
-    ? String(props[popup.title_field])
-    : layer.label;
-  const rows = (popup.fields || [])
-    .filter((f) => f !== popup.title_field)
-    .map((f) => {
-      const v = props[f];
-      if (v === null || v === undefined || v === '') return '';
-      return `<div class="dg-pop__row"><b>${esc(f)}</b> : ${esc(String(v).slice(0, 300))}</div>`;
-    })
-    .join('');
-  const color = safeColor(layer.style?.color);
-  return `<div class="dg-pop">
-    <div class="dg-pop__title"><span class="dg-pop__dot" style="background:${escAttr(color)}"></span>${esc(String(title).slice(0, 120))}</div>
-    ${rows}
-  </div>`;
-}
-
 function _wirePopup(layerConfigId, mapLayerId) {
   // Les handlers survivent au removeLayer : ne jamais câbler deux fois le même id.
   if (dg.wiredPopups.has(mapLayerId)) return;
@@ -245,8 +416,8 @@ function _wirePopup(layerConfigId, mapLayerId) {
     const feature = e.features && e.features[0];
     const layer = dg.layers.find((l) => l.id === layerConfigId);
     if (!feature || !layer) return;
-    if (!_popup) _popup = new maplibregl.Popup({ closeButton: true, maxWidth: '280px', className: 'dg-popup' });
-    _popup.setLngLat(e.lngLat).setHTML(_popupHtml(layer, feature.properties || {})).addTo(map);
+    if (!_popup) _popup = new maplibregl.Popup({ closeButton: true, maxWidth: '320px', className: 'dg-popup', offset: 10 });
+    _popup.setLngLat(e.lngLat).setHTML(renderPopup(layer, feature.properties || {})).addTo(map);
   });
   map.on('mouseenter', mapLayerId, () => {
     if (!dg.lasso.armed) map.getCanvas().style.cursor = 'pointer';
@@ -266,6 +437,9 @@ export function updateHeatmap(enabled) {
     for (const layer of dg.layers) {
       const rt = dg.runtime.get(layer.id);
       if (!rt || rt.status !== 'ready' || !rt.visible) continue;
+      // Une couche de référence (tronçons, zonages) n'est pas une densité de
+      // témoignages : ses centres fabriqueraient une chaleur sans signification.
+      if (layerKind(layer) === 'reference') continue;
       for (const f of rt.features) {
         features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: f.__pt }, properties: {} });
       }
@@ -277,18 +451,24 @@ export function updateHeatmap(enabled) {
 
 /* ── Sélection / survol ─────────────────────────────────────────── */
 
-function _toPointFC(features) {
-  return {
-    type: 'FeatureCollection',
-    features: (features || []).map((f) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: f.__pt }, properties: {} })),
-  };
+/**
+ * Marques de mise en évidence : un point à l'ancrage pour les témoignages,
+ * le tracé lui-même pour les entités de référence non ponctuelles.
+ */
+function _toHighlightFC(features, context) {
+  const out = (features || []).map((f) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: f.__pt }, properties: {} }));
+  for (const f of context || []) {
+    const geometry = f.geometry?.type === 'Point' ? { type: 'Point', coordinates: f.__pt } : f.geometry;
+    if (geometry) out.push({ type: 'Feature', geometry, properties: {} });
+  }
+  return { type: 'FeatureCollection', features: out };
 }
 
-/** Affiche la sélection courante (points + polygone de zone). */
+/** Affiche la sélection courante (points, tracés de référence + polygone de zone). */
 export function renderSelection(selection) {
   const map = dg.map;
   if (!map || !dg.mapReady) return;
-  map.getSource('dg-sel-src')?.setData(_toPointFC(selection?.features));
+  map.getSource('dg-sel-src')?.setData(_toHighlightFC(selection?.features, selection?.context));
   const poly = selection?.polygon;
   map.getSource('dg-zone-src')?.setData(poly
     ? { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: poly, properties: {} }] }
@@ -297,7 +477,9 @@ export function renderSelection(selection) {
 
 /** Met en surbrillance des features (survol d'un constat / d'une référence). */
 export function setHover(features) {
-  dg.map?.getSource('dg-hov-src')?.setData(_toPointFC(features));
+  const pts = [], ctx = [];
+  for (const f of features || []) (f.geometry?.type === 'Point' ? pts : ctx).push(f);
+  dg.map?.getSource('dg-hov-src')?.setData(_toHighlightFC(pts, ctx));
 }
 
 /* ── Cadrage ────────────────────────────────────────────────────── */

@@ -14,7 +14,7 @@ import { esc } from '../components/ui.js';
 import { dg, resetState } from './diagnostic/state.js';
 import { createMap, wireLasso, syncLayerRender } from './diagnostic/map.js';
 import { loadAllLayers, fitToData } from './diagnostic/layers.js';
-import { renderDock, updateLayerRow, renderLayersPanel } from './diagnostic/panel.js';
+import { renderDock, updateLayerRow, renderLayersPanel, syncMapPanel } from './diagnostic/panel.js';
 import { handleSelection, refreshSelection, renderAnalysisPanel } from './diagnostic/analysis.js';
 import { openReportsHistory } from './diagnostic/report.js';
 
@@ -87,11 +87,13 @@ export async function renderDiagnostic(container) {
   // Le dock et les données ne dépendent pas de la carte : la gestion des
   // couches reste fonctionnelle même si WebGL est indisponible.
   const mapWrap = container.querySelector('#dg-mapwrap');
+  // Accès à l'état pour les essais pilotés (jamais lu par l'interface).
+  mapWrap._dg = dg;
   _wireFullscreen(mapWrap);
   renderDock(mapWrap);
   renderAnalysisPanel();
   loadAllLayers((layer) => { if (alive()) updateLayerRow(layer.id); }).then(() => {
-    if (alive()) renderLayersPanel();
+    if (alive()) { renderLayersPanel(); syncMapPanel(); }
   });
 
   // MapLibre lit la taille du conteneur à l'init : attendre la fin du layout.

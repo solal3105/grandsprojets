@@ -7,8 +7,8 @@
 
 import { store } from '../../store.js';
 import { esc, escAttr } from '../../components/ui.js';
-import { dg, safeColor, MAX_ANALYSIS_POINTS } from './state.js';
-import { featuresBbox, bboxAreaKm2, geometryBbox } from './data.js';
+import { dg, safeColor, MAX_ANALYSIS_POINTS, layerKind, layerMetrics } from './state.js';
+import { featuresBbox, bboxAreaKm2, geometryBbox, aggregateMetrics, METRIC_AGGS } from './data.js';
 import { resolveSelection, selectInRing, renderSelection, setHover, fitBoundsSafely, zoneBounds } from './map.js';
 import { setAnalysisBadge, showTab } from './panel.js';
 import { openReport } from './report.js';
@@ -74,22 +74,38 @@ function _extraOf(f) {
 
 /* ── Sélection ─────────────────────────────────────────────────── */
 
+/**
+ * Sépare les entités retenues par le lasso selon la nature de leur couche :
+ * les témoignages (lus par l'analyse, comptés dans le plafond) et le contexte
+ * (couches de référence : chiffres de zone, jamais lus point par point).
+ */
+function _partitionSelection(all) {
+  const features = [];
+  const context = [];
+  for (const f of all) {
+    const layer = _layerOf(f);
+    (layer && layerKind(layer) === 'reference' ? context : features).push(f);
+  }
+  return { features, context };
+}
+
 /** Reçoit le polygone écran du lasso, résout et affiche la sélection. */
 export function handleSelection(screenPoints) {
   dg.abortCtrl?.abort(); // une analyse en cours ne doit jamais se rattacher à la nouvelle zone
-  const { features, polygon } = resolveSelection(screenPoints);
-  // Emprise des points retenus - à défaut, celle du polygone tracé (zone vide).
-  const bbox = featuresBbox(features) || geometryBbox(polygon);
+  const { features: all, polygon } = resolveSelection(screenPoints);
+  const { features, context } = _partitionSelection(all);
+  // Emprise des entités retenues - à défaut, celle du polygone tracé (zone vide).
+  const bbox = featuresBbox(all) || geometryBbox(polygon);
   // Une zone vide reste une sélection : le panneau explique quoi faire.
-  dg.selection = { features, polygon, bbox, areaKm2: bboxAreaKm2(bbox) };
+  dg.selection = { features, context, polygon, bbox, areaKm2: bboxAreaKm2(bbox) };
   dg.analysis = null;
   dg.aiSample = null;
   renderSelection(dg.selection);
   setAnalysisBadge(features.length);
   renderAnalysisPanel();
   showTab('analyse');
-  // Cadrer sur la zone tracée réunie aux points retenus, sans jamais dézoomer.
-  fitBoundsSafely(zoneBounds(polygon?.coordinates?.[0], features));
+  // Cadrer sur la zone tracée réunie aux entités retenues, sans jamais dézoomer.
+  fitBoundsSafely(zoneBounds(polygon?.coordinates?.[0], all));
 }
 
 /**
@@ -102,9 +118,10 @@ export function refreshSelection() {
   const ring = dg.selection?.polygon?.coordinates?.[0];
   if (!ring) return;
   dg.abortCtrl?.abort();
-  const features = selectInRing(ring);
-  const bbox = featuresBbox(features) || geometryBbox(dg.selection.polygon);
-  dg.selection = { ...dg.selection, features, bbox, areaKm2: bboxAreaKm2(bbox) };
+  const all = selectInRing(ring);
+  const { features, context } = _partitionSelection(all);
+  const bbox = featuresBbox(all) || geometryBbox(dg.selection.polygon);
+  dg.selection = { ...dg.selection, features, context, bbox, areaKm2: bboxAreaKm2(bbox) };
   dg.analysis = null;
   dg.aiSample = null;
   renderSelection(dg.selection);
@@ -155,6 +172,34 @@ function _zoneStats(features) {
     if (top.length) lines.push(`Valeurs fréquentes « ${field} » (${r.layer.label}) : ${top.map(([v, n]) => `${v} (${n})`).join(', ')}`);
   }
   return { text: lines.join('\n'), rows };
+}
+
+/**
+ * Chiffres de zone des couches de référence : pour chaque couche ayant au
+ * moins une entité dans la zone, son décompte et les agrégats configurés,
+ * calculés ici - le modèle ne les produit jamais.
+ * @returns {Array<{id, label, color, count, ai_context, metrics: Array<{field, agg, value, n}>}>}
+ */
+function _contextStats(context) {
+  const byLayer = new Map();
+  for (const f of context || []) {
+    if (!byLayer.has(f.__layerId)) byLayer.set(f.__layerId, []);
+    byLayer.get(f.__layerId).push(f);
+  }
+  const rows = [];
+  for (const [id, feats] of byLayer) {
+    const layer = dg.layers.find((l) => l.id === id);
+    if (!layer) continue;
+    rows.push({
+      id,
+      label: layer.label,
+      color: safeColor(layer.style?.color),
+      count: feats.length,
+      ai_context: layer.ai_context || '',
+      metrics: aggregateMetrics(feats, layerMetrics(layer)),
+    });
+  }
+  return rows.sort((a, b) => b.count - a.count);
 }
 
 /**
@@ -273,6 +318,8 @@ export const _internals = {
   zoneStats: _zoneStats,
   orderedPoints: _orderedPoints,
   mergeCouches: _mergeCouches,
+  partitionSelection: _partitionSelection,
+  contextStats: _contextStats,
 };
 
 /* ── Appel IA ──────────────────────────────────────────────────── */
@@ -284,6 +331,7 @@ async function _runAnalysis() {
   if (!panel) return;
 
   const stats = _zoneStats(sel.features);
+  const context = _contextStats(sel.context);
   // Intégralité des points de la zone, ordonnés à la ronde entre couches.
   const sampled = _orderedPoints(sel.features, MAX_ANALYSIS_POINTS);
   dg.aiSample = sampled;
@@ -297,6 +345,13 @@ async function _runAnalysis() {
     ville: store.city,
     zone: { area_km2: Math.round(sel.areaKm2 * 100) / 100, point_count: sel.features.length },
     stats: stats.text,
+    // Chiffres de zone des couches de référence : un contexte, pas des points.
+    context: context.map((c) => ({
+      label: c.label,
+      ai_context: c.ai_context,
+      count: c.count,
+      metrics: c.metrics.map(({ field, agg, value }) => ({ field, agg, value })),
+    })),
     layers: stats.rows.map((r) => ({
       code: codeOf.get(r.layer.id),
       label: r.layer.label,
@@ -366,6 +421,7 @@ async function _runAnalysis() {
     dg.analysis = {
       resume: String(result.resume || ''),
       couches,
+      context,
       pointCount: sel.features.length,
       areaKm2: sel.areaKm2,
     };
@@ -408,13 +464,51 @@ function _breakdownHtml(features) {
     </li>`).join('')}</ul>`;
 }
 
+const _fmtValue = (v) => Number(v || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+
+/**
+ * Bloc « données de référence » de la zone : par couche, le nombre d'entités
+ * retenues et les chiffres configurés. Le survol allume les entités sur la carte.
+ */
+function _contextHtml(rows) {
+  if (!rows?.length) return '';
+  return `<div class="dg-ctx">
+    <div class="dg-ctx__title"><i class="fa-solid fa-chart-simple"></i> Données de référence dans la zone</div>
+    ${rows.map((r) => `
+      <div class="dg-ctx__row" data-layer="${escAttr(r.id)}">
+        <div class="dg-ctx__head">
+          <span class="dg-legend-dot" style="background:${escAttr(r.color)}"></span>
+          <span class="dg-legend-name">${esc(r.label)}</span>
+          <span class="dg-legend-count">${_fmt(r.count)} entité${r.count > 1 ? 's' : ''}</span>
+        </div>
+        ${r.metrics.length ? `<dl class="dg-ctx__metrics">${r.metrics.map((m) => `
+          <div class="dg-ctx__metric"><dt>${esc(METRIC_AGGS[m.agg]?.label || 'Total')} <span>${esc(m.field)}</span></dt><dd>${_fmtValue(m.value)}</dd></div>`).join('')}</dl>` : ''}
+      </div>`).join('')}
+  </div>`;
+}
+
+function _bindContext(panel) {
+  panel.querySelectorAll('.dg-ctx__row').forEach((row) => {
+    row.addEventListener('mouseenter', () => setHover(_contextOfLayer(row.dataset.layer)));
+    row.addEventListener('mouseleave', () => setHover([]));
+  });
+}
+
 function _renderSelectionView(panel) {
   const sel = dg.selection;
   const n = sel.features.length;
   const tooMany = n > MAX_ANALYSIS_POINTS;
+  const context = _contextStats(sel.context);
 
   let body;
-  if (n === 0) {
+  if (n === 0 && context.length) {
+    // Des chiffres, mais rien à lire : le dire, sans bouton qui échouerait.
+    body = `
+      ${_contextHtml(context)}
+      <div class="dg-empty dg-empty--inline">
+        <div class="dg-empty__text">Aucun témoignage dans cette zone : il n'y a rien à lire pour l'analyse. Les chiffres ci-dessus restent valables ; élargissez la sélection ou activez une couche de témoignages pour lancer une analyse.</div>
+      </div>`;
+  } else if (n === 0) {
     body = `
       <div class="dg-empty">
         <i class="fa-solid fa-magnifying-glass-location dg-empty__icon"></i>
@@ -433,16 +527,18 @@ function _renderSelectionView(panel) {
         </div>
       </div>
       ${_breakdownHtml(sel.features)}
+      ${_contextHtml(context)}
       <button type="button" class="dg-analyze-btn" id="dg-analyze" disabled>
         <i class="fa-solid fa-wand-magic-sparkles"></i> ${_fmt(n)} points - maximum ${_fmt(MAX_ANALYSIS_POINTS)}
       </button>`;
   } else {
     body = `
       ${_breakdownHtml(sel.features)}
+      ${_contextHtml(context)}
       <button type="button" class="dg-analyze-btn" id="dg-analyze">
         <i class="fa-solid fa-wand-magic-sparkles"></i> Analyser la zone
       </button>
-      <div class="adm-form-hint dg-analyze-hint">L'IA lit l'intégralité des ${_fmt(n)} points sélectionnés et en tire des constats sourcés - chaque constat renvoie aux points qui le justifient.</div>`;
+      <div class="adm-form-hint dg-analyze-hint">L'IA lit l'intégralité des ${_fmt(n)} points sélectionnés et en tire des constats sourcés - chaque constat renvoie aux points qui le justifient.${context.length ? ' Les chiffres de référence lui sont donnés comme contexte, elle ne les interprète pas.' : ''}</div>`;
   }
 
   panel.innerHTML = `
@@ -455,6 +551,7 @@ function _renderSelectionView(panel) {
   `;
   panel.querySelector('#dg-sel-clear')?.addEventListener('click', clearSelection);
   panel.querySelector('#dg-analyze')?.addEventListener('click', _runAnalysis);
+  _bindContext(panel);
 
   // Survol de la barre ou de la légende : les points concernés s'allument sur la carte
   const rows = _breakdown(sel.features).map((r) => ({
@@ -505,6 +602,7 @@ function _renderResults(panel) {
     </div>
     ${_mixBarHtml(a.couches, n)}
     ${a.resume ? `<div class="dg-resume">${esc(a.resume)}</div>` : ''}
+    ${_contextHtml(a.context)}
     <div class="dg-layers-detail" id="dg-layers-detail"></div>
     <button type="button" class="dg-report-btn" id="dg-report">
       <i class="fa-solid fa-file-lines"></i> Générer le rapport de zone
@@ -519,6 +617,7 @@ function _renderResults(panel) {
   panel.querySelector('#dg-report')?.addEventListener('click', (e) => openReport(e.currentTarget));
 
   _bindMixBar(panel, a.couches);
+  _bindContext(panel);
   const detail = panel.querySelector('#dg-layers-detail');
   for (const couche of a.couches) detail.appendChild(_coucheBlock(couche));
 }
@@ -570,6 +669,7 @@ function _bindMixBar(panel, couches) {
 }
 
 const _featuresOfLayer = (id) => (dg.selection?.features || []).filter((f) => f.__layerId === id);
+const _contextOfLayer = (id) => (dg.selection?.context || []).filter((f) => f.__layerId === id);
 
 /* ── Une source : synthèse visible, détail au clic ──────────────── */
 

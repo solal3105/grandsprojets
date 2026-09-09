@@ -9,10 +9,12 @@ import * as api from '../../api.js';
 import { esc, escAttr, toast, confirm, slidePanel, formatDate } from '../../components/ui.js';
 import { store } from '../../store.js';
 import { dg, safeColor } from './state.js';
+import { METRIC_AGGS } from './data.js';
 import { renderZoneFigure } from './figure.js';
 
 const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
 const _fmtKm2 = (n) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+const _fmtValue = (v) => Number(v || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 
 /* ── Génération depuis l'analyse courante ──────────────────────── */
 
@@ -34,7 +36,11 @@ function _reportData() {
   return {
     title: `Diagnostic du ${new Date().toLocaleDateString('fr-FR')} - ${_fmt(sel.features.length)} points`,
     zone: { polygon: sel.polygon, bbox: sel.bbox, area_km2: Math.round(sel.areaKm2 * 100) / 100 },
-    stats: { couches: a.couches.map(({ label, color, count }) => ({ label, color, count })) },
+    stats: {
+      couches: a.couches.map(({ label, color, count }) => ({ label, color, count })),
+      // Chiffres de zone des couches de référence, tels que calculés à la génération.
+      context: (a.context || []).map(({ label, color, count, metrics }) => ({ label, color, count, metrics })),
+    },
     // L'annexe voyage dans le jsonb analysis : sans elle, les renvois
     // « Points #3, #7 » d'un rapport rouvert depuis l'historique seraient
     // invérifiables, alors que la section Méthode affirme le contraire.
@@ -131,6 +137,7 @@ function _showReportDoc(data, mapImg, date) {
   const total = data.point_count || couches.reduce((acc, c) => acc + c.count, 0);
   const nbSujets = couches.reduce((acc, c) => acc + (c.sujets?.length || 0), 0);
   const cites = data.cites || data.analysis?.cites || [];
+  const context = Array.isArray(data.stats?.context) ? data.stats.context : [];
 
   const sections = couches.map((c) => {
     const share = total ? Math.round((c.count / total) * 100) : 0;
@@ -172,6 +179,14 @@ function _showReportDoc(data, mapImg, date) {
     ['Emprise', `${_fmtKm2(data.zone?.area_km2)} km²`],
   ].map(([label, value]) => `<div class="dg-rp-kpi"><b>${value}</b><span>${label}</span></div>`).join('');
 
+  const contextRows = context.map((c) => `<tr>
+      <td><span class="dg-rp-source__dot" style="background:${escAttr(safeColor(c.color))}"></span>${esc(c.label)}</td>
+      <td class="dg-rp-num">${_fmt(c.count)}</td>
+      <td>${(c.metrics || []).length
+        ? (c.metrics || []).map((m) => `<div class="dg-rp-metric"><span>${esc(METRIC_AGGS[m.agg]?.label || 'Total')} ${esc(m.field)}</span><b>${_fmtValue(m.value)}</b></div>`).join('')
+        : '<span class="dg-rp-muted">Décompte seul</span>'}</td>
+    </tr>`).join('');
+
   const doc = document.createElement('div');
   doc.className = 'dg-report-doc';
   doc.innerHTML = `
@@ -204,6 +219,15 @@ function _showReportDoc(data, mapImg, date) {
         <p class="dg-rp-lead">${esc(a.resume)}</p>
       </section>` : ''}
 
+      ${contextRows ? `<section class="dg-rp-sec">
+        <h2 class="dg-rp-h2">Données de référence de la zone</h2>
+        <div class="dg-rp-muted" style="margin-bottom:8px">Comptages et mesures des couches de référence, calculés sur les entités contenues dans la zone tracée.</div>
+        <table class="dg-rp-table dg-rp-table--context">
+          <thead><tr><th>Source</th><th>Entités</th><th>Chiffres de zone</th></tr></thead>
+          <tbody>${contextRows}</tbody>
+        </table>
+      </section>` : ''}
+
       <section class="dg-rp-sec">
         <h2 class="dg-rp-h2">Ce que disent les points, source par source</h2>
         ${sections || '<div class="dg-rp-muted">Aucune source exploitable dans cette zone.</div>'}
@@ -222,7 +246,7 @@ function _showReportDoc(data, mapImg, date) {
         <h2 class="dg-rp-h2">Méthode et limites</h2>
         <div class="dg-rp-method">
           <p><b>Périmètre.</b> Les ${_fmt(total)} points contenus dans la zone tracée ont <b>tous</b> été lus, sans échantillonnage - c'est la raison du plafond de 300 points par sélection. Seules les couches activées au moment de la sélection sont prises en compte.</p>
-          <p><b>Ce qui est calculé.</b> La composition de la zone, le nombre de points par source et le nombre de points rattaché à chaque sujet sont calculés à partir des données, jamais énoncés par le modèle.</p>
+          <p><b>Ce qui est calculé.</b> La composition de la zone, le nombre de points par source et le nombre de points rattaché à chaque sujet sont calculés à partir des données, jamais énoncés par le modèle.${contextRows ? ' Les chiffres des données de référence (décomptes, totaux, moyennes) sont calculés de la même façon sur les entités de la zone ; ils sont fournis au modèle comme contexte et ne sont ni produits ni interprétés par lui.' : ''}</p>
           <p><b>Ce qui est rédigé.</b> Les synthèses par source et les intitulés de sujets sont produits par un modèle de langage à partir du seul texte des points ; les citations sont reproduites mot pour mot et chaque point cité figure en annexe.</p>
           <p><b>Ce que ce document ne fait pas.</b> Il ne note pas, ne hiérarchise pas et ne recommande rien. Il restitue le contenu des signalements : l'interprétation et les suites à donner relèvent des services compétents.</p>
         </div>

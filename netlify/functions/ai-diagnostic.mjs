@@ -36,7 +36,7 @@ MÉTHODE :
 1. Les points sont regroupés par SOURCE (une source = une couche de données). Chaque source porte un CODE (S1, S2, S3…). Traite CHAQUE source listée, séparément, dans l'ordre où elles apparaissent.
 2. Pour chaque source : écris une "synthese" de 1 à 3 phrases qui décrit ce que contiennent ces points - ce qu'ils décrivent s'ils portent du texte, ce qu'ils recensent et leur composition s'ils n'en portent pas (types, valeurs qui reviennent).
 3. Pour chaque source : dégage ses "sujets", c'est-à-dire les choses concrètes qui y reviennent (chaussée dégradée, discontinuité cyclable, stationnement gênant, éclairage, vitesse…). Un sujet regroupe les points qui en parlent. S'il n'y a rien à regrouper (source sans texte, ou points tous différents), laisse la liste vide - c'est une réponse valable.
-4. Écris le "resume" général en dernier : 2 à 4 phrases décrivant la zone dans son ensemble.
+4. Écris le "resume" général en dernier : 2 à 4 phrases décrivant la zone dans son ensemble. Si des DONNÉES DE RÉFÉRENCE sont fournies (comptages, mesures calculés par le système), tu peux en reprendre les chiffres tels quels dans le resume, en une phrase, pour situer la zone - sans les interpréter, sans en déduire une cause, une tendance ni un lien avec les points.
 
 RÈGLES ABSOLUES (le non-respect invalide la réponse) :
 - ZÉRO INVENTION. N'écris QUE ce qui est littéralement présent dans les données. Interdit d'inventer une date, un chiffre, un nom de rue, une cause, une tendance ou une évolution. Un relevé décrit un instant, pas une habitude : n'écris jamais « récurrent », « croissant », « souvent », « régulièrement ».
@@ -95,12 +95,19 @@ const MAX_POINTS = 300;
 // des sources tout en gardant leurs points dans le prompt donnerait au modèle un
 // inventaire qui ment sur son propre contenu.
 const MAX_LAYERS = 40;
+// Couches de référence décrites au modèle (chiffres de zone, pas de points).
+const MAX_CONTEXT = 20;
 
 const clip = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 const clipBlock = (v, max) => String(v ?? '').trim().slice(0, max); // préserve les retours à la ligne
 
 /** Construit le prompt utilisateur à partir des données pré-agrégées du client. */
-function buildUserPrompt({ ville, zone, layers, stats, sample }) {
+/** Libellé d'un agrégat de zone. */
+const AGG_LABELS = { sum: 'total', mean: 'moyenne', max: 'maximum' };
+
+const fmtNum = (v) => Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+
+function buildUserPrompt({ ville, zone, layers, stats, sample, context }) {
   const parts = [];
   parts.push(`Zone analysée : ${clip(ville, 60)} - environ ${Number(zone?.area_km2) || '?'} km² - ${Number(zone?.point_count) || sample.length} points au total.`);
 
@@ -115,6 +122,20 @@ function buildUserPrompt({ ville, zone, layers, stats, sample }) {
 
   const statsTxt = clipBlock(stats, 3000);
   if (statsTxt) parts.push('Statistiques agrégées (calculées par le système, fiables) :\n' + statsTxt);
+
+  // Couches de référence : des chiffres de zone, jamais des points à lire.
+  if (context.length) {
+    const lines = context.map((c) => {
+      let line = `- ${clip(c.label, 90)} : ${Number(c.count) || 0} entité(s) dans la zone`;
+      const ctx = clip(c.ai_context, 220);
+      if (ctx) line += ` (${ctx})`;
+      const metrics = (Array.isArray(c.metrics) ? c.metrics : [])
+        .map((m) => `${AGG_LABELS[m.agg] || 'total'} ${clip(m.field, 60)} = ${fmtNum(m.value)}`);
+      if (metrics.length) line += ` ; ${metrics.join(' ; ')}`;
+      return line;
+    });
+    parts.push('DONNÉES DE RÉFÉRENCE de la zone (calculées par le système, fiables ; à citer telles quelles au plus, jamais à interpréter) :\n' + lines.join('\n'));
+  }
 
   // Points groupés par source : le modèle doit restituer source par source.
   const bySource = new Map();
@@ -171,6 +192,17 @@ export default async function handler(req) {
     // Codes des sources effectivement décrites au modèle : les points d'une
     // source absente de cette liste seraient orphelins dans le prompt.
     stats: body.stats || '',
+    context: (Array.isArray(body.context) ? body.context : [])
+      .filter((c) => c && typeof c === 'object')
+      .slice(0, MAX_CONTEXT)
+      .map((c) => ({
+        label: c.label,
+        ai_context: c.ai_context,
+        count: c.count,
+        metrics: (Array.isArray(c.metrics) ? c.metrics : []).slice(0, 12)
+          .filter((m) => m && isFinite(Number(m.value)))
+          .map((m) => ({ field: m.field, agg: m.agg, value: Number(m.value) })),
+      })),
     sample: body.sample
       .filter((s) => s && typeof s === 'object')
       .slice(0, MAX_POINTS)

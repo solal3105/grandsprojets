@@ -12,6 +12,7 @@
  */
 
 import { dg, safeColor } from './state.js';
+import { IGN_ORTHO_TILES, IGN_ATTRIBUTION } from './map.js';
 
 // 16:10 : un tracé au lasso est grossièrement isotrope, la bande large du
 // gabarit précédent écrasait la figure.
@@ -29,15 +30,16 @@ const VEIL = 'rgba(255,255,255,0.58)';
  * y entrer par effet de bord - ni heatmap, ni bâtiments 3D, ni survol.
  */
 function _figureStyle() {
+  const satellite = dg.basemap === 'satellite';
   return {
     version: 8,
     sources: {
       'fig-raster': {
         type: 'raster',
-        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tiles: [satellite ? IGN_ORTHO_TILES : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
         tileSize: 256,
         maxzoom: 19,
-        attribution: '© OpenStreetMap contributors',
+        attribution: satellite ? IGN_ATTRIBUTION : '© OpenStreetMap contributors',
       },
     },
     layers: [
@@ -219,6 +221,38 @@ function _drawPoints(ctx, map, features, w, h, k, { radius = 4.4, context = fals
   ctx.restore();
 }
 
+/** Tracés (lignes, contours) à la couleur de leur couche - tronçons, zonages. */
+function _drawLines(ctx, map, features, w, h, k, { width = 2.2, context = false } = {}) {
+  ctx.save();
+  ctx.scale(k, k);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const W = w / k, H = h / k;
+  for (const f of features) {
+    const g = f.geometry;
+    if (!g || g.type === 'Point' || !f.__bbox) continue;
+    // Hors champ : ne pas projeter des dizaines de milliers de sommets pour rien.
+    const sw = map.unproject([0, H]);
+    const ne = map.unproject([W, 0]);
+    if (f.__bbox[2] < sw.lng || f.__bbox[0] > ne.lng || f.__bbox[3] < sw.lat || f.__bbox[1] > ne.lat) continue;
+    const layer = dg.layers.find((l) => l.id === f.__layerId);
+    const rings = g.type === 'LineString' ? [g.coordinates]
+      : g.type === 'MultiLineString' || g.type === 'Polygon' ? g.coordinates
+      : g.type === 'MultiPolygon' ? g.coordinates.flat() : [];
+    ctx.beginPath();
+    for (const ring of rings) {
+      ring.forEach((c, i) => {
+        const p = map.project(c);
+        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      });
+    }
+    ctx.lineWidth = context ? width * 0.7 : width;
+    ctx.strokeStyle = safeColor(layer?.style?.color);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 /** Points des couches visibles hors sélection - le contexte de la zone. */
 function _contextFeatures(selected) {
   const taken = new Set(selected.map((f) => `${f.__layerId}|${f.__pt?.join(',')}`));
@@ -245,7 +279,8 @@ export async function renderZoneFigure(selection) {
   if (typeof maplibregl === 'undefined') return null;
   const ring = selection?.polygon?.coordinates?.[0];
   const features = selection?.features || [];
-  if (!ring?.length && !features.length) return null;
+  const context = selection?.context || [];
+  if (!ring?.length && !features.length && !context.length) return null;
 
   const host = document.createElement('div');
   host.style.cssText = `position:fixed;left:-20000px;top:0;width:${FIG_W}px;height:${FIG_H}px;pointer-events:none`;
@@ -267,7 +302,7 @@ export async function renderZoneFigure(selection) {
 
     const bounds = new maplibregl.LngLatBounds();
     for (const c of ring || []) bounds.extend(c);
-    for (const f of features) {
+    for (const f of [...features, ...context]) {
       if (f.__bbox) {
         bounds.extend([f.__bbox[0], f.__bbox[1]]);
         bounds.extend([f.__bbox[2], f.__bbox[3]]);
@@ -299,12 +334,16 @@ export async function renderZoneFigure(selection) {
     const k = src.width / (src.clientWidth || FIG_W);
     // Ordre : contexte, puis voile (qui l'atténue), puis sélection au-dessus.
     // Un seul levier d'atténuation, aucun gris arbitraire.
-    _drawPoints(ctx, map, _contextFeatures(features), out.width, out.height, k, { radius: 3, context: true });
+    const around = _contextFeatures([...features, ...context]);
+    _drawLines(ctx, map, around, out.width, out.height, k, { context: true });
+    _drawPoints(ctx, map, around.filter((f) => f.geometry?.type === 'Point'), out.width, out.height, k, { radius: 3, context: true });
     _drawVeil(ctx, map, ring, out.width, out.height, k);
+    _drawLines(ctx, map, context, out.width, out.height, k);
+    _drawPoints(ctx, map, context.filter((f) => f.geometry?.type === 'Point'), out.width, out.height, k, { radius: 3.4 });
     _drawPoints(ctx, map, features, out.width, out.height, k);
     _drawScaleBar(ctx, map, out.width, out.height, k);
     _drawNorth(ctx, out.width, k);
-    _drawAttribution(ctx, out.width, out.height, k, '© OpenStreetMap contributors');
+    _drawAttribution(ctx, out.width, out.height, k, dg.basemap === 'satellite' ? IGN_ATTRIBUTION : '© OpenStreetMap contributors');
 
     return out.toDataURL('image/png');
   } catch (err) {
