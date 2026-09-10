@@ -274,7 +274,7 @@
                   <dd id="tarif-abonnement" class="tabular-nums whitespace-nowrap">{{ montant(estimation.mensuel * facteur) }}</dd>
                 </div>
                 <div class="flex items-baseline justify-between gap-4 py-2.5 border-b border-white/10">
-                  <dt class="text-white/80">Mise en service, une fois<br /><span class="text-xs text-white/50">{{ estimation.setupOfferte ? `Offerte aux communes de moins de ${nombre(MISE_EN_SERVICE.offerteSous)} habitants` : `${MISE_EN_SERVICE.mois} mois d'abonnement, payés la première année` }}</span></dt>
+                  <dt class="text-white/80">Mise en service, une fois<span v-if="estimation.setupOfferte" class="block text-xs text-white/50">Offerte aux communes de moins de {{ nombre(MISE_EN_SERVICE.offerteSous) }} habitants</span></dt>
                   <dd id="tarif-setup" class="tabular-nums whitespace-nowrap">{{ estimation.setupOfferte ? 'Offerte' : montant(estimation.setup) }}</dd>
                 </div>
               </dl>

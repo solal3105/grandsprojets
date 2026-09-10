@@ -101,7 +101,7 @@
               <td id="estimation-abonnement" class="py-2.5 text-right tabular-nums whitespace-nowrap">{{ montant(estimation.mensuel) }} / mois, soit {{ montant(estimation.annuel) }} / an</td>
             </tr>
             <tr class="border-b border-gray-border">
-              <td class="py-2.5 pr-4">Mise en service, une seule fois<span class="block text-xs text-gray-muted">{{ estimation.setupOfferte ? `Offerte aux communes de moins de ${nombre(MISE_EN_SERVICE.offerteSous)} habitants` : `${MISE_EN_SERVICE.mois} mois d'abonnement, facturés la première année` }}</span></td>
+              <td class="py-2.5 pr-4">Mise en service, une seule fois<span v-if="estimation.setupOfferte" class="block text-xs text-gray-muted">Offerte aux communes de moins de {{ nombre(MISE_EN_SERVICE.offerteSous) }} habitants</span></td>
               <td class="py-2.5 text-right tabular-nums whitespace-nowrap align-top">{{ estimation.setupOfferte ? 'Offerte' : montant(estimation.setup) }}</td>
             </tr>
           </tbody>
