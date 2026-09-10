@@ -30,6 +30,7 @@ const STATIC_PAGES = [
   '/home/ressources',
   '/home/a-propos',
   '/home/contact',
+  '/home2/tarification',
   '/home/aide',
   '/home/alternative-panneaupocket',
   '/home/alternative-cityall-lumiplan',

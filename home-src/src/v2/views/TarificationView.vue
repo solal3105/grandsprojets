@@ -1,8 +1,8 @@
 <template>
   <div>
     <!-- Ouverture : meme composition que les autres pages de la refonte. La
-         page n'est reliee a aucun menu et la refonte entiere est en noindex :
-         elle sert a estimer un prix en rendez-vous, pas a etre trouvee. -->
+         page est dans le menu et ouverte aux moteurs (edge function
+         tarification-seo), seule page de la refonte dans ce cas. -->
     <section class="relative pt-36 pb-14 overflow-hidden">
       <HeroGround />
       <div class="relative max-w-container mx-auto px-6">

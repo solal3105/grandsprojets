@@ -43,9 +43,10 @@ const routes = [
     meta: { title: "Confidentialité et mesure d'audience - Open Projets" },
   },
   {
-    /* L'estimateur de prix. Volontairement hors de tout menu et de tout plan
-       du site : il sert en rendez-vous, on y vient par son adresse. La refonte
-       entière est en noindex (index-v2.html). */
+    /* L'estimateur de prix : dans le menu et dans le plan du site. C'est la
+       seule page de la refonte ouverte aux moteurs : l'edge function
+       `tarification-seo` remplace le noindex d'index-v2.html sur cette
+       adresse (et seulement elle : le document d'estimation reste caché). */
     path: '/tarification',
     name: 'tarification',
     component: () => import('./views/TarificationView.vue'),

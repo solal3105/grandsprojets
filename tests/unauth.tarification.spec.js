@@ -62,12 +62,37 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     test.skip(r.status() !== 200, 'la refonte /home2 n\'est pas construite ici');
   });
 
-  test('0.39.1 - la page est hors index, hors menu, et s\'ouvre sur une petite ville avec la carte seule', async ({ page }) => {
+  test('0.39.0 - la page est ouverte aux moteurs, seule de la refonte, avec titre, description et canonical', async ({ request }) => {
+    const r = await request.get(PAGE);
+    expect(r.status()).toBe(200);
+    expect(r.headers()['x-robots-tag'] || '').toContain('index, follow');
+    const html = await r.text();
+    expect(html).toMatch(/<meta\s+name="robots"\s+content="index, follow"/);
+    expect(html).not.toContain('noindex');
+    const titre = html.match(/<title>([^<]*)<\/title>/)?.[1] || '';
+    expect(titre).toContain('prix');
+    expect(titre.length).toBeLessThanOrEqual(60);
+    const desc = html.match(/<meta\s+name="description"\s+content="([^"]*)"/)?.[1] || '';
+    expect(desc.length).toBeGreaterThan(40);
+    expect(desc.length).toBeLessThanOrEqual(160);
+    expect(html).toContain('<link rel="canonical" href="https://openprojets.com/home2/tarification">');
+    expect(html).toContain('"@type":"BreadcrumbList"');
+    // Le document d'estimation et le reste de la refonte restent cachés
+    for (const path of [`${PAGE}/estimation?population=12000&modules=carte&annees=1`, '/home2/', '/home2/a-propos']) {
+      const cache = await request.get(path);
+      expect(await cache.text(), path).toMatch(/<meta\s+name="robots"\s+content="noindex, nofollow"/);
+      expect(cache.headers()['x-robots-tag'] || '', path).not.toContain('index, follow');
+    }
+    // Et le plan du site la liste
+    expect(await (await request.get('/sitemap.xml')).text()).toContain('<loc>https://openprojets.com/home2/tarification</loc>');
+  });
+
+  test('0.39.1 - la page est dans le menu et s\'ouvre sur une petite ville avec la carte seule', async ({ page }) => {
     await page.goto(`${PAGE}?commercial=1`, { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
     await expect(page.locator('h1')).toContainText('Estimez le prix');
-    // Aucun lien du site ne mène ici : on y vient par l'adresse
-    expect(await page.locator('header a[href*="tarification"], footer a[href*="tarification"]').count()).toBe(0);
+    // Le menu et le pied de page y mènent
+    await expect(page.locator('header a[href="/home2/tarification"]').first()).toHaveText('Tarification');
+    await expect(page.locator('footer a[href="/home2/tarification"]').first()).toHaveText('Tarification');
     await expect(page.locator('#tarif-population')).toHaveValue(/^12\D000$/);
     await expect(page.locator('[data-module="carte"]')).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('[data-module="travaux"]')).toHaveAttribute('aria-checked', 'false');

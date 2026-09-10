@@ -110,7 +110,7 @@ La carte publique utilise un **système de modules enregistrables** piloté par 
 - `sitemap` et `llms-txt` partagent `lib/projects-index.mjs` : lecture **paginée** de `contribution_uploads` (PostgREST plafonne à 1 000 lignes par réponse, silencieusement), filtres et doublons identiques - toute lecture complète d'une table passe par `fetchAllRows`
 
 ### Edge Functions (`netlify/edge-functions/`)
-- `domain-redirect` (toutes les routes), `fiche-ssr` (pré-rendu SEO de `/fiche/*/*/*`, 301 des anciennes adresses `/fiche/?cat=&project=`, canonical des doublons vers la page la plus ancienne), `ville-hub` (`/ville/` = index des villes, `/ville/{ville}` = hub), `home-seo` (meta SSR des pages home), `cartes` (`/cartes/`)
+- `domain-redirect` (toutes les routes), `fiche-ssr` (pré-rendu SEO de `/fiche/*/*/*`, 301 des anciennes adresses `/fiche/?cat=&project=`, canonical des doublons vers la page la plus ancienne), `ville-hub` (`/ville/` = index des villes, `/ville/{ville}` = hub), `home-seo` (meta SSR des pages home), `tarification-seo` (`/home2/tarification` : seule page de la refonte ouverte aux moteurs, remplace le noindex d'`index-v2.html`), `cartes` (`/cartes/`)
 - Routées via `[[edge_functions]]` dans `netlify.toml` - pas de détection automatique par chemin
 
 ### Mesure d'audience (`modules/analytics.js`)

@@ -32,7 +32,11 @@ d'exploration des espaces des collectivités.
 
 Les pages qui ne doivent pas être indexées le disent elles-mêmes : `/home2/`,
 `/login/`, `/carte-postale/`, les guides imprimables de l'aide et `/home/helios`
-portent un `noindex`. `/fiche/` sans projet, une fiche inconnue et une ville
+portent un `noindex`. Une exception dans la refonte : `/home2/tarification`,
+l'estimateur de prix, est ouvert aux moteurs par l'edge function
+`tarification-seo` (robots, titre, description, canonical, JSON-LD posés à la
+volée sur cette seule adresse) et figure dans le plan du site ; le document
+d'estimation en dessous reste caché. `/fiche/` sans projet, une fiche inconnue et une ville
 sans projet sont servies en 200 avec l'en-tête `X-Robots-Tag: noindex` (le
 client doit s'exécuter pour afficher l'écran d'erreur).
 

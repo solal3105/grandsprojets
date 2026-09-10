@@ -13,6 +13,7 @@ export const navLinks = [
   // il ne rend donc pas cette entrée comme un lien simple.
   { label: 'Modules', menu: true },
   { label: 'Ressources', to: '/ressources' },
+  { label: 'Tarification', to: '/tarification' },
   { label: 'À propos', to: '/a-propos' },
 ]
 

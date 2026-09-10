@@ -75,6 +75,15 @@
   path = "/home/ressources/*"
   function = "home-seo"
 
+# La seule page de la refonte /home2 ouverte aux moteurs (voir la fonction)
+[[edge_functions]]
+  path = "/home2/tarification"
+  function = "tarification-seo"
+
+[[edge_functions]]
+  path = "/home2/tarification/"
+  function = "tarification-seo"
+
 [[edge_functions]]
   path = "/ville/*"
   function = "ville-hub"
@@ -165,6 +174,15 @@
   for = "/cartes/*"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+
+# La vidéo de présentation et son affiche ne changent qu'avec un nouveau
+# montage : elles se gardent longtemps, et le navigateur peut en demander
+# un morceau à la fois (lecture avant la fin du téléchargement).
+[[headers]]
+  for = "/video/*"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
+    Accept-Ranges = "bytes"
 
 # ============================================
 # Le code de l'application doit revalider
