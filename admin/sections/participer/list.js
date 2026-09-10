@@ -28,7 +28,7 @@ export async function renderList(container) {
   container.innerHTML = `
     <div class="adm-page-header">
       <div>
-        <h1 class="adm-page-title"><i class="fa-solid fa-bullhorn"></i> Participer</h1>
+        <h1 class="adm-page-title"><i class="fa-solid fa-bullhorn"></i> Signalement</h1>
         <p class="adm-page-subtitle">Signalements des habitants pour <strong>${esc(city)}</strong></p>
       </div>
       <div class="adm-page-header__actions">

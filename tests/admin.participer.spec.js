@@ -23,7 +23,7 @@ const clearToasts = (page) =>
 
 async function goToList(page) {
   await waitForBoot(page, '/admin/participer/');
-  await expect(page.locator('.adm-page-title')).toContainText('Participer', { timeout: 15000 });
+  await expect(page.locator('.adm-page-title')).toContainText('Signalement', { timeout: 15000 });
 }
 
 // ─────────────────────────────────────────────────────────

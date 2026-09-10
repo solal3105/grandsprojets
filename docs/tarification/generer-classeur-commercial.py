@@ -36,9 +36,9 @@ ANCRE = {"population": 12000, "prix": 200}
 EXPOSANT = 0.5
 POPULATION = {"min": 500, "max": 2500000}
 MODULES = [
-    ("carte", "Carte des projets", 1),
+    ("carte", "Carte des projets urbains", 1),
     ("travaux", "Travaux du quotidien", 0.6),
-    ("participer", "Participer", 2),
+    ("participer", "Signalement", 2),
     ("diagnostic", "Diagnostic terrain", 0.8),
     ("chantiers", "Chantiers et arrêtés", 3),
 ]

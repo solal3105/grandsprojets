@@ -53,7 +53,7 @@
                 class="group relative flex items-center justify-center gap-2 h-full px-3 py-3.5 hover:bg-gray-bg transition-colors"
               >
                 <component :is="m.icon" class="w-4 h-4 shrink-0" :class="m.tone.text" />
-                <span class="text-[13px] font-medium text-dark whitespace-nowrap">{{ m.name }}</span>
+                <span class="text-[13px] font-medium text-dark whitespace-nowrap">{{ m.short }}</span>
                 <!-- Le trait de couleur n'apparait qu'au survol : au repos, la
                      barre doit rester un seul objet. -->
                 <span
@@ -66,11 +66,11 @@
         </nav>
       </div>
 
-      <!-- La demonstration doit deja depasser dans le premier ecran : c'est
-           elle qui donne envie de faire defiler. La barre des modules lui sert
-           d'en-tete, elle reste donc collee a elle. -->
+      <!-- La vidéo doit déjà dépasser dans le premier écran : c'est elle qui
+           donne envie de faire défiler. La barre des modules lui sert
+           d'en-tête, elle reste donc collée à elle. -->
       <div class="mt-6">
-        <MapShowcase />
+        <VideoShowcase />
       </div>
     </div>
   </section>
@@ -79,7 +79,7 @@
 <script setup>
 import { ArrowRight, ArrowUpRight, Sparkles } from 'lucide-vue-next'
 import HeroGround from './HeroGround.vue'
-import MapShowcase from '@/components/MapShowcase.vue'
+import VideoShowcase from './VideoShowcase.vue'
 import { modules, compteEnLettres } from '../data/modules.js'
 import { DEMO_KIOSK_URL } from '@/data/siteUrls.js'
 </script>

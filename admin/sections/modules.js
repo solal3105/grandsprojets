@@ -16,7 +16,7 @@ const MODULE_TEMPLATES = {
     description: 'Chantiers, travaux en cours et informations voirie',
   },
   participer: {
-    label: 'Participer',
+    label: 'Signalement',
     icon_class: 'fa-solid fa-bullhorn',
     description: 'Signalements des habitants - dépôt sans compte, modération, suivi par email',
   },

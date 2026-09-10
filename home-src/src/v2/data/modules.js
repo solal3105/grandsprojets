@@ -27,11 +27,16 @@ export const ARRETE_URL = 'https://openprojets-chantiers.com/arrete/'
  * l'appareil du visiteur. C'est ce que la vitrine embarque. */
 export const CHANTIERS_APP_URL = 'https://openprojets-chantiers.com/app/'
 
+/* Les noms, arrêtés le 10 septembre 2026 : `name` est le nom complet (titres
+ * de page, menus, document d'estimation, messages), `short` le nom d'usage
+ * (boutons, pastilles étroites, phrases qui renvoient d'un module à l'autre).
+ * La clé `participer` reste l'adresse du module Signalement : les liens déjà
+ * partagés continuent de fonctionner. */
 export const modules = [
   {
     key: 'carte',
     forme: 'cercle',
-    name: 'Carte des projets',
+    name: 'Carte des projets urbains',
     short: 'Carte',
     side: SIDE_PUBLIC,
     icon: MapIcon,
@@ -432,8 +437,8 @@ export const modules = [
   {
     key: 'participer',
     forme: 'arche',
-    name: 'Participer',
-    short: 'Participer',
+    name: 'Signalement',
+    short: 'Signalement',
     side: SIDE_PUBLIC,
     icon: Megaphone,
     teinte: '#1B5FA8',

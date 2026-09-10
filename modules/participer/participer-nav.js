@@ -160,7 +160,7 @@
     if (!win.NavPanel?.registerModule) return;
     const row = _getModuleRow();
     win.NavPanel.registerModule('participer', {
-      label: row.label || 'Participer',
+      label: row.label || 'Signalement',
       // Les signalements se superposent aux projets affichés : c'est le
       // positionnement du module (signalement contextualisé au territoire)
       clearLayers: false,

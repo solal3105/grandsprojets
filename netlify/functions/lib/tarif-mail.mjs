@@ -21,9 +21,9 @@ const SITE = 'https://openprojets.com';
 /* Les noms des modules, tels que la vitrine les écrit (home-src/src/v2/data/
    modules.js, que l'on ne peut pas importer ici : il dépend de Vue). */
 export const NOMS_MODULES = {
-  carte: 'Carte des projets',
+  carte: 'Carte des projets urbains',
   travaux: 'Travaux du quotidien',
-  participer: 'Participer',
+  participer: 'Signalement',
   diagnostic: 'Diagnostic terrain',
   chantiers: 'Chantiers et arrêtés',
 };
@@ -87,7 +87,7 @@ function corpsTexte({ resume, telephone }) {
     `Open Projets est la carte interactive qu'une collectivité déploie pour`,
     `informer ses habitants : les projets d'aménagement et les chantiers sur`,
     `une carte publique à ses couleurs, que chacun consulte sans compte. Des`,
-    `modules la complètent : travaux du quotidien, participation, diagnostic`,
+    `modules la complètent : travaux du quotidien, signalement, diagnostic`,
     `terrain, chantiers et arrêtés.`,
     ``,
     `Fonctionnalités : ${SITE}/home/fonctionnalites`,
@@ -129,7 +129,7 @@ function corpsHtml({ resume, telephone }) {
           <p style="margin:0 0 24px;color:#8a8a96;font-size:13px;word-break:break-all;">${echapper(resume.lien)}</p>
 
           <h2 style="${h}">Ce que fait Open Projets</h2>
-          <p style="${p}">Open Projets est la carte interactive qu'une collectivité déploie pour informer ses habitants : les projets d'aménagement et les chantiers sur une carte publique à ses couleurs, que chacun consulte sans compte. Des modules la complètent : travaux du quotidien, participation, diagnostic terrain, chantiers et arrêtés.</p>
+          <p style="${p}">Open Projets est la carte interactive qu'une collectivité déploie pour informer ses habitants : les projets d'aménagement et les chantiers sur une carte publique à ses couleurs, que chacun consulte sans compte. Des modules la complètent : travaux du quotidien, signalement, diagnostic terrain, chantiers et arrêtés.</p>
           <p style="${p}"><a href="${SITE}/home/fonctionnalites" style="color:#FF0037;">Les fonctionnalités</a></p>
 
           <hr style="border:0;border-top:1px solid #e6e6ea;margin:32px 0 16px;">

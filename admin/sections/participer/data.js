@@ -72,7 +72,7 @@ export function subPageHeader({ title, subtitle, action = '' }) {
     <div class="cw-header">
       <div class="cw-header__top">
         <a href="/admin/participer/" class="cw-back-link" data-section="participer">
-          <i class="fa-solid fa-arrow-left"></i><span>Participer</span>
+          <i class="fa-solid fa-arrow-left"></i><span>Signalement</span>
         </a>
       </div>
       <div class="cw-header__main">

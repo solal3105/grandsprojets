@@ -1,6 +1,6 @@
 <template>
-  <LiveEmbed :url="url" titre="Module Participer, espace de démonstration">
-Un espace où Participer est ouvert. Déposez un signalement, ou passez par Explorer pour lire ceux déjà publiés.
+  <LiveEmbed :url="url" titre="Module Signalement, espace de démonstration">
+Un espace où le module Signalement est ouvert. Déposez un signalement, ou passez par Explorer pour lire ceux déjà publiés.
   </LiveEmbed>
 </template>
 <script setup>

@@ -120,7 +120,7 @@
       </div>
     </section>
 
-    <!-- Signalements citoyens (module Participer) -->
+    <!-- Signalements citoyens (module Signalement, clé participer) -->
     <section class="py-24 bg-gray-bg">
       <div class="max-w-container mx-auto px-6">
         <div class="max-w-[768px]">

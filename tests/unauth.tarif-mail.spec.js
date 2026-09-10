@@ -78,7 +78,7 @@ test.describe('0.40 - L\'estimateur de prix : le message au demandeur', () => {
     const resume = resumer(DEMANDE);
     for (const corps of [text, html]) {
       expect(corps).toMatch(/12\D000 habitants/);
-      expect(corps).toContain('Carte des projets, Travaux du quotidien');
+      expect(corps).toContain('Carte des projets urbains, Travaux du quotidien');
       expect(corps).toContain('3 ans');
       expect(corps).toContain(resume.mensuel);
       expect(corps).toContain(resume.total);

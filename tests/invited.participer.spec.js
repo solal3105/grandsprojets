@@ -19,7 +19,7 @@ test.describe('18.1 - Contributeur', () => {
 
   test('18.1.1 - La file est accessible, sans liens de configuration', async ({ page }) => {
     await waitForBoot(page, '/admin/participer/');
-    await expect(page.locator('.adm-page-title')).toContainText('Participer', { timeout: 15000 });
+    await expect(page.locator('.adm-page-title')).toContainText('Signalement', { timeout: 15000 });
     await expect(page.locator('a[href="/admin/participer/config/"]')).toHaveCount(0);
     await expect(page.locator('a[href="/admin/participer/categories/"]')).toHaveCount(0);
     await expect(page.locator('a[href="/admin/participer/statuts/"]')).toHaveCount(0);
