@@ -630,7 +630,6 @@ ws_t.merge_cells(start_row=15, start_column=6, end_row=15, end_column=8)
 r = 16
 for cle, nom, _, _ in MODULES:
     cellule(ws_t, r, 5, nom, align=GAUCHE)
-    ws_t.merge_cells(start_row=r, start_column=5, end_row=r, end_column=5)
     cellule(ws_t, r, 6, f'=IF({A_TBX[f"prix_{cle}"]}=0,"non retenu",{A_TBX[f"prix_{cle}"]})', fmt=FMT_EUROS, align=DROITE)
     ws_t.merge_cells(start_row=r, start_column=6, end_row=r, end_column=8)
     r += 1
