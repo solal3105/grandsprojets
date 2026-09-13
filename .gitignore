@@ -20,6 +20,7 @@ docs/*.pdf
 
 # Outils d'agents locaux (configuration propre a chaque poste)
 .codex/
+.claude/
 AGENTS.md
 
 # Rapports d'audit ponctuels : instantanes de travail, regenerables

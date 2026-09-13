@@ -12,6 +12,7 @@ import { featuresBbox, bboxAreaKm2, geometryBbox, aggregateMetrics, METRIC_AGGS 
 import { resolveSelection, selectInRing, renderSelection, setHover, fitBoundsSafely, zoneBounds } from './map.js';
 import { setAnalysisBadge, showTab } from './panel.js';
 import { openReport } from './report.js';
+import { buildInsights } from './insights.js';
 
 const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
 const _fmtKm2 = (n) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
@@ -424,6 +425,8 @@ async function _runAnalysis() {
       context,
       pointCount: sel.features.length,
       areaKm2: sel.areaKm2,
+      // Lecture chiffrée : indicateurs, comparaisons, lieux, points d'attention.
+      insights: buildInsights({ selection: sel, layers: dg.layers, runtime: dg.runtime, territoryLabel: dg.territory?.commune?.nom || dg.branding?.brand_name || '' }),
     };
     renderAnalysisPanel();
   } catch (err) {

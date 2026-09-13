@@ -27,7 +27,7 @@
         </div>
 
         <div class="lg:col-span-2">
-          <h4 class="text-[13px] font-semibold uppercase tracking-wider text-white/40 mb-5">Les modules</h4>
+          <h3 class="text-[13px] font-semibold uppercase tracking-wider text-white/40 mb-5">Les modules</h3>
           <ul class="space-y-3">
             <li v-for="m in modules" :key="m.key">
               <router-link :to="`/modules/${m.key}`" class="text-sm text-white/70 hover:text-white transition-colors duration-200">
@@ -38,7 +38,7 @@
         </div>
 
         <div class="lg:col-span-2">
-          <h4 class="text-[13px] font-semibold uppercase tracking-wider text-white/40 mb-5">Open Projets</h4>
+          <h3 class="text-[13px] font-semibold uppercase tracking-wider text-white/40 mb-5">Open Projets</h3>
           <ul class="space-y-3">
             <li v-for="link in flatLinks" :key="link.label">
               <router-link :to="link.to" class="text-sm text-white/70 hover:text-white transition-colors duration-200">
@@ -60,7 +60,7 @@
 
         <!-- Le produit en service, plutôt qu'une page qui en parle. -->
         <div class="lg:col-span-4">
-          <h4 class="text-[13px] font-semibold uppercase tracking-wider text-white/40 mb-5">Voir le produit</h4>
+          <h3 class="text-[13px] font-semibold uppercase tracking-wider text-white/40 mb-5">Voir le produit</h3>
           <ul class="space-y-3">
             <li v-for="v in vitrines" :key="v.url">
               <a

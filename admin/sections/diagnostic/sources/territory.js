@@ -104,3 +104,18 @@ export async function communeCodesFor(territory, scope) {
   }
   return [...codes];
 }
+
+/**
+ * Nom d'un lieu depuis une position (Base adresse nationale) : « Rue
+ * Garibaldi, Lyon 3e ». Chaîne vide si le service ne répond pas.
+ */
+export async function reverseGeocode(lng, lat, { precise = false } = {}) {
+  try {
+    const res = await fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${lng}&lat=${lat}${precise ? '' : '&type=street'}`, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return '';
+    const data = await res.json();
+    const p = data?.features?.[0]?.properties;
+    if (!p) return '';
+    return [p.name || p.street, p.city].filter(Boolean).join(', ');
+  } catch { return ''; }
+}

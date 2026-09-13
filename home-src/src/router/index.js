@@ -7,8 +7,8 @@ import { setMeta, setCanonical } from '@/lib/head.js'
 export { setMeta, setCanonical }
 
 const BASE = 'https://openprojets.com/home'
-const DEFAULT_TITLE = 'La carte interactive des projets de votre collectivité | Open Projets'
-const DEFAULT_DESC = 'Publiez les projets urbains et les chantiers de votre commune sur une carte interactive à vos couleurs, sans développement. Vos habitants consultent sans compte.'
+const DEFAULT_TITLE = 'La carte des projets de votre collectivité | Open Projets'
+const DEFAULT_DESC = 'Publiez les projets urbains et les chantiers de votre commune sur une carte à vos couleurs, sans développement. Vos habitants consultent sans compte.'
 
 // Pages SEO « Alternative à … » générées depuis data/alternatives.js
 const alternativeRoutes = Object.entries(alternatives).map(([key, alt]) => ({
@@ -39,8 +39,8 @@ const routes = [
     name: 'fonctionnalites',
     component: () => import('@/views/FeaturesView.vue'),
     meta: {
-      title: 'Fonctionnalités : carte des projets, travaux, diagnostic | Open Projets',
-      description: 'Fiches projet géolocalisées, module travaux pour les riverains, catégories et identité visuelle de votre collectivité, gestion d\'équipe, diagnostic de terrain par l\'IA.',
+      title: 'Fonctionnalités de la carte des projets | Open Projets',
+      description: 'Fiches projet géolocalisées, module travaux pour les riverains, identité visuelle de votre collectivité, gestion d\'équipe et diagnostic de terrain par l\'IA.',
       canonical: `${BASE}/fonctionnalites`,
     },
   },
@@ -53,7 +53,7 @@ const routes = [
     name: 'a-propos',
     component: () => import('@/views/AboutView.vue'),
     meta: {
-      title: 'À propos : un outil français et open source pour les collectivités | Open Projets',
+      title: 'Open Projets, un outil français et open source',
       description: 'Open Projets est édité à Lyon par VAZY, Société à Mission. Code ouvert, hébergement en Europe, données sous le contrôle de votre collectivité.',
       canonical: `${BASE}/a-propos`,
     },
@@ -73,7 +73,7 @@ const routes = [
     name: 'confidentialite',
     component: () => import('@/views/ConfidentialiteView.vue'),
     meta: {
-      title: 'Confidentialité et mesure d\'audience - Open Projets',
+      title: 'Confidentialité et mesure d\'audience | Open Projets',
       description: 'Ce qu\'Open Projets mesure sur ses espaces, ce qu\'il ne mesure pas, et comment refuser cette mesure en un clic depuis votre navigateur.',
       canonical: `${BASE}/confidentialite`,
     },
@@ -83,7 +83,7 @@ const routes = [
     name: 'ressources',
     component: () => import('@/views/RessourcesView.vue'),
     meta: {
-      title: 'Ressources : communiquer sur les projets de sa collectivité | Open Projets',
+      title: 'Communiquer sur les projets de sa commune | Open Projets',
       description: 'Guides pratiques pour les communes : plan de mandat, carte des travaux, information des riverains. Des méthodes concrètes issues du terrain, sans jargon.',
       canonical: `${BASE}/ressources`,
     },
@@ -99,8 +99,8 @@ const routes = [
     name: 'aide',
     component: () => import('@/views/HelpView.vue'),
     meta: {
-      title: 'Centre d\'aide : guides administrateur et contributeur | Open Projets',
-      description: 'Comment publier un projet, gérer les catégories, inviter un agent ou activer le module travaux : les guides d\'utilisation d\'Open Projets, pour administrateurs et contributeurs.',
+      title: 'Centre d\'aide : les guides d\'utilisation | Open Projets',
+      description: 'Comment publier un projet, gérer les catégories, inviter un agent ou activer le module travaux : les guides d\'Open Projets, administrateur et contributeur.',
       canonical: `${BASE}/aide`,
     },
   },
@@ -109,7 +109,7 @@ const routes = [
     name: 'guide-print',
     component: () => import('@/views/HelpPrintView.vue'),
     meta: {
-      title: 'Guide - Open Projets',
+      title: 'Guide d\'utilisation | Open Projets',
       description: 'Guide d\'utilisation détaillé pour Open Projets.',
       robots: 'noindex',
     },

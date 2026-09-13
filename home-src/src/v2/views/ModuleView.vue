@@ -74,10 +74,7 @@
         v-for="(f, i) in mod.features" :key="f.titre"
         :tone="mod.tone" :forme="mod.forme" :capture="f.capture" :inverse="i % 2 === 1"
       >
-        <span class="block text-[11px] font-semibold uppercase tracking-[0.2em]" :class="mod.tone.text">
-          {{ f.etiquette }}
-        </span>
-        <h2 class="mt-4 font-heading font-bold text-2xl sm:text-3xl lg:text-[36px] leading-[1.1] tracking-tight text-dark max-w-[560px]">
+        <h2 class="font-heading font-bold text-2xl sm:text-3xl lg:text-[36px] leading-[1.1] tracking-tight text-dark max-w-[560px]">
           {{ f.titre }}
         </h2>
         <p class="mt-5 text-gray-text text-base sm:text-lg leading-relaxed max-w-[520px]">{{ f.texte }}</p>
@@ -142,7 +139,7 @@
             <span class="relative text-base text-gray-text leading-relaxed transition-colors duration-300 group-hover:text-white">
               {{ autre.lien }}
             </span>
-            <ArrowRight class="relative hidden md:block w-4 h-4 text-gray-400 transition-all duration-200 group-hover:text-white group-hover:translate-x-1" />
+            <ArrowRight class="relative hidden md:block w-4 h-4 text-gray-400 transition duration-200 group-hover:text-white group-hover:translate-x-1" />
           </router-link>
         </div>
       </div>

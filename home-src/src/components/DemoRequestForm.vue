@@ -14,7 +14,7 @@
           />
         </div>
         <div>
-          <label :for="`${idPrefix}-email`" class="block text-sm text-gray-text mb-1.5">Email *</label>
+          <label :for="`${idPrefix}-email`" class="block text-sm text-gray-text mb-1.5">Adresse e-mail *</label>
           <input
             :id="`${idPrefix}-email`"
             v-model="form.email"
@@ -80,7 +80,7 @@
       </button>
 
       <p v-if="submitted" class="text-center text-sm text-green-600 font-medium">
-        Merci ! Nous vous recontactons rapidement.
+        Merci, nous avons bien reçu votre demande. Nous vous répondons par courriel.
       </p>
 
       <p v-if="errorMsg" class="text-center text-sm text-red-600 font-medium">
@@ -106,7 +106,7 @@ const EXEMPLES = [
   "Notre service voirie croule sous les arrêtés. Une démonstration serait la bienvenue.",
   'Nous sommes une commune de 4 000 habitants. Quel budget faut-il prévoir ?',
 ]
-const INVITE_FIXE = 'Parlez-nous de votre territoire et de vos besoins…'
+const INVITE_FIXE = 'Parlez-nous de votre territoire et de vos besoins'
 
 const invite = ref(INVITE_FIXE)
 let minuteur = null
@@ -204,7 +204,7 @@ async function handleSubmit() {
   } catch (err) {
     console.error('[DemoRequestForm] Error:', err)
     window.OPAnalytics?.capture('contact_request_failed', { referrer: props.referrer })
-    errorMsg.value = 'Une erreur est survenue. Veuillez réessayer ou nous contacter directement.'
+    errorMsg.value = "Nous n'avons pas pu enregistrer votre demande. Vérifiez votre connexion et réessayez dans un instant."
   } finally {
     submitting.value = false
   }
@@ -213,7 +213,7 @@ async function handleSubmit() {
 
 <style scoped>
 .form-input {
-  @apply w-full px-4 py-3.5 bg-gray-bg border border-gray-200 rounded-xl text-sm text-dark placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors;
+  @apply w-full px-4 py-3.5 bg-gray-bg border border-gray-200 rounded-xl text-sm text-dark placeholder:text-gray-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors;
 }
 
 /* Le champ message revenait a la ligne mais gardait une barre de defilement
@@ -231,7 +231,7 @@ textarea.form-input {
 .form-invite {
   position: absolute; inset: 0; margin: 0; pointer-events: none;
   border: 1px solid transparent; padding: 14px 16px;
-  font-size: 0.875rem; line-height: 1.25rem; color: #9CA3AF;
+  font-size: 0.875rem; line-height: 1.25rem; color: #71767F;
   white-space: pre-wrap; overflow-wrap: break-word; overflow: hidden;
 }
 </style>

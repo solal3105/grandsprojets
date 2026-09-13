@@ -486,6 +486,15 @@ test.describe('0.8 - Fiche : SSR', () => {
     await page.waitForTimeout(2000);
     const pair = await page.evaluate(async () => {
       try {
+        // Les espaces retirés des moteurs (city_branding.indexable = false)
+        // n'ont aucune adresse dans le plan du site : un doublon pris chez eux
+        // ferait échouer la dernière assertion sans rien prouver.
+        const { data: horsIndex } = await window.__supabaseClient
+          .from('city_branding')
+          .select('ville')
+          .eq('indexable', false);
+        const exclues = new Set((horsIndex || []).map(r => r.ville));
+
         const { data } = await window.__supabaseClient
           .from('contribution_uploads')
           .select('project_name, category_slug, slug, ville, created_at')
@@ -497,6 +506,7 @@ test.describe('0.8 - Fiche : SSR', () => {
           .limit(1000);
         const seen = new Map();
         for (const r of data || []) {
+          if (exclues.has(r.ville)) continue;
           const key = `${r.ville}|${String(r.project_name).trim().toLowerCase()}|${r.category_slug}`;
           if (seen.has(key) && seen.get(key).slug !== r.slug) return { ref: seen.get(key), dup: r };
           if (!seen.has(key)) seen.set(key, r);

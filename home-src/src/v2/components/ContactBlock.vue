@@ -7,10 +7,6 @@
     <div class="relative max-w-container mx-auto px-6">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
         <div>
-          <span class="inline-block text-xs font-semibold text-primary-ink uppercase tracking-widest mb-5">
-            Parlons-en
-          </span>
-
           <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[44px] leading-[1.08] tracking-tight text-dark">
             Nous configurons votre espace avec vous
           </h2>

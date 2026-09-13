@@ -264,7 +264,7 @@ onUnmounted(() => { observer?.disconnect(); map?.remove() })
 .dg-maptools { position: absolute; top: 14px; right: 14px; z-index: 6; display: flex; align-items: center; gap: 8px; }
 .dg-tool-btn {
   display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.5); background: rgba(255,255,255,.72);
+  border: 1px solid rgba(255,255,255,.5); background: rgba(255,255,255,.97);
   backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
   box-shadow: 0 4px 24px rgba(0,0,0,.06), 0 1px 4px rgba(0,0,0,.04), inset 0 1.5px 0 rgba(255,255,255,.95);
   color: #334155;
@@ -274,7 +274,7 @@ onUnmounted(() => { observer?.disconnect(); map?.remove() })
   border: 1px solid transparent; font-size: 13px; font-weight: 700;
   box-shadow: 0 4px 24px rgba(0,0,0,.06), 0 1px 4px rgba(0,0,0,.04);
 }
-.dg-lasso-btn.is-active { background: rgb(20,174,92); color: #fff; }
+.dg-lasso-btn.is-active { background: #0D7F43; color: #fff; }
 
 /* ── Le dock : 348px, en haut a gauche ───────────────────────── */
 .dg-dock {
@@ -284,7 +284,7 @@ onUnmounted(() => { observer?.disconnect(); map?.remove() })
 }
 .dg-tabs {
   display: inline-flex; align-self: flex-start; gap: 3px; padding: 4px; border-radius: 100px;
-  background: rgba(255,255,255,.72);
+  background: rgba(255,255,255,.97);
   backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
   border: 1px solid rgba(255,255,255,.5);
   box-shadow: 0 4px 24px rgba(0,0,0,.06), 0 1px 4px rgba(0,0,0,.04), inset 0 1.5px 0 rgba(255,255,255,.95);
@@ -299,11 +299,11 @@ onUnmounted(() => { observer?.disconnect(); map?.remove() })
 /* L'onglet actif est NOIR, jamais vert */
 .dg-tab.is-active { background: #0F172A; color: #F8FAFC; box-shadow: 0 2px 8px rgba(0,0,0,.22); }
 .dg-tab:focus-visible { outline: 2px solid #0F172A; outline-offset: 2px; }
-.dg-tab__badge { background: rgb(20,174,92); color: #fff; font-size: 10px; font-weight: 800; border-radius: 100px; padding: 1px 6px; }
+.dg-tab__badge { background: #0D7F43; color: #fff; font-size: 11.5px; font-weight: 800; border-radius: 100px; padding: 1px 6px; }
 .dg-tab.is-active .dg-tab__badge { background: #F8FAFC; color: #0F172A; }
 
 .dg-tab-panel {
-  background: rgba(255,255,255,.72);
+  background: rgba(255,255,255,.97);
   backdrop-filter: blur(40px) saturate(170%); -webkit-backdrop-filter: blur(40px) saturate(170%);
   border: 1px solid rgba(255,255,255,.5); border-radius: 18px; padding: 12px;
   box-shadow: 0 0 0 1px rgba(0,0,0,.04), 0 12px 48px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.04), inset 0 1.5px 0 rgba(255,255,255,.95);
@@ -359,7 +359,7 @@ onUnmounted(() => { observer?.disconnect(); map?.remove() })
 .dg-sujet__count { flex: none; font-size: 11px; font-weight: 800; color: #475569; background: rgba(0,0,0,.06); padding: 2px 9px; border-radius: 100px; }
 /* Les references sont bleues */
 .dg-ins__refs { display: flex; flex-wrap: wrap; gap: 3px; }
-.dg-ref { border-radius: 6px; padding: 0 6px; font-size: 10.5px; font-weight: 800; line-height: 1.6; background: rgba(37,99,235,.12); color: #2563EB; }
+.dg-ref { border-radius: 6px; padding: 0 6px; font-size: 12px; font-weight: 800; line-height: 1.5; background: rgba(37,99,235,.12); color: #2563EB; }
 .dg-ins__verb { margin: 0; font-size: 11px; line-height: 1.4; font-style: italic; color: #475569; border-left: 2px solid rgba(0,0,0,.15); padding: 1px 0 1px 9px; }
 
 .dg-report-btn {

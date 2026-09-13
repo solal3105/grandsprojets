@@ -7,9 +7,6 @@
       <HeroGround />
       <div class="relative max-w-container mx-auto px-6">
         <div class="max-w-[820px] mx-auto text-center">
-          <span class="inline-block text-xs font-semibold text-primary-ink uppercase tracking-widest mb-5">
-            Tarification
-          </span>
           <h1 class="font-heading font-bold text-4xl sm:text-5xl lg:text-[52px] leading-[1.06] tracking-tight-hero text-dark">
             Estimez le prix d'Open Projets pour votre collectivité
           </h1>
@@ -23,13 +20,13 @@
 
     <section class="pb-20 sm:pb-28 bg-white">
       <div class="max-w-container mx-auto px-6">
-        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-8 lg:gap-12 items-start">
+        <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-6 lg:gap-10 items-start">
 
           <!-- Les trois réglages -->
           <div class="flex flex-col gap-6">
 
             <!-- 1. La population -->
-            <div class="rounded-3xl border border-gray-border bg-white p-6 sm:p-8 shadow-pill">
+            <div class="rounded-3xl border border-gray-border bg-white p-6 sm:p-7 shadow-pill">
               <div class="flex items-center gap-3">
                 <span class="w-8 h-8 rounded-full bg-dark text-white font-heading font-bold text-sm flex items-center justify-center">1</span>
                 <h2 class="font-heading font-bold text-xl sm:text-2xl tracking-tight text-dark">La taille de votre commune</h2>
@@ -88,7 +85,7 @@
             </div>
 
             <!-- 2. Les modules -->
-            <div class="rounded-3xl border border-gray-border bg-white p-6 sm:p-8 shadow-pill">
+            <div class="rounded-3xl border border-gray-border bg-white p-6 sm:p-7 shadow-pill">
               <div class="flex items-center gap-3">
                 <span class="w-8 h-8 rounded-full bg-dark text-white font-heading font-bold text-sm flex items-center justify-center">2</span>
                 <h2 class="font-heading font-bold text-xl sm:text-2xl tracking-tight text-dark">Les modules que vous activez</h2>
@@ -98,14 +95,14 @@
                 par module ajouté.
               </p>
 
-              <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <button
                   v-for="m in offre" :key="m.key"
                   type="button"
                   role="switch"
                   :aria-checked="retenus.includes(m.key)"
                   :data-module="m.key"
-                  class="group relative text-left rounded-2xl border-2 p-4 sm:p-5 transition-all duration-200"
+                  class="group relative text-left rounded-2xl border-2 p-4 sm:p-5 transition duration-200"
                   :class="retenus.includes(m.key)
                     ? 'border-dark bg-white shadow-card'
                     : 'border-gray-border bg-gray-bg hover:border-gray-300'"
@@ -148,7 +145,7 @@
             </div>
 
             <!-- 3. L'engagement -->
-            <div class="rounded-3xl border border-gray-border bg-white p-6 sm:p-8 shadow-pill">
+            <div class="rounded-3xl border border-gray-border bg-white p-6 sm:p-7 shadow-pill">
               <div class="flex items-center gap-3">
                 <span class="w-8 h-8 rounded-full bg-dark text-white font-heading font-bold text-sm flex items-center justify-center">3</span>
                 <h2 class="font-heading font-bold text-xl sm:text-2xl tracking-tight text-dark">La durée de votre engagement</h2>
@@ -164,7 +161,7 @@
                   role="radio"
                   :aria-checked="annees === e.annees"
                   :data-annees="e.annees"
-                  class="rounded-2xl border-2 px-3 py-4 text-center transition-all duration-200"
+                  class="rounded-2xl border-2 px-3 py-4 text-center transition duration-200"
                   :class="annees === e.annees
                     ? 'border-dark bg-dark text-white shadow-card'
                     : 'border-gray-border bg-gray-bg text-dark hover:border-gray-300'"
@@ -181,7 +178,7 @@
             <!-- L'estimation à envoyer : un document A4 à enregistrer en PDF,
                  avec le destinataire et notre numéro de suivi. Rien n'est
                  enregistré : tout passe dans l'adresse du document. -->
-            <form v-if="exact" id="estimation-form" class="rounded-3xl border border-gray-border bg-white p-6 sm:p-8 shadow-pill" @submit.prevent="ouvrirEstimation">
+            <form v-if="exact" id="estimation-form" class="rounded-3xl border border-gray-border bg-white p-6 sm:p-7 shadow-pill" @submit.prevent="ouvrirEstimation">
               <div class="flex items-center gap-3">
                 <span class="w-8 h-8 rounded-full bg-primary-ink text-white flex items-center justify-center"><FileText class="w-4 h-4" /></span>
                 <h2 class="font-heading font-bold text-xl sm:text-2xl tracking-tight text-dark">Préparer l'estimation à envoyer</h2>
@@ -222,7 +219,7 @@
           <aside class="lg:sticky lg:top-24">
             <div class="rounded-3xl bg-dark text-white p-6 sm:p-8 shadow-card">
               <div class="flex items-center justify-between gap-4">
-                <span class="text-xs font-semibold uppercase tracking-widest text-white/60">Votre estimation</span>
+                <span class="text-xs font-semibold text-white/70">Votre estimation</span>
                 <div class="inline-flex rounded-full bg-white/10 p-1" role="radiogroup" aria-label="Période d'affichage">
                   <button
                     v-for="p in PERIODES" :key="p.cle"
@@ -249,7 +246,7 @@
               <!-- Le visiteur ne voit que la mise en service, en fourchette :
                    le détail et les seuils sont réservés au mode commercial -->
               <div v-if="!exact" id="tarif-mise-en-service" class="mt-7 rounded-2xl border border-white/15 p-4">
-                <p class="text-xs font-semibold uppercase tracking-widest text-white/60">Mise en service et formation des équipes</p>
+                <p class="text-xs font-semibold text-white/70">Mise en service et formation des équipes</p>
                 <p class="mt-2 font-heading font-bold text-xl tabular-nums">{{ estimation.setupOfferte ? 'Offerte' : eurosFourchette(estimation.setup) }} <span class="text-sm font-normal text-white/60">HT, une seule fois</span></p>
               </div>
 
@@ -288,7 +285,7 @@
 
                 <div class="relative mt-4 h-2 rounded-full bg-white/10" aria-hidden="true">
                   <span
-                    class="absolute inset-y-0 left-0 rounded-full transition-[width,background-color] duration-500"
+                    class="absolute inset-y-0 left-0 rounded-full transition-colors duration-500"
                     :class="jauge.classe"
                     :style="{ width: `${jauge.part}%` }"
                   />
@@ -330,31 +327,31 @@
                   <p class="text-sm leading-relaxed">Cette fourchette est indicative. Laissez-nous votre adresse e-mail et un membre de l'équipe vous communique le tarif exact pour ces réglages.</p>
                   <div class="mt-3 grid grid-cols-1 gap-2">
                     <label class="block">
-                      <span class="sr-only">Adresse e-mail</span>
+                      <span class="block text-xs font-medium text-white/70 mb-1.5">Adresse e-mail</span>
                       <input id="tarif-exact-email" v-model="demande.email" type="email" required maxlength="160" autocomplete="email" placeholder="vous@votre-collectivite.fr" class="champ-sombre" />
                     </label>
                     <label class="block">
-                      <span class="sr-only">Téléphone, facultatif</span>
-                      <input id="tarif-exact-tel" v-model="demande.telephone" type="tel" maxlength="30" autocomplete="tel" placeholder="Téléphone (facultatif)" class="champ-sombre" />
+                      <span class="block text-xs font-medium text-white/70 mb-1.5">Téléphone, facultatif</span>
+                      <input id="tarif-exact-tel" v-model="demande.telephone" type="tel" maxlength="30" autocomplete="tel" placeholder="06 12 34 56 78" class="champ-sombre" />
                     </label>
                   </div>
                   <button
                     type="submit" :disabled="demande.envoi"
                     class="mt-3 w-full inline-flex items-center justify-center gap-2.5 bg-white text-dark text-[15px] font-medium px-6 py-3.5 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-60"
                   >
-                    {{ demande.envoi ? 'Un instant' : 'Demander le tarif exact' }}
+                    {{ demande.envoi ? 'Envoi en cours' : 'Demander le tarif exact' }}
                     <ArrowRight v-if="!demande.envoi" class="w-4 h-4" />
                   </button>
                   <p v-if="demande.erreur" class="mt-2 text-xs text-amber" role="alert">{{ demande.erreur }}</p>
-                  <p class="mt-2 text-[11px] text-white/50 leading-relaxed">Nous nous en servons pour vous répondre sur cette estimation, rien d'autre.</p>
+                  <p class="mt-2 text-xs text-white/70 leading-relaxed">Nous nous en servons pour vous répondre sur cette estimation, rien d'autre.</p>
                 </form>
               </div>
 
               <router-link
                 :to="{ hash: '#contact' }" v-tilt-btn
-                class="mt-6 w-full inline-flex items-center justify-center gap-2.5 bg-primary text-white text-[15px] font-medium px-6 py-4 rounded-full hover:bg-red-600 transition-colors"
+                class="mt-6 w-full inline-flex items-center justify-center gap-2.5 bg-primary-ink text-white text-[15px] font-medium px-6 py-4 rounded-full hover:bg-red-700 transition-colors"
               >
-                Demander un devis sur cette base
+                Nous écrire à propos de cette estimation
                 <ArrowRight class="w-4 h-4" />
               </router-link>
             </div>

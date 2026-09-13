@@ -12,7 +12,7 @@ export const alternatives = {
     referrer: 'alt-panneaupocket',
     competitor: 'PanneauPocket',
     seo: {
-      title: 'Alternative à PanneauPocket : la carte des projets urbains | Open Projets',
+      title: 'Alternative à PanneauPocket | Open Projets',
       description:
         "Vous utilisez PanneauPocket pour vos alertes ? Open Projets le complète avec une carte interactive de vos projets et chantiers, consultable sans application.",
       canonical: `${BASE}/alternative-panneaupocket`,
@@ -73,9 +73,9 @@ export const alternatives = {
     referrer: 'alt-cityall',
     competitor: 'CityAll (Lumiplan)',
     seo: {
-      title: 'Alternative à CityAll (Lumiplan) : la carte web des projets | Open Projets',
+      title: 'Alternative à CityAll (Lumiplan) | Open Projets',
       description:
-        "CityAll de Lumiplan est une app citoyenne mutualisée. Open Projets apporte la carte web de vos projets et chantiers, à vos couleurs, accessible sans application.",
+        "CityAll de Lumiplan est une app citoyenne mutualisée. Open Projets apporte la carte web de vos projets et chantiers, à vos couleurs, sans application.",
       canonical: `${BASE}/alternative-cityall-lumiplan`,
     },
     hero: {
@@ -132,7 +132,7 @@ export const alternatives = {
     referrer: 'alt-neocity',
     competitor: 'Neocity',
     seo: {
-      title: 'Alternative à Neocity : la carte des projets sans app | Open Projets',
+      title: 'Alternative à Neocity | Open Projets',
       description:
         "Neocity est une app citoyenne complète. Open Projets apporte une carte web de vos projets et chantiers, accessible par lien ou QR code, sans installation.",
       canonical: `${BASE}/alternative-neocity`,

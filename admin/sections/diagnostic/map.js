@@ -5,7 +5,6 @@
  * sélection lasso dessinée sur un canvas overlay.
  */
 
-import { esc, escAttr } from '../../components/ui.js';
 import { dg, onCleanup, safeColor, layerKind } from './state.js';
 import { pointInPolygon, someVertex } from './data.js';
 import { renderPopup } from './popups.js';

@@ -6,7 +6,6 @@
 
       <div class="relative max-w-container mx-auto px-6">
         <div class="max-w-[768px]">
-          <EyebrowLabel>Confidentialité</EyebrowLabel>
           <h1 class="font-heading font-bold text-4xl sm:text-5xl lg:text-[64px] leading-[1.05] tracking-tight-hero text-dark">
             Nous mesurons l'usage,
             <span class="text-gradient-green"> vous gardez la main</span>
@@ -27,7 +26,7 @@
           <h2 class="font-heading font-bold text-2xl sm:text-3xl text-dark">
             Vous pouvez refuser la mesure d'audience
           </h2>
-          <p class="mt-4 text-gray-text leading-relaxed">
+          <p class="mt-4 text-gray-text leading-relaxed max-w-[65ch]">
             Le refus s'applique immédiatement aux deux outils que nous utilisons,
             PostHog et Google Analytics, sur tous les espaces Open Projets ouverts
             depuis ce navigateur : le site vitrine, les cartes publiques, les
@@ -54,7 +53,7 @@
             </p>
           </div>
 
-          <p class="mt-6 text-xs text-gray-text leading-relaxed">
+          <p class="mt-6 text-xs text-gray-text leading-relaxed max-w-[65ch]">
             Si votre navigateur envoie le signal « Do Not Track » ou « Global
             Privacy Control », la mesure est déjà désactivée sans aucune action de
             votre part. Vous pouvez aussi ajouter <code class="font-mono">?tracking=off</code>
@@ -86,7 +85,7 @@
               <li
                 v-for="line in block.lines"
                 :key="line"
-                class="text-sm text-gray-text leading-relaxed"
+                class="text-sm text-gray-text leading-relaxed max-w-[65ch]"
               >
                 {{ line }}
               </li>
@@ -107,11 +106,11 @@
         <dl class="mt-10 space-y-8">
           <div v-for="item in details" :key="item.term">
             <dt class="font-heading font-semibold text-lg text-dark">{{ item.term }}</dt>
-            <dd class="mt-2 text-gray-text leading-relaxed">{{ item.desc }}</dd>
+            <dd class="mt-2 text-gray-text leading-relaxed max-w-[65ch]">{{ item.desc }}</dd>
           </div>
         </dl>
 
-        <p class="mt-12 text-gray-text leading-relaxed">
+        <p class="mt-12 text-gray-text leading-relaxed max-w-[65ch]">
           Pour exercer vos droits d'accès, de rectification ou d'effacement, ou
           pour toute question sur ce traitement, écrivez-nous depuis la
           <router-link to="/contact" class="text-primary-ink font-medium hover:underline">page contact</router-link>.
@@ -127,7 +126,7 @@
           <h2 class="font-heading font-bold text-3xl sm:text-4xl leading-tight tracking-tight text-dark">
             Si vous déposez un signalement sur une carte
           </h2>
-          <p class="mt-6 text-gray-text leading-relaxed">
+          <p class="mt-6 text-gray-text leading-relaxed max-w-[65ch]">
             Certaines collectivités activent un module de signalement sur leur
             carte : vous pouvez y décrire un problème ou une idée, avec un point
             sur la carte, une photo et votre adresse email. Voici ce que devient
@@ -137,7 +136,7 @@
           <dl class="mt-10 space-y-8">
             <div v-for="item in participer" :key="item.term">
               <dt class="font-heading font-semibold text-lg text-dark">{{ item.term }}</dt>
-              <dd class="mt-2 text-gray-text leading-relaxed">{{ item.desc }}</dd>
+              <dd class="mt-2 text-gray-text leading-relaxed max-w-[65ch]">{{ item.desc }}</dd>
             </div>
           </dl>
         </div>
@@ -150,7 +149,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { Ban, Check, BarChart3, ShieldOff } from 'lucide-vue-next'
 import PageBlobs from '@/components/PageBlobs.vue'
-import EyebrowLabel from '@/components/EyebrowLabel.vue'
 
 const optedOut = ref(false)
 const actif = ref(false)

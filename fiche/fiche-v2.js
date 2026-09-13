@@ -144,6 +144,33 @@
     if (btnErr) btnErr.href = href;
   }
 
+  // Nom du projet en cours, posé par updateSEO et relu par loadBranding pour
+  // suffixer le titre avec la collectivité dès qu'elle est connue.
+  let projectName = '';
+
+  /* Mêmes règles que le rendu serveur (netlify/edge-functions/_lib/seo.js) :
+     le titre affiché par Google tient en une soixantaine de caractères, et la
+     description s'arrête à la fin d'une phrase entière. */
+  function fitTitle(head, suffix, maxLen = 60) {
+    const name = String(head || '').trim();
+    const brand = String(suffix || '').trim();
+    if (!brand) return name;
+    const full = `${name} | ${brand}`;
+    return full.length <= maxLen ? full : name;
+  }
+
+  function summarize(text, maxLen = 160) {
+    const clean = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!clean || clean.length <= maxLen) return clean;
+    let end = -1;
+    const sentenceEnd = /[.!?](?=\s|$)/g;
+    let match;
+    while ((match = sentenceEnd.exec(clean)) !== null && match.index < maxLen) end = match.index;
+    if (end >= maxLen / 2) return clean.slice(0, end + 1);
+    const cut = clean.lastIndexOf(' ', maxLen);
+    return clean.slice(0, cut > 0 ? cut : maxLen).replace(/[\s,;:(«]+$/, '') + '…';
+  }
+
   function humanizeCategory(slug) {
     if (!slug) return '';
     return slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -433,6 +460,17 @@
     const logoDark  = data.dark_logo_url || data.logo_url || '';
     const brandName = data.brand_name || ville;
 
+    // Titre et metas de partage : « Nom du projet | Collectivité », identique
+    // à ce que sert fiche-ssr.js aux robots.
+    if (projectName) {
+      const titled = fitTitle(projectName, brandName);
+      document.title = titled;
+      const og = document.querySelector('meta[property="og:title"]');
+      if (og) og.content = titled;
+      const tw = document.querySelector('meta[name="twitter:title"]');
+      if (tw) tw.content = titled;
+    }
+
     function applyLogo() {
       const url = isDark() ? logoDark : logoLight;
       if (!url) return;
@@ -459,9 +497,9 @@
   function updateSEO(project, category) {
     const name = project.project_name;
     const catLabel = CFG.CAT_LABELS[category] || humanizeCategory(category);
-    const desc = (project.description && project.description.length > 10)
+    const desc = summarize((project.description && project.description.length > 10)
       ? project.description
-      : `Découvrez ${name}, un projet ${catLabel}.`;
+      : `Découvrez ${name}, un projet ${catLabel}.`);
     const cover = project.cover_url || '';
     const ville = project.ville || '';
     const catSlug = project.category_slug || category;
@@ -470,8 +508,10 @@
       ? `${CFG.PROD}/fiche/${encodeURIComponent(ville)}/${encodeURIComponent(catSlug)}/${encodeURIComponent(projSlug)}`
       : `${CFG.PROD}/fiche/`;
 
-    // Titre dynamique - utilise le branding ville si disponible (sera mis à jour par loadBranding)
-    document.title = `${name} - ${catLabel}`;
+    // Le nom du projet seul : loadBranding y ajoute la collectivité dès
+    // qu'elle est connue, comme le fait le rendu serveur.
+    document.title = name;
+    projectName = name;
 
     const setMeta = (attr, key, val) => {
       let tag = document.querySelector(`meta[${attr}="${key}"]`);

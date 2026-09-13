@@ -197,7 +197,7 @@ const RENDERERS = {
       + _foot('Signalé par des conducteurs Waze · flux Waze for Cities de votre collectivité');
   },
 
-  'waze-jams'(p, layer, source) {
+  'waze-jams'(p) {
     const delay = Number(p.retard_s) || 0;
     const mins = Math.floor(delay / 60);
     const secs = delay % 60;

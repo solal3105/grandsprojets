@@ -77,7 +77,11 @@ export async function fetchCounters(contours, onProgress) {
     try { list = await _list(org.id); } catch { failures++; continue; }
     for (const c of list) {
       const f = counterToFeature(c, contours, org.nom);
-      if (f && !seen.has(f.properties.id_compteur)) seen.set(f.properties.id_compteur, f);
+      if (!f) continue;
+      // Un même compteur publié par deux gestionnaires (réseau national et
+      // observatoire local) : même position et même nom, on n'en garde qu'un.
+      const key = `${f.geometry.coordinates.map((v) => v.toFixed(4)).join(',')}|${f.properties.nom.toLowerCase()}`;
+      if (!seen.has(key)) seen.set(key, f);
     }
   }
   if (!seen.size && failures) throw new Error('Les pages publiques Eco-Compteur ne répondent pas pour le moment. Réessayez dans quelques minutes.');

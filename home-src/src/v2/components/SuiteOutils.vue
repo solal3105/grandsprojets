@@ -6,10 +6,7 @@
   <section class="py-16 sm:py-24 bg-gray-bg">
     <div class="max-w-container mx-auto px-6">
       <div class="max-w-[760px]">
-        <span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-muted">
-          Ce guide, en pratique
-        </span>
-        <h2 class="mt-5 font-heading font-bold text-2xl sm:text-3xl lg:text-[38px] leading-[1.1] tracking-tight text-dark">
+        <h2 class="font-heading font-bold text-2xl sm:text-3xl lg:text-[38px] leading-[1.1] tracking-tight text-dark">
           {{ heading }}
         </h2>
         <p class="mt-5 text-gray-text text-base sm:text-lg leading-relaxed">
@@ -41,7 +38,7 @@
           <router-link
             v-for="m in modules" :key="m.key"
             :to="`/modules/${m.key}`"
-            class="group flex flex-col bg-white rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-card"
+            class="group flex flex-col bg-white rounded-2xl p-6 transition duration-300 hover:-translate-y-1 hover:shadow-card"
           >
             <span class="w-10 h-10 rounded-xl flex items-center justify-center mb-5" :class="m.tone.bg">
               <component :is="m.icon" class="w-4 h-4" :class="m.tone.text" />
@@ -59,7 +56,7 @@
           <!-- La sixieme tuile ferme la grille et ramene a l'essai. -->
           <router-link
             to="/#essayer"
-            class="group flex flex-col justify-between bg-dark rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-card"
+            class="group flex flex-col justify-between bg-dark rounded-2xl p-6 transition duration-300 hover:-translate-y-1 hover:shadow-card"
           >
             <span class="font-heading font-semibold text-[17px] leading-snug tracking-tight text-white">
               Voyez ce que ça donne sur votre commune

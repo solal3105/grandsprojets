@@ -48,7 +48,7 @@
               type="submit" v-tilt-btn
               class="group inline-flex items-center justify-center gap-2 bg-primary-ink text-white text-[15px] font-medium px-7 py-3.5 rounded-full hover:bg-red-700 transition-colors shrink-0"
             >
-              Voir ma carte
+              Voir la carte de ma commune
               <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
             </button>
           </div>
@@ -83,7 +83,7 @@
             :href="MAP_LYON_URL" target="_blank" rel="noopener"
             class="inline-flex items-center gap-1 text-dark underline underline-offset-4 decoration-gray-300 hover:decoration-dark transition-colors"
           >
-            Ouvrez celui d'une métropole
+            Ouvrir la carte de la Métropole de Lyon
             <ArrowUpRight class="w-3.5 h-3.5" />
           </a>
         </p>

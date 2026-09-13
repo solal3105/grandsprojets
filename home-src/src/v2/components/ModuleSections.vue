@@ -49,7 +49,7 @@
 
       <router-link
         :to="`/modules/${m.key}`" v-tilt-btn
-        class="group mt-9 inline-flex items-center gap-2.5 text-white text-sm font-medium px-6 py-3.5 rounded-full shadow-pill hover:shadow-card hover:-translate-y-0.5 transition-all duration-200"
+        class="group mt-9 inline-flex items-center gap-2.5 text-white text-sm font-medium px-6 py-3.5 rounded-full shadow-pill hover:shadow-card hover:-translate-y-0.5 transition duration-200"
         :class="m.tone.socle"
       >
         Voir le module {{ m.short }}

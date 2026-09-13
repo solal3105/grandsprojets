@@ -1,7 +1,7 @@
 <template>
   <div class="bg-gray-bg min-h-screen">
     <!-- La barre d'outils : à l'écran seulement, jamais sur le papier -->
-    <div class="print:hidden sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-gray-border">
+    <div class="print:hidden sticky top-0 z-10 bg-white border-b border-gray-border">
       <div class="max-w-[900px] mx-auto px-6 h-16 flex items-center justify-between gap-4">
         <router-link :to="{ name: 'tarification', query: route.query }" class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-text hover:text-dark transition-colors">
           <ArrowLeft class="w-4 h-4" />
@@ -13,11 +13,11 @@
           @click="imprimer"
         >
           <Printer class="w-4 h-4" />
-          Enregistrer en PDF
+          Ouvrir la fenêtre d'impression
         </button>
       </div>
       <p class="max-w-[900px] mx-auto px-6 pb-3 text-xs text-gray-muted">
-        Dans la fenêtre d'impression, choisissez « Enregistrer au format PDF » et laissez les couleurs d'arrière-plan activées.
+        Choisissez ensuite « Enregistrer au format PDF » comme destination, et laissez les couleurs d'arrière-plan activées.
       </p>
     </div>
 
@@ -56,7 +56,7 @@
       <section class="mt-10">
         <h2 class="font-heading font-bold text-lg tracking-tight">Ce que comprend cette estimation</h2>
         <p class="mt-2 text-sm text-gray-text leading-relaxed">
-          Un espace Open Projets pour {{ collectivite || 'votre collectivité' }}, avec
+          Cette estimation porte sur un espace Open Projets pour {{ collectivite || 'votre collectivité' }}, avec
           {{ retenus.length > 1 ? `les ${retenus.length} modules ci-dessous` : 'le module ci-dessous' }},
           sur un engagement de {{ estimation.annees }} {{ estimation.annees > 1 ? 'ans' : 'an' }}.
           La mise en service comprend la configuration de l'espace, vos catégories et votre identité
@@ -142,7 +142,7 @@
         </p>
       </section>
 
-      <footer class="mt-10 pt-5 border-t border-gray-border text-[10.5px] text-gray-muted leading-relaxed">
+      <footer class="mt-10 pt-5 border-t border-gray-border text-[11.5px] text-gray-muted leading-relaxed">
         <p>
           Cette estimation est établie à partir des éléments connus à ce jour : {{ nombre(estimation.population) }} habitants,
           {{ retenus.map((m) => m.name).join(', ') }}, engagement de {{ estimation.annees }} {{ estimation.annees > 1 ? 'ans' : 'an' }}.
@@ -216,7 +216,7 @@ function imprimer() {
 
 <style scoped>
 .etiquette {
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;

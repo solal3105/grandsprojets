@@ -23,7 +23,7 @@
         <div class="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3.5">
           <router-link
             :to="{ hash: '#contact' }" v-tilt-btn
-            class="group w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-primary-ink text-white text-[15px] font-medium px-6 sm:px-8 py-4 rounded-full hover:bg-red-700 transition-all duration-200 shadow-lg shadow-primary/25"
+            class="group w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-primary-ink text-white text-[15px] font-medium px-6 sm:px-8 py-4 rounded-full hover:bg-red-700 transition duration-200 shadow-lg shadow-primary/25"
           >
             Demander une démo
             <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />

@@ -1,7 +1,7 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import {
-  escHtml, escAttr, truncate, humanize, stripMarkdown,
+  escHtml, escAttr, truncate, summarize, fitTitle, frNumber, humanize, stripMarkdown,
   safeUrl, absUrl, safeHexColor, isValidCityCode, fetchRows,
   BASE_ORIGIN,
 } from '../netlify/edge-functions/_lib/seo.js';
@@ -194,6 +194,57 @@ test.describe('0.48 - SEO : mise en forme du texte', () => {
 
   test('0.48.7 - stripMarkdown rend une chaîne sur une entrée vide', async () => {
     for (const v of [null, undefined, '']) expect(stripMarkdown(v)).toBe('');
+  });
+
+
+  test('0.48.8 - summarize s\'arrête à la fin d\'une phrase entière', async () => {
+    const phrase = 'Le projet Saint-Jacques transforme l\'ancien hôpital historique et l\'Arsenal '
+      + 'en un quartier moderne, ouvert et végétalisé.';
+    const r = summarize(`${phrase} Il combine patrimoine réhabilité, logements et espaces publics.`);
+    expect(r).toBe(phrase);
+  });
+
+  test('0.48.9 - summarize laisse passer un texte plus court que la limite', async () => {
+    expect(summarize('Une description courte.')).toBe('Une description courte.');
+    for (const v of [null, undefined, '']) expect(summarize(v)).toBe('');
+  });
+
+  test('0.48.10 - Sans phrase assez courte, summarize coupe au mot et l\'annonce', async () => {
+    const texte = 'Un texte sans aucune ponctuation forte qui depasse largement la limite des cent '
+      + 'soixante caracteres et qui doit donc etre coupe proprement au dernier mot possible';
+    const r = summarize(texte);
+    expect(r.length).toBeLessThanOrEqual(161);
+    expect(r.endsWith('…')).toBe(true);
+    expect(texte.startsWith(r.slice(0, -1))).toBe(true);
+  });
+
+  test('0.48.11 - Une première phrase minuscule ne résume pas tout le texte', async () => {
+    // « Étape 1. » ne fait pas une description : on ne s'arrête pas si tôt
+    const r = summarize('Étape 1. Le chantier commence par la dépose des réseaux, se poursuit par '
+      + 'la reprise complète de la chaussée puis par la plantation des arbres d\'alignement');
+    expect(r.length).toBeGreaterThan(100);
+  });
+
+  test('0.48.12 - fitTitle sacrifie le suffixe, jamais le nom', async () => {
+    expect(fitTitle('Rillieux-la-Pape Ville nouvelle', 'Métropole de Lyon'))
+      .toBe('Rillieux-la-Pape Ville nouvelle | Métropole de Lyon');
+
+    // Au-delà de 60 caractères, Google coupe : c'est la marque qui saute
+    const longName = 'Un nom de projet vraiment tres long qui mange tout le budget';
+    expect(fitTitle(longName, 'Métropole de Lyon')).toBe(longName);
+    expect(fitTitle('Un titre sans marque', '')).toBe('Un titre sans marque');
+
+    for (const ville of ['Besançon', 'Métropole de Lyon', 'Communauté de communes du Pays de Gex']) {
+      const t = fitTitle(`${ville} : les projets urbains`, 'Open Projets');
+      if (t.includes('| Open Projets')) expect(t.length).toBeLessThanOrEqual(60);
+    }
+  });
+
+  test('0.48.13 - frNumber sépare les milliers', async () => {
+    const fine = '\u202f'; // espace fine insécable, celle de la typographie française
+    expect(frNumber(2089)).toBe(`2${fine}089`);
+    expect(frNumber(45)).toBe('45');
+    expect(frNumber(1234567)).toBe(`1${fine}234${fine}567`);
   });
 
 });

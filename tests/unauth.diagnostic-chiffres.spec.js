@@ -809,3 +809,115 @@ test.describe('0.61 - Diagnostic : compteurs vélo', () => {
     expect(cfg.metrics[0]).toEqual({ field: 'moyenne_journaliere', agg: 'sum' });
   });
 });
+
+/* ── Lecture chiffrée d'une zone (rapport) ───────────────────── */
+
+import { lengthKm, median, quantile, benchmark, benchmarkText, clusterPoints, stravaInsights, accidentsInsights, cyclewaysInsights, attentionPoints, buildInsights } from '../admin/sections/diagnostic/insights.js';
+
+test.describe('0.62 - Diagnostic : lecture chiffrée d\'une zone', () => {
+  const P = (lng, lat, layerId, props = {}) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lng, lat] }, properties: props, __pt: [lng, lat], __layerId: layerId });
+
+  test('0.62.1 - Longueurs, médiane et quantiles', () => {
+    expect(lengthKm({ type: 'LineString', coordinates: [[4.83, 45.76], [4.84, 45.76]] })).toBeCloseTo(0.78, 1);
+    expect(lengthKm(null)).toBe(0);
+    expect(median([5, 1, 3])).toBe(3);
+    expect(median([1, 2, 3, 4])).toBe(2.5);
+    expect(quantile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0.9)).toBe(9);
+  });
+
+  test('0.62.2 - La part de la zone et son rang parmi des secteurs comparables', () => {
+    // 100 points répartis, 10 dans la zone : 10 %, et la zone est dense
+    const all = [];
+    for (let i = 0; i < 100; i++) all.push(P(4.80 + (i % 10) * 0.01, 45.70 + Math.floor(i / 10) * 0.01, 'L'));
+    const inZone = all.filter((f) => f.__pt[0] < 4.815 && f.__pt[1] < 45.715);
+    const b = benchmark(inZone, all, [4.80, 45.70, 4.815, 45.715]);
+    expect(b.inZone).toBe(4);
+    expect(b.share).toBe(4);
+    expect(b.cells).toBeGreaterThan(5);
+    expect(benchmark([], all, [0, 0, 1, 1]).share).toBe(0);
+    expect(benchmarkText({ inZone: 12, total: 100, share: 12, percentile: 95 }, 'accidents', 'Lyon')).toBe('12 % des 100 accidents de Lyon, parmi les 5 % de secteurs les plus denses');
+    expect(benchmarkText({ inZone: 0 }, 'x', '')).toBe('');
+  });
+
+  test('0.62.3 - Les points proches se regroupent en lieux classés par sources puis par nombre', () => {
+    const pts = [
+      P(4.8400, 45.7600, 'A'), P(4.8401, 45.7601, 'B'), P(4.8402, 45.7600, 'A'), // trois points, deux sources
+      P(4.8600, 45.7600, 'A'), P(4.8601, 45.7600, 'A'), P(4.8602, 45.7600, 'A'), P(4.8603, 45.7600, 'A'), // quatre points, une source
+      P(4.9000, 45.8000, 'C'), // seul
+    ];
+    const clusters = clusterPoints(pts, 40);
+    expect(clusters).toHaveLength(3);
+    expect(clusters[0].sources.size).toBe(2);
+    expect(clusters[0].count).toBe(3);
+    expect(clusters[1].count).toBe(4);
+    expect(clusters[2].count).toBe(1);
+  });
+
+  test('0.62.4 - Strava : l\'axe le plus fréquenté par jour, la part pendulaire, jamais une somme de tronçons', () => {
+    const s = stravaInsights([
+      P(0, 0, 'S', { total_trip_count: 3650, forward_trip_count: 2000, reverse_trip_count: 1650, forward_commute_trip_count: 500, reverse_commute_trip_count: 230, forward_average_speed_meters_per_second: 5, reverse_average_speed_meters_per_second: 5, ebike_ride_count: 365 }),
+      P(0, 0, 'S', { total_trip_count: 365, forward_commute_trip_count: 0, reverse_commute_trip_count: 0, ebike_ride_count: 0 }),
+    ]);
+    expect(s.busiestPerDay).toBe(10);
+    expect(s.medianPerDay).toBe(6);
+    expect(s.commuteShare).toBe(18);
+    expect(s.ebikeShare).toBe(9);
+    expect(s.speedKmh).toBe(18);
+    expect(stravaInsights([])).toBeNull();
+  });
+
+  test('0.62.5 - Accidents : victimes, usagers vulnérables, nuit, intersections, par année', () => {
+    const a = accidentsInsights([
+      P(0, 0, 'A', { annee: 2023, gravite: 'Tué', tues: 1, blesses_hospitalises: 0, blesses_legers: 0, velo: 'oui', pieton: 'non', lumiere: 'Nuit avec éclairage', intersection: 'Intersection en T' }),
+      P(0, 0, 'A', { annee: 2024, gravite: 'Blessé léger', tues: 0, blesses_hospitalises: 0, blesses_legers: 2, velo: 'non', pieton: 'non', lumiere: 'Plein jour', intersection: 'Hors intersection' }),
+    ]);
+    expect(a).toMatchObject({ count: 2, tues: 1, legers: 2, velo: 1, vulnerableShare: 50, nightShare: 50, intersectionShare: 50, severeShare: 50 });
+    expect(a.byYear).toEqual([{ year: 2023, count: 1 }, { year: 2024, count: 1 }]);
+  });
+
+  test('0.62.6 - Aménagements : kilomètres par type', () => {
+    const c = cyclewaysInsights([
+      { geometry: { type: 'LineString', coordinates: [[4.83, 45.76], [4.84, 45.76]] }, properties: { type: 'Piste cyclable' } },
+      { geometry: { type: 'LineString', coordinates: [[4.83, 45.76], [4.835, 45.76]] }, properties: { type: 'Bande cyclable' } },
+    ]);
+    expect(c.segments).toBe(2);
+    expect(c.km).toBeCloseTo(1.2, 0);
+    expect(c.byType[0].type).toBe('Piste cyclable');
+  });
+
+  test('0.62.7 - Les points d\'attention suivent leurs règles écrites', () => {
+    const strava = [P(4.84, 45.76, 'S', { total_trip_count: 10000 }), P(4.85, 45.76, 'S', { total_trip_count: 100 })];
+    // 10 000 est au-dessus du 95e centile des 22 valeurs ; 100 en dessous
+    const stravaAll = [...strava, ...Array.from({ length: 20 }, (_, i) => P(4.9, 45.7, 'S', { total_trip_count: 100 + i }))];
+    const cycleways = [{ geometry: { type: 'LineString', coordinates: [[4.85, 45.76], [4.851, 45.76]] }, properties: {} }];
+    const accidents = [P(4.86, 45.77, 'A', { gravite: 'Blessé léger', date: '01/01/2024' })];
+    const fubRed = [P(4.8601, 45.77, 'F')];
+    const out = attentionPoints({ strava, stravaAll, cycleways, accidents, fubRed, hotspots: clusterPoints([...accidents, ...fubRed, P(4.8601, 45.7701, 'P')], 40) });
+    expect(out.map((o) => o.rule)).toEqual(['R1', 'R2', 'R3']);
+    expect(out[0].points).toHaveLength(1); // le tronçon à 10 000 loin de toute piste
+    expect(out[1].points).toHaveLength(1);
+    expect(attentionPoints({})).toEqual([]);
+  });
+
+  test('0.62.8 - La lecture complète assemble indicateurs, comparaisons, lieux et constats', () => {
+    dg.layers = [
+      { id: 'A', label: 'Accidents corporels 2024 · Lyon', style: { color: '#DC2626' }, popup: { kind: 'reference', source: 'accidents' } },
+      { id: 'F', label: 'Points à améliorer en priorité · Baromètre vélo 2025', style: { color: '#DC2626' }, popup: { kind: 'temoignages', source: 'fub' } },
+    ];
+    const acc = P(4.84, 45.76, 'A', { annee: 2024, gravite: 'Tué', tues: 1, velo: 'oui', lumiere: 'Plein jour', intersection: 'Giratoire' });
+    const fub = P(4.8401, 45.76, 'F', { description: 'Giratoire impossible à traverser à vélo sans se faire couper la route' });
+    const fub2 = P(4.8402, 45.7601, 'F', { description: 'Court' });
+    const runtime = new Map([['A', { features: [acc, ...Array.from({ length: 30 }, (_, i) => P(4.9 + i * 0.001, 45.7, 'A'))] }], ['F', { features: [fub, fub2] }]]);
+    const ins = buildInsights({ selection: { features: [fub, fub2], context: [acc], bbox: [4.83, 45.75, 4.85, 45.77], areaKm2: 1.5 }, layers: dg.layers, runtime, territoryLabel: 'Lyon' });
+    expect(ins.themes.securite.accidents.count).toBe(1);
+    expect(ins.themes.paroles.fub.red).toBe(2);
+    expect(ins.benchmarks.find((b) => b.layerId === 'A').total).toBe(31);
+    expect(ins.hotspots).toHaveLength(1);
+    expect(ins.hotspots[0].sources).toHaveLength(2);
+    expect(ins.hotspots[0].quotes[0].text).toContain('Giratoire');
+    expect(ins.attention.some((a) => a.rule === 'R2')).toBe(true);
+    expect(ins.kpis.map((k) => k.key)).toEqual(['accidents', 'fub']);
+    expect(ins.constats.length).toBeGreaterThan(0);
+    expect(ins.constats.join(' ')).not.toMatch(/undefined|NaN/);
+  });
+});

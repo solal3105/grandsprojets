@@ -39,6 +39,48 @@ export function truncate(text, maxLen = 160) {
   return text.slice(0, cut > 0 ? cut : maxLen) + '…';
 }
 
+/** Nombre à la française : 2089 → 2 089, avec l'espace fine insécable. */
+export function frNumber(value) {
+  return String(Number(value) || 0).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
+}
+
+/**
+ * Résumé destiné à une meta description : on s'arrête à la fin d'une phrase
+ * entière quand il y en a une dans la limite, plutôt que de couper un mot.
+ * Sans phrase assez courte, on coupe au dernier mot et on pose les points de
+ * suspension, qui sont alors honnêtes : le texte continue vraiment.
+ */
+export function summarize(text, maxLen = 160) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return '';
+  if (clean.length <= maxLen) return clean;
+
+  // Fin de phrase la plus tardive qui tient dans la limite. On l'exige au-delà
+  // de la moitie du budget, sinon la description perdrait l'essentiel.
+  let end = -1;
+  const sentenceEnd = /[.!?](?=\s|$)/g;
+  let match;
+  while ((match = sentenceEnd.exec(clean)) !== null && match.index < maxLen) end = match.index;
+  if (end >= maxLen / 2) return clean.slice(0, end + 1);
+
+  const cut = clean.lastIndexOf(' ', maxLen);
+  return clean.slice(0, cut > 0 ? cut : maxLen).replace(/[\s,;:(«]+$/, '') + '…';
+}
+
+/**
+ * Assemble un titre de page. Google n'affiche qu'une soixantaine de
+ * caractères : au-dela, on sacrifie le suffixe (marque ou nom de la
+ * collectivité) plutot que le nom du projet ou de la ville, qui est ce que
+ * l'internaute a cherché.
+ */
+export function fitTitle(head, suffix, maxLen = 60) {
+  const name = String(head || '').trim();
+  const brand = String(suffix || '').trim();
+  if (!brand) return name;
+  const full = `${name} | ${brand}`;
+  return full.length <= maxLen ? full : name;
+}
+
 /** Transforme un slug en label lisible : "sport-culture" → "Sport Culture". */
 export function humanize(slug) {
   if (!slug) return '';

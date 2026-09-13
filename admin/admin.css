@@ -5363,6 +5363,87 @@ html[data-theme='dark'] .dg-seg button.is-active { background: rgba(255, 255, 25
   .dg-rp-page { max-width: none; margin: 0; box-shadow: none; padding: 0; }
   .dg-rp-cover { break-inside: avoid; }
 }
+/* ── Rapport : feuilles A4 ── */
+.dg-rs { padding: 0; background: transparent; box-shadow: none; max-width: 860px; }
+.dg-rs-sheet {
+  background: var(--surface-raised); padding: 40px 44px; margin: 0 0 22px;
+  box-shadow: 0 12px 44px rgba(0,0,0,0.14);
+  min-height: 1100px; display: flex; flex-direction: column; gap: 16px;
+  color: var(--gray-800); font-size: 12.5px; line-height: 1.55;
+}
+.dg-rs-sheet--annexes { min-height: 0; }
+.dg-rs-head { display: flex; flex-direction: column; gap: 4px; padding-bottom: 14px; border-bottom: 2px solid var(--gray-900); }
+.dg-rs-brand { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-500); }
+.dg-rs-kicker { font-size: 12px; font-weight: 600; color: var(--gray-500); margin-top: 8px; }
+.dg-rs-title { margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; color: var(--gray-900); text-wrap: balance; }
+.dg-rs-meta { font-size: 12px; color: var(--gray-500); margin-top: 6px; }
+.dg-rs-constats { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.dg-rs-constats li { display: flex; gap: 12px; align-items: flex-start; font-size: 14.5px; font-weight: 600; line-height: 1.4; color: var(--gray-900); }
+.dg-rs-constats li span { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--gray-900); color: var(--gray-50); font-size: 12px; font-weight: 800; display: grid; place-items: center; margin-top: 1px; }
+.dg-rs-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.dg-rs-kpi { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--black-alpha-08); border-top: 3px solid var(--gray-300); display: flex; flex-direction: column; gap: 2px; break-inside: avoid; }
+.dg-rs-kpi--usage { border-top-color: #DC2626; }
+.dg-rs-kpi--securite { border-top-color: #B45309; }
+.dg-rs-kpi--paroles { border-top-color: #2563EB; }
+.dg-rs-kpi--equipement { border-top-color: #16A34A; }
+.dg-rs-kpi__v { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; color: var(--gray-900); line-height: 1; font-variant-numeric: tabular-nums; }
+.dg-rs-kpi__v small { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0; color: var(--gray-600); margin-top: 4px; }
+.dg-rs-kpi__l { font-size: 11.5px; color: var(--gray-600); }
+.dg-rs-kpi__s { font-size: 10.5px; color: var(--gray-400); margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--black-alpha-08); }
+.dg-rs-fig { margin: 4px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.dg-rs-fig figcaption { font-size: 10.5px; color: var(--gray-500); }
+.dg-rs-map { display: block; width: 100%; border-radius: 12px; border: 1px solid var(--black-alpha-08); }
+.dg-rs-map--mini { width: 260px; height: 170px; object-fit: cover; flex: none; }
+.dg-rs-h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; color: var(--gray-900); padding-bottom: 10px; border-bottom: 2px solid var(--gray-900); }
+.dg-rs-h3 { margin: 0 0 8px; font-size: 13px; font-weight: 800; color: var(--gray-900); }
+.dg-rs-lead { margin: 0; font-size: 12.5px; color: var(--gray-600); }
+.dg-rs-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.dg-rs-cols > div:only-child { grid-column: 1 / -1; max-width: 460px; }
+.dg-rs-facts { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 5px 14px; font-size: 12.5px; }
+.dg-rs-facts > div { display: contents; }
+.dg-rs-facts dt { color: var(--gray-500); }
+.dg-rs-facts dd { margin: 0; font-weight: 700; color: var(--gray-900); text-align: right; font-variant-numeric: tabular-nums; }
+.dg-rs-note { margin: 10px 0 0; font-size: 10.5px; color: var(--gray-400); line-height: 1.45; }
+.dg-rs-chart { display: block; margin-top: 10px; }
+.dg-rs-spots { display: flex; flex-direction: column; gap: 14px; }
+.dg-rs-spot { display: flex; gap: 16px; align-items: flex-start; padding: 12px; border: 1px solid var(--black-alpha-08); border-radius: 14px; break-inside: avoid; }
+.dg-rs-spot__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.dg-rs-spot__head { display: flex; gap: 10px; align-items: flex-start; }
+.dg-rs-num { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--gray-900); color: var(--gray-50); font-size: 12px; font-weight: 800; display: grid; place-items: center; }
+.dg-rs-spot__title { font-size: 14px; font-weight: 800; color: var(--gray-900); line-height: 1.25; }
+.dg-rs-spot__meta { font-size: 11px; color: var(--gray-500); }
+.dg-rs-spot__sources { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11.5px; color: var(--gray-700); }
+.dg-rs-spot__sources i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.dg-rs-spot .dg-rp-verb { margin: 0; }
+.dg-rs-alerts { display: flex; flex-direction: column; gap: 10px; }
+.dg-rs-alert { padding: 12px 14px; border-radius: 12px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3); break-inside: avoid; }
+.dg-rs-alert__t { font-size: 13px; font-weight: 800; color: var(--gray-900); display: flex; gap: 8px; align-items: center; }
+.dg-rs-alert p { margin: 4px 0 0; font-size: 12px; color: var(--gray-700); }
+.dg-rs-rule { flex: none; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 6px; background: var(--gray-900); color: var(--gray-50); }
+.dg-rs-balance { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 12px 14px; border-radius: 12px; background: var(--black-alpha-04); font-size: 11.5px; color: var(--gray-600); position: relative; }
+.dg-rs-balance b { display: block; font-size: 20px; font-weight: 800; color: var(--gray-900); letter-spacing: -0.02em; }
+.dg-rs-balance__src { grid-column: 1 / -1; font-size: 10.5px; color: var(--gray-400); }
+.dg-rs-reperes { margin: 0; padding: 0 0 0 18px; font-size: 12px; color: var(--gray-600); display: flex; flex-direction: column; gap: 3px; }
+.dg-rs-cases { margin: 0; padding: 0 0 0 18px; font-size: 12.5px; color: var(--gray-700); display: flex; flex-direction: column; gap: 5px; }
+.dg-rs-cases b { color: var(--gray-900); }
+.dg-rs-sheet--flow { min-height: 0; }
+@media print {
+  .dg-rs { max-width: none; }
+  /* En bloc, pas en flex : Chrome ne fragmente pas une colonne flex, il repousse l'enfant entier à la page suivante */
+  .dg-rs-sheet { box-shadow: none; margin: 0; padding: 0 0 8mm; min-height: 0; break-before: page; display: block; }
+  .dg-rs-sheet > * + * { margin-top: 14px; }
+  .dg-rs-sheet--cover { break-before: auto; }
+  .dg-rs-map { max-height: 112mm; object-fit: cover; }
+  .dg-rs-fig { break-inside: avoid; }
+  .dg-rs-sheet--cover .dg-rs-map { height: 68mm; max-height: 68mm; width: 100%; object-fit: cover; }
+  body:has(.dg-report-doc) > *:not(.dg-report-doc) { display: none !important; }
+  .dg-rs .dg-rp-source { break-inside: auto; page-break-inside: auto; }
+  .dg-rs-sheet--cover .dg-rs-kpi__v { font-size: 22px; }
+  .dg-rs-kpi, .dg-rs-spot, .dg-rs-alert, .dg-rp-sujet, .dg-rp-source__head { break-inside: avoid; }
+  body:has(.dg-report-doc) { background: #fff !important; }
+  html:has(.dg-report-doc), body:has(.dg-report-doc) { height: auto !important; min-height: 0 !important; }
+  .dg-rp-page.dg-rs { margin: 0; padding: 0; }
+}
 /* Hors de tout @media print : `@page` est une at-rule, elle ne peut pas figurer
    dans une liste de sélecteurs - c'est ce qui invalidait la règle jusqu'ici. */
 @page { size: A4; margin: 14mm; }

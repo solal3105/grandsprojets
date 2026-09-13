@@ -22,7 +22,9 @@ import {
   BASE_ORIGIN,
   escAttr,
   escHtml,
-  truncate,
+  summarize,
+  fitTitle,
+  frNumber,
   humanize,
   stripMarkdown,
   safeUrl,
@@ -207,7 +209,7 @@ function buildJsonLd(villeSlug, villeLabel, metaDesc, canonical, projects) {
 function renderCard(p) {
   const name = escHtml(p.project_name);
   const href = `/fiche/${encodeURIComponent(p.ville)}/${encodeURIComponent(p.category_slug)}/${encodeURIComponent(p.slug)}`;
-  const excerpt = escHtml(truncate(stripMarkdown(p.description || ''), 160));
+  const excerpt = escHtml(summarize(stripMarkdown(p.description || ''), 160));
   const cover = safeUrl(p.cover_url);
   const geojson = safeStorageUrl(p.geojson_url);
   const color = safeHexColor(p._catColor);
@@ -271,8 +273,8 @@ function buildContent({ villeSlug, villeLabel, projects, categories, branding, t
             <span aria-hidden="true">›</span>
             <span aria-current="page">${escHtml(villeLabel)}</span>
           </nav>
-          <h1 class="vh-hero__title">Les grands projets de ${escHtml(villeLabel)}</h1>
-          <p class="vh-hero__intro">${n} ${projectWord}${multiCat ? ` dans ${categories.length} catégories` : ''} - description, avancement et carte pour chaque projet.</p>
+          <h1 class="vh-hero__title">${escHtml(villeLabel)} : les projets urbains</h1>
+          <p class="vh-hero__intro">${n} ${projectWord}${multiCat ? ` dans ${categories.length} catégories` : ''}. Chacun a sa description, son avancement et sa place sur la carte.</p>
           <a class="vh-cta" id="vh-open-map" href="${escAttr(mapAppUrl)}">
             <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
             <span>Ouvrir la carte interactive${travaux.enabled ? ' et les travaux' : ''}</span>
@@ -398,8 +400,8 @@ function buildIndexContent(villes) {
             <span aria-hidden="true">›</span>
             <span aria-current="page">Par ville</span>
           </nav>
-          <h1 class="vh-hero__title">Les grands projets urbains, ville par ville</h1>
-          <p class="vh-hero__intro">${villes.length} villes et collectivités publient leurs projets sur Open Projets, soit ${total} projets avec leur fiche, leur avancement et leur carte.</p>
+          <h1 class="vh-hero__title">Les projets urbains, ville par ville</h1>
+          <p class="vh-hero__intro">${villes.length} collectivités publient ${frNumber(total)} projets sur Open Projets. Pour chaque ville, la liste des projets, leur avancement et leur carte.</p>
         </div>
       </header>
 ${section(
@@ -422,10 +424,10 @@ ${section(
 
 function injectIndexIntoHtml(html, villes) {
   const canonical = `${BASE_ORIGIN}/ville/`;
-  const title = 'Les projets urbains par ville | Open Projets';
+  const title = fitTitle('Les projets urbains, ville par ville', 'Open Projets');
   const total = villes.reduce((n, v) => n + v.count, 0);
-  const metaDesc = truncate(
-    `${villes.length} villes et collectivités publient leurs projets urbains sur Open Projets, soit ${total} projets. Pour chaque ville : la liste des projets, leurs catégories et leur carte.`,
+  const metaDesc = summarize(
+    `${villes.length} collectivités publient ${frNumber(total)} projets urbains sur Open Projets. Pour chaque ville, la liste des projets, leur avancement et leur carte.`,
     160,
   );
   const jsonLd = {
@@ -508,7 +510,7 @@ async function renderIndex(context) {
 /* ─── Injection dans la coquille ─── */
 
 function injectIntoHtml(html, { villeLabel, metaDesc, canonical, ogImage, jsonLd, brandColor, basemapsJson, content, robots }) {
-  const title = `${villeLabel} : les grands projets urbains à suivre | Open Projets`;
+  const title = fitTitle(`${villeLabel} : les projets urbains`, 'Open Projets');
 
   html = html.replace(/<title>[^<]*<\/title>/, () => `<title>${escHtml(title)}</title>`);
   html = html.replace(/(<meta\s+name="robots"\s+content=")[^"]*"/, (_, p1) => `${p1}${robots}"`);
@@ -624,8 +626,11 @@ export default async (request, context) => {
 
   const villeLabel = branding?.brand_name || humanize(villeSlug);
   const canonical = `${BASE_ORIGIN}/ville/${encodeURIComponent(villeSlug)}`;
-  const metaDesc = truncate(
-    `Les ${projects.length} grands projets de ${villeLabel} : ${categories.map(c => c.label).join(', ')}. Description, avancement et carte pour chaque projet.`,
+  // Une phrase entière, jamais une énumération des catégories brutes de la
+  // base : leur libellé est saisi par la collectivité, on ne le donne pas à
+  // lire tel quel dans les résultats de recherche.
+  const metaDesc = summarize(
+    `${villeLabel} publie ${frNumber(projects.length)} ${projects.length > 1 ? 'projets' : 'projet'} sur Open Projets : pour chacun, sa description, son avancement et sa place sur la carte.`,
     160
   );
   const ogImage = absUrl(projects.find(p => p.cover_url)?.cover_url)

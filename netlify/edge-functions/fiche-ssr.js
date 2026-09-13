@@ -18,7 +18,8 @@ import {
   BASE_ORIGIN,
   escAttr,
   escHtml,
-  truncate,
+  summarize,
+  fitTitle,
   humanize as humanizeCategory,
   stripMarkdown,
   safeUrl,
@@ -365,7 +366,7 @@ function buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, s
   const defaultDesc = structureName
     ? `Découvrez ${name}, projet ${catLabel} porté par ${structureName}.`
     : `Découvrez le projet ${catLabel} : ${name}.`;
-  const desc = truncate(stripMarkdown(project.description || '') || articlePlain || defaultDesc, 300);
+  const desc = summarize(stripMarkdown(project.description || '') || articlePlain || defaultDesc, 300);
   const cover = project.cover_url || `${BASE_ORIGIN}/img/cover/meta.png`;
   const created = project.created_at ? new Date(project.created_at).toISOString() : undefined;
 
@@ -531,7 +532,7 @@ ${articleHtml}
       const rHref = (r.slug && r.category_slug && rVille)
         ? `/fiche/${encodeURIComponent(rVille)}/${encodeURIComponent(r.category_slug)}/${encodeURIComponent(r.slug)}`
         : '/';
-      const rDesc = r.description ? escHtml(truncate(r.description, 120)) : '';
+      const rDesc = r.description ? escHtml(summarize(r.description, 120)) : '';
       html += `
         <li><a href="${escAttr(rHref)}">${rName}</a>${rDesc ? ` - ${rDesc}` : ''}</li>`;
     }
@@ -570,10 +571,10 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
     ? `Découvrez ${name}, projet ${catLabel} porté par ${structureName}.`
     : `Découvrez ${name}, un projet ${catLabel}.`;
   // Description : celle du projet, sinon un extrait de l'article, sinon le générique
-  const metaDesc = truncate(stripMarkdown(project.description || '') || articlePlain || defaultDesc, 160);
+  const metaDesc = summarize(stripMarkdown(project.description || '') || articlePlain || defaultDesc, 160);
   // Image de partage = cover du projet si elle existe, sinon fallback générique
   const cover = project.cover_url || `${BASE_ORIGIN}/img/cover/meta.png`;
-  const titleSuffix = structureName ? ` | ${structureName}` : '';
+  const pageTitle = fitTitle(name, structureName);
 
   // ⚠️  Toujours passer une FONCTION à html.replace() quand le remplacement
   // contient du contenu projet/article : une chaîne y ferait interpréter
@@ -582,7 +583,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
   // 1. <title>
   html = html.replace(
     /<title>[^<]*<\/title>/,
-    () => `<title>${escHtml(name)} - ${escHtml(catLabel)}${escHtml(titleSuffix)}</title>`
+    () => `<title>${escHtml(pageTitle)}</title>`
   );
 
   // 2. Meta description
@@ -600,7 +601,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
 
   html = html.replace(
     /(<meta\s+property="og:title"\s+content=")[^"]*"/,
-    (_, p1) => `${p1}${escAttr(name)} - ${escAttr(catLabel)}${structureName ? ' | ' + escAttr(structureName) : ''}"`
+    (_, p1) => `${p1}${escAttr(pageTitle)}"`
   );
   html = html.replace(
     /(<meta\s+property="og:description"\s+content=")[^"]*"/,
@@ -618,7 +619,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
   // 4. Twitter Cards
   html = html.replace(
     /(<meta\s+name="twitter:title"\s+content=")[^"]*"/,
-    (_, p1) => `${p1}${escAttr(name)} - ${escAttr(catLabel)}${structureName ? ' | ' + escAttr(structureName) : ''}"`
+    (_, p1) => `${p1}${escAttr(pageTitle)}"`
   );
   html = html.replace(
     /(<meta\s+name="twitter:description"\s+content=")[^"]*"/,

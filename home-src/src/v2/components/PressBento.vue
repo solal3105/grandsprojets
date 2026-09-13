@@ -6,16 +6,12 @@
   <section id="presse" class="py-20 sm:py-28 bg-white">
     <div class="max-w-container mx-auto px-6">
       <div class="max-w-[760px] mx-auto text-center">
-        <span class="inline-flex items-center gap-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-ink">
-          <span class="w-5 h-px bg-primary inline-block" />
-          On en parle
-        </span>
-        <h2 class="mt-5 font-heading font-bold text-3xl sm:text-4xl lg:text-[44px] leading-[1.08] tracking-tight text-dark">
+        <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[44px] leading-[1.08] tracking-tight text-dark">
           Open Projets dans les médias
         </h2>
         <p class="mt-5 text-gray-text text-base sm:text-lg leading-relaxed">
           Une émission de télévision, une matinale de radio et un webinaire destiné aux
-          collectivités, tous les trois en avril 2026.
+          collectivités ont parlé d'Open Projets, tous les trois en avril 2026.
         </p>
       </div>
 
@@ -24,7 +20,7 @@
         <!-- Television : la tuile large, et la citation en gros. -->
         <a
           :href="bfm.url" target="_blank" rel="noopener noreferrer"
-          class="group lg:col-span-2 flex flex-col justify-between gap-8 bg-gray-bg rounded-3xl p-8 sm:p-10 transition-all duration-300 hover:-translate-y-1 hover:shadow-card"
+          class="group lg:col-span-2 flex flex-col justify-between gap-8 bg-gray-bg rounded-3xl p-8 sm:p-10 transition duration-300 hover:-translate-y-1 hover:shadow-card"
         >
           <div class="flex items-start justify-between gap-6">
             <img
@@ -78,7 +74,7 @@
             <div class="flex items-center gap-3">
               <button
                 @click="togglePlay"
-                class="w-10 h-10 rounded-full bg-primary-ink text-white flex items-center justify-center shrink-0 hover:bg-red-700 active:scale-95 transition-all duration-200"
+                class="w-10 h-10 rounded-full bg-primary-ink text-white flex items-center justify-center shrink-0 hover:bg-red-700 active:scale-95 transition duration-200"
                 :aria-label="isPlaying ? 'Mettre en pause' : 'Écouter l\'extrait'"
               >
                 <Pause v-if="isPlaying" class="w-4 h-4" />
@@ -86,7 +82,7 @@
               </button>
               <span class="min-w-0">
                 <span class="block text-[13px] font-medium text-dark truncate">{{ lyonDemain.audio.emission }}</span>
-                <span class="block text-[11px] text-gray-muted mt-0.5">{{ lyonDemain.audio.date }}, avec {{ lyonDemain.audio.invites }}</span>
+                <span class="block text-xs text-gray-muted mt-0.5">{{ lyonDemain.audio.date }}, avec {{ lyonDemain.audio.invites }}</span>
               </span>
             </div>
             <div class="mt-4 flex items-center gap-3">
@@ -118,7 +114,7 @@
         <!-- Webinaire : son titre est sa meilleure citation. -->
         <a
           :href="gazette.url" target="_blank" rel="noopener noreferrer"
-          class="group flex flex-col gap-7 bg-gray-bg rounded-3xl p-8 sm:p-10 transition-all duration-300 hover:-translate-y-1 hover:shadow-card"
+          class="group flex flex-col gap-7 bg-gray-bg rounded-3xl p-8 sm:p-10 transition duration-300 hover:-translate-y-1 hover:shadow-card"
         >
           <div class="flex items-start justify-between gap-6">
             <img
@@ -150,7 +146,7 @@
              une precision utile, pas une offre a vendre. -->
         <router-link
           :to="{ path: '/', hash: '#contact' }"
-          class="group flex flex-col justify-between gap-7 bg-gray-bg rounded-3xl p-8 sm:p-10 transition-all duration-300 hover:-translate-y-1 hover:shadow-card"
+          class="group flex flex-col justify-between gap-7 bg-gray-bg rounded-3xl p-8 sm:p-10 transition duration-300 hover:-translate-y-1 hover:shadow-card"
         >
           <span class="w-10 h-10 rounded-2xl bg-white flex items-center justify-center">
             <Mic class="w-4 h-4 text-gray-muted" />

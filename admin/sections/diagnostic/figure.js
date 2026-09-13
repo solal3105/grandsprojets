@@ -13,12 +13,31 @@
 
 import { dg, safeColor } from './state.js';
 import { IGN_ORTHO_TILES, IGN_ATTRIBUTION } from './map.js';
+import { toNumber } from './data.js';
+
+/** Couleur et épaisseur d'un tracé gradué, d'après les paliers calculés au chargement. */
+function _gradedStroke(layer, f) {
+  const ramp = dg.runtime.get(layer?.id)?.ramp;
+  const field = layer?.style?.value_field;
+  if (layer?.style?.mode !== 'graduated' || !ramp || !field) return null;
+  const v = toNumber(f.properties?.[field]);
+  if (!isFinite(v)) return null;
+  const stops = ramp.stops;
+  let i = 0;
+  while (i < stops.length - 1 && v > stops[i + 1]) i++;
+  const t = i >= stops.length - 1 ? 1 : Math.max(0, Math.min(1, (v - stops[i]) / ((stops[i + 1] - stops[i]) || 1)));
+  const color = ramp.colors[Math.min(ramp.colors.length - 1, i + (t > 0.5 ? 1 : 0))];
+  const span = (v - stops[0]) / ((stops[stops.length - 1] - stops[0]) || 1);
+  return { color, width: 0.8 + Math.max(0, Math.min(1, span)) * 3.2, alpha: 0.35 + Math.max(0, Math.min(1, span)) * 0.65 };
+}
 
 // 16:10 : un tracé au lasso est grossièrement isotrope, la bande large du
 // gabarit précédent écrasait la figure.
 const FIG_W = 1120;
 const FIG_H = 700;
 const PIXEL_RATIO = 2;
+// Repères numérotés (lieux qui cumulent, points d'attention)
+const MARKER = '#111827';
 
 const INK = 'rgba(17,24,39,0.62)';
 const VEIL = 'rgba(255,255,255,0.58)';
@@ -246,20 +265,52 @@ function _drawLines(ctx, map, features, w, h, k, { width = 2.2, context = false 
         if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
       });
     }
-    ctx.lineWidth = context ? width * 0.7 : width;
-    ctx.strokeStyle = safeColor(layer?.style?.color);
+    const graded = _gradedStroke(layer, f);
+    ctx.lineWidth = (graded ? graded.width : width) * (context ? 0.7 : 1);
+    ctx.globalAlpha = graded ? graded.alpha : 1;
+    ctx.strokeStyle = graded ? graded.color : safeColor(layer?.style?.color);
     ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
+/** Repères numérotés : un disque sombre avec son numéro, lisible sur tout fond. */
+function _drawMarkers(ctx, map, markers, w, h, k) {
+  ctx.save();
+  ctx.scale(k, k);
+  for (const m of markers || []) {
+    if (!m.pt) continue;
+    const p = map.project(m.pt);
+    if (p.x < -20 || p.y < -20 || p.x > w / k + 20 || p.y > h / k + 20) continue;
+    const r = m.label ? 11 : 6;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r + 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = m.color || MARKER;
+    ctx.fill();
+    if (m.label) {
+      ctx.font = '800 12px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(String(m.label), p.x, p.y + 0.5);
+    }
   }
   ctx.restore();
 }
 
 /** Points des couches visibles hors sélection - le contexte de la zone. */
-function _contextFeatures(selected) {
+function _contextFeatures(selected, layerIds) {
   const taken = new Set(selected.map((f) => `${f.__layerId}|${f.__pt?.join(',')}`));
   const out = [];
   for (const layer of dg.layers) {
     const rt = dg.runtime.get(layer.id);
     if (!rt || rt.status !== 'ready' || !rt.visible) continue;
+    if (layerIds && !layerIds.includes(layer.id)) continue;
     for (const f of rt.features) {
       if (!f.__pt || taken.has(`${layer.id}|${f.__pt.join(',')}`)) continue;
       out.push({ ...f, __layerId: layer.id });
@@ -273,17 +324,26 @@ function _contextFeatures(selected) {
 /**
  * Produit la figure de la zone (data URL PNG), ou null si elle n'a pas pu être
  * rendue. Ne touche jamais à la carte de l'utilisateur.
- * @param {{polygon: object, features: Array}} selection
+ * @param {{polygon: object, features: Array, context: Array}} selection
+ * @param {Object} [opts]
+ * @param {string[]} [opts.layerIds] - ne dessiner que ces couches (cartes par thème)
+ * @param {Array<{pt: number[], label?: string, color?: string}>} [opts.markers] - repères numérotés
+ * @param {number[]} [opts.size] - [largeur, hauteur] en px CSS
+ * @param {number[]} [opts.center] - centre imposé (mini-carte d'un lieu), avec opts.zoom
+ * @param {number} [opts.zoom]
  */
-export async function renderZoneFigure(selection) {
+export async function renderZoneFigure(selection, opts = {}) {
   if (typeof maplibregl === 'undefined') return null;
   const ring = selection?.polygon?.coordinates?.[0];
-  const features = selection?.features || [];
-  const context = selection?.context || [];
+  const only = opts.layerIds ? new Set(opts.layerIds) : null;
+  const keep = (f) => !only || only.has(f.__layerId);
+  const features = (selection?.features || []).filter(keep);
+  const context = (selection?.context || []).filter(keep);
   if (!ring?.length && !features.length && !context.length) return null;
+  const [W, H] = opts.size || [FIG_W, FIG_H];
 
   const host = document.createElement('div');
-  host.style.cssText = `position:fixed;left:-20000px;top:0;width:${FIG_W}px;height:${FIG_H}px;pointer-events:none`;
+  host.style.cssText = `position:fixed;left:-20000px;top:0;width:${W}px;height:${H}px;pointer-events:none`;
   document.body.appendChild(host);
 
   let map = null;
@@ -308,15 +368,19 @@ export async function renderZoneFigure(selection) {
         bounds.extend([f.__bbox[2], f.__bbox[3]]);
       } else if (f.__pt) bounds.extend(f.__pt);
     }
-    if (bounds.isEmpty()) return null;
-    // Marge de contexte autour de la zone, et place réservée en bas pour
-    // l'échelle et l'attribution.
-    map.fitBounds(bounds, {
-      padding: { top: 48, right: 48, bottom: 64, left: 48 },
-      maxZoom: 17.5,
-      animate: false,
-      duration: 0,
-    });
+    if (bounds.isEmpty() && !opts.center) return null;
+    if (opts.center) {
+      map.jumpTo({ center: opts.center, zoom: opts.zoom || 17 });
+    } else {
+      // Marge de contexte autour de la zone, et place réservée en bas pour
+      // l'échelle et l'attribution.
+      map.fitBounds(bounds, {
+        padding: { top: 48, right: 48, bottom: 64, left: 48 },
+        maxZoom: 17.5,
+        animate: false,
+        duration: 0,
+      });
+    }
 
     await _waitIdle(map, 8000);
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -331,18 +395,19 @@ export async function renderZoneFigure(selection) {
 
     // Facteur d'échelle réel du bitmap : le pixelRatio demandé n'est pas
     // toujours celui obtenu (plafonné par le contexte WebGL).
-    const k = src.width / (src.clientWidth || FIG_W);
-    // Ordre : contexte, puis voile (qui l'atténue), puis sélection au-dessus.
-    // Un seul levier d'atténuation, aucun gris arbitraire.
-    const around = _contextFeatures([...features, ...context]);
+    const k = src.width / (src.clientWidth || W);
+    // Ordre : contexte, puis voile (qui l'atténue), puis sélection au-dessus,
+    // puis repères. Un seul levier d'atténuation, aucun gris arbitraire.
+    const around = _contextFeatures([...features, ...context], opts.layerIds);
     _drawLines(ctx, map, around, out.width, out.height, k, { context: true });
     _drawPoints(ctx, map, around.filter((f) => f.geometry?.type === 'Point'), out.width, out.height, k, { radius: 3, context: true });
-    _drawVeil(ctx, map, ring, out.width, out.height, k);
+    if (!opts.center) _drawVeil(ctx, map, ring, out.width, out.height, k);
     _drawLines(ctx, map, context, out.width, out.height, k);
     _drawPoints(ctx, map, context.filter((f) => f.geometry?.type === 'Point'), out.width, out.height, k, { radius: 3.4 });
     _drawPoints(ctx, map, features, out.width, out.height, k);
+    _drawMarkers(ctx, map, opts.markers, out.width, out.height, k);
     _drawScaleBar(ctx, map, out.width, out.height, k);
-    _drawNorth(ctx, out.width, k);
+    if (!opts.center) _drawNorth(ctx, out.width, k);
     _drawAttribution(ctx, out.width, out.height, k, dg.basemap === 'satellite' ? IGN_ATTRIBUTION : '© OpenStreetMap contributors');
 
     return out.toDataURL('image/png');

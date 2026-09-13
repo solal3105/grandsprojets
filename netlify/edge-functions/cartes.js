@@ -51,9 +51,9 @@ function injecter(html, catalogue) {
     .slice(0, 4)
     .map((v) => v.nom)
     .join(', ');
-  const title = `Les cartes des projets de ${nombre(n)} communes, construites depuis le web public | Open Projets`;
+  const title = `Les cartes des projets de ${nombre(n)} communes | Open Projets`;
   const description = truncate(
-    `${exemples} : ${nombre(n)} communes ont déjà leur carte des projets, construite en trois minutes depuis leur site, la presse locale et les marchés publics. Tapez le nom de la vôtre.`,
+    `${exemples} : ${nombre(n)} communes ont déjà leur carte des projets, construite depuis leur site et la presse locale. Tapez le nom de la vôtre.`,
     160,
   );
   const vedette = villeVedette(catalogue);

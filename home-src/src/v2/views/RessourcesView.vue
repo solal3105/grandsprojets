@@ -11,8 +11,9 @@
               Communiquer sur les projets de votre territoire
             </h1>
             <p class="mt-5 text-gray-text text-base sm:text-lg leading-relaxed max-w-[640px] mx-auto">
-              Des guides écrits pour les équipes des communes : plan de mandat, travaux, information
-              des riverains, signalements. Des méthodes venues du terrain, sans jargon.
+              Ces guides sont écrits pour les équipes des communes : le plan de mandat, les travaux,
+              l'information des riverains, les signalements. Ils rapportent des méthodes venues du
+              terrain, et se lisent sans jargon.
             </p>
           </div>
         </div>
