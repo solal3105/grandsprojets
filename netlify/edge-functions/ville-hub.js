@@ -352,6 +352,8 @@ async function fetchVillesIndex() {
     if (brandBy.get(ville)?.indexable === false) continue;
     counts.set(ville, (counts.get(ville) || 0) + 1);
   }
+  // Une seule liste, du plus fourni au moins fourni : l'index ne distingue pas
+  // l'origine des cartes, il relie tous les espaces ouverts aux moteurs.
   return [...counts].map(([slug, count]) => {
     const b = brandBy.get(slug);
     return {
@@ -359,10 +361,8 @@ async function fetchVillesIndex() {
       count,
       label: String(b?.brand_name || '').trim() || humanize(slug),
       color: safeHexColor(b?.primary_color),
-      // Cartes d'essai générées depuis le web public (voir /cartes/)
-      essai: slug.startsWith('essai-'),
     };
-  });
+  }).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'fr'));
 }
 
 function renderVilleItem(v) {
@@ -377,18 +377,13 @@ function renderVilleItem(v) {
         </li>`;
 }
 
-function buildIndexContent(villes) {
-  const espaces = villes.filter(v => !v.essai).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'fr'));
-  const essais = villes.filter(v => v.essai).sort((a, b) => a.label.localeCompare(b.label, 'fr'));
-  const total = villes.reduce((n, v) => n + v.count, 0);
+/** Phrase d'accroche de l'index, partagée par la page et la meta description. */
+function indexIntro(nbVilles, total) {
+  return `Open Projets rassemble les projets urbains de ${frNumber(nbVilles)} villes, soit ${frNumber(total)} projets en tout. Pour chaque ville, vous trouvez la liste des projets, leur avancement et leur carte.`;
+}
 
-  const section = (title, intro, list) => list.length ? `
-      <section class="vh-section">
-        <h2 class="vh-section__title">${title}</h2>
-        <p class="vh-section__intro">${intro}</p>
-        <ul class="vh-villes">${list.map(renderVilleItem).join('')}
-        </ul>
-      </section>` : '';
+function buildIndexContent(villes) {
+  const total = villes.reduce((n, v) => n + v.count, 0);
 
   return `
     <div class="vh-index" id="vh-index">
@@ -401,23 +396,20 @@ function buildIndexContent(villes) {
             <span aria-current="page">Par ville</span>
           </nav>
           <h1 class="vh-hero__title">Les projets urbains, ville par ville</h1>
-          <p class="vh-hero__intro">${villes.length} collectivités publient ${frNumber(total)} projets sur Open Projets. Pour chaque ville, la liste des projets, leur avancement et leur carte.</p>
+          <p class="vh-hero__intro">${indexIntro(villes.length, total)}</p>
         </div>
       </header>
-${section(
-    'Les espaces des collectivités',
-    'Ces cartes sont alimentées par les équipes de chaque collectivité, à partir de leurs propres documents.',
-    espaces,
-  )}
-${section(
-    'Les cartes construites depuis le web public',
-    'Ces cartes d\'essai ont été générées automatiquement à partir du site de la commune, de la presse locale et des marchés publics, sans la commune. Elles sont forcément incomplètes. <a href="/cartes/">Voir toutes les cartes des communes</a>.',
-    essais,
-  )}
+      <section class="vh-section">
+        <ul class="vh-villes">${villes.map(renderVilleItem).join('')}
+        </ul>
+      </section>
       <footer class="vh-foot">
-        <span class="vh-foot__b2b">Vous représentez une collectivité ?
+        <p class="vh-foot__b2b">Votre commune n'est pas dans la liste ?
+          <a href="/cartes/">Voir les cartes des communes</a>
+        </p>
+        <p class="vh-foot__b2b">Vous représentez une collectivité ?
           <a href="/home/">Découvrir Open Projets</a>
-        </span>
+        </p>
       </footer>
     </div>`;
 }
@@ -426,10 +418,7 @@ function injectIndexIntoHtml(html, villes) {
   const canonical = `${BASE_ORIGIN}/ville/`;
   const title = fitTitle('Les projets urbains, ville par ville', 'Open Projets');
   const total = villes.reduce((n, v) => n + v.count, 0);
-  const metaDesc = summarize(
-    `${villes.length} collectivités publient ${frNumber(total)} projets urbains sur Open Projets. Pour chaque ville, la liste des projets, leur avancement et leur carte.`,
-    160,
-  );
+  const metaDesc = summarize(indexIntro(villes.length, total), 160);
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',

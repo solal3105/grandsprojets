@@ -15,10 +15,16 @@ async function discoverCity(page) {
   await page.waitForTimeout(3000);
   // Mêmes contraintes que l'edge function ville-hub (sinon la ville découverte
   // pourrait être filtrée → hub servi en noindex et toute la suite échoue) :
-  // ville + category_slug + slug non nuls, hors entrées e2e/test, slug minuscule.
+  // ville + category_slug + slug non nuls, hors entrées e2e/test, slug
+  // minuscule, et espace ouvert aux moteurs (city_branding.indexable).
   return page.evaluate(async () => {
     if (!window.supabaseService) return null;
     try {
+      const { data: hidden } = await window.__supabaseClient
+        .from('city_branding')
+        .select('ville')
+        .eq('indexable', false);
+      const horsIndex = new Set((hidden || []).map(b => String(b.ville || '').toLowerCase()));
       const { data } = await window.__supabaseClient
         .from('contribution_uploads')
         .select('ville, category_slug, slug, project_name')
@@ -30,9 +36,9 @@ async function discoverCity(page) {
         .not('slug', 'ilike', 'test%')
         .not('project_name', 'ilike', 'e2e%')
         .not('project_name', 'ilike', 'test%')
-        .limit(5);
+        .limit(200);
       const row = Array.isArray(data)
-        ? data.find(r => r.ville && r.ville === r.ville.toLowerCase())
+        ? data.find(r => r.ville && r.ville === r.ville.toLowerCase() && !horsIndex.has(r.ville))
         : null;
       return row ? { ville: row.ville, catSlug: row.category_slug } : null;
     } catch {
@@ -138,6 +144,18 @@ test.describe('0.26 - Hub ville : SSR', () => {
       expect(r.status(), v).toBe(200);
       expect(r.headers()['x-robots-tag'], v).toMatch(/^index/);
     }
+  });
+
+  test('0.26.6c - /ville/ : une seule liste de villes, sans section séparée', async ({ page }) => {
+    const html = await (await page.request.get('/ville/')).text();
+    // Une seule liste : les cartes des communes ne sont plus mises à part
+    expect(html.match(/class="vh-villes"/g) || []).toHaveLength(1);
+    expect(html).not.toContain('vh-section__title');
+    expect(html).not.toContain('Les espaces des collectivités');
+    // La liste va du plus fourni au moins fourni
+    const counts = [...html.matchAll(/class="vh-ville__count">(\d+) projets?</g)].map(m => Number(m[1]));
+    expect(counts.length).toBeGreaterThan(1);
+    expect([...counts].sort((a, b) => b - a)).toEqual(counts);
   });
 
   test('0.26.7 - Le sitemap référence le hub de la ville', async ({ page }) => {
