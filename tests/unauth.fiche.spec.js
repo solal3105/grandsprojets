@@ -235,6 +235,58 @@ test.describe('0.6 - Fiche : chargement et structure', () => {
     expect(styles[0]).toBe(expected);
   });
 
+  // Régression : le fond vectoriel était injecté dès la réponse du style, sans
+  // attendre le premier chargement de la carte. Quand le style sortait du cache
+  // navigateur (rechargement), il arrivait trop tôt, MapLibre refusait les
+  // couches et la fiche n'avait aucun fond. On simule ce cache : le style est
+  // servi instantanément au second chargement, et les couches du fond doivent
+  // exister dans la carte.
+  test('0.6.11 - Le fond de carte est posé même quand le style arrive avant la carte (cache)', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    await page.addInitScript(() => {
+      let real;
+      Object.defineProperty(window, 'maplibregl', {
+        configurable: true,
+        get() { return real; },
+        set(v) {
+          real = v;
+          const Orig = v.Map;
+          v.Map = class extends Orig { constructor(o) { super(o); window.__mlMap = this; } };
+        },
+      });
+    });
+    const cache = new Map();
+    await page.route(/tiles\.openfreemap\.org\/styles\//, async route => {
+      const url = route.request().url();
+      if (cache.has(url)) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: cache.get(url) });
+        return;
+      }
+      const resp = await route.fetch();
+      const body = await resp.text();
+      cache.set(url, body);
+      await route.fulfill({ status: 200, contentType: 'application/json', body });
+    });
+
+    const vbmLayerCount = () => page.evaluate(() => {
+      const m = window.__mlMap;
+      if (!m) return -1;
+      try { return (m.getStyle()?.layers || []).filter(l => l.id.startsWith('__vbm__')).length; }
+      catch { return 0; }
+    });
+
+    // Premier chargement : réseau réel, remplit le cache simulé
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    await expect(page.locator('#fv2-map canvas')).toBeAttached({ timeout: 10000 });
+    await expect.poll(vbmLayerCount, { timeout: 15000 }).toBeGreaterThan(0);
+    expect(cache.size, 'Le style doit avoir été mis en cache').toBeGreaterThan(0);
+
+    // Second chargement : le style est servi sans délai
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    await expect(page.locator('#fv2-map canvas')).toBeAttached({ timeout: 10000 });
+    await expect.poll(vbmLayerCount, { timeout: 15000 }).toBeGreaterThan(0);
+  });
+
   // Régression : la carte était créée sur Lyon puis « filait » vers le tracé
   // après fitBounds. Elle doit naître directement cadrée sur le projet.
   test('0.6.9 - La carte du héro naît cadrée sur le tracé du projet, sans partir de Lyon', async ({ page }) => {

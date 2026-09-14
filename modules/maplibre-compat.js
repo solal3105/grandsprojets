@@ -882,9 +882,20 @@
     addTo(map) {
       this._map = map;
       const mlMap = map._mlMap || map;
-      // Remove any __vbm__ layers/sources from a previous apply before re-injecting
-      this._cleanupOwned(mlMap);
-      this._applyStyle(mlMap);
+      const doAdd = () => {
+        // Remove any __vbm__ layers/sources from a previous apply before re-injecting
+        this._cleanupOwned(mlMap);
+        this._applyStyle(mlMap);
+      };
+      // Comme les autres couches : on attend que le style de la carte soit
+      // chargé. Sinon addSource/addLayer lèvent « Style is not done loading »
+      // et le fond n'est jamais posé (visible quand le style JSON sort du
+      // cache navigateur plus vite que le premier rendu de la carte).
+      if (map._styleLoaded === false) {
+        map._queue.push(doAdd);
+      } else {
+        doAdd();
+      }
       return this;
     }
 
@@ -893,6 +904,17 @@
         const resp = await fetch(this._styleUrl);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const styleJson = await resp.json();
+        // Le fond a pu être retiré pendant le téléchargement (changement de
+        // thème rapide) : ne rien injecter dans ce cas.
+        if (this._map === null) return;
+        // Garde-fou si la carte n'a toujours pas fini son premier chargement.
+        // On lit l'indicateur du shim (posé par son propre écouteur 'load'),
+        // pas isStyleLoaded()/loaded() de MapLibre qui retombent à false à
+        // chaque tuile en cours ou pendant une animation.
+        if (this._map._styleLoaded === false) {
+          await new Promise(resolve => mlMap.once('load', resolve));
+          if (this._map === null) return;
+        }
 
         // Update glyphs so road labels render with correct fonts.
         // setGlyphs() only updates the glyph URL - does NOT touch sources or layers.
@@ -994,6 +1016,7 @@
         const mlMap = this._map._mlMap || this._map;
         this._cleanupOwned(mlMap);
       }
+      this._map = null;
       this.fire('remove');
       return this;
     }
