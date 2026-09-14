@@ -1,8 +1,8 @@
 <template>
   <div>
-    <!-- Ouverture : meme composition que les autres pages de la refonte. La
-         page est dans le menu et ouverte aux moteurs (edge function
-         tarification-seo), seule page de la refonte dans ce cas. -->
+    <!-- Ouverture : meme composition que les autres pages du site. La page
+         est dans le menu et ouverte aux moteurs (titre et description dans le
+         routeur, prérendu, JSON-LD par l'edge function home-seo). -->
     <section class="relative pt-36 pb-14 overflow-hidden">
       <HeroGround />
       <div class="relative max-w-container mx-auto px-6">

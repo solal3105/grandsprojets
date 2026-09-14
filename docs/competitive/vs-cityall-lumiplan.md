@@ -64,7 +64,7 @@ Vos panneaux LED, bornes et app Lumiplan restent en place. Open Projets s'ajoute
 
 Pas d'appel d'offres. Pas d'accompagnement préalable. Votre agent publie ses premiers projets le jour même.
 
-[Découvrir Open Projets →](https://openprojets.com/home)
+[Découvrir Open Projets →](https://openprojets.com/)
 
 ---
 
@@ -72,4 +72,4 @@ Pas d'appel d'offres. Pas d'accompagnement préalable. Votre agent publie ses pr
 
 - [lumiplan.com/carte-identite](https://www.lumiplan.com/carte-identite/) (juin 2026)
 - [lumiplan.com/smart-city/applications-mobiles-mairie](https://www.lumiplan.com/smart-city/applications-mobiles-mairie/) (juin 2026)
-- [openprojets.com/home](https://openprojets.com/home)
+- [openprojets.com](https://openprojets.com/)

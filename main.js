@@ -234,12 +234,12 @@
       }
 
       // La ville résolue fait autorité : elle corrige la lecture au plus tôt
-      // faite par le module de mesure (paramètre ?city= ou localStorage).
+      // faite par le module de mesure (chemin /ville/{ville}/… ou localStorage).
       safePhase('OPAnalytics.setCity', () => win.OPAnalytics?.setCity(city));
 
       // Encart d'invitation (démo ou essai) : masquer si la ville résolue est
       // un espace client. Barrière défensive - le script inline de index.html
-      // ne voit que ?city= et localStorage, jamais la résolution réelle.
+      // ne voit que le chemin et localStorage, jamais la résolution réelle.
       try { win.__syncInvite?.(city); } catch { /* no-op */ }
 
       // Phase 2 : un seul fetch branding (stocké dans CityManager._branding)

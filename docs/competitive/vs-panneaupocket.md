@@ -62,7 +62,7 @@ Open Projets ne remplace pas vos alertes push. Il comble ce que PanneauPocket ne
 
 No-code. Aucune formation. Votre agent publie, modifie et met à jour en autonomie.
 
-[Découvrir Open Projets →](https://openprojets.com/home)
+[Découvrir Open Projets →](https://openprojets.com/)
 
 ---
 
@@ -70,4 +70,4 @@ No-code. Aucune formation. Votre agent publie, modifie et met à jour en autonom
 
 - [panneaupocket.com/fonctionnalites](https://www.panneaupocket.com/fonctionnalites/) - liste des fonctionnalités (juin 2026)
 - [panneaupocket.com/mairies](https://www.panneaupocket.com/mairies/) - offre mairies, tarifs (juin 2026)
-- [openprojets.com/home](https://openprojets.com/home)
+- [openprojets.com](https://openprojets.com/)

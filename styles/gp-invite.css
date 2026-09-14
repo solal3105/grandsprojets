@@ -3,7 +3,7 @@
 
    Un seul composant pour deux publics, qui ne se croisent jamais :
      - variante « demo »  : l'espace de démonstration (/, default, metropole-lyon)
-     - variante « essai » : les cartes générées au salon (?city=essai-*)
+     - variante « essai » : les cartes générées au salon (/ville/essai-*/carte)
 
    Il remplace #demo-banner, une barre fixe de 40px en haut de l'écran. Deux
    raisons de l'avoir fusionné ici : le même message n'avait aucune raison

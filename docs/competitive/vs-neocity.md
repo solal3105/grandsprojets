@@ -63,7 +63,7 @@ Votre app reste en place pour les notifications, signalements et démarches. Ope
 
 No-code. Aucune app à publier sur les stores. Votre agent publie, modifie et met à jour en autonomie - et le citoyen accède via un lien ou un QR code, directement dans son navigateur.
 
-[Découvrir Open Projets →](https://openprojets.com/home)
+[Découvrir Open Projets →](https://openprojets.com/)
 
 ---
 
@@ -71,4 +71,4 @@ No-code. Aucune app à publier sur les stores. Votre agent publie, modifie et me
 
 - [neocity.fr](https://neocity.fr/) - fonctionnalités, chiffres clés (juin 2026)
 - [neocity.fr/tarifs-application-mobile-ville](https://neocity.fr/tarifs-application-mobile-ville/) - modèle tarifaire (juin 2026)
-- [openprojets.com/home](https://openprojets.com/home)
+- [openprojets.com](https://openprojets.com/)

@@ -137,7 +137,7 @@
   compress = true
 
 # ============================================
-# Redirections sous-domaines → ?city=
+# Redirections sous-domaines → la carte de la ville
 # ============================================
 
 # Mesure d'audience PostHog : le proxy inverse /ph/* est déclaré dans
