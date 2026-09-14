@@ -970,6 +970,10 @@
           }
         }
 
+        // L'ombrage du relief (mode relief actif) doit rester entre les
+        // surfaces du nouveau fond et ses routes
+        this._map?._repositionHillshade?.();
+
         this.fire('add');
       } catch (e) {
         console.error('[VectorBasemap] Failed to load/apply style:', this._styleUrl, e);
@@ -986,6 +990,7 @@
       return (style.layers || []).find(l =>
         !l.id.startsWith('__vbm__') &&
         !l.id.startsWith('basemap-') &&
+        l.id !== 'gp-hillshade' &&
         l.type !== 'background' &&
         l.type !== 'sky'
       )?.id;
@@ -2189,14 +2194,11 @@
         this._ensureDemSource(this._terrainSourceId);
         this._ensureDemSource(this._hillshadeSourceId);
         if (!mlMap.getLayer('gp-hillshade')) {
-          const anchorLayer = mlMap.getStyle().layers.find(l =>
-            l.type === 'line' || (l.type === 'fill' && !l.id.startsWith('gp-'))
-          );
           try {
             mlMap.addLayer({
               id: 'gp-hillshade', type: 'hillshade', source: this._hillshadeSourceId,
               paint: { 'hillshade-shadow-color': '#473B24', 'hillshade-illumination-anchor': 'map', 'hillshade-exaggeration': 0.5 }
-            }, anchorLayer?.id || '3d-buildings');
+            }, this._hillshadeAnchorId());
           } catch (e) {
             console.debug('[MapLibreCompat] Could not add hillshade layer:', e);
           }
@@ -2217,6 +2219,33 @@
     }
 
     getTerrain() { return this._terrainEnabled; }
+
+    /**
+     * Où poser l'ombrage du relief : AU-DESSUS des surfaces (végétation,
+     * zones bâties, parcs) et EN DESSOUS de l'eau, des routes, des bâtiments
+     * et des textes. Avant, il était glissé sous la première surface du
+     * style : les aplats opaques de végétation (garrigue, prairies) le
+     * masquaient et les collines paraissaient plates. Le repère est la
+     * première ligne (cours d'eau, route), ou la première surface d'eau ou
+     * de bâtiment, puis les couches de données de l'application.
+     */
+    _hillshadeAnchorId() {
+      const layers = this._mlMap.getStyle()?.layers || [];
+      const isSurface = (l) => l.type === 'fill' && ['water', 'building'].includes(l['source-layer']);
+      const anchor = layers.find(l =>
+        !l.id.startsWith('gp-') && l.id !== '3d-buildings' && l.id !== 'forest-fill' &&
+        (l.type === 'line' || l.type === 'symbol' || l.type === 'fill-extrusion' || isSurface(l))
+      );
+      return anchor?.id || (this._mlMap.getLayer('3d-buildings') ? '3d-buildings' : undefined);
+    }
+
+    /** Replace l'ombrage au bon endroit après l'injection d'un fond vectoriel. */
+    _repositionHillshade() {
+      const mlMap = this._mlMap;
+      if (!mlMap.getLayer('gp-hillshade')) return;
+      try { mlMap.moveLayer('gp-hillshade', this._hillshadeAnchorId()); }
+      catch (e) { console.debug('[MapLibreCompat] Could not move hillshade layer:', e); }
+    }
 
     // View methods
     setView(center, zoom) {

@@ -658,6 +658,50 @@ test.describe('0.12 - Mode 3D', () => {
     // aria-pressed="true" → localStorage "true"
     expect(stored).toBe(ariaState);
   });
+
+  // Régression : l'ombrage du relief était glissé sous la première surface
+  // du style, les aplats opaques de végétation (garrigue, prairies) le
+  // masquaient et les collines paraissaient plates. Il doit se trouver
+  // au-dessus des surfaces de sol et en dessous de l'eau, des routes et des
+  // textes du fond de carte.
+  test('0.12.3 - L\'ombrage du relief est posé au-dessus des surfaces de sol et sous les routes', async ({ page }) => {
+    await waitForMapBoot(page);
+    // Attendre un fond vectoriel injecté (couches préfixées __vbm__)
+    await page.waitForFunction(
+      () => window.MapModule?.map?._mlMap?.getStyle()?.layers?.some(l => l.id.startsWith('__vbm__')),
+      null, { timeout: 20000 }
+    );
+    const order = await page.evaluate(() => {
+      const map = window.MapModule.map;
+      map.setTerrain(true);
+      const layers = map._mlMap.getStyle().layers;
+      const idx = (pred) => layers.findIndex(pred);
+      const vbm = (l) => l.id.startsWith('__vbm__');
+      const firstLine = idx(l => vbm(l) && l.type === 'line');
+      const firstWater = idx(l => vbm(l) && l['source-layer'] === 'water');
+      // Surfaces de sol (végétation, zones bâties, parcs) dessinées avant
+      // l'eau et les lignes : le style en place d'autres (sable, banquise)
+      // après l'eau, elles ne sont pas concernées.
+      const limit = Math.min(...[firstLine, firstWater].filter(i => i > -1));
+      let lastGroundFill = -1;
+      layers.forEach((l, i) => {
+        if (i < limit && vbm(l) && l.type === 'fill' && ['landcover', 'landuse', 'park'].includes(l['source-layer'])) lastGroundFill = i;
+      });
+      return {
+        hillshade: idx(l => l.id === 'gp-hillshade'),
+        lastGroundFill,
+        firstLine,
+        firstWater,
+        firstSymbol: idx(l => vbm(l) && l.type === 'symbol'),
+      };
+    });
+    expect(order.hillshade, 'La couche gp-hillshade doit exister en mode relief').toBeGreaterThan(-1);
+    expect(order.lastGroundFill).toBeGreaterThan(-1);
+    expect(order.hillshade, 'ombrage au-dessus des surfaces de sol').toBeGreaterThan(order.lastGroundFill);
+    for (const k of ['firstLine', 'firstWater', 'firstSymbol']) {
+      if (order[k] > -1) expect(order.hillshade, `ombrage sous ${k}`).toBeLessThan(order[k]);
+    }
+  });
 });
 
 // ─────────────────────────────────────────────────────────
