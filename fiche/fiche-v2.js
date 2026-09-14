@@ -20,12 +20,14 @@
 
   /* ═══════════════ BASEMAPS ═══════════════ */
   // Les fonds de carte sont ceux de la carte principale (table basemaps_v2,
-  // chargée dans loadBasemaps). Cette liste ne sert que si la base ne répond
-  // pas : des styles OpenFreeMap, sans clé. Les tuiles Carto autrefois codées
-  // ici exigent désormais une clé et s'affichaient « API KEY REQUIRED ».
+  // chargée dans loadBasemaps). Le héro affiche le fond par défaut de la base
+  // quel que soit le thème : les styles sombres sont presque noirs sous le
+  // voile du héro, le plan en couleur reste lisible dans les deux thèmes.
+  // Cette liste ne sert que si la base ne répond pas : un style OpenFreeMap,
+  // sans clé. Les tuiles Carto autrefois codées ici exigent désormais une clé
+  // et s'affichaient « API KEY REQUIRED ».
   const FALLBACK_BASEMAPS = [
-    { name: 'ofm-positron', label: 'Claire',  kind: 'vector', style_url: 'https://tiles.openfreemap.org/styles/positron', attribution: '© OpenFreeMap © OpenMapTiles © OpenStreetMap', theme: 'light' },
-    { name: 'ofm-dark',     label: 'Sombre',  kind: 'vector', style_url: 'https://tiles.openfreemap.org/styles/dark',     attribution: '© OpenFreeMap © OpenMapTiles © OpenStreetMap', theme: 'dark' },
+    { name: 'ofm-bright', label: 'Couleur', kind: 'vector', style_url: 'https://tiles.openfreemap.org/styles/bright', attribution: '© OpenFreeMap © OpenMapTiles © OpenStreetMap', theme: 'light', is_default: true },
   ];
 
   async function loadBasemaps() {
@@ -93,12 +95,14 @@
   const currentTheme = () => document.documentElement.getAttribute('data-theme') || 'light';
   const isDark = () => currentTheme() === 'dark';
 
-  function getBasemapForTheme(theme) {
-    const tm = window.ThemeManager?.findBasemapForTheme?.(theme);
-    if (tm) return tm;
-    const list = window.basemaps || [];
-    return list.find(b => b.theme === theme) || list[0]
-      || FALLBACK_BASEMAPS.find(b => b.theme === theme) || FALLBACK_BASEMAPS[0];
+  // Fond du héro : celui marqué par défaut dans la base, sinon le premier
+  // fond clair, sinon le premier de la liste. Jamais dépendant du thème.
+  function getHeroBasemap() {
+    const list = Array.isArray(window.basemaps) ? window.basemaps : [];
+    return list.find(b => b.is_default)
+      || list.find(b => String(b.theme || '').toLowerCase() === 'light')
+      || list[0]
+      || FALLBACK_BASEMAPS[0];
   }
 
   function sanitizeText(str) {
@@ -317,7 +321,6 @@
 
   /* ═══════════════ MAP ═══════════════ */
   let primaryMap = null;
-  let primaryBasemap = null;
 
   // Rotation cinématique
   let rotationRafId = null;
@@ -401,7 +404,7 @@
     }
     const map = window.L.map(containerId, mapOptions);
 
-    const base = window.L.createBasemapLayer(getBasemapForTheme(currentTheme())).addTo(map);
+    const base = window.L.createBasemapLayer(getHeroBasemap()).addTo(map);
     const layer = createGeoJSONLayer(map, data, category);
     return { map, base, layer };
   }
@@ -448,19 +451,13 @@
     setTimeout(startMapRotation, 1000);
   }
 
-  /* Theme observer for maps */
+  /* Au changement de thème, le fond reste le même : seuls les bâtiments 3D
+     changent de couleur (gris foncé en sombre, gris clair en clair). */
   function observeThemeForMaps() {
     new MutationObserver(mutations => {
       mutations.forEach(m => {
         if (m.attributeName !== 'data-theme') return;
-        const t = currentTheme();
-        const nb = getBasemapForTheme(t);
-        if (primaryMap && primaryBasemap) {
-          primaryMap.removeLayer(primaryBasemap);
-          primaryBasemap = window.L.createBasemapLayer(nb).addTo(primaryMap);
-          // Mettre à jour la couleur des bâtiments 3D pour le nouveau thème
-          primaryMap.updateBuildings3DTheme?.();
-        }
+        primaryMap?.updateBuildings3DTheme?.();
       });
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   }
@@ -1019,7 +1016,6 @@
       const mapResult = await initMap('fv2-map', data.geojson_url, data.category);
       if (mapResult) {
         primaryMap = mapResult.map;
-        primaryBasemap = mapResult.base;
 
         // La carte naît déjà cadrée : la rotation cinématique démarre dès
         // le premier rendu, sans attendre un déplacement.

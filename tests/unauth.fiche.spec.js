@@ -213,6 +213,28 @@ test.describe('0.6 - Fiche : chargement et structure', () => {
     for (const u of tileHosts) expect(u).not.toMatch(/cartocdn|cartodb|fastly\.net/);
   });
 
+  // Le héro garde le fond par défaut de la base quel que soit le thème : les
+  // styles sombres étaient presque noirs sous le voile, le plan en couleur
+  // reste lisible dans les deux thèmes.
+  test('0.6.10 - En mode sombre, le héro garde le fond de carte par défaut', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    await page.addInitScript(() => { try { localStorage.setItem('theme', 'dark'); } catch {} });
+    const styles = [];
+    page.on('request', r => { if (/tiles\.openfreemap\.org\/styles\//.test(r.url())) styles.push(r.url()); });
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    await expect(page.locator('#fv2-map canvas')).toBeAttached({ timeout: 10000 });
+    await expect.poll(() => styles.length, { timeout: 10000 }).toBeGreaterThan(0);
+
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-theme'))).toBe('dark');
+    const expected = await page.evaluate(() => {
+      const list = window.basemaps || [];
+      const bm = list.find(b => b.is_default) || list.find(b => b.theme === 'light') || list[0];
+      return bm?.style_url || null;
+    });
+    expect(expected, 'Le fond par défaut doit être un style vectoriel').not.toBeNull();
+    expect(styles[0]).toBe(expected);
+  });
+
   // Régression : la carte était créée sur Lyon puis « filait » vers le tracé
   // après fitBounds. Elle doit naître directement cadrée sur le projet.
   test('0.6.9 - La carte du héro naît cadrée sur le tracé du projet, sans partir de Lyon', async ({ page }) => {
