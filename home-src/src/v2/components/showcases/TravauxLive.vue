@@ -7,5 +7,5 @@ Le module Travaux du même espace. Déplacez le curseur de la chronologie : la c
 import LiveEmbed from './LiveEmbed.vue'
 import { spaceUrl } from '@/data/siteUrls.js'
 defineProps({ moduleKey: { type: String, default: 'travaux' } })
-const url = spaceUrl('default', 'travaux')
+const url = spaceUrl('metropole-lyon', 'travaux')
 </script>

@@ -3,26 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Titre, description, canonical et balises de partage : les valeurs de
+         l'accueil. Le routeur (src/v2/router.js) les réécrit à chaque page, le
+         prérendu (scripts/prerender.mjs) fige le résultat dans le HTML de
+         chaque page, et l'edge function home-seo y ajoute les données
+         structurées. Les trois doivent porter les mêmes textes. -->
+    <title>La carte des projets de votre collectivité | Open Projets</title>
+    <meta name="description" content="Publiez les projets urbains et les chantiers de votre commune sur une carte à vos couleurs, sans développement. Vos habitants consultent sans compte.">
+    <link rel="canonical" href="https://openprojets.com/">
     <meta name="robots" content="index, follow">
-    <title>La carte interactive des projets de votre collectivité | Open Projets</title>
-    <meta name="description" content="Publiez les projets urbains et les chantiers de votre commune sur une carte interactive à vos couleurs, sans développement. Vos habitants consultent sans compte.">
+    <meta property="og:site_name" content="Open Projets">
+    <meta property="og:locale" content="fr_FR">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="La carte des projets de votre collectivité | Open Projets">
+    <meta property="og:description" content="Publiez les projets urbains et les chantiers de votre commune sur une carte à vos couleurs, sans développement. Vos habitants consultent sans compte.">
+    <meta property="og:url" content="https://openprojets.com/">
+    <meta property="og:image" content="https://openprojets.com/img/logos/square_white.png">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="La carte des projets de votre collectivité | Open Projets">
+    <meta name="twitter:description" content="Publiez les projets urbains et les chantiers de votre commune sur une carte à vos couleurs, sans développement. Vos habitants consultent sans compte.">
     <link rel="icon" type="image/png" href="/img/logos/favicon.png" sizes="32x32">
     <link rel="apple-touch-icon" href="/img/logos/favicon.png">
-    <link rel="canonical" href="https://openprojets.com/home/">
-    <meta property="og:site_name" content="Open Projets">
-    <meta property="og:type" content="website">
-    <meta property="og:locale" content="fr_FR">
-    <meta property="og:title" content="La carte interactive des projets de votre collectivité | Open Projets">
-    <meta property="og:description" content="Publiez les projets urbains et les chantiers de votre commune sur une carte interactive à vos couleurs, sans développement. Vos habitants consultent sans compte.">
-    <meta property="og:url" content="https://openprojets.com/home/">
-    <meta property="og:image" content="https://openprojets.com/home/img/logos/square_white.png">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="La carte interactive des projets de votre collectivité | Open Projets">
-    <meta name="twitter:description" content="Publiez les projets urbains et les chantiers de votre commune sur une carte interactive à vos couleurs, sans développement. Vos habitants consultent sans compte.">
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
-    <!-- Google Analytics 4 -->
+    <!-- Google Analytics, en parallèle de la mesure PostHog partagée (injectée
+         au build par vite.config.js). Pages vues envoyées par le routeur. -->
     <link rel="dns-prefetch" href="https://www.googletagmanager.com">
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-8LGDVJXTPK"></script>
     <script>
@@ -31,7 +37,7 @@
       gtag('js', new Date());
       gtag('config', 'G-8LGDVJXTPK', { send_page_view: false });
     </script>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/v2/main.js"></script>
   </head>
   <body class="font-body text-dark antialiased">
     <div id="app"></div>

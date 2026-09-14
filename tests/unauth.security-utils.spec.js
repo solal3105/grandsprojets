@@ -87,7 +87,7 @@ test.describe('0.6 - SecurityUtils admin (échappement + URL)', () => {
 test.describe('0.7 - Code ville : un seul validateur', () => {
 
   test('0.7.1 isValidCityCode accepte les chiffres et refuse le reste', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!window.SecurityUtils?.isValidCityCode, { timeout: 15000 });
 
     const r = await page.evaluate(() => {
@@ -119,29 +119,26 @@ test.describe('0.7 - Code ville : un seul validateur', () => {
   });
 
   test('0.7.2 le health check ne détruit plus une ville contenant un chiffre', async ({ page }) => {
-    // Pré-condition : une ville à chiffre est persistée, comme après une visite ?city=
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await page.evaluate(() => localStorage.setItem('activeCity', 'test-e2e'));
+    // La ville vient du chemin : la résolution réécrirait la clé juste après
+    // un effacement et masquerait le bug. Le contrôle est donc appelé à la
+    // main, sur une ville à chiffre persistée.
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => window._storageHealthCheck && window.SecurityUtils, null, { timeout: 20000 });
 
-    // Rechargement SANS ?city= : c'est le scénario où le bug se manifestait
-    // (le paramètre d'URL masquait l'effacement en réécrivant la clé juste après).
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(
-      () => document.querySelector('#filters-toggle')?.getAttribute('data-ready') === 'true',
-      { timeout: 20000 }
-    );
-
-    // La ville a survécu au health check de la Phase 0b
-    expect(await page.evaluate(() => localStorage.getItem('activeCity'))).toBe('test-e2e');
-    // …et c'est bien elle qui est active, pas le repli metropole-lyon
-    expect(await page.evaluate(() => window.CityManager?.getActiveCity())).toBe('test-e2e');
+    const r = await page.evaluate(() => {
+      localStorage.setItem('activeCity', 'test-e2e');
+      const res = window._storageHealthCheck();
+      return { issues: res.issues, stored: localStorage.getItem('activeCity') };
+    });
+    expect(r.stored).toBe('test-e2e');
+    expect(r.issues.filter((i) => /activeCity/.test(i))).toEqual([]);
   });
 
   test('0.7.3 le health check nettoie toujours une valeur réellement invalide', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => localStorage.setItem('activeCity', 'ville invalide/x'));
 
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(
       () => document.querySelector('#filters-toggle')?.getAttribute('data-ready') === 'true',
       { timeout: 20000 }
@@ -194,7 +191,7 @@ test.describe('0.7 - Code ville : un seul validateur', () => {
 test.describe('0.8 - Échappement : pas de repli fail-open', () => {
 
   test('0.8.1 aucun module carte ne prévoit de repli non échappant', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
 
     const modules = [
       '/modules/carte/carte-nav.js',
@@ -214,7 +211,8 @@ test.describe('0.8 - Échappement : pas de repli fail-open', () => {
   });
 
   test('0.8.2 security-utils.js est chargé avant ses consommateurs', async ({ page }) => {
-    const html = await (await page.request.get('/')).text();
+    // Le HTML de la carte, servi sous /ville/{ville}/{module} (la racine est le site)
+    const html = await (await page.request.get('/ville/metropole-lyon/carte')).text();
     const posUtils = html.indexOf('modules/security-utils.js');
     expect(posUtils, 'security-utils.js absent de index.html').toBeGreaterThan(-1);
 
@@ -227,7 +225,7 @@ test.describe('0.8 - Échappement : pas de repli fail-open', () => {
   });
 
   test('0.8.3 escapeHtml échappe bien les cinq caractères', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!window.SecurityUtils?.escapeHtml, { timeout: 15000 });
 
     const r = await page.evaluate(() => ({
@@ -260,7 +258,7 @@ test.describe('0.8 - Échappement : pas de repli fail-open', () => {
 test.describe('0.9 - Slugification alignée sur Postgres', () => {
 
   test('0.9.1 SecurityUtils.slugify reproduit la colonne slug sur les données réelles', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!window.__supabaseClient && !!window.SecurityUtils?.slugify, { timeout: 15000 });
 
     const r = await page.evaluate(async () => {
@@ -293,7 +291,7 @@ test.describe('0.9 - Slugification alignée sur Postgres', () => {
   });
 
   test('0.9.2 les cas qui faisaient diverger les variantes', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!window.SecurityUtils?.slugify, { timeout: 15000 });
 
     const r = await page.evaluate(() => {
@@ -326,7 +324,7 @@ test.describe('0.9 - Slugification alignée sur Postgres', () => {
   });
 
   test('0.9.3 aucun module ne réimplémente sa propre slugification', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
 
     for (const chemin of ['/modules/supabaseservice.js', '/modules/uimodule.js', '/admin/sections/contributions.js']) {
       const src = await (await page.request.get(chemin)).text();

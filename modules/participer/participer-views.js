@@ -263,7 +263,7 @@
           <span class="pt-label">Pour vous tenir informé</span>
           <input class="pt-input" type="email" id="pt-email" maxlength="180" placeholder="Votre email (jamais public)" autocomplete="email" required>
           <input class="pt-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-          <p class="pt-legal">Votre adresse sert uniquement à confirmer puis suivre ce signalement. Elle n'est jamais publiée et sera supprimée au plus tard ${retentionMois} mois après la clôture. <a href="/home/confidentialite" target="_blank" rel="noopener">En savoir plus</a></p>
+          <p class="pt-legal">Votre adresse sert uniquement à confirmer puis suivre ce signalement. Elle n'est jamais publiée et sera supprimée au plus tard ${retentionMois} mois après la clôture. <a href="/confidentialite" target="_blank" rel="noopener">En savoir plus</a></p>
         </div>
 
         <p class="pt-urgence"><i class="fa-solid fa-triangle-exclamation"></i><span>En cas de danger immédiat, n'utilisez pas ce formulaire : appelez le 112.</span></p>

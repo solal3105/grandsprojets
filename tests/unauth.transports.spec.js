@@ -103,7 +103,7 @@ test.describe('0.65 - Réseau de transport : la carte expose le filtre', () => {
   // Même amorçage que unauth.map.spec.js : la racine, dont la ville par
   // défaut est metropole-lyon (un `?city=` explicite ne boote pas en local)
   async function waitForMapBoot(page) {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#gp-sidebar', { state: 'visible', timeout: 15000 });
     await page.waitForFunction(
       () => document.querySelector('#filters-toggle')?.getAttribute('data-ready') === 'true',

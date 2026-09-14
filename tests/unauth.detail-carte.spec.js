@@ -12,7 +12,7 @@ import { test, expect } from '@playwright/test';
 const PANNEAU = '#project-detail';
 
 async function ouvrirCarte(page) {
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(
     () => window.NavigationModule?.showSpecificContribution && window.SecurityUtils,
     null,

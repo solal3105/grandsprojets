@@ -24,15 +24,41 @@
     },
 
     // Détection de ville
+    //
+    // L'application vit sur /ville/{ville}/{module} : la ville et le module
+    // ouvert viennent du chemin. Le paramètre ?city= n'est plus produit par le
+    // site (l'edge function carte-legacy le redirige), il reste lu par
+    // prudence, comme la ville mémorisée.
+
+    PUBLIC_MODULES: ['carte', 'travaux', 'participer'],
+    PATH_RE: /^\/ville\/([a-z0-9-]+)\/(carte|travaux|participer)\/?$/i,
 
     getRawCityFromPath(pathname) {
       try {
-        const path = String(pathname || location.pathname || '').toLowerCase();
-        return path.split('?')[0].split('#')[0].split('/').filter(Boolean)[0] || '';
+        const path = String(pathname || location.pathname || '');
+        const m = this.PATH_RE.exec(path.split('?')[0].split('#')[0]);
+        return m ? m[1].toLowerCase() : '';
       } catch (e) { 
         console.debug('[citymanager] getRawCityFromPath failed:', e);
         return ''; 
       }
+    },
+
+    /** Le module ouvert par le chemin ('' hors de /ville/{ville}/{module}). */
+    parseModuleFromPath(pathname) {
+      try {
+        const m = this.PATH_RE.exec(String(pathname || location.pathname || '').split('?')[0].split('#')[0]);
+        return m ? m[2].toLowerCase() : '';
+      } catch (e) {
+        console.debug('[citymanager] parseModuleFromPath failed:', e);
+        return '';
+      }
+    },
+
+    /** L'adresse de l'application d'une ville, sur un module public. */
+    buildPath(city, moduleKey) {
+      const mod = this.PUBLIC_MODULES.includes(moduleKey) ? moduleKey : 'carte';
+      return `/ville/${encodeURIComponent(String(city || '').toLowerCase())}/${mod}`;
     },
 
     parseCityFromPath(pathname) {
@@ -329,14 +355,10 @@
         // Si c'est déjà la ville active, ne rien faire
         if (cityCode === String(this._activeCity).toLowerCase()) return;
 
-        // Persister et naviguer
+        // Persister et naviguer : la carte de la ville, sans reprendre les
+        // paramètres de projet, qui n'ont de sens que dans l'espace quitté
         this.persistCity(cityCode);
-        
-        // Construire l'URL avec le paramètre city
-        const sp = new URLSearchParams(location.search);
-        sp.set('city', cityCode);
-        const target = location.pathname + '?' + sp.toString();
-        location.href = target;
+        location.href = this.buildPath(cityCode, 'carte');
       } catch (err) {
         console.debug('[CityManager] Error selecting city:', err);
       }

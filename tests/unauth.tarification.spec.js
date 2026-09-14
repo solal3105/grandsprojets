@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * L'estimateur de prix de la refonte (/home2/tarification) : une page hors de
+ * L'estimateur de prix du site (/tarification) : une page hors de
  * tout menu, dans une version du site en noindex. Les règles : prix de base
  * en puissance 0,5 de la population, un poids par module (chantiers à
  * demi-poids sous 5 000 habitants), une remise sur le module le plus cher dès
@@ -17,13 +17,10 @@ import { test, expect } from '@playwright/test';
  * tarif exact, pour l'équipe. Les tests qui vérifient des montants passent par
  * ce paramètre.
  *
- * /home2/ est un artefact de build (home-src `npm run build:v2`) qui n'est pas
- * versionné : sans lui, la section est passée, pas échouée.
- *
  * Section : 0.39 - L'estimateur de prix
  */
 
-const PAGE = '/home2/tarification';
+const PAGE = '/tarification';
 
 /* Les mêmes règles que home-src/src/v2/data/tarification.mjs, recalculées ici
  * à la main : le test vérifie la page, pas le fichier qui la nourrit. */
@@ -57,12 +54,7 @@ const fourchette = (v) => {
 };
 
 test.describe('0.39 - L\'estimateur de prix', () => {
-  test.beforeEach(async ({ request }) => {
-    const r = await request.get('/home2/');
-    test.skip(r.status() !== 200, 'la refonte /home2 n\'est pas construite ici');
-  });
-
-  test('0.39.0 - la page est ouverte aux moteurs, seule de la refonte, avec titre, description et canonical', async ({ request }) => {
+  test('0.39.0 - la page est ouverte aux moteurs, avec titre, description et canonical', async ({ request }) => {
     const r = await request.get(PAGE);
     expect(r.status()).toBe(200);
     expect(r.headers()['x-robots-tag'] || '').toContain('index, follow');
@@ -75,24 +67,22 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     const desc = html.match(/<meta\s+name="description"\s+content="([^"]*)"/)?.[1] || '';
     expect(desc.length).toBeGreaterThan(40);
     expect(desc.length).toBeLessThanOrEqual(160);
-    expect(html).toContain('<link rel="canonical" href="https://openprojets.com/home2/tarification">');
+    expect(html).toContain('<link rel="canonical" href="https://openprojets.com/tarification">');
     expect(html).toContain('"@type":"BreadcrumbList"');
-    // Le document d'estimation et le reste de la refonte restent cachés
-    for (const path of [`${PAGE}/estimation?population=12000&modules=carte&annees=1`, '/home2/', '/home2/a-propos']) {
-      const cache = await request.get(path);
-      expect(await cache.text(), path).toMatch(/<meta\s+name="robots"\s+content="noindex, nofollow"/);
-      expect(cache.headers()['x-robots-tag'] || '', path).not.toContain('index, follow');
-    }
+    // Le document d'estimation reste caché, par l'en-tête (le HTML servi est
+    // le squelette du site, la balise robots de la page vient du routeur)
+    const cache = await request.get(`${PAGE}/estimation?population=12000&modules=carte&annees=1`);
+    expect(cache.headers()['x-robots-tag'] || '').toContain('noindex');
     // Et le plan du site la liste
-    expect(await (await request.get('/sitemap.xml')).text()).toContain('<loc>https://openprojets.com/home2/tarification</loc>');
+    expect(await (await request.get('/sitemap.xml')).text()).toContain('<loc>https://openprojets.com/tarification</loc>');
   });
 
   test('0.39.1 - la page est dans le menu et s\'ouvre sur une petite ville avec la carte seule', async ({ page }) => {
     await page.goto(`${PAGE}?commercial=1`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('h1')).toContainText('Estimez le prix');
     // Le menu et le pied de page y mènent
-    await expect(page.locator('header a[href="/home2/tarification"]').first()).toHaveText('Tarification');
-    await expect(page.locator('footer a[href="/home2/tarification"]').first()).toHaveText('Tarification');
+    await expect(page.locator('header a[href="/tarification"]').first()).toHaveText('Tarification');
+    await expect(page.locator('footer a[href="/tarification"]').first()).toHaveText('Tarification');
     await expect(page.locator('#tarif-population')).toHaveValue(/^12\D000$/);
     await expect(page.locator('[data-module="carte"]')).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('[data-module="travaux"]')).toHaveAttribute('aria-checked', 'false');

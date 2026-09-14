@@ -14,7 +14,7 @@ dans le dépôt.
 - `open-projets-presentation.webp` : l'affiche, image du montage à la
   septième seconde.
 
-La page qui l'embarque (bloc d'accueil de la home2) porte les données
+La page qui l'embarque (bloc d'accueil du site) porte les données
 structurées VideoObject et la transcription intégrale, dans
 `home-src/src/v2/data/videoPresentation.js`. Les en-têtes de cache sont dans
 `netlify.toml` (`/video/*`).

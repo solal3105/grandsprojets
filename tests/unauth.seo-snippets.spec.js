@@ -42,16 +42,18 @@ async function metas(request, url) {
 
 test.describe('0.67 - Titres et descriptions dans les résultats de recherche', () => {
   const PAGES = [
-    ['la carte de la ville par défaut', '/'],
+    ['l\'accueil du site', '/'],
+    ['la carte de la Métropole de Lyon', '/ville/metropole-lyon/carte'],
     ['l\'index des villes', '/ville/'],
     ['les cartes des communes', '/cartes/'],
     ['la démo', '/demo/'],
-    ['la vitrine', '/home/'],
-    ['les fonctionnalités', '/home/fonctionnalites'],
-    ['la page à propos', '/home/a-propos'],
-    ['le centre d\'aide', '/home/aide'],
-    ['les ressources', '/home/ressources'],
-    ['la tarification', '/home2/tarification'],
+    ['le module carte', '/carte'],
+    ['le module travaux', '/travaux'],
+    ['le module signalement', '/participer'],
+    ['la page à propos', '/a-propos'],
+    ['le centre d\'aide', '/aide'],
+    ['les ressources', '/ressources'],
+    ['la tarification', '/tarification'],
   ];
 
   for (const [nom, url] of PAGES) {
@@ -86,7 +88,7 @@ test.describe('0.67 - Titres et descriptions dans les résultats de recherche', 
   });
 
   test('0.67.4 - Aucune description ne coupe un mot en deux', async ({ request }) => {
-    const urls = ['/', '/ville/', '/cartes/', '/home/', VILLE_URL].filter(Boolean);
+    const urls = ['/', '/ville/', '/cartes/', '/ville/metropole-lyon/carte', '/carte', VILLE_URL].filter(Boolean);
     for (const url of urls) {
       const { desc } = await metas(request, url);
       // Ces pages composent elles-mêmes leur phrase : elle doit se terminer.

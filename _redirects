@@ -1,7 +1,86 @@
 # Netlify Redirects Configuration
 # https://docs.netlify.com/routing/redirects/
+#
+# Les règles sont évaluées dans l'ordre : la première qui correspond gagne.
+# Sans `!`, un fichier qui existe au chemin demandé est servi avant la règle.
+# Les règles de ce fichier passent AVANT celles de netlify.toml.
 
-# Routes exclues - ne pas rediriger (déjà gérées par le serveur)
+# ── Le site vitrine : construit dans /home/ (home-src), servi à la racine ──
+# La racine porte un index.html physique (la carte) : la règle est forcée.
+/                             /home/index.html                        200!
+/assets/*                     /home/assets/:splat                     200
+# Images et sons de home-src/public/ : en repli, quand la racine du dépôt
+# n'a pas le fichier (les logos et la couverture de la carte y restent).
+/img/*                        /home/img/:splat                        200
+/audio/*                      /home/audio/:splat                      200
+/ressources/manifest.json     /home/ressources/manifest.json          200
+# Les pages prérendues (home-src/scripts/prerender.mjs), une par adresse.
+# Une page absente de cette liste est servie par le fallback SPA en fin de
+# fichier : elle existe, mais les robots n'en lisent pas le contenu.
+/carte                        /home/carte.html                        200
+/travaux                      /home/travaux.html                      200
+/participer                   /home/participer.html                   200
+/diagnostic                   /home/diagnostic.html                   200
+/chantiers                    /home/chantiers.html                    200
+/tarification                 /home/tarification.html                 200
+/a-propos                     /home/a-propos.html                     200
+/aide                         /home/aide.html                         200
+/confidentialite              /home/confidentialite.html              200
+/alternative-panneaupocket    /home/alternative-panneaupocket.html    200
+/alternative-cityall-lumiplan /home/alternative-cityall-lumiplan.html 200
+/alternative-neocity          /home/alternative-neocity.html          200
+/ressources                   /home/ressources.html                   200
+/ressources/*                 /home/ressources/:splat.html            200
+
+# ── Anciennes adresses du site (/home/…) et de la refonte (/home2/…) ──
+# Forcées : le dossier /home/ existe toujours, il porte le build. Les images
+# et les assets suivent (/home/img/… devient /img/…, servi en repli ci-dessus).
+/home                         /                                       301!
+/home/*                       /:splat                                 301!
+/home2                        /                                       301!
+/home2/modules/*              /:splat                                 301!
+/home2/*                      /:splat                                 301!
+/landing-page                 /                                       301
+/landing-page/*               /                                       301
+
+# ── La carte d'une collectivité : /ville/{ville}/{module} ──
+# Un seul HTML pour les trois modules publics ; l'edge function carte-seo pose
+# le titre par ville et par module, et l'application ouvre le module du chemin.
+# Doivent précéder /ville/* (le hub, plus bas). Netlify ignore la barre
+# finale dans ces règles : une règle de normalisation bouclerait sur elle-même,
+# la balise canonical suffit.
+/ville/:ville/carte           /index.html                             200
+/ville/:ville/travaux         /index.html                             200
+/ville/:ville/participer      /index.html                             200
+
+# Les anciennes adresses de la carte en un seul segment, telles qu'elles ont
+# été partagées (route-config.js les résolvait côté client). Le paramètre
+# ?city= de la racine est traité par l'edge function carte-legacy.
+/default                      /ville/metropole-lyon/carte             301
+/bilan                        /ville/rassemblees/carte                301
+/projet                       /ville/engages-projet/carte             301
+/besancon                     /ville/besancon/carte                   301
+/defitassin                   /ville/defitassin/carte                 301
+/divonne                      /ville/divonne/carte                    301
+/engages-projet               /ville/engages-projet/carte             301
+/fdlm                         /ville/fdlm/carte                       301
+/france                       /ville/france/carte                     301
+/frans                        /ville/frans/carte                      301
+/grenoble                     /ville/grenoble/carte                   301
+/keolis                       /ville/keolis/carte                     301
+/lumieres                     /ville/lumieres/carte                   301
+/lyon                         /ville/lyon/carte                       301
+/metropole-lyon               /ville/metropole-lyon/carte             301
+/mres                         /ville/mres/carte                       301
+/musee-vienne                 /ville/musee-vienne/carte               301
+/orleans                      /ville/orleans/carte                    301
+/rassemblees                  /ville/rassemblees/carte                301
+/strasbourg                   /ville/strasbourg/carte                 301
+/vannes                       /ville/vannes/carte                     301
+/vaulx-en-velin               /ville/vaulx-en-velin/carte             301
+/villedelyon                  /ville/villedelyon/carte                301
+
+# ── Les autres applications du domaine ──
 # Nouvelle URL SEO : /fiche/{ville}/{categorie}/{slug} - DOIT être avant /fiche/*
 /fiche/*/*/*        /fiche/index.html     200
 /fiche/*            /fiche/:splat         200
@@ -13,18 +92,6 @@
 # Sans !, Netlify sert les fichiers statiques (css, js…) en priorité
 /admin              /admin/index.html     200
 /admin/*            /admin/index.html     200
-
-# Home (Vue SPA) - SPA fallback pour le routing
-/home               /home/index.html      200
-/home/*             /home/index.html      200
-
-# Refonte en cours (temporaire) - fallback SPA, la page est en noindex
-/home2              /home2/index.html     200
-/home2/*            /home2/index.html     200
-
-# Ancienne landing-page redirigée vers /home
-/landing-page       /home/                    301
-/landing-page/*     /home/                    301
 
 # /sitemap.xml - routage explicite vers la fonction Netlify
 /sitemap.xml        /.netlify/functions/sitemap  200
@@ -38,7 +105,7 @@
 # Mesure d'audience PostHog - proxy inverse - DOIT être avant le catch-all /*
 # Les règles de ce fichier sont évaluées AVANT celles de netlify.toml : déclarées
 # uniquement dans netlify.toml, elles seraient absorbées par le catch-all et le
-# navigateur recevrait la carte en text/html à la place de la librairie.
+# navigateur recevrait le site en text/html à la place de la librairie.
 # Ordre du plus spécifique au plus général, l'évaluation s'arrête au premier match.
 # Projet US : remplacer eu-assets/eu par us-assets/us (et UI_HOST dans
 # modules/analytics.js).
@@ -46,6 +113,6 @@
 /ph/array/*         https://eu-assets.i.posthog.com/array/:splat    200!
 /ph/*               https://eu.i.posthog.com/:splat                 200!
 
-# Fallback : toute autre route non définie redirige vers la racine
-# (sera géré par le JavaScript côté client si c'est une ville valide)
-/*                  /index.html           200
+# Fallback : toute autre adresse est une page du site vitrine (routeur Vue),
+# qui renvoie lui-même à l'accueil ce qu'il ne connaît pas
+/*                  /home/index.html      200

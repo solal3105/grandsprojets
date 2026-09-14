@@ -24,7 +24,7 @@
   const ENCRE = '#12121a';
   const GRIS = '#5d5d6b';
 
-  const LOGO = '/home/img/logos/classic_color.png';
+  const LOGO = '/img/logos/classic_color.png';
   const QR = (cible) => `https://api.qrserver.com/v1/create-qr-code/?size=420x420&margin=0&data=${encodeURIComponent(cible)}`;
 
   function charger(src) {

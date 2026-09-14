@@ -8,9 +8,10 @@
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   Cross-Origin-Opener-Policy: same-origin-allow-popups
 
-# Cache long pour assets statiques immuables (images, fonts)
+# Images : les logos et la couverture ne changent jamais (règles ci-dessous),
+# les captures d'écran du site si, sous le même nom : une semaine, pas un an
 /img/*
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
 /img/logos/*
   Cache-Control: public, max-age=31536000, immutable
@@ -18,9 +19,25 @@
 /img/cover/*
   Cache-Control: public, max-age=2592000
 
-# Cache immutable pour les assets Vite (hash dans le nom)
+# Cache immutable pour les assets Vite du site (hash dans le nom, servis
+# depuis /home/assets/ par réécriture : les deux chemins portent la règle)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
 /home/assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Pages du site hors des moteurs : le document d'estimation (personnel), les
+# guides imprimables et la page des clients Hélios. Le routeur pose aussi la
+# balise robots, mais l'en-tête ne dépend pas du JavaScript.
+/tarification/estimation
+  X-Robots-Tag: noindex, nofollow
+/aide/guide-admin
+  X-Robots-Tag: noindex, nofollow
+/aide/guide-contributeur
+  X-Robots-Tag: noindex, nofollow
+/helios
+  X-Robots-Tag: noindex, nofollow
 
 # Cache moyen pour CSS/JS (fichiers modifiés à chaque déploiement)
 /styles/*

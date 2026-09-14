@@ -25,7 +25,7 @@ const oneLine = (s, max = 160) => {
 /** Guides de la section Ressources : manifest écrit par le prerender du home. */
 async function fetchRessources() {
   try {
-    const resp = await fetch(`${BASE_ORIGIN}/home/ressources/manifest.json`);
+    const resp = await fetch(`${BASE_ORIGIN}/ressources/manifest.json`);
     if (!resp.ok) return [];
     const list = await resp.json();
     return Array.isArray(list) ? list.filter((a) => a?.slug) : [];
@@ -63,21 +63,25 @@ export default async (_request, _context) => {
       '',
       '## Pages principales',
       '',
-      `- [Carte interactive](${BASE_ORIGIN}/) : carte des grands projets urbains (application, contenu par ville)`,
-      `- [Présentation](${BASE_ORIGIN}/home/) : Open Projets pour les collectivités - publier ses projets urbains sur une carte interactive`,
-      `- [Fonctionnalités](${BASE_ORIGIN}/home/fonctionnalites) : détail des fonctionnalités de la plateforme`,
-      `- [À propos](${BASE_ORIGIN}/home/a-propos) : qui est derrière Open Projets`,
-      `- [Aide](${BASE_ORIGIN}/home/aide) : centre d'aide et questions fréquentes`,
-      `- [Contact](${BASE_ORIGIN}/home/contact) : contacter l'équipe`,
+      `- [Présentation](${BASE_ORIGIN}/) : Open Projets pour les collectivités - publier ses projets urbains sur une carte interactive`,
+      `- [Carte des projets urbains](${BASE_ORIGIN}/carte) : le module qui publie les projets d'aménagement d'une collectivité`,
+      `- [Travaux du quotidien](${BASE_ORIGIN}/travaux) : le module qui affiche les chantiers en cours, leurs dates et leur emprise`,
+      `- [Signalement](${BASE_ORIGIN}/participer) : le module par lequel les habitants signalent un problème sur l'espace public`,
+      `- [Chantiers et arrêtés](${BASE_ORIGIN}/chantiers) : le module qui instruit les demandes de chantier et les arrêtés de voirie`,
+      `- [Diagnostic terrain](${BASE_ORIGIN}/diagnostic) : le module d'analyse d'une zone par l'IA, pour les services`,
+      `- [Tarification](${BASE_ORIGIN}/tarification) : estimer le prix pour une collectivité`,
+      `- [À propos](${BASE_ORIGIN}/a-propos) : qui est derrière Open Projets`,
+      `- [Aide](${BASE_ORIGIN}/aide) : centre d'aide et guides d'utilisation`,
+      `- [Carte de la Métropole de Lyon](${BASE_ORIGIN}/ville/metropole-lyon/carte) : l'application, sur l'espace de démonstration`,
       `- [Projets urbains par ville](${BASE_ORIGIN}/ville/) : toutes les villes qui ont une page de projets`,
       `- [Les cartes des communes](${BASE_ORIGIN}/cartes/) : cartes construites depuis le web public pour des dizaines de communes`,
     ];
 
     if (guides.length) {
       lines.push('', '## Guides pour les collectivités', '');
-      lines.push(`- [Toutes les ressources](${BASE_ORIGIN}/home/ressources) : guides pratiques pour communiquer sur les projets et travaux de sa commune`);
+      lines.push(`- [Toutes les ressources](${BASE_ORIGIN}/ressources) : guides pratiques pour communiquer sur les projets et travaux de sa commune`);
       for (const g of guides) {
-        lines.push(`- [${g.title}](${BASE_ORIGIN}/home/ressources/${encodeURIComponent(g.slug)}) : ${g.description || ''}`.trimEnd());
+        lines.push(`- [${g.title}](${BASE_ORIGIN}/ressources/${encodeURIComponent(g.slug)}) : ${g.description || ''}`.trimEnd());
       }
     }
 

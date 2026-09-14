@@ -147,11 +147,13 @@
         return ref.pathname + ref.search + ref.hash;
       }
     } catch { /* referrer absent ou cross-origin */ }
+    // La carte de la ville (/ville/{ville}/carte), filtre compris ; sans
+    // ville connue, l'index des villes.
     const params = new URLSearchParams();
-    if (villeSlug) params.set('city', villeSlug);
     if (categorySlug && categorySlug !== CFG.DEFAULT_CAT) params.set('cat', categorySlug);
     const qs = params.toString();
-    return qs ? `/?${qs}` : (villeSlug ? `/?city=${encodeURIComponent(villeSlug)}` : '/');
+    const base = villeSlug ? `/ville/${encodeURIComponent(villeSlug)}/carte` : '/ville/';
+    return qs ? `${base}?${qs}` : base;
   }
 
   function initBackButton() {

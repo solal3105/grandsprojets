@@ -158,7 +158,7 @@
     // Le CTA « Ouvrir la carte » transporte le filtre catégorie vers l'app
     if (el.openMap) {
       const base = el.content?.dataset.mapUrl || '/';
-      el.openMap.setAttribute('href', activeCat ? `${base}&cat=${encodeURIComponent(activeCat)}` : base);
+      el.openMap.setAttribute('href', activeCat ? `${base}${base.includes('?') ? '&' : '?'}cat=${encodeURIComponent(activeCat)}` : base);
     }
 
     // Deep-link #c={slug} (retiré quand « Tous »)

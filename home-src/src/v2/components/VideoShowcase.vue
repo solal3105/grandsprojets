@@ -99,7 +99,7 @@ onMounted(() => {
     contentUrl: videoUrl(),
     inLanguage: 'fr-FR',
     transcript: videoPresentation.transcription.join('\n\n'),
-    publisher: { '@type': 'Organization', name: 'Open Projets', url: 'https://openprojets.com/home/' },
+    publisher: { '@type': 'Organization', name: 'Open Projets', url: 'https://openprojets.com/' },
   })
   document.head.appendChild(balise)
 })

@@ -85,7 +85,7 @@ Trois familles de solutions, honnêtement.
 
 **Le SIG de la collectivité**, pour celles qui en ont un. Puissant, mais conçu pour les services techniques : l'interface, le vocabulaire et les couches de données parlent aux experts, rarement aux habitants.
 
-**Un outil dédié.** C'est ce que nous construisons : Open Projets est une carte en marque blanche, aux couleurs de la commune, où chaque projet a sa fiche, son statut et son QR code, sans application à installer, mise à jour depuis une interface pensée pour un agent non technique. Nous l'éditons, donc ne nous croyez pas sur parole : [une démo en ligne est ouverte](https://openprojets.com/default). Côté budget, l'ordre de grandeur reste sous les seuils qui imposeraient une procédure de marché : un point à vérifier quelle que soit la solution que vous retiendrez.
+**Un outil dédié.** C'est ce que nous construisons : Open Projets est une carte en marque blanche, aux couleurs de la commune, où chaque projet a sa fiche, son statut et son QR code, sans application à installer, mise à jour depuis une interface pensée pour un agent non technique. Nous l'éditons, donc ne nous croyez pas sur parole : [une démo en ligne est ouverte](https://openprojets.com/ville/metropole-lyon/carte). Côté budget, l'ordre de grandeur reste sous les seuils qui imposeraient une procédure de marché : un point à vérifier quelle que soit la solution que vous retiendrez.
 
 ## L'essentiel en six points
 

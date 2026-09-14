@@ -237,7 +237,7 @@ function renderTag(cat) {
 
 function buildContent({ villeSlug, villeLabel, projects, categories, branding, truncated, travaux }) {
   const n = projects.length;
-  const mapAppUrl = `/?city=${encodeURIComponent(villeSlug)}`;
+  const mapAppUrl = `/ville/${encodeURIComponent(villeSlug)}/carte`;
   const multiCat = categories.length > 1;
   const showSearch = n > 8; // la recherche n'a de sens qu'au-delà d'une poignée de projets
   const projectWord = n > 1 ? 'projets' : 'projet';
@@ -269,8 +269,12 @@ function buildContent({ villeSlug, villeLabel, projects, categories, branding, t
           <p class="vh-hero__intro">${n} ${projectWord}${multiCat ? ` dans ${categories.length} catégories` : ''}. Chacun a sa description, son avancement et sa place sur la carte.</p>
           <a class="vh-cta" id="vh-open-map" href="${escAttr(mapAppUrl)}">
             <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
-            <span>Ouvrir la carte interactive${travaux.enabled ? ' et les travaux' : ''}</span>
-          </a>
+            <span>Ouvrir la carte interactive</span>
+          </a>${travaux.enabled ? `
+          <a class="vh-cta vh-cta--secondary" id="vh-open-travaux" href="/ville/${escAttr(encodeURIComponent(villeSlug))}/travaux">
+            <i class="fa-solid fa-person-digging" aria-hidden="true"></i>
+            <span>Voir les travaux en cours</span>
+          </a>` : ''}
         </div>
       </header>`;
 
@@ -311,7 +315,7 @@ ${filterbar}
 
       <footer class="vh-foot">
         <span class="vh-foot__b2b">Vous représentez une collectivité ?
-          <a href="/home/">Découvrir Open Projets</a>
+          <a href="/">Découvrir Open Projets</a>
         </span>
       </footer>
 
@@ -400,7 +404,7 @@ function buildIndexContent(villes) {
           <a href="/cartes/">Voir les cartes des communes</a>
         </p>
         <p class="vh-foot__b2b">Vous représentez une collectivité ?
-          <a href="/home/">Découvrir Open Projets</a>
+          <a href="/">Découvrir Open Projets</a>
         </p>
       </footer>
     </div>`;
@@ -620,6 +624,8 @@ export default async (request, context) => {
   const brandColor = safeHexColor(branding?.primary_color);
   const jsonLd = buildJsonLd(villeSlug, villeLabel, metaDesc, canonical, projects);
   const content = buildContent({ villeSlug, villeLabel, projects, categories, branding, truncated, travaux });
+  // Le bouton retour de la barre du haut mène à la carte de la ville, pas au site
+  const carteUrl = `/ville/${encodeURIComponent(villeSlug)}/carte`;
 
   // Basemaps assainis (champs attendus uniquement) pour la vue carte client
   const basemapsSafe = basemaps
@@ -655,6 +661,7 @@ export default async (request, context) => {
     ? 'noindex, follow'
     : 'index, follow, max-image-preview:large, max-snippet:-1';
   html = injectIntoHtml(html, { villeLabel, metaDesc, canonical, ogImage, jsonLd, brandColor, basemapsJson, content, robots });
+  html = html.replace(/(<a href=")\/(" id="vh-btn-back")/, (_, a, b) => `${a}${escAttr(carteUrl)}${b}`);
 
   return new Response(html, {
     status: 200,

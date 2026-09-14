@@ -103,7 +103,7 @@
         <div class="mt-12 sm:mt-14 bg-white rounded-3xl border border-gray-border overflow-hidden">
           <router-link
             v-for="autre in autresModules" :key="autre.key"
-            :to="`/modules/${autre.key}`"
+            :to="`/${autre.key}`"
             class="group relative overflow-hidden grid grid-cols-1 md:grid-cols-[236px_1fr_auto] items-start md:items-center gap-3 md:gap-8
                    px-6 sm:px-8 py-6 border-b border-gray-border last:border-b-0 hover:border-transparent transition-colors duration-300"
           >
@@ -169,7 +169,9 @@ const router = useRouter()
 const conteneur = ref(null)
 useParallaxe(conteneur)
 
-const mod = computed(() => moduleByKey[route.params.key] || null)
+// La clé du module vient de la route (meta.moduleKey) : les cinq pages ont
+// chacune leur adresse en tête de site, /carte, /travaux, /chantiers...
+const mod = computed(() => moduleByKey[route.meta.moduleKey] || null)
 
 /* Les autres modules, pris dans l'ordre du catalogue et non dans celui des
  * phrases : c'est ce qui fait que l'encart se lit pareil sur les cinq pages.

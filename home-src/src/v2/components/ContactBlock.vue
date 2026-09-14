@@ -27,7 +27,7 @@
 
         </div>
 
-        <DemoRequestForm referrer="home2" id-prefix="home2-contact" />
+        <DemoRequestForm :referrer="referrer" :id-prefix="`${referrer}-contact`" />
       </div>
     </div>
   </section>
@@ -36,6 +36,10 @@
 <script setup>
 import { Receipt, ShieldCheck, Unlock } from 'lucide-vue-next'
 import DemoRequestForm from '@/components/DemoRequestForm.vue'
+
+/* D'où vient la demande : `home` pour le site, `helios` sur la page des
+ * clients Hélios. La valeur part avec la demande et dans la mesure. */
+defineProps({ referrer: { type: String, default: 'home' } })
 
 const reassurance = [
   { icon: ShieldCheck, label: 'Hébergement en Europe, conforme au RGPD' },

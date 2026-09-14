@@ -269,6 +269,20 @@ body { margin: 0; background: var(--surface-base); }
 .vh-cta:hover { transform: translateY(-2px); box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34); }
 .vh-cta:active { transform: translateY(0) scale(0.98); transition-duration: 0.08s; }
 .vh-cta:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+/* Second appel du héros (les travaux) : même pilule, en clair sur le scrim,
+   pour que la carte reste l'action mise en avant */
+.vh a.vh-cta--secondary {
+  margin-left: 10px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: none;
+}
+.vh a.vh-cta--secondary i { color: #fff; }
+.vh a.vh-cta--secondary:hover { background: rgba(255, 255, 255, 0.22); }
+@media (max-width: 640px) {
+  .vh a.vh-cta--secondary { margin-left: 0; margin-top: 10px; }
+}
 
 /* ═══════════════ BARRE DE FILTRES (collante) ═══════════════ */
 .vh-filterbar {

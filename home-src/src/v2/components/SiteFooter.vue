@@ -30,7 +30,7 @@
           <h3 class="text-[13px] font-semibold uppercase tracking-wider text-white/40 mb-5">Les modules</h3>
           <ul class="space-y-3">
             <li v-for="m in modules" :key="m.key">
-              <router-link :to="`/modules/${m.key}`" class="text-sm text-white/70 hover:text-white transition-colors duration-200">
+              <router-link :to="`/${m.key}`" class="text-sm text-white/70 hover:text-white transition-colors duration-200">
                 {{ m.name }}
               </router-link>
             </li>
@@ -48,6 +48,11 @@
             <li>
               <router-link :to="CONTACT_URL" class="text-sm text-white/70 hover:text-white transition-colors duration-200">
                 Nous écrire
+              </router-link>
+            </li>
+            <li>
+              <router-link to="/aide" class="text-sm text-white/70 hover:text-white transition-colors duration-200">
+                Centre d'aide
               </router-link>
             </li>
             <li>
@@ -75,7 +80,21 @@
         </div>
       </div>
 
-      <div class="mt-16 border-t border-white/10 pt-6 flex flex-col items-center gap-4 text-xs text-white/60 sm:flex-row sm:justify-between">
+      <!-- Les pages de comparaison n'ont pas d'autre porte d'entrée dans le site :
+           une phrase, pas une colonne, elles s'adressent à qui a déjà un outil. -->
+      <p class="mt-16 text-sm text-white/60">
+        Vous utilisez déjà
+        <template v-for="(alt, i) in comparaisons" :key="alt.slug">
+          <router-link
+            :to="`/${alt.slug}`"
+            :aria-label="`Ce qu'Open Projets ajoute à ${alt.nom}`"
+            class="text-white/80 underline decoration-white/30 underline-offset-4 hover:text-white hover:decoration-white transition-colors duration-200"
+          >{{ alt.nom }}</router-link>{{ i < comparaisons.length - 2 ? ', ' : i === comparaisons.length - 2 ? ' ou ' : '' }}
+        </template>
+        ? Lisez ce qu'Open Projets y ajoute.
+      </p>
+
+      <div class="mt-6 border-t border-white/10 pt-6 flex flex-col items-center gap-4 text-xs text-white/60 sm:flex-row sm:justify-between">
         <p>© {{ year }} Open Projets by VAZY, société à mission inscrite au RCS de Lyon.</p>
         <p class="group inline-flex items-center gap-1.5">
           Fait à Villeurbanne avec
@@ -92,6 +111,7 @@ import LogoSvg from '@/components/LogoSvg.vue'
 import { modules, CHANTIERS_URL, ARRETE_URL } from '../data/modules.js'
 import { flatLinks, CONTACT_URL } from '../data/nav.js'
 import { DEMO_KIOSK_URL, MAP_LYON_URL } from '@/data/siteUrls.js'
+import { alternatives } from '@/data/alternatives.js'
 
 const year = new Date().getFullYear()
 
@@ -101,6 +121,10 @@ const reseaux = [
   { label: 'Open Projets sur LinkedIn', icon: Linkedin, url: 'https://www.linkedin.com/company/vazyapp/posts/?feedView=all' },
   { label: 'Le code source sur GitHub', icon: Github, url: 'https://github.com/solal3105/grandsprojets' },
 ]
+
+/* Les outils auxquels une page du site compare Open Projets, dans l'ordre du
+ * catalogue data/alternatives.js. */
+const comparaisons = Object.values(alternatives).map((alt) => ({ slug: alt.slug, nom: alt.nom }))
 
 const vitrines = [
   { label: 'La carte de la Métropole de Lyon', url: MAP_LYON_URL },

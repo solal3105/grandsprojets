@@ -263,7 +263,7 @@ test.describe('0.49 - SEO : code ville et accès PostgREST', () => {
   test('0.49.2 - La règle serveur et la règle navigateur ne divergent pas', async ({ page }) => {
     // Le commentaire du fichier annonce « même règle que SecurityUtils » :
     // ce test le vérifie au lieu de le croire.
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => window.SecurityUtils?.isValidCityCode, null, { timeout: 15000 });
     const corpus = [
       'lyon', 'metropole-lyon', 'ABC', 'a', '1', '-', 'a-b-c',

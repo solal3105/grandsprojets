@@ -1,7 +1,6 @@
 User-agent: *
 Allow: /
 Allow: /fiche/
-Allow: /home/
 Allow: /ville/
 Allow: /cartes/
 Allow: /img/

@@ -152,7 +152,8 @@
         window.OPAnalytics?.capture('login_github_started');
         setStatus('Redirection vers GitHub…');
         githubBtn.disabled = true;
-        const redirectUrl = window.location.origin + '/';
+        // Retour sur cette page : c'est elle qui sait où envoyer la personne
+        const redirectUrl = window.location.origin + '/login/';
         const { error } = await auth.signInWithGitHub(redirectUrl);
         if (error) {
           console.error('OAuth error:', error);
@@ -250,10 +251,30 @@
       }
     });
 
-    auth.onAuthStateChange((_event, _session) => {
-      if (_session?.user) {
-        window.location.replace('/');
+    /* Après la connexion : la carte de la collectivité de la personne
+       (/ville/{ville}/carte, la première si elle en a plusieurs, le sélecteur
+       d'espace fait le reste), ou l'administration pour un compte sans
+       collectivité (administrateur global). La racine est le site vitrine :
+       y renvoyer quelqu'un qui vient de se connecter n'aurait aucun sens. */
+    async function destinationApresConnexion(user) {
+      try {
+        const client = auth.getClient?.();
+        const { data } = await client.from('profiles').select('role, ville').eq('id', user.id).single();
+        const villes = (Array.isArray(data?.ville) ? data.ville : [])
+          .map((v) => String(v || '').toLowerCase().trim())
+          .filter((v) => v && v !== 'global' && /^[a-z0-9-]+$/.test(v));
+        if (villes.length) return `/ville/${encodeURIComponent(villes[0])}/carte`;
+      } catch (e) {
+        console.error('[login] profil illisible, direction l\'administration :', e);
       }
+      return '/admin/';
+    }
+
+    let redirection = false;
+    auth.onAuthStateChange(async (_event, _session) => {
+      if (!_session?.user || redirection) return;
+      redirection = true;
+      window.location.replace(await destinationApresConnexion(_session.user));
     });
 
     (function handleHashError(){

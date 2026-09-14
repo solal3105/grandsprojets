@@ -516,7 +516,7 @@ const NavigationModule = (() => {
   const computedPrimary = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
   if (!computedPrimary || computedPrimary === '') {
     console.debug('[NavigationModule] --color-primary not set, applying city branding...');
-    const currentCity = new URLSearchParams(location.search).get('city');
+    const currentCity = window.supabaseService?.getActiveCity?.();
     if (currentCity && window.CityBrandingModule) {
       await window.CityBrandingModule.loadAndApplyBranding(currentCity, true);
     }
@@ -615,7 +615,7 @@ const NavigationModule = (() => {
     description = description || attrs.description;
 
     // Full page URL - format /fiche/{ville}/{category_slug}/{slug}
-    const currentCity = contributionProject?.ville || new URLSearchParams(location.search).get('city') || window.supabaseService?.getActiveCity?.() || '';
+    const currentCity = contributionProject?.ville || window.supabaseService?.getActiveCity?.() || '';
     const fullPageUrl = (currentCity && contributionProject?.category_slug && contributionProject?.slug)
       ? `/fiche/${encodeURIComponent(currentCity)}/${encodeURIComponent(contributionProject.category_slug)}/${encodeURIComponent(contributionProject.slug)}`
       : null;

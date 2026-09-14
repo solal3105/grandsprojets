@@ -3,31 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-  <meta name="googlebot" content="index, follow">
-  <meta name="description" content="Consultez les projets d'aménagement et les chantiers de la Métropole de Lyon sur une carte. Chaque projet a sa fiche, son avancement et ses liens officiels.">
+  <!-- Ce HTML sert la carte de toutes les collectivités, sous
+       /ville/{ville}/{module}. Titre, description, canonical, robots et données
+       structurées sont posés par ville et par module par l'edge function
+       carte-seo : les valeurs ci-dessous sont neutres et, par prudence, hors
+       des moteurs tant qu'elle n'a pas parlé. -->
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Les projets d'aménagement et les chantiers d'une collectivité sur une carte. Chaque projet a sa fiche, son avancement et ses liens officiels.">
   <meta name="theme-color" content="#2563eb">
   <meta name="apple-mobile-web-app-title" content="Open Projets">
   <meta name="application-name" content="Open Projets">
   <link rel="icon" type="image/png" href="/img/logos/favicon.png" sizes="32x32">
   <link rel="apple-touch-icon" href="/img/logos/favicon.png">
-  <title>Carte des travaux et projets de la Métropole de Lyon</title>
+  <title>La carte d'une collectivité | Open Projets</title>
   <link rel="canonical" href="https://openprojets.com/">
   <meta property="og:site_name" content="Open Projets">
   <meta property="og:locale" content="fr_FR">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Carte des travaux et projets de la Métropole de Lyon">
-  <meta property="og:description" content="Consultez les projets d'aménagement et les chantiers de la Métropole de Lyon sur une carte. Chaque projet a sa fiche, son avancement et ses liens officiels.">
+  <meta property="og:title" content="La carte d'une collectivité | Open Projets">
+  <meta property="og:description" content="Les projets d'aménagement et les chantiers d'une collectivité sur une carte. Chaque projet a sa fiche, son avancement et ses liens officiels.">
   <meta property="og:url" content="https://openprojets.com/">
   <meta property="og:image" content="https://openprojets.com/img/cover/meta.png">
   <meta property="og:image:width" content="1024">
   <meta property="og:image:height" content="773">
-  <meta property="og:image:alt" content="Carte interactive des grands projets urbains de Lyon">
+  <meta property="og:image:alt" content="Carte interactive des projets urbains d'une collectivité">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Carte des travaux et projets de la Métropole de Lyon">
-  <meta name="twitter:description" content="Consultez les projets d'aménagement et les chantiers de la Métropole de Lyon sur une carte. Chaque projet a sa fiche, son avancement et ses liens officiels.">
+  <meta name="twitter:title" content="La carte d'une collectivité | Open Projets">
+  <meta name="twitter:description" content="Les projets d'aménagement et les chantiers d'une collectivité sur une carte. Chaque projet a sa fiche, son avancement et ses liens officiels.">
   <meta name="twitter:image" content="https://openprojets.com/img/cover/meta.png">
-  <meta name="twitter:image:alt" content="Carte interactive des grands projets urbains de Lyon">
+  <meta name="twitter:image:alt" content="Carte interactive des projets urbains d'une collectivité">
   
   <!-- Hreflang pour ciblage géographique -->
   <link rel="alternate" hreflang="fr" href="https://openprojets.com/">
@@ -53,8 +57,9 @@
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin="anonymous">
   
   <!-- Données structurées : le site (avec son éditeur, le même @id que sur
-       /home/) et l'application. Pas de SearchAction : la carte n'a pas de
-       page de résultats adressable par ?q=, Google refuserait l'action. -->
+       l'accueil) et l'application. Remplacées par ville par carte-seo. Pas de
+       SearchAction : la carte n'a pas de page de résultats adressable par
+       ?q=, Google refuserait l'action. -->
   <script type="application/ld+json" id="site-jsonld">
   {
     "@context": "https://schema.org",
@@ -66,14 +71,14 @@
         "url": "https://openprojets.com/",
         "inLanguage": "fr",
         "description": "Carte interactive des grands projets urbains et des travaux des collectivités.",
-        "publisher": { "@id": "https://openprojets.com/home/#organization" }
+        "publisher": { "@id": "https://openprojets.com/#organization" }
       },
       {
         "@type": "Organization",
-        "@id": "https://openprojets.com/home/#organization",
+        "@id": "https://openprojets.com/#organization",
         "name": "Open Projets",
         "legalName": "VAZY",
-        "url": "https://openprojets.com/home/",
+        "url": "https://openprojets.com/",
         "logo": { "@type": "ImageObject", "url": "https://openprojets.com/img/logos/classic_color-1.png" },
         "sameAs": ["https://fr.linkedin.com/company/vazyapp", "https://vazy.app/"]
       },
@@ -81,8 +86,8 @@
         "@type": "WebApplication",
         "name": "Open Projets",
         "alternateName": "Carte des projets urbains",
-        "description": "Les projets d'aménagement et les chantiers de la Métropole de Lyon sur une carte interactive, avec pour chacun sa fiche et son avancement.",
-        "url": "https://openprojets.com/",
+        "description": "Les projets d'aménagement et les chantiers d'une collectivité sur une carte interactive, avec pour chacun sa fiche et son avancement.",
+        "url": "https://openprojets.com/ville/metropole-lyon/carte",
         "isPartOf": { "@id": "https://openprojets.com/#website" },
         "applicationCategory": "UtilitiesApplication",
         "operatingSystem": "Any",
@@ -90,12 +95,12 @@
         "image": "https://openprojets.com/img/cover/meta.png",
         "browserRequirements": "Requires JavaScript. Requires WebGL.",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
-        "author": { "@id": "https://openprojets.com/home/#organization" }
+        "author": { "@id": "https://openprojets.com/#organization" }
       }
     ]
   }
   </script>
-  <script src="modules/theme-init.js"></script>
+  <script src="/modules/theme-init.js"></script>
   <!--
     Prefetch critique Supabase - INLINE et non pas <script src>.
     Ces requêtes ouvrent le chemin critique : tant qu'elles ne sont pas parties,
@@ -104,7 +109,8 @@
     chacune. Inline, elles partent au parsing du HTML.
     Contrepartie assumée : ce bloc duplique la logique de résolution de ville de
     CityManager.resolveActiveCity, volontairement dans sa version la plus simple
-    (?city= puis localStorage puis metropole-lyon). main.js corrige ensuite avec
+    (le chemin /ville/{ville}/…, puis ?city=, puis localStorage, puis
+    metropole-lyon). main.js corrige ensuite avec
     la résolution complète, et un prefetch dont la ville ne correspond pas est
     simplement ignoré par consumePrefetch.
   -->
@@ -114,8 +120,8 @@
       var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
       var hdrs = { apikey: KEY, Authorization: 'Bearer ' + KEY };
 
-      var sp   = new URLSearchParams(location.search);
-      var city = sp.get('city');
+      var chemin = /^\/ville\/([a-z0-9-]+)\/(?:carte|travaux|participer)\/?$/i.exec(location.pathname);
+      var city = chemin ? chemin[1].toLowerCase() : new URLSearchParams(location.search).get('city');
       if (!city || city === 'default') {
         try { city = localStorage.getItem('activeCity'); } catch { /* noop */ }
       }
@@ -143,23 +149,22 @@
   <!-- Inline critical CSS - safe deferral of non-visible component CSS -->
   <style>.nav-panel{visibility:hidden;pointer-events:none}.nav-panel.open{visibility:visible;pointer-events:auto}.nav-panel__scrim{display:none}.toggle-dock{position:fixed;top:calc(16px + var(--banner-h,0px));right:16px;z-index:1600}.toggle-dock__btn[data-ready="false"]:not([style*="display"]){display:none!important}.dock-panel{display:none}.mobile-fixed-logo{display:none}#project-detail{display:none}</style>
   <!-- Render-blocking CSS - above-the-fold critical -->
-  <link rel="stylesheet" href="styles/00-colors.css" />
-  <link rel="stylesheet" href="styles/01-base.css" />
-  <link rel="stylesheet" href="styles/02-layout.css" />
-  <link rel="stylesheet" href="styles/09-sidebar.css" />
+  <link rel="stylesheet" href="/styles/00-colors.css" />
+  <link rel="stylesheet" href="/styles/01-base.css" />
+  <link rel="stylesheet" href="/styles/02-layout.css" />
+  <link rel="stylesheet" href="/styles/09-sidebar.css" />
   <!-- Non-critical CSS - same-origin, loaded normally -->
-  <link rel="stylesheet" href="styles/03-navigation.css" />
-  <link rel="stylesheet" href="styles/09-nav-panel.css" />
-  <link rel="stylesheet" href="styles/04-components.css" />
-  <link rel="stylesheet" href="styles/05-map.css" />
-  <link rel="stylesheet" href="styles/11-toggles.css" />
-  <link rel="stylesheet" href="styles/14-modal-components.css" />
-  <link rel="stylesheet" href="styles/gp-custom-markers.css" />
-  <link rel="stylesheet" href="styles/hover-popup.css" />
-  <link rel="stylesheet" href="styles/gp-lightbox.css" />
-  <link rel="stylesheet" href="styles/gp-toast.css" />
-  <link rel="stylesheet" href="styles/gp-invite.css" />
-  <link rel="stylesheet" href="styles/participer.css" />
+  <link rel="stylesheet" href="/styles/03-navigation.css" />
+  <link rel="stylesheet" href="/styles/09-nav-panel.css" />
+  <link rel="stylesheet" href="/styles/04-components.css" />
+  <link rel="stylesheet" href="/styles/05-map.css" />
+  <link rel="stylesheet" href="/styles/11-toggles.css" />
+  <link rel="stylesheet" href="/styles/gp-custom-markers.css" />
+  <link rel="stylesheet" href="/styles/hover-popup.css" />
+  <link rel="stylesheet" href="/styles/gp-lightbox.css" />
+  <link rel="stylesheet" href="/styles/gp-toast.css" />
+  <link rel="stylesheet" href="/styles/gp-invite.css" />
+  <link rel="stylesheet" href="/styles/participer.css" />
 </head>
 <body>
   <!-- ═══ Invitation - espaces de démonstration et d'essai ═══ -->
@@ -178,11 +183,11 @@
           projets en quelques clics, vos habitants les consultent sans compte.
         </p>
         <div class="gp-invite__actions">
-          <a class="gp-invite__cta" href="https://openprojets.com/home/contact?ref=demo-banner" target="_blank" rel="noopener noreferrer">
+          <a class="gp-invite__cta" href="https://openprojets.com/?ref=demo-banner#contact" target="_blank" rel="noopener noreferrer">
             Demander une démo
             <i class="fas fa-arrow-right" aria-hidden="true"></i>
           </a>
-          <a class="gp-invite__link" href="https://openprojets.com/home?ref=demo-banner" target="_blank" rel="noopener noreferrer">
+          <a class="gp-invite__link" href="https://openprojets.com/?ref=demo-banner" target="_blank" rel="noopener noreferrer">
             Découvrir Open Projets
             <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
           </a>
@@ -198,11 +203,11 @@
           alimenté par les équipes de la collectivité.
         </p>
         <div class="gp-invite__actions">
-          <a class="gp-invite__cta" href="https://openprojets.com/home?ref=essai-invite" target="_blank" rel="noopener noreferrer">
+          <a class="gp-invite__cta" href="https://openprojets.com/?ref=essai-invite" target="_blank" rel="noopener noreferrer">
             Découvrir Open Projets
             <i class="fas fa-arrow-right" aria-hidden="true"></i>
           </a>
-          <a class="gp-invite__link" href="https://openprojets.com/default" target="_blank" rel="noopener noreferrer">
+          <a class="gp-invite__link" href="https://openprojets.com/ville/metropole-lyon/carte" target="_blank" rel="noopener noreferrer">
             Voir l'espace Métropole de Lyon
             <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
           </a>
@@ -224,8 +229,9 @@
     // salon (essai-*). Il remplace #demo-banner, la barre fixe qui poussait
     // tout le layout vers le bas via --banner-h ; cette variable reste à 0px.
     //
-    // Réplique fail-safe de CityManager.resolveActiveCity (path puis ?city=
-    // puis localStorage) : tout path ou ?city= non reconnu → rien d'affiché.
+    // Réplique fail-safe de CityManager.resolveActiveCity (le chemin
+    // /ville/{ville}/…, puis ?city=, puis localStorage) : toute ville non
+    // reconnue → rien d'affiché.
     // Jamais en iframe (espace client Phaos). Après boot, main.js appelle
     // window.__syncInvite(ville) - barrière défensive qui ne peut que MASQUER.
     //
@@ -278,10 +284,9 @@
 
       var city = '';
       try {
-        // Un segment de path = route ville (route-config.js : /bilan, /annecy…) → espace client
-        var seg = location.pathname.split('/').filter(Boolean)[0] || '';
-        if (seg && seg !== 'index.html') return;
-        city = String(new URLSearchParams(location.search).get('city') || '').toLowerCase().trim();
+        var chemin = /^\/ville\/([a-z0-9-]+)\/(?:carte|travaux|participer)\/?$/i.exec(location.pathname);
+        if (chemin) city = chemin[1].toLowerCase();
+        if (!city) city = String(new URLSearchParams(location.search).get('city') || '').toLowerCase().trim();
         if (!city) city = String(localStorage.getItem('activeCity') || '').toLowerCase().trim();
       } catch (_) { return; /* URL/storage illisible → prudence : ne rien afficher */ }
 
@@ -399,20 +404,19 @@
   </a>
   <noscript>
     <div style="padding:2rem;text-align:center;font-family:sans-serif">
-      <h1>Carte des travaux et projets de la Métropole de Lyon</h1>
+      <h1>La carte des projets et des travaux d'une collectivité</h1>
       <p>Cette carte interactive a besoin de JavaScript. Sans lui, les projets restent consultables sous forme de liste.</p>
-      <p><a href="/ville/metropole-lyon">Tous les projets de la Métropole de Lyon</a> · <a href="/ville/">Les projets urbains par ville</a> · <a href="/cartes/">Les cartes des communes</a> · <a href="/home/">Open Projets pour les collectivités</a></p>
+      <p><a href="/ville/">Les projets urbains par ville</a> · <a href="/cartes/">Les cartes des communes</a> · <a href="/">Open Projets pour les collectivités</a></p>
     </div>
   </noscript>
   <div id="container">
-    <h1 class="visually-hidden">Carte des travaux et projets de la Métropole de Lyon</h1>
+    <h1 class="visually-hidden">La carte des projets et des travaux d'une collectivité</h1>
     <!-- Liens de navigation pour les lecteurs d'écran et les robots : la carte
          n'a aucun lien HTML vers les pages qui listent ses projets -->
     <nav class="visually-hidden" aria-label="Pages de projets">
-      <a href="/ville/metropole-lyon">Tous les projets de la Métropole de Lyon</a>
       <a href="/ville/">Les projets urbains par ville</a>
       <a href="/cartes/">Les cartes des communes</a>
-      <a href="/home/">Open Projets pour les collectivités</a>
+      <a href="/">Open Projets pour les collectivités</a>
     </nav>
     <div id="map" role="application" aria-label="Carte interactive des projets urbains"></div>
 
@@ -507,50 +511,48 @@
         crossorigin="anonymous" referrerpolicy="no-referrer" id="css-fa-base" media="print" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/solid.min.css"
         crossorigin="anonymous" referrerpolicy="no-referrer" id="css-fa-solid" media="print" />
-  <script src="modules/css-loader.js"></script>
+  <script src="/modules/css-loader.js"></script>
 
   <!-- Échappement HTML / URL et validation : dépendance de tous les modules ci-dessous,
        donc chargé en premier. Aucun module ne doit prévoir de repli si elle manque. -->
-  <script defer src="modules/security-utils.js"></script>
+  <script defer src="/modules/security-utils.js"></script>
   <!-- Contrat d'enrichissement des features, partagé avec les fonctions Netlify
        (datamodule et supabaseservice l'utilisent pour leur repli N+1) -->
-  <script defer src="modules/feature-enrich.js"></script>
+  <script defer src="/modules/feature-enrich.js"></script>
   <!-- Supabase client via CDN -->
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js"></script>
-  <script defer src="modules/auth.js"></script>
-  <script defer src="modules/sidebar.js"></script>
-  <script defer src="modules/nav-panel.js"></script>
-  <script defer src="modules/travaux/travaux-views.js"></script>
-  <script defer src="modules/participer/participer-views.js"></script>
+  <script defer src="/modules/auth.js"></script>
+  <script defer src="/modules/sidebar.js"></script>
+  <script defer src="/modules/nav-panel.js"></script>
+  <script defer src="/modules/travaux/travaux-views.js"></script>
+  <script defer src="/modules/participer/participer-views.js"></script>
   <!-- MapLibre GL JS -->
   <script defer src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>
-  <script defer src="modules/maplibre-compat.js"></script>
+  <script defer src="/modules/maplibre-compat.js"></script>
   <!-- Modules -->
   <script defer src="/modules/analytics.js" data-op-space="carte"></script>
-  <script defer src="modules/lightbox.js"></script>
-  <script defer src="modules/toast.js"></script>
-  <script defer src="modules/thememanager.js"></script>
-  <script defer src="modules/citymanager.js"></script>
-  <script defer src="modules/filtermanager.js"></script>
-  <script defer src="modules/supabaseservice.js"></script>
-  <script defer src="modules/mapmodule.js"></script>
-  <script defer src="modules/filtermodule.js"></script>
-  <script defer src="modules/layerregistry.js"></script>
-  <script defer src="modules/layerstyles.js"></script>
-  <script defer src="modules/datamodule.js"></script>
-  <script defer src="modules/uimodule.js"></script>
-  <script defer src="modules/travaux/travauxmodule.js"></script>
-  <script defer src="modules/citybranding.js"></script>
-  <script defer src="modules/route-config.js"></script>
-  <script defer src="modules/city-redirect.js"></script>
-  <script type="module" src="modules/ui/toggles.js"></script>
-  <script defer src="modules/carte/carte-nav.js"></script>
-  <script defer src="modules/travaux/travaux-nav.js"></script>
-  <script defer src="modules/participer/participer-nav.js"></script>
-  <script defer src="modules/phaos-auth.js"></script>
-  <script defer src="main.js"></script>
+  <script defer src="/modules/lightbox.js"></script>
+  <script defer src="/modules/toast.js"></script>
+  <script defer src="/modules/thememanager.js"></script>
+  <script defer src="/modules/citymanager.js"></script>
+  <script defer src="/modules/filtermanager.js"></script>
+  <script defer src="/modules/supabaseservice.js"></script>
+  <script defer src="/modules/mapmodule.js"></script>
+  <script defer src="/modules/filtermodule.js"></script>
+  <script defer src="/modules/layerregistry.js"></script>
+  <script defer src="/modules/layerstyles.js"></script>
+  <script defer src="/modules/datamodule.js"></script>
+  <script defer src="/modules/uimodule.js"></script>
+  <script defer src="/modules/travaux/travauxmodule.js"></script>
+  <script defer src="/modules/citybranding.js"></script>
+  <script type="module" src="/modules/ui/toggles.js"></script>
+  <script defer src="/modules/carte/carte-nav.js"></script>
+  <script defer src="/modules/travaux/travaux-nav.js"></script>
+  <script defer src="/modules/participer/participer-nav.js"></script>
+  <script defer src="/modules/phaos-auth.js"></script>
+  <script defer src="/main.js"></script>
   <!-- Analytics - chargé en différé (requestIdleCallback) pour ne pas impacter FCP/LCP -->
-  <script defer src="modules/ga-init.js"></script>
+  <script defer src="/modules/ga-init.js"></script>
 
 </body>
 </html>

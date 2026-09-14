@@ -21,7 +21,7 @@ import { test, expect } from '@playwright/test';
  * En mode iframe, le sidebar est le signal le plus stable.
  */
 async function waitForMapBoot(page) {
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#gp-sidebar', { state: 'visible', timeout: 20000 });
   await page.waitForFunction(
     () => document.querySelector('#filters-toggle')?.getAttribute('data-ready') === 'true',
@@ -59,7 +59,7 @@ test.describe('0.4.1 - PhaosAuth : navigation directe (no-op)', () => {
   });
 
   test('0.4.1.2 - window.PhaosAuth exposé avec waitForSession', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/ville/metropole-lyon/carte');
     await page.waitForFunction(
       () => typeof window.PhaosAuth?.waitForSession === 'function',
       { timeout: 10000 }
@@ -157,7 +157,7 @@ test.describe('0.4.2 - PhaosAuth : iframe + token invalide → résilience', () 
     await frame.locator('#gp-sidebar').waitFor({ state: 'visible', timeout: 30000 });
 
     // Précondition : le referrer est bien vide dans l'iframe (sinon le test ne prouve rien)
-    const childFrame = page.frames().find(f => f.url().includes('city=metropole-lyon'));
+    const childFrame = page.frames().find(f => f.url().includes('/ville/metropole-lyon/carte'));
     const referrer = await childFrame?.evaluate(() => document.referrer);
     expect(referrer).toBe('');
 

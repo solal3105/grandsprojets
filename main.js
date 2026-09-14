@@ -189,6 +189,10 @@
     }
   }
 
+  // Diagnostic : le contrôle de santé du stockage, appelable à la main
+  // (les tests vérifient qu'il ne supprime pas une ville valide)
+  win._storageHealthCheck = performStorageHealthCheck;
+
   async function initApp() {
     try {
       // PHASE 0a : SSO Phaos iframe - démarrer la session en arrière-plan (non-bloquant)
@@ -215,14 +219,8 @@
       safePhase('ThemeManager.init', () => win.ThemeManager?.init());
       await safePhase('CityManager.loadValidCities', () => win.CityManager?.loadValidCities());
 
-      // PHASE 2 : Ville active et redirections
-      // Appliquer les redirections de routes (route-config.js)
-      safePhase('RouteConfig.applyRedirect', () => {
-        if (win.RouteConfig && typeof win.RouteConfig.applyRedirect === 'function') {
-          win.RouteConfig.applyRedirect();
-        }
-      });
-
+      // PHASE 2 : Ville active (le chemin /ville/{ville}/{module} fait foi ;
+      // les anciennes adresses sont redirigées par Netlify avant d'arriver ici)
       let city = null;
       try {
         city = win.CityManager?.initializeActiveCity();
@@ -469,15 +467,19 @@
         });
       }
 
-      // Ouverture directe d'un module par l'URL (?module=travaux). Sert aux
-      // liens partages et a l'integration en iframe : sans ca, l'iframe
+      // Ouverture directe d'un module par l'adresse : le chemin
+      // /ville/{ville}/travaux d'abord, l'ancien ?module=travaux ensuite. Sert
+      // aux liens partages et a l'integration en iframe : sans ca, l'iframe
       // atterrit sur le module par defaut et le visiteur doit chercher.
       // La cle n'est jamais passee telle quelle : elle doit correspondre a un
-      // module reellement actif sur la ville, sinon on l'ignore.
+      // module reellement actif sur la ville, sinon on l'ignore. `carte` est
+      // le module par defaut : rien a ouvrir.
       if (win.SidebarModule || win.NavPanel) {
         safePhase('openModuleFromUrl', () => {
-          const asked = new URLSearchParams(location.search).get('module');
-          if (!asked || !/^[a-z0-9-]+$/i.test(asked)) return;
+          const fromPath = win.CityManager?.parseModuleFromPath?.() || '';
+          const asked = (fromPath && fromPath !== 'carte') ? fromPath : new URLSearchParams(location.search).get('module');
+          // Meme grammaire que les codes ville : un seul validateur partage
+          if (!asked || !win.SecurityUtils?.isValidCityCode?.(asked)) return;
           const known = (win._cityModules || []).find(
             (m) => m.module_key === asked.toLowerCase() && m.enabled
           );
@@ -546,10 +548,11 @@
 
       // Charger les modules post-rendu en parallèle (évaluation différée du critical path)
       await Promise.all([
-        loadScript('modules/searchmodule.js'),
-        loadScript('modules/geolocation.js'),
-        loadScript('modules/feature-interactions.js'),
-        loadScript('modules/navigationmodule.js')
+        // Chemins absolus : la page est servie sous /ville/{ville}/{module}
+        loadScript('/modules/searchmodule.js'),
+        loadScript('/modules/geolocation.js'),
+        loadScript('/modules/feature-interactions.js'),
+        loadScript('/modules/navigationmodule.js')
       ]);
 
       // Initialiser SearchModule maintenant qu'il est chargé
@@ -1002,13 +1005,6 @@
       return 'Erreur: ' + e.message;
     }
   };
-
-  // Initialiser le système de redirection automatique vers la ville
-  try {
-    if (win.CityRedirect && typeof win.CityRedirect.init === 'function') {
-      win.CityRedirect.init();
-    }
-  } catch (e) { console.debug('[main] Failed to init CityRedirect:', e); }
 
   // Bootstrap de l'application
   if (document.readyState === 'loading') {

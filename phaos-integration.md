@@ -2,7 +2,7 @@
 
 ## Contexte
 
-**Helios** (helios-marquage.fr) est l'éditeur du logiciel **Phaos** - logiciel de gestion de chantiers / marquage au sol. Helios est déjà partenaire commercial de Grands Projets (landing page existante : `/home/helios`).
+**Helios** (helios-marquage.fr) est l'éditeur du logiciel **Phaos** - logiciel de gestion de chantiers / marquage au sol. Helios est déjà partenaire commercial de Grands Projets (landing page existante : `/helios`).
 
 L'intégration technique consiste à embarquer Grands Projets dans une **iframe au sein de Phaos**. L'auth se fait via Azure AD B2C : Phaos envoie un `id_token` à l'iframe via `postMessage`, l'iframe l'échange contre un token Supabase, et charge l'app carte.
 
@@ -59,7 +59,7 @@ Le développement côté Phaos est piloté par **Arthur Combe (AXOPEN)** - `arth
 - [x] Chercher l'utilisateur dans Supabase par email (via service role - `auth.admin.listUsers`)
 - [x] Si trouvé → forger une session via `generateLink({ type:'magiclink', email })` (sans email) puis `verifyOtp({ token_hash, type:'email' })` → retourner `{ access_token, refresh_token, expires_in }`. ⚠️ `auth.admin.createSession()` n'existe PAS dans @supabase/supabase-js.
 - [x] **Si non trouvé → auto-provisioning** : `auth.admin.createUser({ email, email_confirm: true })` puis session (acté avec Arthur le 08/04/2026 - **pas de 404, pas de redirect**)
-- [x] **Création du profil** : après `createUser`, `INSERT INTO profiles (id, role, ville)` avec `role = 'admin'` et `ville = [citySlug]` (city lue depuis le body, fournie par `phaos-auth.js` via `?city=` de l'URL). Non-bloquant : si l'insert échoue, l'auth réussit quand même et l'erreur est loguée.
+- [x] **Création du profil** : après `createUser`, `INSERT INTO profiles (id, role, ville)` avec `role = 'admin'` et `ville = [citySlug]` (city lue depuis le body, fournie par `phaos-auth.js` depuis le chemin `/ville/<slug>/…` de l'URL). Non-bloquant : si l'insert échoue, l'auth réussit quand même et l'erreur est loguée.
 - [x] CORS : autorise `https://openprojets.com` + localhost dev (pas les domaines Phaos - ceux-ci ne font jamais d'appel direct à la fonction)
 - [x] Redirect Netlify : `netlify.toml` route `/api/auth/token` → `/.netlify/functions/auth-token`
 - [x] `@supabase/supabase-js` déplacé de `devDependencies` vers `dependencies` (requis pour le bundle Netlify prod)
@@ -79,7 +79,7 @@ Le développement côté Phaos est piloté par **Arthur Combe (AXOPEN)** - `arth
 - [x] Si **hors iframe** → `waitForSession()` résout immédiatement - **zéro impact** sur la navigation directe
 - [x] Si **iframe Phaos** → bloquer l'init normale (Phase 1+) jusqu'à réception du token
 - [x] Écouter `window.addEventListener('message', ...)` en validant `event.origin` contre `PHAOS_ORIGINS`
-- [x] Sur `{ type: 'ID_TOKEN', idToken }` → appeler `POST /api/auth/token` avec `{ idToken, city }` (`city` lu depuis `?city=` de l'URL courante)
+- [x] Sur `{ type: 'ID_TOKEN', idToken }` → appeler `POST /api/auth/token` avec `{ idToken, city }` (`city` lu depuis le chemin `/ville/<slug>/…` de l'URL courante, ou l'ancien `?city=` à défaut)
 - [x] Si succès → `supabase.auth.setSession({ access_token, refresh_token })` → débloquer l'init
 - [x] Si échec de l'échange → résoudre quand même (carte chargée en état non connecté, pas d'écran blanc)
 - [x] Timeout 15s - si Phaos ne répond pas, init débloquée en état non connecté
@@ -144,11 +144,11 @@ Arthur demande 2 URLs :
 
 | Cas | URL |
 |-----|-----|
-| **Tous les utilisateurs** | **`https://openprojets.com/?city=<slug>`** - la carte directement. Si l'utilisateur est inconnu, il est **auto-créé** (acté 08/04/2026). |
+| **Tous les utilisateurs** | **`https://openprojets.com/ville/<slug>/carte`** - la carte directement. Si l'utilisateur est inconnu, il est **auto-créé** (acté 08/04/2026). |
 
-Phaos doit passer le slug de ville dans l'URL de l'iframe (`?city=metropole-lyon` par exemple). `getActiveCity()` le lit déjà nativement. Il n'y a plus de redirect vers `/home/helios` - tous les utilisateurs B2C valides accèdent à la carte.
+Phaos doit passer le slug de ville dans le chemin de l'iframe (`/ville/metropole-lyon/carte` par exemple) ; `/ville/<slug>/travaux` ouvre directement le module Travaux. `getActiveCity()` lit la ville dans le chemin. Depuis la mise en ligne du site vitrine à la racine (14/09/2026), l'ancienne adresse `https://openprojets.com/?city=<slug>` est redirigée en 301 vers la nouvelle (edge `carte-legacy`) : une iframe qui l'utilise encore fonctionne, mais doit être mise à jour à la prochaine occasion. Il n'y a plus de redirect vers la page Hélios - tous les utilisateurs B2C valides accèdent à la carte.
 
-> **Note :** `/home/helios` reste la landing commerciale Helios × Open Projets pour les visiteurs non-authentifiés. Elle n'est plus une destination de fallback du flow iframe.
+> **Note :** `https://openprojets.com/helios` reste la landing commerciale Helios × Open Projets pour les visiteurs non-authentifiés (hors index, absente du menu ; l'ancienne adresse `/home/helios` y redirige). Elle n'est pas une destination de fallback du flow iframe.
 
 ---
 
@@ -180,6 +180,6 @@ Phaos doit passer le slug de ville dans l'URL de l'iframe (`?city=metropole-lyon
 
 ## Ce qui existe déjà (ne pas recréer)
 
-- **`/home/helios`** - landing page commerciale Helios × Open Projets (`home-src/src/views/HeliosView.vue`). Page marketing complète, rien à modifier.
-- **`getActiveCity()`** dans `supabaseservice.js` - lit déjà `?city=` via `CityManager`, pas de code à écrire pour ça.
+- **`/helios`** - landing page commerciale Helios × Open Projets (`home-src/src/v2/views/HeliosView.vue`). Page marketing complète, hors index, rien à modifier.
+- **`getActiveCity()`** dans `supabaseservice.js` - lit la ville du chemin via `CityManager`, pas de code à écrire pour ça.
 - **Whitelist CORS HTTP** dans `ai-generate.mjs` - pattern réutilisable tel quel pour `auth-token.mjs`.

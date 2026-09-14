@@ -25,7 +25,7 @@ capte rien : aucune page n'est cassée pendant l'attente.
 
 | Espace | Fichier de la balise | `data-op-space` | Pages vues |
 |---|---|---|---|
-| Carte publique | `index.html` | `carte` | automatiques |
+| Carte publique (`/ville/{ville}/{module}`) | `index.html` | `carte` | automatiques |
 | Administration | `admin/index.html` | `admin` | manuelles (`admin/router.js`) |
 | Fiche projet | `fiche/index.html` | `fiche` | automatiques |
 | Hub ville | `ville/index.html` | `ville` | automatiques |
@@ -34,15 +34,20 @@ capte rien : aucune page n'est cassée pendant l'attente.
 | Carte postale | `carte-postale/index.html` | `carte-postale` | automatiques |
 | Connexion | `login/index.html` | `login` | automatiques |
 | Déconnexion | `logout/index.html` | `logout` | automatiques |
-| Site vitrine (Vue) | `home-src/vite.config.js` | `home` | manuelles (`src/router/index.js`) |
+| Site vitrine (Vue, à la racine) | `home-src/vite.config.js` | `home` | manuelles (`src/v2/router.js`) |
 
-Le home n'écrit pas la balise dans son `index.html` : le plugin `sharedAnalytics`
+Le site n'écrit pas la balise dans son `index.html` : le plugin `sharedAnalytics`
 de `vite.config.js` l'injecte au build et sert le fichier de la racine en dev.
-Sans cela, Vite préfixerait l'URL par la base `/home/` et le home chargerait une
-copie divergente du module. L'injection se fait en `head-prepend` : les scripts
+Sans cela, Vite chercherait le module dans `home-src/` et le site chargerait une
+copie divergente. L'injection se fait en `head-prepend` : les scripts
 différés s'exécutent dans l'ordre du document, et le bundle Vue déclenche sa
 navigation initiale dès son évaluation. Injectée après lui, la balise arrivait
-trop tard et la page vue de `/home/` n'était jamais comptée.
+trop tard et la page vue de l'accueil n'était jamais comptée.
+
+La refonte a été servie sous `/home2/` avec l'espace `home2` d'août à
+septembre 2026, le temps de la comparer à l'ancien site : cet espace est
+l'historique de cette période, le tableau de bord `home` continue avec le
+site mis en ligne à la racine le 14 septembre 2026.
 
 ## Attributs de la balise
 
@@ -108,7 +113,7 @@ aux comptes connectés de l'espace d'administration.
 
 Aucun bandeau de consentement. Les garde-fous qui rendent ce choix tenable :
 
-- **Refus en un clic** sur `/home/confidentialite` (lien dans le pied de page du
+- **Refus en un clic** sur `/confidentialite` (lien dans le pied de page du
   site vitrine), et `?tracking=off` ajouté à n'importe quelle URL du site produit
   le même effet depuis n'importe quel espace.
 - **Do Not Track et Global Privacy Control respectés** : si le navigateur envoie
@@ -139,7 +144,7 @@ actuellement actif sur tous les espaces. Deux réponses possibles :
   sur la balise de l'espace concerné (la carte publique en premier lieu, c'est
   celle que voient les administrés de nos clients) ;
 - ou l'assumer, le documenter dans le registre des traitements et le mentionner
-  explicitement sur `/home/confidentialite`.
+  explicitement sur `/confidentialite`.
 
 Note commerciale : `home-src/src/views/AboutView.vue` annonce « sans traceurs » et
 « Zéro traceur ». Cette promesse et la mesure sur la carte publique ne peuvent pas

@@ -168,6 +168,18 @@
       // Quel module (carte, travaux...) une ville fait-elle réellement vivre ?
       win.OPAnalytics?.capture('module_opened', { module: mod });
 
+      // L'adresse suit le module ouvert : /ville/{ville}/{module} pour les
+      // modules publics, sans les paramètres de projet de l'espace quitté.
+      // replaceState : un clic de module n'est pas une entrée d'historique.
+      try {
+        const city = win.CityManager?.getActiveCity?.();
+        const publicModule = win.CityManager?.PUBLIC_MODULES?.includes(mod);
+        if (city && publicModule && win.CityManager?.parseModuleFromPath?.()) {
+          const target = win.CityManager.buildPath(city, mod);
+          if (location.pathname !== target) history.replaceState(history.state, '', target + location.hash);
+        }
+      } catch (e) { console.debug('[NavPanel] adresse non mise à jour:', e); }
+
       this._currentCategory = null;
       this._panel.setAttribute('data-module', mod);
       this._setLevel(2);

@@ -27,7 +27,8 @@ test.describe('0.25 - llms.txt : génération dynamique', () => {
     // Blockquote de description (format llms.txt)
     expect(body).toContain('> Open Projets');
     expect(body).toContain('## Pages principales');
-    expect(body).toContain('https://openprojets.com/home/');
+    expect(body).toContain('https://openprojets.com/carte');
+    expect(body).toContain('https://openprojets.com/ville/metropole-lyon/carte');
     expect(body).toContain('## Ressources');
     expect(body).toContain('https://openprojets.com/sitemap.xml');
   });

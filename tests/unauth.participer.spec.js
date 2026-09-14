@@ -39,7 +39,7 @@ async function serviceConfigured(request) {
 const SKIP_MSG = 'SUPABASE_SERVICE_ROLE_KEY absente du contexte local - ajouter la clé dans .env';
 
 async function openParticiperPanel(page) {
-  await page.goto(`/?city=${CITY}`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`/ville/${CITY}/carte`, { waitUntil: 'domcontentloaded' });
   const btn = page.locator(`.gp-sidebar__btn--module[data-module="participer"]`);
   await expect(btn).toBeVisible({ timeout: 20000 });
   await btn.click();
@@ -49,7 +49,7 @@ async function openParticiperPanel(page) {
 test.describe('16.1 Participer - carte publique', () => {
 
   test('16.1.1 le bouton du module apparaît dans la barre latérale', async ({ page }) => {
-    await page.goto(`/?city=${CITY}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`/ville/${CITY}/carte`, { waitUntil: 'domcontentloaded' });
     const btn = page.locator(`.gp-sidebar__btn--module[data-module="participer"]`);
     await expect(btn).toBeVisible({ timeout: 20000 });
     await expect(btn).toHaveAttribute('aria-label', 'Participer');
@@ -74,7 +74,7 @@ test.describe('16.1 Participer - carte publique', () => {
     await expect(form.locator('.pt-cat')).toHaveCount(6);
     await expect(form.locator('#pt-email')).toHaveAttribute('type', 'email');
     await expect(form.locator('.pt-urgence')).toContainText('112');
-    await expect(form.locator('.pt-legal a')).toHaveAttribute('href', '/home/confidentialite');
+    await expect(form.locator('.pt-legal a')).toHaveAttribute('href', '/confidentialite');
 
     // Honeypot : présent dans le DOM mais invisible pour un humain
     const hp = form.locator('.pt-hp');

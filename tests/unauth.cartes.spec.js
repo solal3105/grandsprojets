@@ -362,7 +362,7 @@ test.describe('0.38 - Les cartes des communes : le stand', () => {
     await page.locator('#couche-emporter').click();
     await expect(page.locator('#emporter')).toBeVisible();
     const qr = await page.locator('#emporter-qr').getAttribute('src');
-    expect(decodeURIComponent(qr || '')).toContain(`https://openprojets.com/?city=${slug}`);
+    expect(decodeURIComponent(qr || '')).toContain(`https://openprojets.com/ville/${slug}/carte`);
     // Une adresse incomplète est refusée sur place, sans rien envoyer
     await page.locator('#emporter-email').fill('maire@ville');
     await page.locator('#emporter-envoyer').click();

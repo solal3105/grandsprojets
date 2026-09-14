@@ -133,7 +133,7 @@ async function _loadAndApplyBrandColor() {
     if (mobileImg) { mobileImg.src = logoSrc; mobileImg.alt = logoAlt; }
     const mapCard = document.getElementById('adm-map-card');
     if (mapCard && store.city) {
-      mapCard.href = `/?city=${encodeURIComponent(store.city)}`;
+      mapCard.href = `/ville/${encodeURIComponent(store.city)}/carte`;
     }
     const mapCardCity = document.getElementById('adm-map-card-city');
     if (mapCardCity) mapCardCity.textContent = branding?.brand_name || store.city || '';

@@ -3,22 +3,27 @@ import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 import { createReadStream } from 'fs'
 
-/**
- * Mesure d'audience : le home partage le module de la racine du dépôt
- * (`modules/analytics.js`), servi par Netlify sur `/modules/analytics.js` comme
- * pour tous les autres espaces. Une copie propre au home divergerait au premier
- * changement de configuration PostHog.
+/* Le site vitrine, servi à la racine du domaine.
  *
+ * Le build sort dans /home/ (dossier suivi par git). Netlify sert `/` et les
+ * adresses des pages depuis ce dossier (_redirects), les assets hachés depuis
+ * /home/assets/ (réécriture de /assets/*), et les fichiers de public/ depuis
+ * /home/img/ et /home/audio/ en repli quand la racine du dépôt n'a pas le
+ * fichier. La base reste `/` : les pages se référencent sans préfixe.
+ *
+ * Mesure d'audience : le site partage le module de la racine du dépôt
+ * (`modules/analytics.js`), servi par Netlify sur `/modules/analytics.js`
+ * comme pour tous les autres espaces. Une copie propre au site divergerait au
+ * premier changement de configuration PostHog.
  * - build : la balise est injectée ici plutôt qu'écrite dans index.html, sinon
- *   Vite chercherait le fichier dans home-src/ et préfixerait l'URL par la base
- *   `/home/`.
+ *   Vite chercherait le fichier dans home-src/.
  * - `head-prepend` est OBLIGATOIRE : les scripts différés s'exécutent dans
  *   l'ordre du document, et le bundle Vue déclenche sa navigation initiale dès
- *   son évaluation. Injectée en fin de <head>, la balise se chargeait après, et
- *   la page vue de /home/ - la plus consultée du site - n'était jamais comptée.
+ *   son évaluation. Injectée en fin de <head>, la balise se chargeait après,
+ *   et la page vue de l'accueil, la plus consultée du site, n'était jamais
+ *   comptée.
  * - dev : le serveur Vite (:5173) ne connaît pas la racine du dépôt, ce
- *   middleware lui sert le fichier pour que /modules/analytics.js réponde.
- */
+ *   middleware lui sert le fichier pour que /modules/analytics.js réponde. */
 const ANALYTICS_SOURCE = resolve(__dirname, '../modules/analytics.js')
 
 function sharedAnalytics() {
@@ -31,7 +36,7 @@ function sharedAnalytics() {
           defer: true,
           src: '/modules/analytics.js',
           'data-op-space': 'home',
-          // SPA : les pages vues sont émises par le routeur (src/router/index.js)
+          // SPA : les pages vues sont émises par le routeur (src/v2/router.js)
           'data-op-pageview': 'manual',
         },
         injectTo: 'head-prepend',
@@ -41,8 +46,8 @@ function sharedAnalytics() {
       server.middlewares.use('/modules/analytics.js', (_req, res) => {
         res.setHeader('Content-Type', 'application/javascript')
         const flux = createReadStream(ANALYTICS_SOURCE)
-        // Sans ce gestionnaire, un fichier absent leverait une exception non
-        // capturee et tuerait le serveur de developpement.
+        // Sans ce gestionnaire, un fichier absent lèverait une exception non
+        // capturée et tuerait le serveur de développement.
         flux.on('error', () => { res.statusCode = 404; res.end('') })
         flux.pipe(res)
       })
@@ -51,7 +56,7 @@ function sharedAnalytics() {
 }
 
 export default defineConfig({
-  base: '/home/',
+  base: '/',
   plugins: [vue(), sharedAnalytics()],
   resolve: {
     alias: {

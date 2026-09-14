@@ -39,7 +39,7 @@ async function notifyStatusChange(row, statutKey, message, settings) {
     reference: row.reference,
     statutLabel: st.label,
     message,
-    suiviUrl: `${SITE}/?city=${row.ville}&participer_suivi=${row.suivi_token}`,
+    suiviUrl: `${SITE}/ville/${row.ville}/participer?participer_suivi=${row.suivi_token}`,
     replyTo: settings?.notify_email || null,
   });
   return mail.status === 'envoye';

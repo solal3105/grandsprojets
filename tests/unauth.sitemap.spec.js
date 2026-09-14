@@ -32,7 +32,7 @@ test.describe('0.66 - sitemap.xml : plan du site', () => {
   test('0.66.2 - Les pages d\'entrée du site sont présentes, sans date inventée', async ({ request }) => {
     const urls = parseUrls(await (await request.get(SITEMAP)).text());
     const byLoc = new Map(urls.map((u) => [u.loc, u]));
-    for (const path of ['/', '/home/', '/home/fonctionnalites', '/home/ressources', '/home/contact', '/ville/', '/cartes/', '/demo/']) {
+    for (const path of ['/', '/carte', '/travaux', '/participer', '/tarification', '/ressources', '/aide', '/ville/', '/cartes/', '/demo/', '/ville/metropole-lyon/carte']) {
       const entry = byLoc.get(`https://openprojets.com${path}`);
       expect(entry, path).toBeTruthy();
       // Une page statique n'a pas de <lastmod> : Google ignore les dates qu'il

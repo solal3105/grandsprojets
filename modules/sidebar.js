@@ -173,11 +173,11 @@
         if (map?.updateSkyTheme) map.updateSkyTheme();
       });
 
-      // Info → /home
-      this._bindAction('info', () => { win.location.href = '/home'; });
+      // Info → l'accueil du site
+      this._bindAction('info', () => { win.location.href = '/'; });
 
-      // Help → /home/aide
-      this._bindAction('help', () => { win.location.href = '/home/aide'; });
+      // Help → le centre d'aide du site
+      this._bindAction('help', () => { win.location.href = '/aide'; });
 
       // Login → /login
       this._bindAction('login', () => { win.location.href = '/login'; });

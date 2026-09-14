@@ -109,8 +109,8 @@ function corpsTexte({ communeNom, spaceUrl, projectsCount }) {
     ``,
     `POUR ALLER PLUS LOIN`,
     ``,
-    `Fonctionnalités : ${SITE}/home/fonctionnalites`,
-    `Nous écrire : ${SITE}/home/contact`,
+    `Les modules : ${SITE}/#modules`,
+    `Nous écrire : ${SITE}/#contact`,
     ``,
     `Si vous souhaitez la même carte avec vos projets réels, écrivez-nous : la`,
     `reprise de vos documents se fait en quelques jours.`,
@@ -143,7 +143,7 @@ function corpsHtml({ communeNom, spaceUrl, projectsCount }) {
                les clients qui bloquent les images affichent donc quand meme
                « Open Projets ». -->
           <p style="margin:0 0 28px;">
-            <img src="${SITE}/home/img/logos/classic_color.png" alt="Open Projets" width="132" style="width:132px;height:auto;border:0;display:block;">
+            <img src="${SITE}/img/logos/classic_color.png" alt="Open Projets" width="132" style="width:132px;height:auto;border:0;display:block;">
           </p>
           <p style="${p}">Bonjour,</p>
           <p style="${p}">Voici la carte des projets de <strong>${nom}</strong>, telle qu'elle a été générée devant vous.${compte}</p>
@@ -169,8 +169,8 @@ function corpsHtml({ communeNom, spaceUrl, projectsCount }) {
 
           <h2 style="${h}">Pour aller plus loin</h2>
           <p style="${p}">
-            <a href="${SITE}/home/fonctionnalites" style="color:#FF0037;">Les fonctionnalités</a> &nbsp;·&nbsp;
-            <a href="${SITE}/home/contact" style="color:#FF0037;">Nous écrire</a>
+            <a href="${SITE}/#modules" style="color:#FF0037;">Les modules</a> &nbsp;·&nbsp;
+            <a href="${SITE}/#contact" style="color:#FF0037;">Nous écrire</a>
           </p>
           <p style="${p}">Si vous souhaitez la même carte avec vos projets réels, écrivez-nous : la reprise de vos documents se fait en quelques jours.</p>
 

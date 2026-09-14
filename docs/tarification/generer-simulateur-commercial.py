@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Génère le simulateur Excel de l'équipe commerciale : la grille de prix telle
-qu'elle est en production sur /home2/tarification, un tableau de bord avec
+qu'elle est en production sur openprojets.com/tarification, un tableau de bord avec
 graphiques, des scénarios à volonté, et des réglages que l'on peut modifier
 pour voir ce que cela donne.
 

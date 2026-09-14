@@ -2,9 +2,9 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Section Ressources du site home (/home/ressources) + garantie prerender.
+ * Section Ressources du site (/ressources) + garantie prerender.
  *
- * Les pages home sont prerendues au build (home-src/scripts/prerender.mjs) :
+ * Les pages du site sont prerendues au build (home-src/scripts/prerender.mjs) :
  * le HTML servi contient le contenu complet sans exécution JavaScript. Les
  * tests 0.31.4 et 0.31.5 vérifient cette garantie avec le JS désactivé
  * (c'est ce que voient GPTBot/ClaudeBot/PerplexityBot, qui ne rendent pas
@@ -12,20 +12,20 @@ import { test, expect } from '@playwright/test';
  */
 
 const ARTICLE_SLUG = 'carte-plan-de-mandat-2026-2032';
-const ARTICLE_PATH = `/home/ressources/${ARTICLE_SLUG}`;
+const ARTICLE_PATH = `/ressources/${ARTICLE_SLUG}`;
 
 test.describe('Ressources - liste', () => {
-  test('0.31.1 - /home/ressources affiche la liste avec au moins un article', async ({ page }) => {
-    await page.goto('/home/ressources', { waitUntil: 'domcontentloaded' });
+  test('0.31.1 - /ressources affiche la liste avec au moins un article', async ({ page }) => {
+    await page.goto('/ressources', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('h1')).toContainText('Communiquer sur les projets');
     const card = page.locator(`a[href="${ARTICLE_PATH}"]`).first();
     await expect(card).toBeVisible();
     await expect(card).toContainText('plan de mandat');
   });
 
-  test('0.31.2 - le lien Ressources est présent dans la navigation du site home', async ({ page }) => {
-    await page.goto('/home/', { waitUntil: 'domcontentloaded' });
-    const navLink = page.locator('header a[href="/home/ressources"]').first();
+  test('0.31.2 - le lien Ressources est présent dans la navigation du site', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const navLink = page.locator('header a[href="/ressources"]').first();
     await expect(navLink).toBeVisible();
   });
 });
@@ -40,7 +40,7 @@ test.describe('Ressources - article', () => {
     // Corps de l'article rendu (markdown -> HTML)
     await expect(page.locator('.prose-op h2').first()).toBeVisible();
     // Navigation retour vers la liste
-    await expect(page.locator(`a[href="/home/ressources"]`).first()).toBeVisible();
+    await expect(page.locator(`a[href="/ressources"]`).first()).toBeVisible();
   });
 
   test('0.31.4 - prerender : le contenu de l\'article est servi sans JavaScript', async ({ browser }) => {
@@ -54,10 +54,10 @@ test.describe('Ressources - article', () => {
     await context.close();
   });
 
-  test('0.31.5 - prerender : la home sert son contenu texte sans JavaScript', async ({ browser }) => {
+  test('0.31.5 - prerender : l\'accueil sert son contenu texte sans JavaScript', async ({ browser }) => {
     const context = await browser.newContext({ javaScriptEnabled: false });
     const page = await context.newPage();
-    await page.goto('/home/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     const h1Count = await page.locator('h1').count();
     expect(h1Count).toBe(1);
     const wordCount = await page.evaluate(() => document.body.innerText.split(/\s+/).length);
@@ -66,7 +66,7 @@ test.describe('Ressources - article', () => {
   });
 
   test('0.31.6 - le manifest des ressources est servi et référence l\'article', async ({ request }) => {
-    const resp = await request.get('/home/ressources/manifest.json');
+    const resp = await request.get('/ressources/manifest.json');
     expect(resp.ok()).toBeTruthy();
     const manifest = await resp.json();
     const article = manifest.find((a) => a.slug === ARTICLE_SLUG);

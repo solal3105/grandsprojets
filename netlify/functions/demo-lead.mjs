@@ -123,7 +123,7 @@ export default async (req, context) => {
 
     const runId = await findRunId(ville);
     const communeNom = String(body?.communeNom || '').trim().slice(0, 120);
-    const spaceUrl = ville ? `https://openprojets.com/?city=${ville}` : null;
+    const spaceUrl = ville ? `https://openprojets.com/ville/${ville}/carte` : null;
 
     /* Le message part AVANT l'enregistrement, pour que son issue soit consignée
        avec l'adresse : une ligne « envoyé » ou « échec » vaut bien mieux qu'une

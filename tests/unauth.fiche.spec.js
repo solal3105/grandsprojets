@@ -47,7 +47,7 @@ async function waitForFicheBoot(page, url) {
  */
 async function discoverValidProject(page) {
   // On va d'abord passer par la carte pour trouver un projet existant
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(3000);
 
   // Chercher un lien fiche dans la page, ou utiliser Supabase directement
@@ -632,7 +632,7 @@ test.describe('0.8 - Fiche : SSR', () => {
 
   test('0.8.16 - Doublon (même ville, nom, catégorie) : canonical vers la page de référence', async ({ page }) => {
     // Cherche un groupe de doublons en base ; sans doublon, le test est sauté
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2000);
     const pair = await page.evaluate(async () => {
       try {
@@ -798,8 +798,8 @@ test.describe('0.10 - Fiche : bouton retour contextuel', () => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville non disponible');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const href = await page.locator('#fv2-btn-back').getAttribute('href');
-    // La ville est toujours passée en paramètre retour
-    expect(href).toContain(`city=${VALID_CITY}`);
+    // La ville est dans le chemin de retour
+    expect(href).toContain(`/ville/${VALID_CITY}/carte`);
   });
 
   test('0.10.3 - Le bouton retour conserve la catégorie si non default', async ({ page }) => {
@@ -824,7 +824,7 @@ test.describe('0.10 - Fiche : bouton retour contextuel', () => {
     await waitForFicheBoot(page, url);
     const href = await page.locator('#fv2-btn-back').getAttribute('href');
     expect(href).not.toContain('cat=velo');
-    expect(href).toContain(`city=${VALID_CITY}`);
+    expect(href).toContain(`/ville/${VALID_CITY}/carte`);
   });
 
   test('0.10.5 - Le bouton retour erreur a le même href contextuel', async ({ page }) => {
@@ -836,7 +836,7 @@ test.describe('0.10 - Fiche : bouton retour contextuel', () => {
       { timeout: 15000 }
     );
     const href = await page.locator('#fv2-btn-back-error').getAttribute('href');
-    expect(href).toContain('city=test-ville');
+    expect(href).toContain('/ville/test-ville/carte');
     expect(href).toContain('cat=urbanisme');
   });
 });
@@ -1782,8 +1782,8 @@ test.describe('0.28 - Fiche → hub ville', () => {
     test.skip(!VALID_PROJECT || !VALID_CITY, 'Projet ou ville indisponible');
     await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
     const href = await page.locator('#fv2-btn-back').getAttribute('href');
-    expect(href).not.toContain('/ville/');
-    expect(href).toContain(`city=${VALID_CITY}`);
+    // La carte de la ville (avec son filtre de catégorie), pas sa page de projets
+    expect(href).toMatch(new RegExp(`^/ville/${VALID_CITY}/carte(\\?|$)`));
   });
 });
 
@@ -1801,7 +1801,7 @@ test.describe('0.29 - Fiche : couleur de marque servie par le SSR', () => {
 
   /** Couleur de marque de la ville, lue en base (source de vérité). */
   async function brandColorOf(page, ville) {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!window.__supabaseClient, { timeout: 15000 });
     return page.evaluate(async (v) => {
       const { data } = await window.__supabaseClient
@@ -1836,7 +1836,7 @@ test.describe('0.29 - Fiche : couleur de marque servie par le SSR', () => {
   test('0.29.3 - Une couleur invalide en base n\'est jamais injectée', async ({ page }) => {
     // safeHexColor() n'accepte que #RRGGBB : une valeur bidon doit être ignorée,
     // pas recopiée telle quelle dans le HTML (injection de style).
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
     const html = await (await page.request.get(ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY))).text();
     const style = html.match(/id="fv2-brand">:root \{ --color-primary: ([^;]*);/)?.[1];
     if (style) expect(style).toMatch(/^#[0-9A-Fa-f]{6}$/);

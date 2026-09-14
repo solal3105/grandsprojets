@@ -32,7 +32,7 @@
                   <router-link
                     v-for="m in modules"
                     :key="m.key"
-                    :to="`/modules/${m.key}`"
+                    :to="`/${m.key}`"
                     class="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-bg transition-colors"
                     @click="open = false"
                   >
@@ -95,7 +95,7 @@
         <router-link
           v-for="m in modules"
           :key="m.key"
-          :to="`/modules/${m.key}`"
+          :to="`/${m.key}`"
           class="flex items-center gap-3 py-2.5"
           @click="mobileOpen = false"
         >
@@ -157,7 +157,7 @@ const route = useRoute()
 const open = ref(false)
 const mobileOpen = ref(false)
 
-const isModuleRoute = computed(() => route.path.startsWith('/modules'))
+const isModuleRoute = computed(() => !!route.meta.moduleKey)
 
 // Refermer les menus à chaque navigation, sinon le survol laisse le panneau
 // ouvert par-dessus la nouvelle page.

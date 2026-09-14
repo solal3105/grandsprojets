@@ -15,20 +15,20 @@ import { test, expect } from '@playwright/test';
 /** Espaces publics branchés, avec l'identifiant attendu. L'admin, inaccessible
  *  sans session, est couvert par tests/admin.boot-nav.spec.js. */
 const SPACES = [
-  { n: 1, path: '/', space: 'carte' },
+  { n: 1, path: '/ville/metropole-lyon/carte', space: 'carte' },
   { n: 2, path: '/demo/', space: 'demo' },
   { n: 3, path: '/fiche/', space: 'fiche' },
   { n: 4, path: '/login/', space: 'login' },
   { n: 5, path: '/logout/', space: 'logout' },
   { n: 6, path: '/carte-postale/', space: 'carte-postale' },
   { n: 7, path: '/ville/', space: 'ville' },
-  { n: 8, path: '/home/', space: 'home' },
+  { n: 8, path: '/', space: 'home' },
   { n: 9, path: '/cartes/', space: 'cartes' },
 ];
 
 /** SPA : leurs pages vues sont émises par leur routeur, jamais automatiquement. */
 const SPA = [
-  { n: 1, path: '/home/', space: 'home' },
+  { n: 1, path: '/', space: 'home' },
 ];
 
 /** Attend que le module partagé se soit exposé sur window. */
@@ -55,10 +55,10 @@ test.describe('15.1 Mesure d\'audience - chargement par espace', () => {
     });
   }
 
-  test('15.1.10 le module précède le bundle applicatif du home', async ({ page }) => {
+  test('15.1.10 le module précède le bundle applicatif du site', async ({ page }) => {
     // Les scripts différés s'exécutent dans l'ordre du document : si la balise
-    // arrive après le bundle Vue, la page vue initiale de /home/ est perdue.
-    await page.goto('/home/', { waitUntil: 'domcontentloaded' });
+    // arrive après le bundle Vue, la page vue initiale de l'accueil est perdue.
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     const ordre = await page.evaluate(() => {
       const scripts = [...document.head.querySelectorAll('script[src]')];
       return {
@@ -141,7 +141,7 @@ test.describe('15.3 Mesure d\'audience - refus du visiteur', () => {
 
 test.describe('15.4 Page de confidentialité', () => {
   test('15.4.1 la page expose le bouton de refus et reflète l\'état', async ({ page }) => {
-    await page.goto('/home/confidentialite', { waitUntil: 'domcontentloaded' });
+    await page.goto('/confidentialite', { waitUntil: 'domcontentloaded' });
 
     const bouton = page.getByRole('button', { name: /mesure d'audience/i });
     await expect(bouton).toBeVisible({ timeout: 15000 });
@@ -156,9 +156,9 @@ test.describe('15.4 Page de confidentialité', () => {
     expect(await page.evaluate(() => localStorage.getItem('op_analytics_optout'))).toBeNull();
   });
 
-  test('15.4.2 la page est atteignable depuis le pied de page du home', async ({ page }) => {
-    await page.goto('/home/', { waitUntil: 'domcontentloaded' });
-    const lien = page.locator('footer a[href="/home/confidentialite"]').first();
+  test('15.4.2 la page est atteignable depuis le pied de page du site', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const lien = page.locator('footer a[href="/confidentialite"]').first();
     await expect(lien).toBeVisible({ timeout: 15000 });
   });
 });

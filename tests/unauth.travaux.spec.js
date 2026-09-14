@@ -12,7 +12,7 @@ import { test, expect } from '@playwright/test';
 
 /** Charge la carte, où index.html expose TravauxModule et TravauxViews. */
 async function ouvrirCarte(page) {
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(
     () => window.TravauxModule && window.TravauxViews,
     null,

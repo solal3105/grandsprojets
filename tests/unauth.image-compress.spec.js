@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test';
  * Le helper de compression est pur client - pas besoin d'auth ni du boot complet.
  */
 async function waitForService(page) {
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(
     () => typeof window.supabaseService?.compressImage === 'function',
     { timeout: 20000 }

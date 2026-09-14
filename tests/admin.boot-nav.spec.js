@@ -145,9 +145,9 @@ test.describe('1.4 - Sélecteur de ville', () => {
     await expect(page.locator('#adm-city-select')).toHaveValue('test-e2e');
   });
 
-  test('1.4.2 - Carte "Voir la carte" pointe vers /?city=test-e2e', async ({ page }) => {
+  test('1.4.2 - Carte "Voir la carte" pointe vers /ville/test-e2e/carte', async ({ page }) => {
     await waitForBoot(page);
-    await expect(page.locator('#adm-map-card')).toHaveAttribute('href', '/?city=test-e2e');
+    await expect(page.locator('#adm-map-card')).toHaveAttribute('href', '/ville/test-e2e/carte');
   });
 
   test('1.4.3 - Nom de la ville dans #adm-map-card-city', async ({ page }) => {

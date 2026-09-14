@@ -148,7 +148,7 @@ import RessourceCouverture from '@/components/RessourceCouverture.vue'
 import { articleBySlug, articlesLies, teintePourArticle, formatDateFr } from '@/data/ressources.js'
 import { setMeta, setCanonical } from '@/lib/head.js'
 
-const BASE = 'https://openprojets.com/home'
+const BASE = 'https://openprojets.com'
 // Hauteur de l'en-tête fixe, plus une respiration : une ancre qui atterrit
 // sous la barre place le titre visé juste sous elle.
 const DECALAGE = 104

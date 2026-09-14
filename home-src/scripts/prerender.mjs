@@ -1,13 +1,13 @@
 /* ============================================================================
-   PRERENDER POST-BUILD - routes home
+   PRERENDER POST-BUILD - pages du site vitrine
 
-   Après `vite build`, rend chaque route publique dans un Chromium headless
-   et écrit le HTML complet dans /home/<route>/index.html. Netlify sert alors
-   ces fichiers statiques avant le fallback SPA (_redirects), ce qui donne aux
-   crawlers (Google, mais surtout GPTBot/ClaudeBot/PerplexityBot qui ne
-   rendent pas le JavaScript) un contenu texte complet dès le premier octet.
+   Après `vite build`, rend chaque page publique dans un Chromium headless et
+   écrit le HTML complet dans /home/<page>.html. Netlify sert ces fichiers
+   (règles de _redirects) avant le fallback SPA, ce qui donne aux crawlers
+   (Google, mais surtout GPTBot/ClaudeBot/PerplexityBot qui ne rendent pas le
+   JavaScript) un contenu texte complet dès le premier octet.
 
-   Génère aussi /home/ressources/manifest.json (slug + metas des articles),
+   Génère aussi /home/ressources/manifest.json (slug + metas des guides),
    consommé par l'edge function home-seo et par la fonction sitemap.
 
    Les requêtes externes (fonts, analytics, Supabase) sont bloquées pendant le
@@ -27,13 +27,18 @@ const REPO_ROOT = resolve(__dirname, '../..')
 const HOME_DIR = resolve(REPO_ROOT, 'home')
 const CONTENT_DIR = resolve(__dirname, '../src/content/ressources')
 
-// Routes statiques à prerendre (exclues : /helios et /aide/guide-* en noindex,
-// /tarifs qui redirige vers /)
+// Pages statiques à prerendre. Hors liste, donc servies par le fallback SPA :
+// /helios, /aide/guide-* et /tarification/estimation (noindex), les
+// redirections (/contact, /fonctionnalites, /tarifs, /modules).
 const STATIC_ROUTES = [
   '/',
-  '/fonctionnalites',
+  '/carte',
+  '/travaux',
+  '/participer',
+  '/diagnostic',
+  '/chantiers',
+  '/tarification',
   '/a-propos',
-  '/contact',
   '/aide',
   '/confidentialite',
   '/alternative-panneaupocket',
@@ -57,9 +62,10 @@ const MIME = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.mp3': 'audio/mpeg',
+  '.mp4': 'video/mp4',
 }
 
-/* ─── Frontmatter des articles Ressources ─── */
+/* ─── Frontmatter des guides Ressources ─── */
 
 function parseFrontmatter(src) {
   const m = /^---\n([\s\S]*?)\n---\n?/.exec(src)
@@ -97,29 +103,31 @@ async function readArticles() {
   return articles
 }
 
-/* ─── Serveur statique local (racine du repo, fallback SPA sur /home) ─── */
+/* ─── Serveur statique local : les mêmes règles que _redirects ───
+   La racine du dépôt d'abord (images, modules), puis le dossier du build
+   (/assets, /img, /audio), puis le fallback SPA sur l'index du build. */
 
 function startServer() {
   const server = createServer(async (req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname)
-    const candidates = [
+    // La racine du dépôt porte l'index.html de la carte : `/` est le site,
+    // jamais ce fichier (même règle forcée que dans _redirects)
+    const candidates = pathname === '/' ? [] : [
       join(REPO_ROOT, pathname),
       join(REPO_ROOT, pathname, 'index.html'),
+      join(HOME_DIR, pathname),
     ]
     for (const file of candidates) {
+      // Un dossier n'est pas un fichier servable : readFile échoue, on passe
       try {
         const body = await readFile(file)
         res.writeHead(200, { 'Content-Type': MIME[extname(file)] || 'application/octet-stream' })
         return res.end(body)
       } catch { /* candidat suivant */ }
     }
-    if (pathname.startsWith('/home')) {
-      const body = await readFile(join(HOME_DIR, 'index.html'))
-      res.writeHead(200, { 'Content-Type': MIME['.html'] })
-      return res.end(body)
-    }
-    res.writeHead(404)
-    res.end('Not found')
+    const body = await readFile(join(HOME_DIR, 'index.html'))
+    res.writeHead(200, { 'Content-Type': MIME['.html'] })
+    return res.end(body)
   })
   return new Promise((ok) => server.listen(0, '127.0.0.1', () => ok(server)))
 }
@@ -149,7 +157,7 @@ const articles = await readArticles()
 // Manifest consommé par home-seo (metas par slug) et sitemap.mjs
 await mkdir(join(HOME_DIR, 'ressources'), { recursive: true })
 await writeFile(join(HOME_DIR, 'ressources', 'manifest.json'), JSON.stringify(articles, null, 2))
-console.log(`[prerender] manifest.json : ${articles.length} article(s)`)
+console.log(`[prerender] manifest.json : ${articles.length} guide(s)`)
 
 const routes = [...STATIC_ROUTES, ...articles.map((a) => `/ressources/${a.slug}`)]
 
@@ -169,14 +177,14 @@ let failed = false
 for (const route of routes) {
   const page = await context.newPage()
   try {
-    await page.goto(`${origin}/home${route}`, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.goto(`${origin}${route}`, { waitUntil: 'networkidle', timeout: 30000 })
     await page.waitForSelector('#app > *', { timeout: 15000 })
     await page.waitForTimeout(250) // laisser les metas afterEach se poser
     snapshots.set(route, await page.content())
-    console.log(`[prerender] OK  /home${route}`)
+    console.log(`[prerender] OK  ${route}`)
   } catch (err) {
     failed = true
-    console.error(`[prerender] ÉCHEC /home${route} : ${err.message}`)
+    console.error(`[prerender] ÉCHEC ${route} : ${err.message}`)
   } finally {
     await page.close()
   }
@@ -186,16 +194,16 @@ await browser.close()
 server.close()
 
 if (failed) {
-  console.error('[prerender] Au moins une route a échoué : build interrompu')
+  console.error('[prerender] Au moins une page a échoué : build interrompu')
   process.exit(1)
 }
 
 // Écriture en fin de run seulement : le fallback SPA du serveur local reste
 // l'index.html brut de Vite pendant tout le rendu.
-// Format FICHIER (fonctionnalites.html), pas dossier (fonctionnalites/index.html) :
-// un dossier déclenche une 301 Netlify vers l'URL à slash final, sur laquelle
-// les routes exactes de l'edge function home-seo ne matchent plus (metas et
-// JSON-LD perdus) et qui contredit les canonicals sans slash.
+// Format FICHIER (tarification.html), pas dossier (tarification/index.html) :
+// _redirects réécrit chaque adresse vers son fichier, et un dossier
+// déclencherait une 301 Netlify vers l'adresse à barre finale, qui contredit
+// les canonicals.
 for (const [route, html] of snapshots) {
   const outFile = route === '/'
     ? join(HOME_DIR, 'index.html')

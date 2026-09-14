@@ -36,7 +36,7 @@ export default async (req) => {
     const ctx = await loadContext(row.ville);
     if (!ctx.enabled) return redirect(`${SITE}/?participer=module-inactif`);
 
-    const suiviUrl = `${SITE}/?city=${row.ville}&participer_suivi=${row.suivi_token}`;
+    const suiviUrl = `${SITE}/ville/${row.ville}/participer?participer_suivi=${row.suivi_token}`;
     if (row.email_confirmed) return redirect(suiviUrl);
 
     /* Confirmation atomique : le filtre email_confirmed=false fait de cet

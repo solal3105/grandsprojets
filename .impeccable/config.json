@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-09-14T11:04:08.476Z",
+        "reason": "Inter et Space Grotesk sont les polices de la marque (home-src/tailwind.config.js), reprises dans les pages servies par les edge functions"
+      }
+    ]
+  }
+}

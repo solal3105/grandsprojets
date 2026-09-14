@@ -26,7 +26,7 @@
               <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
             </a>
             <a
-              href="https://openprojets.com/default"
+              href="https://openprojets.com/ville/metropole-lyon/carte"
               target="_blank"
               v-tilt-btn
               class="inline-flex items-center gap-2.5 bg-white text-dark text-sm font-medium px-7 py-4 rounded-full border border-gray-border hover:border-gray-300 transition-colors"

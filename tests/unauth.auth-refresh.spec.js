@@ -18,7 +18,7 @@ import { test, expect } from '@playwright/test';
  *   'leve'   → refreshSession lève (réseau coupé)
  */
 async function ouvrir(page) {
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.AuthModule?.forceRefresh, null, { timeout: 20000 });
   await page.evaluate(() => {
     const client = window.AuthModule.getClient();

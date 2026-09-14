@@ -3,9 +3,9 @@
  *
  * Une seule source d'inventaire, partagée avec /llms.txt : lib/projects-index.mjs
  * (lecture paginée de la base, filtres, doublons). Les pages y figurent dans
- * l'ordre : accueil et site vitrine, guides Ressources, index des villes et
- * hubs de chaque ville, puis les fiches (avec leur image de couverture pour
- * Google Images).
+ * l'ordre : site vitrine, guides Ressources, index des villes et pages de
+ * chaque ville, cartes des collectivités (un module public par adresse), puis
+ * les fiches (avec leur image de couverture pour Google Images).
  *
  * Pas de <lastmod> inventé : les pages statiques n'en portent pas (Google
  * ignore les dates qu'il constate fausses, et finit par ignorer toutes celles
@@ -15,7 +15,9 @@
 
 import {
   BASE_ORIGIN,
+  fetchAllRows,
   fetchIndexableProjects,
+  fetchNoindexVilles,
   groupByVille,
   ficheUrl,
   villeUrl,
@@ -25,36 +27,72 @@ import {
 // Pages du site vitrine et pages d'entrée, dans l'ordre de lecture souhaité
 const STATIC_PAGES = [
   '/',
-  '/home/',
-  '/home/fonctionnalites',
-  '/home/ressources',
-  '/home/a-propos',
-  '/home/contact',
-  '/home2/tarification',
-  '/home/aide',
-  '/home/alternative-panneaupocket',
-  '/home/alternative-cityall-lumiplan',
-  '/home/alternative-neocity',
-  '/home/confidentialite',
+  '/carte',
+  '/travaux',
+  '/participer',
+  '/chantiers',
+  '/diagnostic',
+  '/tarification',
+  '/ressources',
+  '/a-propos',
+  '/aide',
+  '/alternative-panneaupocket',
+  '/alternative-cityall-lumiplan',
+  '/alternative-neocity',
+  '/confidentialite',
   '/cartes/',
   '/demo/',
   '/ville/',
 ];
 
+// Les modules qui ont une adresse publique dans l'application d'une ville
+const PUBLIC_MODULES = ['carte', 'travaux', 'participer'];
+
 const escapeXml = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
-/** Guides de la section Ressources : manifest écrit par le prerender du home. */
+/** Guides de la section Ressources : manifest écrit par le prerender du site. */
 async function fetchRessources() {
   try {
-    const resp = await fetch(`${BASE_ORIGIN}/home/ressources/manifest.json`);
+    const resp = await fetch(`${BASE_ORIGIN}/ressources/manifest.json`);
     if (!resp.ok) return [];
     const list = await resp.json();
     return Array.isArray(list) ? list.filter((a) => a?.slug) : [];
   } catch {
     return []; // pas de manifest : sitemap sans les guides
   }
+}
+
+/**
+ * Les cartes des collectivités : /ville/{ville}/{module}, pour chaque espace
+ * qui n'est pas retiré des moteurs et chaque module public activé. La carte
+ * est toujours là ; les travaux et le signalement seulement si la ville les a
+ * activés (city_modules).
+ */
+async function fetchCartes() {
+  const [villes, modules, noindex] = await Promise.all([
+    fetchAllRows('city_branding', { select: 'ville', order: 'ville.asc' }),
+    fetchAllRows('city_modules', { select: 'ville,module_key', enabled: 'eq.true', order: 'ville.asc' }),
+    fetchNoindexVilles(),
+  ]);
+  const enabled = new Map();
+  for (const m of modules) {
+    const ville = String(m?.ville || '').toLowerCase();
+    if (!ville) continue;
+    if (!enabled.has(ville)) enabled.set(ville, new Set());
+    enabled.get(ville).add(String(m.module_key));
+  }
+  const urls = [];
+  for (const v of villes) {
+    const ville = String(v?.ville || '').toLowerCase();
+    if (!ville || noindex.has(ville)) continue;
+    for (const module of PUBLIC_MODULES) {
+      if (module !== 'carte' && !enabled.get(ville)?.has(module)) continue;
+      urls.push(`${BASE_ORIGIN}/ville/${encodeURIComponent(ville)}/${module}`);
+    }
+  }
+  return urls;
 }
 
 function renderUrl(u) {
@@ -73,16 +111,17 @@ function renderUrl(u) {
 
 export default async (_request, _context) => {
   try {
-    const [projects, ressources] = await Promise.all([
+    const [projects, ressources, cartes] = await Promise.all([
       fetchIndexableProjects('cover_url'),
       fetchRessources(),
+      fetchCartes(),
     ]);
 
     const urlset = STATIC_PAGES.map((path) => ({ loc: `${BASE_ORIGIN}${path}` }));
 
     for (const article of ressources) {
       urlset.push({
-        loc: `${BASE_ORIGIN}/home/ressources/${encodeURIComponent(article.slug)}`,
+        loc: `${BASE_ORIGIN}/ressources/${encodeURIComponent(article.slug)}`,
         lastmod: toDay(article.updated || article.date),
       });
     }
@@ -90,6 +129,8 @@ export default async (_request, _context) => {
     for (const [ville, info] of groupByVille(projects)) {
       urlset.push({ loc: villeUrl(ville), lastmod: info.lastmod });
     }
+
+    for (const loc of cartes) urlset.push({ loc });
 
     for (const p of projects) {
       const entry = { loc: ficheUrl(p), lastmod: toDay(p.created_at) };

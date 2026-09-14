@@ -37,7 +37,7 @@
         <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <router-link
             v-for="m in modules" :key="m.key"
-            :to="`/modules/${m.key}`"
+            :to="`/${m.key}`"
             class="group flex flex-col bg-white rounded-2xl p-6 transition duration-300 hover:-translate-y-1 hover:shadow-card"
           >
             <span class="w-10 h-10 rounded-xl flex items-center justify-center mb-5" :class="m.tone.bg">

@@ -41,7 +41,7 @@
   // souvent VIDE dans l'iframe quand le parent (Phaos QA/prod) applique une
   // Referrer-Policy stricte (no-referrer / same-origin). S'y fier bloquait tout le SSO.
   // On l'utilise uniquement comme filtre négatif : si un referrer est présent ET pointe
-  // vers un parent connu non-Phaos (ex : openprojets.com/home/), on reste no-op pour
+  // vers un parent connu non-Phaos (ex : openprojets.com/), on reste no-op pour
   // éviter d'écouter inutilement. Referrer vide → on active (cas Phaos réel).
   function detectPhaosIframe() {
     if (win.self === win.top) return false;
@@ -72,7 +72,7 @@
 
   // Timeout de sécurité - évite un loader infini côté utilisateur.
   // On résout (pas reject) : la carte se chargera en mode anonyme si aucun token Phaos
-  // n'arrive (ex : iframe générique, vazy.app, openprojets.com/home/).
+  // n'arrive (ex : iframe générique, vazy.app, openprojets.com/).
   const initTimeoutId = setTimeout(() => {
     console.warn('[PhaosAuth] Timeout : aucun ID_TOKEN reçu de Phaos en', INIT_TIMEOUT_MS, 'ms - init en mode anonyme');
     resolveSession();
@@ -115,7 +115,10 @@
 
   // ── Initialisation de la session Supabase ────────────────────────────────────
   async function applySession(idToken) {
-    const city = new URLSearchParams(win.location.search).get('city') || null;
+    // La ville vient du chemin /ville/{ville}/… ; l'ancien ?city= reste lu
+    // pour une iframe Phaos qui n'aurait pas encore changé d'adresse.
+    const pathCity = /^\/ville\/([a-z0-9-]+)\//i.exec(win.location.pathname)?.[1]?.toLowerCase() || null;
+    const city = pathCity || new URLSearchParams(win.location.search).get('city') || null;
     const { access_token, refresh_token, expires_in } = await exchangeToken(idToken, city);
 
     // win.__supabaseClient est initialisé par auth.js, chargé avant phaos-auth.js

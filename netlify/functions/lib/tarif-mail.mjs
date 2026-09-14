@@ -57,7 +57,7 @@ export function resumer({ population, modules, annees }) {
     annees: e.annees,
     mensuel: eurosFourchette(e.mensuel),
     total: eurosFourchette(e.total),
-    lien: `${SITE}/home2/tarification?population=${e.population}&modules=${e.lignes.map((l) => l.cle).join(',')}&annees=${e.annees}`,
+    lien: `${SITE}/tarification?population=${e.population}&modules=${e.lignes.map((l) => l.cle).join(',')}&annees=${e.annees}`,
   };
 }
 
@@ -90,7 +90,7 @@ function corpsTexte({ resume, telephone }) {
     `modules la complètent : travaux du quotidien, signalement, diagnostic`,
     `terrain, chantiers et arrêtés.`,
     ``,
-    `Fonctionnalités : ${SITE}/home/fonctionnalites`,
+    `Les modules : ${SITE}/#modules`,
     ``,
     `--`,
     `Vous recevez ce message parce que vous avez demandé un tarif sur`,
@@ -111,7 +111,7 @@ function corpsHtml({ resume, telephone }) {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;padding:36px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
         <tr><td>
           <p style="margin:0 0 28px;">
-            <img src="${SITE}/home/img/logos/classic_color.png" alt="Open Projets" width="132" style="width:132px;height:auto;border:0;display:block;">
+            <img src="${SITE}/img/logos/classic_color.png" alt="Open Projets" width="132" style="width:132px;height:auto;border:0;display:block;">
           </p>
           <p style="${p}">Bonjour,</p>
           <p style="${p}">Nous avons bien reçu votre demande de tarif pour Open Projets. Voici ce que vous avez indiqué :</p>
@@ -130,7 +130,7 @@ function corpsHtml({ resume, telephone }) {
 
           <h2 style="${h}">Ce que fait Open Projets</h2>
           <p style="${p}">Open Projets est la carte interactive qu'une collectivité déploie pour informer ses habitants : les projets d'aménagement et les chantiers sur une carte publique à ses couleurs, que chacun consulte sans compte. Des modules la complètent : travaux du quotidien, signalement, diagnostic terrain, chantiers et arrêtés.</p>
-          <p style="${p}"><a href="${SITE}/home/fonctionnalites" style="color:#FF0037;">Les fonctionnalités</a></p>
+          <p style="${p}"><a href="${SITE}/#modules" style="color:#FF0037;">Les modules</a></p>
 
           <hr style="border:0;border-top:1px solid #e6e6ea;margin:32px 0 16px;">
           <p style="margin:0;color:#8a8a96;font-size:12px;line-height:1.6;">

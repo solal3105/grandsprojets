@@ -321,12 +321,10 @@
             const params = new URLSearchParams();
             params.set('cat', catForUrl);
             params.set('project', projSlug);
-            // `props.ville` n'est plus injecté sur les features (une seule ville
-            // par carte, l'information était constante et recopiée N fois).
-            const cityForUrl = new URLSearchParams(location.search).get('city') || window.supabaseService?.getActiveCity?.() || '';
-            if (cityForUrl) params.set('city', cityForUrl);
+            // La ville est dans le chemin (/ville/{ville}/carte) : l'adresse
+            // ne porte que la catégorie et le projet.
             const newUrl = `${location.pathname}?${params.toString()}`;
-            history.pushState({ cat: catForUrl, project: projSlug, city: cityForUrl }, '', newUrl);
+            history.pushState({ cat: catForUrl, project: projSlug }, '', newUrl);
             
             // Désactiver le flag après un court délai (pour laisser popstate se déclencher si besoin)
             setTimeout(() => {

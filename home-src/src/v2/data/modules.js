@@ -3,7 +3,7 @@ import { spaceUrl } from '@/data/siteUrls.js'
 
 /* Les quatre modules de la plateforme.
  *
- * Source unique : l'accueil, la page /modules et les pages /modules/:key lisent
+ * Source unique : l'accueil et les pages de modules (/carte, /travaux...) lisent
  * toutes ce fichier. Chaque affirmation ici doit etre verifiable dans le code
  * du produit : une vitrine qui promet ce que le produit ne fait pas se retourne
  * contre nous au premier rendez-vous.
@@ -48,7 +48,7 @@ export const modules = [
       hauteur: 1125,
       alt: "La carte de la Métropole de Lyon ouverte sur la catégorie urbanisme : les projets en cartes illustrées à gauche, l'emprise de l'un d'eux tracée sur la carte.",
     },
-    live: { url: spaceUrl('default', 'carte'), label: 'Ouvrir un espace en service' },
+    live: { url: spaceUrl('metropole-lyon', 'carte'), label: 'Ouvrir un espace en service' },
     showcase: 'carte',
     h1: "Vos projets d'aménagement deviennent une carte que vos habitants consultent",
     tagline: "Chaque projet a sa fiche publique, avec sa propre adresse, référencée sur les moteurs de recherche.",
@@ -214,7 +214,7 @@ export const modules = [
       hauteur: 1125,
       alt: "Les chantiers d'une métropole entière sur une seule carte, chaque emprise colorée selon son avancement.",
     },
-    live: { url: spaceUrl('default', 'travaux'), label: 'Ouvrir un espace en service' },
+    live: { url: spaceUrl('metropole-lyon', 'travaux'), label: 'Ouvrir un espace en service' },
     showcase: 'travaux',
     h1: "Vos riverains savent enfin quand la rue rouvre",
     tagline: "Chaque chantier affiche son emprise, ses dates et son avancement, sans que personne n'appelle la mairie.",

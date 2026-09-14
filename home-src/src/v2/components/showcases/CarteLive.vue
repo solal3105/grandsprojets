@@ -7,5 +7,5 @@ L'espace de la Métropole de Lyon, tel que ses habitants le consultent. Ouvrez u
 import LiveEmbed from './LiveEmbed.vue'
 import { spaceUrl } from '@/data/siteUrls.js'
 defineProps({ moduleKey: { type: String, default: 'carte' } })
-const url = spaceUrl('default', 'carte')
+const url = spaceUrl('metropole-lyon', 'carte')
 </script>

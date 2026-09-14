@@ -693,7 +693,7 @@ const emporter = (() => {
     const slug = couche.slug;
     $('emporter-nom').textContent = couche.nom;
     // Le lien de l'espace, tel que l'e-mail de la démo le donne
-    const lien = `${BASE_ORIGIN}/?city=${encodeURIComponent(slug)}`;
+    const lien = `${BASE_ORIGIN}/ville/${encodeURIComponent(slug)}/carte`;
     $('emporter-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=6&data=${encodeURIComponent(lien)}`;
     // Seules les cartes d'essai s'envoient par e-mail : l'API n'accepte qu'elles
     const avecMail = slug.startsWith(PREFIXE_ESSAI);

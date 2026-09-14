@@ -155,10 +155,10 @@ test.describe('Démo salon - message au visiteur', () => {
 
     // Un premier contact au salon ne parle pas d'argent : la page tarifs est
     // volontairement absente des deux versions du message.
-    expect(appels[0].corps.text).not.toContain('/home/tarifs');
-    expect(appels[0].corps.html).not.toContain('/home/tarifs');
-    expect(appels[0].corps.text).toContain('/home/contact');
-    expect(appels[0].corps.html).toContain('/home/contact');
+    expect(appels[0].corps.text).not.toContain('/tarification');
+    expect(appels[0].corps.html).not.toContain('/tarification');
+    expect(appels[0].corps.text).toContain('/#contact');
+    expect(appels[0].corps.html).toContain('/#contact');
   });
 
   test('0.34.8 - sans adresse d\'espace, aucun message n\'est tenté', async () => {

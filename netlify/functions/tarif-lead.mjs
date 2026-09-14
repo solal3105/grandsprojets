@@ -1,7 +1,7 @@
 /* ============================================================================
    FONCTION TARIF-LEAD - route /api/tarif-lead (POST)
 
-   Recueille la demande de tarif laissée sur l'estimateur (/home2/tarification) :
+   Recueille la demande de tarif laissée sur l'estimateur (/tarification) :
    une adresse e-mail, un téléphone si l'on veut, et les réglages du moment
    (population, modules, engagement).
 

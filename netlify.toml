@@ -1,9 +1,7 @@
 [build]
-  # build:v2 produit la refonte temporaire servie sous /home2/ (noindex).
-  # Volontairement non bloquant : une refonte cassee ne doit jamais empecher la
-  # mise en ligne du site de production. A retirer avec le reste de la refonte,
-  # voir la liste en tete de home-src/vite.config.v2.js.
-  command = "cd home-src && npm ci && npm run build && { npm run build:v2 || echo '[build] refonte /home2 en echec, deploiement du site poursuivi'; }"
+  # Le site vitrine (home-src) est reconstruit et prérendu à chaque déploiement,
+  # dans /home/ ; _redirects le sert à la racine.
+  command = "cd home-src && npm ci && npm run build"
   publish = "."
   edge_functions = "netlify/edge-functions"
 
@@ -23,6 +21,72 @@
   path = "/*"
   function = "domain-redirect"
 
+# Les anciennes adresses de la carte portées par la racine (?city=, ?cat=...)
+[[edge_functions]]
+  path = "/"
+  function = "carte-legacy"
+
+# Le site vitrine : données structurées et en-têtes sur les pages prérendues
+[[edge_functions]]
+  path = "/"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/carte"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/travaux"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/participer"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/diagnostic"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/chantiers"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/tarification"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/a-propos"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/aide"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/confidentialite"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/alternative-panneaupocket"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/alternative-cityall-lumiplan"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/alternative-neocity"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/ressources"
+  function = "home-seo"
+
+[[edge_functions]]
+  path = "/ressources/*"
+  function = "home-seo"
+
 [[edge_functions]]
   path = "/fiche/"
   function = "fiche-ssr"
@@ -31,58 +95,19 @@
   path = "/fiche/*/*/*"
   function = "fiche-ssr"
 
+# La carte d'une collectivité : titre, description et indexation par ville et
+# par module (les trois modules publics)
 [[edge_functions]]
-  path = "/home/"
-  function = "home-seo"
+  path = "/ville/:ville/carte"
+  function = "carte-seo"
 
 [[edge_functions]]
-  path = "/home/fonctionnalites"
-  function = "home-seo"
+  path = "/ville/:ville/travaux"
+  function = "carte-seo"
 
 [[edge_functions]]
-  path = "/home/a-propos"
-  function = "home-seo"
-
-[[edge_functions]]
-  path = "/home/contact"
-  function = "home-seo"
-
-[[edge_functions]]
-  path = "/home/aide"
-  function = "home-seo"
-
-[[edge_functions]]
-  path = "/home/confidentialite"
-  function = "home-seo"
-
-[[edge_functions]]
-  path = "/home/alternative-panneaupocket"
-  function = "home-seo"
-
-[[edge_functions]]
-  path = "/home/alternative-cityall-lumiplan"
-  function = "home-seo"
-
-[[edge_functions]]
-  path = "/home/alternative-neocity"
-  function = "home-seo"
-
-[[edge_functions]]
-  path = "/home/ressources"
-  function = "home-seo"
-
-[[edge_functions]]
-  path = "/home/ressources/*"
-  function = "home-seo"
-
-# La seule page de la refonte /home2 ouverte aux moteurs (voir la fonction)
-[[edge_functions]]
-  path = "/home2/tarification"
-  function = "tarification-seo"
-
-[[edge_functions]]
-  path = "/home2/tarification/"
-  function = "tarification-seo"
+  path = "/ville/:ville/participer"
+  function = "carte-seo"
 
 [[edge_functions]]
   path = "/ville/*"
@@ -127,14 +152,14 @@
 
 [[redirects]]
   from = "https://lumieres.openprojets.com/*"
-  to = "https://openprojets.com/:splat?city=lumieres"
+  to = "https://openprojets.com/ville/lumieres/carte"
   status = 301
   force = true
 
 # Ajouter d'autres villes ici si besoin :
 # [[redirects]]
 #   from = "https://keolis.openprojets.com/*"
-#   to = "https://openprojets.com/:splat?city=keolis"
+#   to = "https://openprojets.com/ville/keolis/carte"
 #   status = 301
 #   force = true
 

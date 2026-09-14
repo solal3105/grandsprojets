@@ -11,7 +11,7 @@ import { test, expect } from '@playwright/test';
 let CITY = null; // ville réelle découverte en base (avec au moins 1 projet approuvé)
 
 async function discoverCity(page) {
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(3000);
   // Mêmes contraintes que l'edge function ville-hub (sinon la ville découverte
   // pourrait être filtrée → hub servi en noindex et toute la suite échoue) :
@@ -293,9 +293,9 @@ test.describe('0.27 - Hub ville : interactions', () => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
     await gotoHub(page);
     const href = await page.locator('#vh-open-map').getAttribute('href');
-    expect(href).toContain(`city=${CITY.ville}`);
-    // Le lien retour de la topbar mène toujours à la carte
-    expect(await page.locator('#vh-btn-back').getAttribute('href')).toBe('/');
+    expect(href).toBe(`/ville/${CITY.ville}/carte`);
+    // Le lien retour de la topbar mène toujours à la carte de la ville
+    expect(await page.locator('#vh-btn-back').getAttribute('href')).toBe(`/ville/${CITY.ville}/carte`);
   });
 
   test('0.27.9 - Le CTA carte transporte le filtre catégorie actif', async ({ page }) => {
@@ -305,7 +305,7 @@ test.describe('0.27 - Hub ville : interactions', () => {
     const slug = await tag.getAttribute('data-cat');
     await tag.click();
     const href = await page.locator('#vh-open-map').getAttribute('href');
-    expect(href).toContain(`city=${CITY.ville}`);
+    expect(href).toContain(`/ville/${CITY.ville}/carte?`);
     expect(href).toContain(`cat=${slug}`);
   });
 });

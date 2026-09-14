@@ -14,7 +14,7 @@
 // Aucun bandeau de consentement : la configuration reste en mesure d'audience
 // première-partie (pas de suivi inter-sites, pas de partage publicitaire), le
 // Do Not Track et le Global Privacy Control du navigateur sont respectés, et le
-// refus est accessible en un clic depuis /home/confidentialite (ou en ajoutant
+// refus est accessible en un clic depuis /confidentialite (ou en ajoutant
 // ?tracking=off à n'importe quelle URL du site).
 
 ;(function (win, doc) {
@@ -156,7 +156,8 @@
    */
   function earlyCity() {
     try {
-      const fromUrl = new URLSearchParams(win.location.search).get('city');
+      const fromPath = /^\/ville\/([a-z0-9-]+)\/(?:carte|travaux|participer)\/?$/i.exec(win.location.pathname)?.[1];
+      const fromUrl = fromPath || new URLSearchParams(win.location.search).get('city');
       const value = fromUrl || win.localStorage.getItem('activeCity');
       return value && /^[a-z0-9-]+$/i.test(value) ? value : null;
     } catch {
@@ -322,7 +323,7 @@
       // l'autorise, mais nos `console.error` transportent des objets d'erreur
       // Supabase qui contiennent parfois l'adresse saisie : ils atterriraient
       // dans les enregistrements de session, en contradiction directe avec ce
-      // que promet /home/confidentialite. Ce choix est fixé ici pour ne pas
+      // que promet /confidentialite. Ce choix est fixé ici pour ne pas
       // dépendre d'un interrupteur d'interface.
       enable_recording_console_log: false,
       sanitize_properties: sanitizeProperties,

@@ -49,7 +49,7 @@
           >
             <li v-for="m in modules" :key="m.key" class="sm:flex-1 sm:min-w-0">
               <router-link
-                :to="`/modules/${m.key}`"
+                :to="`/${m.key}`"
                 class="group relative flex items-center justify-center gap-2 h-full px-3 py-3.5 hover:bg-gray-bg transition-colors"
               >
                 <component :is="m.icon" class="w-4 h-4 shrink-0" :class="m.tone.text" />

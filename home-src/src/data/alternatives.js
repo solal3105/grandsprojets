@@ -4,10 +4,11 @@
 // AlternativeView.vue - ici on ne décrit que ce qui est propre à chaque concurrent.
 // Tous les faits sur les concurrents sont sourcés (voir `sources` de chaque entrée).
 
-const BASE = 'https://openprojets.com/home'
+const BASE = 'https://openprojets.com'
 
 export const alternatives = {
   panneaupocket: {
+    nom: 'PanneauPocket',
     slug: 'alternative-panneaupocket',
     referrer: 'alt-panneaupocket',
     competitor: 'PanneauPocket',
@@ -69,6 +70,7 @@ export const alternatives = {
   },
 
   cityall: {
+    nom: 'CityAll',
     slug: 'alternative-cityall-lumiplan',
     referrer: 'alt-cityall',
     competitor: 'CityAll (Lumiplan)',
@@ -128,6 +130,7 @@ export const alternatives = {
   },
 
   neocity: {
+    nom: 'Neocity',
     slug: 'alternative-neocity',
     referrer: 'alt-neocity',
     competitor: 'Neocity',
