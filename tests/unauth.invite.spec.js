@@ -215,6 +215,47 @@ test.describe('0.35.5 - Encart : plus aucun décalage de layout', () => {
 });
 
 // ─────────────────────────────────────────────────────────
+// 0.35.6 - L'encart flotte vraiment, y compris sur téléphone
+// ─────────────────────────────────────────────────────────
+test.describe('0.35.6 - Encart : ancrage en bas de l\'écran', () => {
+
+  test('0.35.6.1 - La règle de positionnement est bien appliquée (régression)', async ({ page }) => {
+    // Un « */ » au milieu du commentaire d'en-tête de gp-invite.css fermait le
+    // commentaire trop tôt, et la récupération d'erreur du parseur avalait la
+    // règle `#gp-invite` juste derrière : l'encart retombait en position static,
+    // donc en haut de la page, par-dessus le logo et le dock.
+    await waitForMapBoot(page, DEMO);
+    await expect(page.locator('#gp-invite-card')).toBeVisible();
+
+    const pos = await page.evaluate(() =>
+      getComputedStyle(document.getElementById('gp-invite')).position
+    );
+    expect(pos).toBe('fixed');
+  });
+
+  test.describe('sur un écran de téléphone', () => {
+    test.use({ viewport: { width: 390, height: 664 } });
+
+    test('0.35.6.2 - Posé en bas, sans recouvrir le logo ni le dock', async ({ page }) => {
+      await waitForMapBoot(page, DEMO);
+      const carte = page.locator('#gp-invite-card');
+      await expect(carte).toBeVisible();
+
+      const encart = await carte.boundingBox();
+      const dock = await page.locator('.toggle-dock').boundingBox();
+      expect(encart).not.toBeNull();
+      expect(dock).not.toBeNull();
+
+      // Il est ancré en bas, juste au-dessus de la capsule de navigation.
+      expect(encart.y + encart.height).toBeGreaterThan(664 - 120);
+      expect(encart.y + encart.height).toBeLessThan(664);
+      // Et il commence sous le dock, qui garde son coin.
+      expect(encart.y).toBeGreaterThan(dock.y + dock.height);
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────
 // 0.36 - Crédits du fond de carte
 // ─────────────────────────────────────────────────────────
 test.describe('0.36 - Crédits MapLibre dans le panneau Fond de carte', () => {
