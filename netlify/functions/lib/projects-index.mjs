@@ -26,15 +26,6 @@ const supaHeaders = {
   Accept: 'application/json',
 };
 
-/** Entrées créées par la suite de tests E2E : jamais référencées. */
-export function isTestEntry(name, cat) {
-  const lower = String(name || '').toLowerCase();
-  const c = String(cat || '').toLowerCase();
-  return lower.startsWith('e2e-') || lower.startsWith('e2e_') ||
-    lower.startsWith('test ') || lower === 'test' ||
-    c.startsWith('e2e-') || c.startsWith('e2e_');
-}
-
 /**
  * Lit une table PostgREST en entier, page par page (limit/offset).
  * Lève en cas d'erreur HTTP : l'appelant doit répondre 500 plutôt que servir
@@ -117,7 +108,6 @@ export async function fetchIndexableProjects(select = '') {
   const eligible = rows.filter((p) =>
     p?.project_name && p?.category && p?.ville && p?.category_slug && p?.slug &&
     !noindex.has(String(p.ville).toLowerCase()) &&
-    !isTestEntry(p.project_name, p.category) &&
     (p.markdown_url || String(p.description || '').trim())
   );
 

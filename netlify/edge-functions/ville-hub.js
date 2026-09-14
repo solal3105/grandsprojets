@@ -70,14 +70,6 @@ function safeIconClass(cls) {
   return /^[a-z0-9 -]{1,60}$/i.test(c) ? c : 'fa-solid fa-layer-group';
 }
 
-/** Mêmes exclusions que sitemap.mjs - entrées de test e2e */
-function isTestEntry(name, cat) {
-  const n = String(name || '').toLowerCase();
-  const c = String(cat || '').toLowerCase();
-  return n.startsWith('e2e-') || n.startsWith('e2e_') || n.startsWith('test ') || n === 'test'
-    || c.startsWith('e2e-') || c.startsWith('e2e_');
-}
-
 /** Headers du shell statique privés de leurs validateurs de cache : on sert un
     corps réécrit (≠ du shell), donc son ETag/Last-Modified ne doivent pas fuiter
     - sinon une revalidation renverrait 304 + corps vide → page blanche cachée */
@@ -334,7 +326,7 @@ ${filterbar}
 async function fetchVillesIndex() {
   const [rows, brandings] = await Promise.all([
     fetchAllRows('contribution_uploads', {
-      select: 'ville,project_name,category',
+      select: 'ville',
       approved: 'eq.true',
       ville: 'not.is.null',
       slug: 'not.is.null',
@@ -347,7 +339,7 @@ async function fetchVillesIndex() {
   const counts = new Map();
   for (const r of rows) {
     const ville = String(r?.ville || '').toLowerCase();
-    if (!/^[a-z0-9-]{1,60}$/.test(ville) || isTestEntry(r?.project_name, r?.category)) continue;
+    if (!/^[a-z0-9-]{1,60}$/.test(ville)) continue;
     // Un espace retiré des moteurs n'est pas relié depuis l'index
     if (brandBy.get(ville)?.indexable === false) continue;
     counts.set(ville, (counts.get(ville) || 0) + 1);
@@ -591,7 +583,7 @@ export default async (request, context) => {
   // réels : on mesure la troncature AVANT le filtre pour ne rien masquer
   const truncated = projects.length > MAX_PROJECTS;
   projects = projects
-    .filter(p => p.project_name && p.category_slug && p.slug && !isTestEntry(p.project_name, p.category))
+    .filter(p => p.project_name && p.category_slug && p.slug)
     .slice(0, MAX_PROJECTS);
 
   // Ville sans projet → coquille servie en 200 mais jamais indexée.
