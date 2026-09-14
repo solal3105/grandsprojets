@@ -2142,6 +2142,74 @@
       }
     },
 
+    // RÉFÉRENCEMENT (page réservée aux super administrateurs)
+
+    /**
+     * Chaque espace face aux moteurs de recherche : réglage, nombre de fiches
+     * publiques, dernier changement (vue city_indexing_overview ; le dernier
+     * changement n'est renseigné que pour un super administrateur).
+     */
+    async getCityIndexingOverview() {
+      const { data, error } = await supabaseClient
+        .from('city_indexing_overview')
+        .select('*')
+        .order('ville', { ascending: true });
+
+      if (error) {
+        console.error('[supabaseService] getCityIndexingOverview error:', error);
+        throw error;
+      }
+      return data || [];
+    },
+
+    /**
+     * Propose ou retire un espace des moteurs de recherche. La base refuse
+     * l'écriture si l'utilisateur n'est pas super administrateur (trigger
+     * city_indexing_guard) et consigne le changement (city_indexing_log).
+     * Renvoie la ligne rafraîchie de la vue.
+     */
+    async setCityIndexable(ville, indexable) {
+      const { error } = await supabaseClient
+        .from('city_branding')
+        .update({ indexable: !!indexable })
+        .eq('ville', ville)
+        .select('ville, indexable')
+        .single();
+
+      if (error) {
+        console.error('[supabaseService] setCityIndexable error:', error);
+        throw error;
+      }
+
+      const { data, error: readError } = await supabaseClient
+        .from('city_indexing_overview')
+        .select('*')
+        .eq('ville', ville)
+        .single();
+
+      if (readError) {
+        console.error('[supabaseService] setCityIndexable read error:', readError);
+        throw readError;
+      }
+      return data;
+    },
+
+    /** Les derniers changements d'indexation, du plus récent au plus ancien. */
+    async getCityIndexingLog(limit = 30) {
+      const { data, error } = await supabaseClient
+        .from('city_indexing_log')
+        .select('*')
+        .order('changed_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('[supabaseService] getCityIndexingLog error:', error);
+        throw error;
+      }
+      return data || [];
+    },
+
     // CITY TRAVAUX (Module Travaux multi-villes)
 
     /**

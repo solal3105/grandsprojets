@@ -172,6 +172,20 @@ export async function deleteCity(ville) {
   return svc().deleteCity(ville);
 }
 
+/* ── Référencement (super administrateurs) ── */
+
+export async function getIndexingOverview() {
+  return svc().getCityIndexingOverview();
+}
+
+export async function setCityIndexable(ville, indexable) {
+  return svc().setCityIndexable(ville, indexable);
+}
+
+export async function getIndexingLog(limit) {
+  return svc().getCityIndexingLog(limit);
+}
+
 export async function getLayers() {
   const c = client();
   if (!c) return [];

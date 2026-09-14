@@ -11,6 +11,7 @@ import { renderDiagnostic, destroyDiagnostic } from './sections/diagnostic.js';
 import { renderStructure } from './sections/structure.js';
 import { renderVilles } from './sections/villes.js';
 import { renderModules } from './sections/modules.js';
+import { renderReferencement } from './sections/referencement.js';
 import { toast, esc } from './components/ui.js';
 import { initTheme } from './theme.js';
 
@@ -56,6 +57,7 @@ async function boot() {
     router.define('structure',      (c, p) => renderStructure(c, p));
     router.define('villes',         (c, p) => renderVilles(c, p));
     router.define('modules',        (c, p) => renderModules(c, p));
+    router.define('referencement',  (c, p) => renderReferencement(c, p));
 
     // Re-render current section when city changes
     store.subscribe(() => {
@@ -72,6 +74,7 @@ async function boot() {
         structure: renderStructure,
         villes: renderVilles,
         modules: renderModules,
+        referencement: renderReferencement,
       }[section];
       if (handler && main) {
         main.innerHTML = '';

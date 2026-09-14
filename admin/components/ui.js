@@ -135,6 +135,16 @@ export function formatDate(dateStr) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/** « 14 sept. 2026 à 11:50 » : pour un journal, le jour seul ne suffit pas. */
+export function formatDateTime(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '-';
+  const day = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return `${day} à ${time}`;
+}
+
 export function formatRelativeDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
