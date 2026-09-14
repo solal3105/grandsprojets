@@ -12,7 +12,6 @@
   /* ═══════════════ CONFIG ═══════════════ */
   const CFG = {
     PROD: 'https://openprojets.com',
-    DEFAULT_CENTER: [45.764043, 4.835659],
     DEFAULT_ZOOM: 13,
     DEFAULT_CAT: 'velo',
     CAT_LABELS: { mobilite: 'Mobilité', urbanisme: 'Urbanisme', velo: 'Vélo' },
@@ -20,10 +19,25 @@
   };
 
   /* ═══════════════ BASEMAPS ═══════════════ */
-  window.basemaps = window.basemaps || [
-    { label: 'Positron',    kind: 'raster', url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', attribution: '© CartoDB', theme: 'light' },
-    { label: 'Dark Matter', kind: 'raster', url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', attribution: '© CartoDB', theme: 'dark' },
+  // Les fonds de carte sont ceux de la carte principale (table basemaps_v2,
+  // chargée dans loadBasemaps). Cette liste ne sert que si la base ne répond
+  // pas : des styles OpenFreeMap, sans clé. Les tuiles Carto autrefois codées
+  // ici exigent désormais une clé et s'affichaient « API KEY REQUIRED ».
+  const FALLBACK_BASEMAPS = [
+    { name: 'ofm-positron', label: 'Claire',  kind: 'vector', style_url: 'https://tiles.openfreemap.org/styles/positron', attribution: '© OpenFreeMap © OpenMapTiles © OpenStreetMap', theme: 'light' },
+    { name: 'ofm-dark',     label: 'Sombre',  kind: 'vector', style_url: 'https://tiles.openfreemap.org/styles/dark',     attribution: '© OpenFreeMap © OpenMapTiles © OpenStreetMap', theme: 'dark' },
   ];
+
+  async function loadBasemaps() {
+    if (Array.isArray(window.basemaps) && window.basemaps.length) return;
+    let list = [];
+    try {
+      list = await window.supabaseService?.fetchBasemaps?.();
+    } catch (e) {
+      console.debug('[fv2] fetchBasemaps failed', e);
+    }
+    window.basemaps = Array.isArray(list) && list.length ? list : FALLBACK_BASEMAPS;
+  }
 
   /* ═══════════════ DOM refs ═══════════════ */
   const $ = id => document.getElementById(id);
@@ -83,7 +97,8 @@
     const tm = window.ThemeManager?.findBasemapForTheme?.(theme);
     if (tm) return tm;
     const list = window.basemaps || [];
-    return list.find(b => b.theme === theme) || list[0] || { kind: 'raster', url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OSM' };
+    return list.find(b => b.theme === theme) || list[0]
+      || FALLBACK_BASEMAPS.find(b => b.theme === theme) || FALLBACK_BASEMAPS[0];
   }
 
   function sanitizeText(str) {
@@ -329,46 +344,66 @@
     }).addTo(map);
   }
 
+  // Emprise d'un GeoJSON au format natif MapLibre [[ouest, sud], [est, nord]],
+  // ou null s'il n'y a aucune coordonnée.
+  function geojsonBounds(data) {
+    let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
+    const walk = c => {
+      if (!Array.isArray(c)) return;
+      if (typeof c[0] === 'number') {
+        if (c[0] < w) w = c[0];
+        if (c[0] > e) e = c[0];
+        if (c[1] < s) s = c[1];
+        if (c[1] > n) n = c[1];
+      } else {
+        c.forEach(walk);
+      }
+    };
+    const walkGeom = g => {
+      if (!g) return;
+      if (g.type === 'GeometryCollection') (g.geometries || []).forEach(walkGeom);
+      else walk(g.coordinates);
+    };
+    (data?.features || []).forEach(f => walkGeom(f.geometry));
+    return Number.isFinite(w) ? [[w, s], [e, n]] : null;
+  }
+
   async function initMap(containerId, geojsonUrl, category) {
     if (!window.L) return;
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    const theme = currentTheme();
-    const map = window.L.map(containerId, {
-      center: CFG.DEFAULT_CENTER,
-      zoom: CFG.DEFAULT_ZOOM,
-      zoomControl: false,
-      attributionControl: false,
-    });
-
-    const bm = getBasemapForTheme(theme);
-    const base = window.L.createBasemapLayer(bm).addTo(map);
-
-    if (!geojsonUrl) return { map, base, layer: null };
-
+    // Le tracé est lu AVANT de créer la carte : elle naît cadrée sur le
+    // projet, au lieu de partir de Lyon puis de filer vers le tracé.
+    let data = null;
     try {
       const resp = await fetch(geojsonUrl);
       if (!resp.ok) throw new Error(resp.status);
-      const data = await resp.json();
-
-      if (data?.features?.length) {
-        const layer = createGeoJSONLayer(map, data, category);
-        const bounds = layer.getBounds();
-        const isPoint = bounds.getNorthEast().lat === bounds.getSouthWest().lat &&
-                        bounds.getNorthEast().lng === bounds.getSouthWest().lng;
-        if (isPoint) {
-          map.setView(bounds.getCenter(), CFG.DEFAULT_ZOOM);
-        } else {
-          map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
-        }
-        return { map, base, layer };
-      }
+      data = await resp.json();
     } catch (e) {
       console.debug('[fv2] GeoJSON fetch failed', e);
     }
+    const bounds = geojsonBounds(data);
+    // Sans tracé, pas de carte : le héro garde son fond uni plutôt que
+    // d'afficher une ville qui n'a rien à voir avec le projet.
+    if (!bounds) return null;
 
-    return { map, base, layer: null };
+    const isPoint = bounds[0][0] === bounds[1][0] && bounds[0][1] === bounds[1][1];
+    const mapOptions = {
+      center: [bounds[0][1], bounds[0][0]],
+      zoom: CFG.DEFAULT_ZOOM,
+      zoomControl: false,
+      attributionControl: false,
+    };
+    if (!isPoint) {
+      mapOptions.bounds = bounds;
+      mapOptions.fitBoundsOptions = { padding: 30, maxZoom: 16 };
+    }
+    const map = window.L.map(containerId, mapOptions);
+
+    const base = window.L.createBasemapLayer(getBasemapForTheme(currentTheme())).addTo(map);
+    const layer = createGeoJSONLayer(map, data, category);
+    return { map, base, layer };
   }
 
   /* ═══════════════ MAP ROTATION / INTERACTION LOCK ═══════════════ */
@@ -960,6 +995,7 @@
     await Promise.all([
       loadBranding(ville),
       initDataModuleStyles(ville),
+      loadBasemaps(),
     ]);
 
     // Description - masquée si un article markdown est présent
@@ -985,9 +1021,10 @@
         primaryMap = mapResult.map;
         primaryBasemap = mapResult.base;
 
-        // Démarrer la rotation cinématique après fitBounds
+        // La carte naît déjà cadrée : la rotation cinématique démarre dès
+        // le premier rendu, sans attendre un déplacement.
         if (primaryMap?._mlMap) {
-          primaryMap._mlMap.once('moveend', lockMapInteraction);
+          primaryMap._mlMap.once('load', lockMapInteraction);
         }
       }
       observeThemeForMaps();

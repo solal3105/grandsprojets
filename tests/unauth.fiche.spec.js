@@ -190,6 +190,82 @@ test.describe('0.6 - Fiche : chargement et structure', () => {
     const canvas = map.locator('canvas');
     await expect(canvas).toBeAttached({ timeout: 10000 });
   });
+
+  // Régression : les tuiles Carto codées dans la fiche exigent désormais une
+  // clé et affichaient « API KEY REQUIRED ». La fiche lit les fonds de la carte
+  // principale (basemaps_v2, OpenFreeMap) et son secours est lui aussi sans clé.
+  test('0.6.8 - Le fond de carte de la fiche ne vient pas de Carto (clé exigée)', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    const tileHosts = [];
+    page.on('request', r => {
+      const u = r.url();
+      if (/cartocdn|cartodb|fastly\.net|openfreemap/.test(u)) tileHosts.push(u);
+    });
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    await expect(page.locator('#fv2-map canvas')).toBeAttached({ timeout: 10000 });
+    // Le style vectoriel est demandé dès que le fond est posé (souvent avant
+    // même que le canvas soit attaché : on relit la liste collectée)
+    await expect.poll(() => tileHosts.some(u => /tiles\.openfreemap\.org\/styles\//.test(u)), { timeout: 10000 }).toBe(true);
+
+    const basemaps = await page.evaluate(() => (window.basemaps || []).map(b => `${b.kind}|${b.url || ''}|${b.style_url || ''}`));
+    expect(basemaps.length, 'window.basemaps doit être renseigné').toBeGreaterThan(0);
+    for (const bm of basemaps) expect(bm).not.toMatch(/cartocdn|cartodb|fastly\.net/);
+    for (const u of tileHosts) expect(u).not.toMatch(/cartocdn|cartodb|fastly\.net/);
+  });
+
+  // Régression : la carte était créée sur Lyon puis « filait » vers le tracé
+  // après fitBounds. Elle doit naître directement cadrée sur le projet.
+  test('0.6.9 - La carte du héro naît cadrée sur le tracé du projet, sans partir de Lyon', async ({ page }) => {
+    test.skip(!VALID_PROJECT, 'Aucun projet trouvé en base');
+    // On enregistre les options passées au constructeur MapLibre : le shim
+    // lit window.maplibregl à son chargement, on l'intercepte à l'affectation.
+    await page.addInitScript(() => {
+      let real;
+      Object.defineProperty(window, 'maplibregl', {
+        configurable: true,
+        get() { return real; },
+        set(v) {
+          real = v;
+          const Orig = v.Map;
+          window.__mapCtorOpts = [];
+          v.Map = class extends Orig {
+            constructor(o) {
+              window.__mapCtorOpts.push({ bounds: o.bounds ?? null, center: o.center ?? null, zoom: o.zoom ?? null });
+              super(o);
+            }
+          };
+        },
+      });
+    });
+    const geojsonResp = page.waitForResponse(r => /\.geojson(\?|$)/.test(r.url()) && r.status() === 200, { timeout: 15000 });
+    await waitForFicheBoot(page, ficheUrl(VALID_PROJECT, VALID_CAT, VALID_CITY));
+    await expect(page.locator('#fv2-map canvas')).toBeAttached({ timeout: 10000 });
+
+    const data = await (await geojsonResp).json();
+    let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
+    const walk = c => {
+      if (!Array.isArray(c)) return;
+      if (typeof c[0] === 'number') { w = Math.min(w, c[0]); e = Math.max(e, c[0]); s = Math.min(s, c[1]); n = Math.max(n, c[1]); }
+      else c.forEach(walk);
+    };
+    (data.features || []).forEach(f => walk(f.geometry?.coordinates));
+    expect(Number.isFinite(w), 'Le GeoJSON du projet doit contenir des coordonnées').toBe(true);
+
+    const opts = await page.evaluate(() => window.__mapCtorOpts || []);
+    expect(opts.length, 'Une carte MapLibre doit avoir été construite').toBeGreaterThan(0);
+    const o = opts[opts.length - 1];
+    const close = (a, b) => Math.abs(a - b) < 1e-6;
+    if (w === e && s === n) {
+      // Point : la carte est centrée dessus dès la construction
+      expect(o.center).not.toBeNull();
+      expect(close(o.center[0], w) && close(o.center[1], s), `centre ${o.center} attendu sur ${[w, s]}`).toBe(true);
+    } else {
+      // Tracé : l'emprise est passée au constructeur, pas ajustée après coup
+      expect(o.bounds, 'bounds doit être passé au constructeur').not.toBeNull();
+      const [[bw, bs], [be, bn]] = o.bounds;
+      expect(close(bw, w) && close(bs, s) && close(be, e) && close(bn, n), `emprise ${JSON.stringify(o.bounds)} attendue ${[w, s, e, n]}`).toBe(true);
+    }
+  });
 });
 
 // ═════════════════════════════════════════════════════════

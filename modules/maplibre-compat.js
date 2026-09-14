@@ -1809,7 +1809,7 @@
       this._panes = {};
 
       // Create MapLibre map with minimal style (no 3D buildings by default for performance)
-      this._mlMap = new mlgl.Map({
+      const mapOptions = {
         container: containerId,
         style: {
           version: 8,
@@ -1825,7 +1825,15 @@
         // ci-dessous (mlgl n'accepte pas `true`, uniquement false | options)
         attributionControl: false,
         maxPitch: 85
-      });
+      };
+      // Cadrage initial sur une emprise (format natif [[ouest, sud], [est, nord]]) :
+      // la carte naît déjà cadrée, sans déplacement visible depuis center/zoom.
+      // `fitBoundsOptions` accepte padding et maxZoom comme fitBounds().
+      if (opts.bounds) {
+        mapOptions.bounds = opts.bounds;
+        if (opts.fitBoundsOptions) mapOptions.fitBoundsOptions = opts.fitBoundsOptions;
+      }
+      this._mlMap = new mlgl.Map(mapOptions);
 
       // Attribution (crédits OSM / fond de carte). Les attributions proviennent
       // des sources (champ `attribution` de basemaps_v2 ou du style vectoriel).
