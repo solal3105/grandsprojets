@@ -23,7 +23,7 @@ const {
   INSEE_RE, isSafePublicUrl, slugify, stripHtml, hostOf, communeHost, unaccentLower,
   bboxOfContour, geometryExtentKm, extentAcceptable, geometryInBbox,
   centroidOf, haversineM, typeImageReel, looksLikeCode, estPageTremplin,
-  collectPageLinks, unescapeBoamp, odonymesDe, distinctiveWords, essaisNominatim,
+  collectPageLinks, collectPdfLinks, nomDeFichier, unescapeBoamp, odonymesDe, distinctiveWords, essaisNominatim,
   inChunks, lireFluxBorne, lireJson, corpsJson, MAIRIE_BUDGET_MS,
   sansPrefixeGenerique, locationQueries, nomCoherent, positionDansLaCommune,
   migrerEtatGeo, METHOD_LABELS, communeDuResultat,
@@ -1633,5 +1633,72 @@ test.describe('0.84 - Démo : le logo de la commune', () => {
     expect(couleurUtilisable('#F59E0B')).toBe('#f59e0b');
     expect(couleurUtilisable('rouge')).toBeNull();
     expect(couleurUtilisable('')).toBeNull();
+  });
+});
+
+
+test.describe('0.85 - Démo : les documents officiels d\'une page', () => {
+
+  const PAGE = 'https://www.commune.fr/projets-urbains/petit-maroc/';
+
+  test('0.85.1 - Un lien enveloppé dans une icône est relevé quand même', () => {
+    /* Non-régression : la fenêtre de 140 caractères qui cherchait la balise
+       fermante faisait perdre le lien ENTIER dès qu'un bouton de téléchargement
+       enveloppait son libellé dans une icône. Sur les pages de projets de
+       Saint-Nazaire, zéro document relevé là où la page en portait sept. */
+    const icone = '<span class="icon"><svg viewbox="0 0 384 512"><path d="'
+      + 'M369.9 97.9 286 14C277 5 264.8-.1 252.1-.1H48C21.5 0 0 21.5 0 48v416c0 26.5 21.5 48 48 48h288z'.repeat(4)
+      + '"/></svg></span>';
+    const html = `<a href="/docs/concertation.pdf">${icone}Dossier de concertation (pdf, 2 mo)</a>`;
+    const docs = collectPdfLinks(html, PAGE);
+    expect(docs).toHaveLength(1);
+    expect(docs[0].url).toBe('https://www.commune.fr/docs/concertation.pdf');
+    expect(docs[0].label).toBe('Dossier de concertation (pdf, 2 mo)');
+  });
+
+  test('0.85.2 - Le même fichier lié deux fois garde l\'intitulé renseigné', () => {
+    // Un titre porte l'ancre nue, le bloc de téléchargement porte le libellé
+    const html = '<h2><a href="/docs/plan.pdf"></a></h2>'
+      + '<div><a href="/docs/plan.pdf"><span>Plan-guide du centre-bourg</span></a></div>';
+    const docs = collectPdfLinks(html, PAGE);
+    expect(docs).toHaveLength(1);
+    expect(docs[0].label).toBe('Plan-guide du centre-bourg');
+  });
+
+  test('0.85.3 - La récolte ne trie pas : le jugement appartient à la lecture', () => {
+    /* Aucun filtre de vocabulaire ici. L'ancien retenait « dossier de mariage »
+       et « débat d'orientation budgétaire », et laissait passer un règlement
+       intérieur intitulé « en savoir plus » (« plu » y était cherché pour le
+       plan local d'urbanisme). Le modèle qui lit la page les reçoit tous, avec
+       leur nom de fichier, et c'est lui qui tranche. */
+    const html = '<a href="/f/dossier-mariage.pdf">Dossier de mariage</a>'
+      + '<a href="/f/concertation.pdf">Concertation place du marché</a>'
+      + '<a href="/f/menus-cantine.pdf">Menus de la cantine</a>';
+    const docs = collectPdfLinks(html, PAGE);
+    expect(docs.map((d) => d.label)).toEqual(['Dossier de mariage', 'Concertation place du marché', 'Menus de la cantine']);
+  });
+
+  test('0.85.4 - Une adresse qui n\'est pas du web est refusée', () => {
+    const html = '<a href="javascript:alert(1)/x.pdf">Piège</a><a href="file:///etc/passwd.pdf">Piège</a>';
+    expect(collectPdfLinks(html, PAGE)).toEqual([]);
+  });
+
+  test('0.85.5 - Le nom du fichier accompagne l\'intitulé, qui est souvent vide de sens', () => {
+    expect(nomDeFichier('https://www.commune.fr/wp-content/uploads/2024/petit-maroc_atelier.pdf'))
+      .toBe('petit-maroc_atelier.pdf');
+    expect(nomDeFichier('https://www.commune.fr/docs/plan%20guide.pdf')).toBe('plan guide.pdf');
+    expect(nomDeFichier('pas une adresse')).toBe('');
+  });
+
+  test('0.85.6 - Les accents écrits en entités HTML sont restitués', () => {
+    /* Non-régression : toutes les entités étaient remplacées par une espace,
+       si bien que « T&eacute;l&eacute;charger » arrivait au modèle sous la
+       forme « T l charger », et qu'une page entière écrite ainsi perdait ses
+       accents en même temps qu'elle gagnait des mots coupés en deux. */
+    expect(stripHtml('<p>T&eacute;l&eacute;charger le dossier</p>')).toBe('Télécharger le dossier');
+    expect(stripHtml('<p>R&eacute;union du 12 f&eacute;vrier &agrave; la mairie</p>'))
+      .toBe('Réunion du 12 février à la mairie');
+    expect(stripHtml('<p>&#233;cole &#xE9;lémentaire</p>')).toBe('école élémentaire');
+    expect(stripHtml('<p>Travaux&nbsp;: voirie &amp; r&eacute;seaux</p>')).toBe('Travaux : voirie & réseaux');
   });
 });

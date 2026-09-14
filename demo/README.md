@@ -2,7 +2,7 @@
 
 Écran plein format (« Tapez le nom de votre commune ») qui génère en direct
 l'espace Open Projets d'une commune à partir de sources publiques : site de la
-mairie (logo, couleur, pages projets, texte des PDF officiels), site de
+mairie (logo, couleur, pages projets, dossiers officiels), site de
 l'intercommunalité (pages qui nomment la commune), presse locale (articles lus
 un par un), marchés publics de travaux (BOAMP, avis complet).
 
@@ -441,9 +441,29 @@ section 0.84 de `tests/unauth.demo-generate.spec.js`.
 - `tri_boamp` remplace un tri par récence pure qui évinçait une ZAC majeure
   derrière vingt réfections de trottoir récentes.
 
-À l'inverse, trois endroits restent volontairement SANS IA, parce qu'un appel y
-serait du gaspillage : le classement des liens du site de la mairie, le
-nettoyage des menus de page, et l'extraction du texte des PDF.
+À l'inverse, deux endroits restent volontairement SANS IA, parce qu'un appel y
+serait du gaspillage : le classement des liens du site de la mairie et le
+nettoyage des menus de page.
+
+### Les documents officiels sont jugés par la lecture de leur page
+
+Les fichiers PDF d'une page partent au modèle EN MÊME TEMPS que le texte de
+cette page, avec leur intitulé et leur nom de fichier, et c'est lui qui dit
+lesquels sont le dossier d'une opération qu'il vient de retenir. Ils étaient
+auparavant triés par une liste de mots, qui est la pire façon possible de juger
+un document : sur un site de mairie, « dossier », « projet », « réunion » et
+« orientation » désignent le dossier d'inscription à la cantine, le projet
+éducatif, le compte rendu du conseil et le débat d'orientation budgétaire. Huit
+documents administratifs courants passés dans ce filtre le 14/09/2026 : sept
+étaient retenus, dont un règlement intérieur dont le lien s'intitulait « en
+savoir plus », parce que « plu » y était cherché pour le plan local d'urbanisme.
+
+Mesure sur six vraies pages (Saint-Nazaire, Bruz), 50 documents présents : les
+pages de projets rendent leurs 12 dossiers de concertation et de travaux, les
+pages « santé », « rapports et plans » et « démarches funéraires » n'en rendent
+aucun. Un document retenu garde l'adresse de SA page, et la rédaction ne
+propose à un projet que les dossiers trouvés là où il est décrit, au lieu de
+faire choisir le modèle dans le tas de tout le site.
 
 ## Collecte sur le site de la commune
 

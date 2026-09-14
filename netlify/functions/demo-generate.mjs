@@ -21,7 +21,6 @@
    llms.txt, noindex (voir demo/README.md pour la désinstallation complète).
    ============================================================================ */
 
-import zlib from 'node:zlib';
 // Socle de rédaction partagé avec l'outil de l'admin : structure de l'article,
 // nettoyage des liens, construction du bloc de sources citées.
 import { promptArticle, retirerLesLiens, sourcesDesAnnotations, blocSources, hoteLisible } from './lib/redaction.mjs';
@@ -107,10 +106,10 @@ const PAGE_TEXT_BRUT_CHARS = 20000;
 // Extrait de source transmis au redacteur pour chaque projet : sans lui, les
 // puces "concretes" des articles etaient integralement inventees.
 const SOURCE_EXCERPT_CHARS = 1800;
-// Lecture des PDF officiels : plafonds de telechargement et de texte retenu
-const PDF_MAX_FILES = 3;
-const PDF_MAX_BYTES = 3500000;
-const PDF_TEXT_CHARS = 6000;
+// Documents officiels : ce qu'on soumet au jugement pour UNE page, et ce qu'on
+// retient pour tout le site. Le tri, lui, appartient a la lecture de la page.
+const PDF_PAR_PAGE_MAX = 20;
+const PDF_TOTAL_MAX = 40;
 // Plafond de telechargement d'une illustration. Au-dela on ABANDONNE l'image :
 // fetchCapped tronque, et une image tronquee s'affiche amputee.
 const COVER_MAX_BYTES = 8000000;
@@ -206,13 +205,19 @@ const PAGE_SCHEMA = {
       description: 'Index des liens de cette page qui mènent vraisemblablement à la description d\'une opération d\'aménagement. Tableau vide si aucun.',
       items: { type: 'integer' },
     },
+    documents: {
+      type: 'array',
+      maxItems: 8,
+      description: 'Index des documents PDF de cette page qui sont le dossier d\'une opération d\'aménagement : dossier de concertation, notice d\'enquête publique, plan-guide, planning de travaux, délibération portant sur une opération. Tableau vide si aucun, ce qui est le cas le plus fréquent.',
+      items: { type: 'integer' },
+    },
     interet: {
       type: 'string',
       enum: ['forte', 'moyenne', 'nulle'],
       description: 'Cette page appartient-elle à une rubrique qui parle d\'aménagement du territoire ? "forte" pour une page de projet ou son sommaire, "nulle" pour une page de service, d\'état civil ou de vie associative.',
     },
   },
-  required: ['projets', 'liens', 'interet'],
+  required: ['projets', 'liens', 'documents', 'interet'],
 };
 
 
@@ -402,10 +407,32 @@ function stripHtml(html) {
     .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
     .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;|&amp;|&quot;|&#\d+;|&[a-z]+;/gi, ' ')
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    /* Les accents ecrits en entites nommees se RECOMPOSENT : la lettre, puis le
+       signe diacritique correspondant, et la normalisation Unicode en fait le
+       caractere francais attendu. Ces entites etaient jusqu'ici remplacees par
+       une espace, avec tout le reste : « T&eacute;l&eacute;charger » arrivait au
+       modele sous la forme « T l charger », et une page entiere ecrite ainsi
+       perdait ses accents en meme temps qu'elle gagnait des mots coupes en
+       deux. */
+    .replace(/&([a-zA-Z])(acute|grave|circ|uml|cedil|tilde|ring);/g,
+      (_, lettre, signe) => `${lettre}${ACCENTS[signe]}`.normalize('NFC'))
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&(?:quot|apos|#39);/gi, "'")
+    .replace(/&[a-z]+\d*;/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+// Signes diacritiques combinants, pour recomposer les entites nommees
+const ACCENTS = {
+  acute: '\u0301', grave: '\u0300', circ: '\u0302',
+  uml: '\u0308', cedil: '\u0327', tilde: '\u0303', ring: '\u030A',
+};
 
 // Empreinte d'une chaine OU d'un bloc d'octets. La variante binaire sert a
 // reconnaitre l'image vide que rend un service cartographique hors de sa zone
@@ -656,85 +683,54 @@ async function findMairie(insee, bbox = null) {
   }
 }
 
-/* Texte d'un PDF officiel.
-   Les communes publient leur calendrier de travaux en PDF (« Travaux a venir
-   2026 »). Ces fichiers etaient collectes et affiches en piece jointe, mais
-   jamais LUS, alors que ce sont les seules sources qui donnent des dates de
-   chantier fiables. Extraction volontairement minimale et sans dependance :
-   decompression des flux, puis lecture des chaines des operateurs de texte.
-   Elle ne gere pas les PDF scannes (images), qui n'ont de toute facon pas de
-   couche texte. */
-function pdfExtractText(buffer, maxChars = PDF_TEXT_CHARS) {
-  const brut = Buffer.from(buffer).latin1Slice(0);
-  const re = /stream\r?\n?([\s\S]*?)endstream/g;
+/* Les documents PDF d'une page, TOUS, avec leur intitule.
+ *
+ * Cette fonction ne juge rien : elle releve ce qui est la et le rend a l'appelant,
+ * qui le soumet a la lecture de la page. C'est la seule maniere de trier des
+ * documents : sur un site de mairie, « dossier », « projet », « reunion » ou
+ * « orientation » designent le dossier d'inscription a la cantine, le projet
+ * educatif, le compte rendu du conseil et le debat d'orientation budgetaire,
+ * bien plus souvent qu'une operation d'amenagement. Un filtre de vocabulaire
+ * retenait sept documents administratifs sur huit (mesure du 14/09/2026), et le
+ * modele qui venait de lire la page, lui, ne les voyait jamais passer.
+ *
+ * Les seuls refus faits ici sont structurels : ce n'est pas une adresse, ce
+ * n'est pas du web, ou c'est deja releve.
+ */
+function collectPdfLinks(html, baseUrl) {
+  /* Le lien d'abord, son intitule ensuite, et jamais l'inverse : un bouton de
+     telechargement enveloppe souvent son libelle dans une icone, un cartouche
+     et le poids du fichier. Exiger la balise fermante dans la meme expression
+     faisait rater le lien entier des que l'habillage depassait la fenetre -
+     zero document releve sur les pages de projets de Saint-Nazaire, qui en
+     portent pourtant cinq a sept. */
+  const re = /<a\b[^>]*href=["']([^"'\s]+\.pdf(?:\?[^"']*)?)["'][^>]*>/gi;
+  const out = [];
   let m;
-  let flux = 0;
-  let contenu = '';
-  while ((m = re.exec(brut)) !== null && flux < 60 && contenu.length < maxChars * 6) {
-    flux++;
-    const donnees = Buffer.from(m[1], 'latin1');
-    let sortie;
-    try { sortie = zlib.inflateSync(donnees); } catch {
-      try { sortie = zlib.inflateRawSync(donnees); } catch { continue; }
-    }
-    contenu += sortie.toString('latin1');
-  }
-  if (!contenu) return '';
-
-  // Chaines des operateurs Tj et TJ. Le crenage decoupe les mots en fragments :
-  // on les recolle sans separateur, les espaces reels etant dans les chaines.
-  const morceaux = [];
-  const chaineRe = /\((?:\\.|[^()\\])*\)/g;
-  let c;
-  while ((c = chaineRe.exec(contenu)) !== null) {
-    morceaux.push(c[0].slice(1, -1));
-    if (morceaux.length > 60000) break;
-  }
-  const texte = morceaux.join('')
-    .replace(/\\(\d{1,3})/g, (_, o) => String.fromCharCode(parseInt(o, 8)))
-    .replace(/\\([()\\])/g, '$1')
-    .replace(/\\[nrt]/g, ' ')
-    // Caracteres de controle, designes par leur categorie Unicode. Ecrits en
-    // clair dans une classe de caracteres, ils faisaient passer TOUT le fichier
-    // pour un binaire : grep et ripgrep n'y trouvaient plus rien.
-    .replace(/\p{Cc}/gu, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-  // Un PDF scanne rend surtout du bruit : on ne garde que du texte plausible
-  const lettres = (texte.match(/[a-zA-ZÀ-ÿ]/g) || []).length;
-  if (texte.length < 120 || lettres / texte.length < 0.55) return '';
-  return texte.slice(0, maxChars);
-}
-
-// Telecharge et lit les PDF les plus prometteurs du site de la mairie
-async function readMairiePdfs(pdfs) {
-  const cibles = pdfs
-    .filter((p) => /travaux|planning|calendrier|programme|projet|amenagement|concertation/i.test(`${p.url} ${p.label}`))
-    .slice(0, PDF_MAX_FILES);
-  if (!cibles.length) return [];
-  const lus = await inChunks(cibles, 3, async (p) => {
+  while ((m = re.exec(html)) !== null && out.length < PDF_PAR_PAGE_MAX) {
     try {
-      const f = await fetchCapped(p.url, { headers: UA }, 9000, PDF_MAX_BYTES, true);
-      if (!f) return null;
-      const texte = pdfExtractText(f.data);
-      return texte ? { url: p.url, label: p.label, texte } : null;
-    } catch { return null; }
-  });
-  return lus.filter(Boolean);
-}
-
-function collectPdfLinks(html, baseUrl, out) {
-  const re = /<a[^>]+href=["']([^"']+\.pdf(?:\?[^"']*)?)["'][^>]*>([\s\S]{0,140}?)<\/a>/gi;
-  let m;
-  while ((m = re.exec(html)) !== null && out.length < 12) {
-    const label = stripHtml(m[2]).slice(0, 90);
-    const target = `${m[1]} ${label}`.toLowerCase();
-    if (!/(concertation|enqu[eê]te|dossier|r[eé]union|projet|am[eé]nagement|amenagement|plu|orientation|travaux|plan[ -]guide)/.test(target)) continue;
-    try {
-      const abs = new URL(m[1], baseUrl).toString();
-      if (!out.some((p) => p.url === abs)) out.push({ url: abs, label: label || 'Document PDF' });
+      const abs = new URL(m[1], baseUrl);
+      if (!/^https?:$/.test(abs.protocol)) continue;
+      const url = abs.toString();
+      const suite = html.slice(re.lastIndex, re.lastIndex + 2000);
+      const fin = suite.indexOf('</a>');
+      /* Une balise coupee par la fenetre laisserait son code dans l'intitule :
+         « <path d="M369.9 97.9 286 14C277… » pour une icone de telechargement,
+         relevee telle quelle sur les pages de projets de Saint-Nazaire. */
+      const dedans = (fin >= 0 ? suite.slice(0, fin) : suite).replace(/<[^>]*$/, ' ');
+      const label = stripHtml(dedans).slice(0, 90);
+      /* Le meme fichier est souvent lie deux fois : une fois par un titre vide
+         qui ne porte que l'ancre, une fois par le bloc de telechargement qui
+         porte le vrai intitule. On garde l'intitule renseigne. */
+      const deja = out.find((p) => p.url === url);
+      if (deja) {
+        if (!deja.label && label) deja.label = label;
+        continue;
+      }
+      out.push({ url, label });
     } catch { /* lien invalide */ }
   }
+  return out;
 }
 
 /* Page-tremplin d'une protection anti-robot.
@@ -1167,7 +1163,7 @@ function findSiteLogo(html, baseUrl) {
   return retenus;
 }
 
-async function inspectMairieSite(siteUrl, communeNom, onFinding, echeance = Infinity) {
+async function inspectMairieSite(siteUrl, communeNom, echeance = Infinity) {
   const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], candidates: [], accueilTexte: '', bloque: false, tronque: false, octets: 0 };
   const home = await fetchCapped(siteUrl, { headers: UA }, FETCH_TIMEOUT_MS, ACCUEIL_MAX_BYTES);
   if (!home) return out;
@@ -1191,7 +1187,11 @@ async function inspectMairieSite(siteUrl, communeNom, onFinding, echeance = Infi
      site : il porte le menu, le pied de page et le bandeau de cookies,
      c'est-a-dire tout ce qui se repete de page en page. */
   out.accueilTexte = stripHtml(html).slice(0, PAGE_TEXT_BRUT_CHARS);
-  collectPdfLinks(html, home.url, out.pdfs);
+  /* Aucun document releve ici : l'accueil est visite AVANT que la lecture des
+     pages ne commence, donc personne ne pourrait juger de leur pertinence. Ils
+     reviendront d'eux-memes avec la page qui les presente, jugee par la
+     lecture, et un accueil de mairie ne publie de toute facon pas un dossier de
+     concertation sans page dediee derriere. */
   collectImages(html, home.url, out.images);
 
   const color = /<meta[^>]+name=["']theme-color["'][^>]+content=["'](#[0-9a-fA-F]{3,8})["']/.exec(html)
@@ -1300,10 +1300,6 @@ async function inspectMairieSite(siteUrl, communeNom, onFinding, echeance = Infi
   out.candidates = links;
   out.navigation = [...navigation];
   console.log(`[demo-generate] amorcage ${out.host} : ${links.length} candidate(s)`);
-
-  for (const pdf of out.pdfs.slice(0, 6)) {
-    onFinding?.({ kind: 'pdf', title: pdf.label, domain: 'PDF officiel' });
-  }
   return out;
 }
 
@@ -1820,7 +1816,9 @@ Si la page est une TRIBUNE ou l'expression d'un groupe politique, ne retiens RIE
 
 Une page peut décrire plusieurs opérations distinctes : un parking, une résidence, un équipement et une voie réaménagée sont des projets différents, même dans le même quartier.
 
-Pour les LIENS : indique ceux qui mènent vraisemblablement à la description d'une opération, en jugeant sur leur intitulé. Ce sont eux qui guideront la suite de l'exploration, alors ne retiens ni les menus, ni les démarches administratives, ni les pages d'élus ou d'instances.`;
+Pour les LIENS : indique ceux qui mènent vraisemblablement à la description d'une opération, en jugeant sur leur intitulé. Ce sont eux qui guideront la suite de l'exploration, alors ne retiens ni les menus, ni les démarches administratives, ni les pages d'élus ou d'instances.
+
+Pour les DOCUMENTS : la page porte parfois des fichiers PDF, donnés avec leur intitulé et leur nom de fichier. Retiens uniquement ceux qui constituent le dossier d'une opération que TU VIENS DE RETENIR sur cette page : dossier de concertation, notice d'enquête publique, plan-guide, planning de travaux, délibération qui porte sur l'opération. Si tu n'as retenu aucun projet, ne retiens aucun document. Un site de mairie publie surtout des documents de la vie courante - dossier d'inscription, formulaire de subvention, compte rendu de conseil, débat d'orientation budgétaire, bulletin municipal, règlement, tarifs, menus - et aucun d'eux n'est le dossier d'une opération : dans le doute, ne retiens rien.`;
 }
 
 /* ─── TRI DE MASSE des adresses candidates ───
@@ -1925,8 +1923,19 @@ function extraitAutourDe(texte, citation) {
   return t.slice(from, from + SOURCE_EXCERPT_CHARS).trim();
 }
 
-async function lirePage(commune, page, liens, cadre = 'mairie') {
+/* Nom du fichier d'une adresse. Un lien de telechargement s'intitule souvent
+   « Telecharger » ou « PDF », et c'est alors le nom du fichier qui porte le
+   sens : sans lui, le jugement se ferait sur un mot vide. */
+function nomDeFichier(u) {
+  try {
+    const chemin = decodeURIComponent(new URL(u).pathname);
+    return chemin.slice(chemin.lastIndexOf('/') + 1);
+  } catch { return ''; }
+}
+
+async function lirePage(commune, page, liens, cadre = 'mairie', documents = []) {
   const listeLiens = liens.slice(0, PAGE_LIENS_SOUMIS);
+  const listeDocs = documents.slice(0, PDF_PAR_PAGE_MAX);
   const user = `PAGE : ${page.title || '(sans titre)'}
 ADRESSE : ${page.url}
 
@@ -1934,7 +1943,10 @@ TEXTE DE LA PAGE :
 ${page.text.slice(0, PAGE_TEXTE_LU_MAX)}
 
 LIENS DE CETTE PAGE :
-${listeLiens.length ? listeLiens.map((l, i) => `${i}. ${l.label}`).join('\n') : '(aucun)'}`;
+${listeLiens.length ? listeLiens.map((l, i) => `${i}. ${l.label}`).join('\n') : '(aucun)'}
+
+DOCUMENTS PDF DE CETTE PAGE :
+${listeDocs.length ? listeDocs.map((d, i) => `${i}. ${d.label || '(lien sans intitulé)'} [fichier : ${nomDeFichier(d.url)}]`).join('\n') : '(aucun)'}`;
 
   const out = await openAIStructured(
     [{ role: 'system', content: consignePage(commune.nom, cadre) }, { role: 'user', content: user }],
@@ -1960,7 +1972,19 @@ ${listeLiens.length ? listeLiens.map((l, i) => `${i}. ${l.label}`).join('\n') : 
   const suivants = [...new Set(out.liens || [])]
     .filter((i) => Number.isInteger(i) && i >= 0 && i < listeLiens.length)
     .map((i) => listeLiens[i]);
-  return { projets, suivants, interet: out.interet || 'moyenne' };
+  /* Les documents retenus portent l'adresse de LEUR page : c'est ce
+     rattachement qui permet, a la redaction, de ne proposer a un projet que les
+     dossiers trouves la ou il est decrit, au lieu du tas de tout le site.
+
+     Une page qui ne decrit AUCUNE operation n'a donc aucun dossier a rendre :
+     son document ne pourrait etre rattache a rien, et il ne ferait que defiler
+     a l'ecran comme une trouvaille. Mesure sur la page « rapports et plans » de
+     Saint-Nazaire, ou trois plans de prevention du bruit etaient retenus sans
+     qu'aucun projet n'y soit decrit. */
+  const dossiers = !projets.length ? [] : [...new Set(out.documents || [])]
+    .filter((i) => Number.isInteger(i) && i >= 0 && i < listeDocs.length)
+    .map((i) => ({ url: listeDocs[i].url, label: listeDocs[i].label || nomDeFichier(listeDocs[i].url), page: page.url }));
+  return { projets, suivants, dossiers, interet: out.interet || 'moyenne' };
 }
 
 
@@ -2140,9 +2164,17 @@ function texteEtCitations(data) {
   return { texte: texte.trim(), annotations };
 }
 
-async function redigerArticle(commune, projet, pdfs, mairieHost) {
+async function redigerArticle(commune, projet, tousLesPdfs, mairieHost) {
   const system = promptArticle({ commune: commune.nom, stricte: true });
   const domaines = domainesAutorises(projet, mairieHost);
+  /* Les dossiers trouves sur les PAGES SOURCES de ce projet, et eux seuls. Un
+     document retenu sur la page d'un autre chantier n'a rien a faire ici : le
+     redacteur choisissait autrefois dans le tas de tout le site, sur les seuls
+     intitules, et rattachait la concertation du centre-bourg a la halle
+     sportive. A defaut de page source commune, aucun document n'est propose,
+     ce qui vaut mieux qu'un document faux. */
+  const pagesSources = new Set([projet.source_url, ...(projet.sources || []).map((s) => s.url)].filter(Boolean));
+  const pdfs = (tousLesPdfs || []).filter((d) => pagesSources.has(d.page));
   // Les intitules seuls : l'adresse ne sert qu'au rattachement, fait en code.
   const documents = pdfs.length
     ? pdfs.map((d) => `- ${d.label}`).join('\n')
@@ -3381,7 +3413,7 @@ async function coreSources(send, step, insee, runState) {
         step('mairie', 'skip', 'Site officiel de la mairie', "non renseigné dans l'annuaire officiel");
         return { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], position };
       }
-      const m = await inspectMairieSite(site, commune.nom, finding, echeanceMairie);
+      const m = await inspectMairieSite(site, commune.nom, echeanceMairie);
       m.position = position;
       /* Site protege contre la lecture automatique : on le dit franchement,
          plutot que de laisser croire a une commune sans projets. La generation
@@ -3391,18 +3423,13 @@ async function coreSources(send, step, insee, runState) {
           `${m.host} bloque la lecture automatique · recensement poursuivi sur la presse et les marchés publics`);
         return m;
       }
-      /* Identité visuelle et lecture des PDF en parallèle : deux travaux
-         indépendants qui ne doivent pas s'additionner dans la durée de la phase.
-         Passé l'échéance, les deux sont sautés : ce sont des finitions, et
-         `m.logoUrl` porte déjà le meilleur candidat du scoring texte. */
+      /* Identité visuelle : une finition, sautée passé l'échéance, `m.logoUrl`
+         portant déjà le meilleur candidat du scoring texte. */
       const enRetard = Date.now() >= echeanceMairie;
       if (enRetard) m.tronque = true;
-      const [identite, pdfsLus] = enRetard ? [null, []] : await Promise.all([
-        ((m.logoCandidats || []).length || (m.iconeCandidats || []).length)
-          ? choisirLogoEtCouleur(m.logoCandidats, m.iconeCandidats)
-          : Promise.resolve(null),
-        readMairiePdfs(m.pdfs || []),
-      ]);
+      const identite = enRetard || !((m.logoCandidats || []).length || (m.iconeCandidats || []).length)
+        ? null
+        : await choisirLogoEtCouleur(m.logoCandidats, m.iconeCandidats);
       /* La vision tranche entre les candidats du scoring texte puis les
          icones du site ; le scoring reste le repli quand elle echoue. Un
          logo .svg, qu'elle ne sait pas lire, garde la priorite sur une icone :
@@ -3426,15 +3453,12 @@ async function coreSources(send, step, insee, runState) {
       // La meta theme-color du site prime : c'est la couleur que la commune a
       // elle-même déclarée. La vision ne sert qu'à défaut.
       if (!m.themeColor && identite?.themeColor) m.themeColor = identite.themeColor;
-      m.pdfTextes = pdfsLus;
       if (m.host) finding({ kind: 'logo', title: m.host, iconUrl: m.logoUrl, color: m.themeColor });
       const bits = [];
       if (m.host) bits.push(m.host);
       if (m.logoUrl) bits.push('logo récupéré');
       if (m.themeColor) bits.push('couleurs de la commune extraites');
       if (m.pages.length > 1) bits.push(`${m.pages.length - 1} page(s) projets lue(s)`);
-      if (pdfsLus.length) bits.push(`${pdfsLus.length} document(s) PDF lu(s)`);
-      else if (m.pdfs.length) bits.push(`${m.pdfs.length} document(s) officiel(s)`);
       /* Une collecte ecourtee se DIT, et elle dit POURQUOI : le motif etait
          calcule mais jamais lu, si bien que l'ecran annoncait « pour tenir le
          temps imparti » alors que le temps n'y etait pour rien. */
@@ -3474,9 +3498,6 @@ async function coreSources(send, step, insee, runState) {
     },
     bbox,
     epci,
-    // pdfTextes VOYAGE : c'est le texte des PDF officiels, la seule source qui
-    // porte des dates de chantier. Il etait produit par readMairiePdfs puis
-    // perdu ici, donc jamais lu par l'IA alors qu'il etait deja paye.
     // logoCandidats VOYAGE : la phase de création réessaie sur les suivants si
     // le meilleur ne se télécharge pas. Sans cette liste, un délai dépassé
     // suffisait à priver l'espace du logo de la commune.
@@ -3486,8 +3507,10 @@ async function coreSources(send, step, insee, runState) {
       logoCandidats: (mairie.logoCandidats || []).slice(0, 4),
       iconeUrl: mairie.iconeUrl || null,
       themeColor: mairie.themeColor,
+      /* Les documents officiels se remplissent au fil de la lecture : chacun est
+         retenu par le modele qui vient de lire la page ou il figure, et il
+         garde l'adresse de cette page pour etre propose au bon projet. */
       pdfs: mairie.pdfs,
-      pdfTextes: mairie.pdfTextes || [],
       /* L'exploration part de la : les adresses candidates relevees sur
          l'accueil et dans le sitemap, et le texte de l'accueil, qui sert de
          reference pour reconnaitre le menu commun a toutes les pages. */
@@ -3821,10 +3844,13 @@ async function coreExplore(send, step, state) {
         .filter((l) => !file.dejaOuverte(l.url) && !navSet.has(normaliserUrl(l.url)))
         .filter((l) => !etageEpci || nommeLaCommune(l))
         .sort((x, y) => Number(file.connue(x.url)) - Number(file.connue(y.url)));
-      collectPdfLinks(page.data, page.url, state.mairie.pdfs);
+      /* Les documents de la page partent AVEC elle au jugement : c'est le seul
+         moment ou quelqu'un a sous les yeux a la fois le texte de la page et la
+         liste de ses fichiers. */
+      const documents = collectPdfLinks(page.data, page.url);
 
       try {
-        const lu = await lirePage(commune, { url: page.url, title: candidate.label, text: texte }, nouveaux);
+        const lu = await lirePage(commune, { url: page.url, title: candidate.label, text: texte }, nouveaux, 'mairie', documents);
         if (process.env.DEMO_DUMP) {
           // Rendement page par page : la matiere premiere du reglage de l'arret
           console.log(`[demo-pages] ${lu.projets.length} projet(s) | interet ${lu.interet} | ${candidate.priorite > 0 ? 'chaude' : 'froide'} | ${page.url}`);
@@ -3883,6 +3909,15 @@ async function coreExplore(send, step, state) {
         }
         explo.bruts.push(p);
         send({ type: 'ai-item', phase: 'ai1', title: p.title, quote: (p.evidence_quote || '').slice(0, 220), domain: hostOf(p.source_url) });
+      }
+      /* Les dossiers que la lecture a reconnus sur cette page. Ils sont deja
+         juges pertinents : ils entrent tels quels, avec l'adresse de leur page,
+         et se montrent a l'ecran au fur et a mesure. */
+      for (const d of r.lu.dossiers || []) {
+        if (state.mairie.pdfs.length >= PDF_TOTAL_MAX) break;
+        if (state.mairie.pdfs.some((p) => p.url === d.url)) continue;
+        state.mairie.pdfs.push(d);
+        send({ type: 'finding', kind: 'pdf', title: d.label, domain: 'document officiel' });
       }
       /* Les liens que cette page recommande. La priorite ne decide plus de ce
          qu'on lira - la file est destinee a etre videe - seulement de l'ordre :
@@ -4324,10 +4359,6 @@ async function coreAi(send, step, state) {
       text: (p.text || '').slice(0, 1500),
     }));
   state.news = [];
-  // Le texte des PDF a fini son office (paquet + fusion) : il pese lourd dans
-  // le brouillon relu a chaque phase suivante. Les liens (mairie.pdfs) restent,
-  // eux servent encore au rattachement des dossiers en phase create.
-  state.mairie.pdfTextes = [];
   state.boamp = [];
   /* L'exploration est finie : son etat - la file, ses centaines d'adresses, les
      echantillons de gabarit, les projets bruts deja fondus - n'a plus aucun
@@ -5849,6 +5880,8 @@ export const _internals = {
   looksLikeCode,
   estPageTremplin,
   collectPageLinks,
+  collectPdfLinks,
+  nomDeFichier,
   essaisNominatim,
   migrerEtatGeo,
   communeDuResultat,
