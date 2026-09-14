@@ -5479,6 +5479,9 @@ async function runCreate(send, step, ville, runState) {
   await insertRows('city_branding', [{
     ville,
     brand_name: commune.nom,
+    // Code INSEE : c'est lui qui range l'espace dans son département et sa
+    // région sur l'index /ville/
+    insee: commune.code || null,
     logo_url: logoUrl || 'https://openprojets.com/home/img/logos/classic_color.png',
     center_lat: commune.lat,
     center_lng: commune.lng,

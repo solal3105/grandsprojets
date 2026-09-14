@@ -146,16 +146,73 @@ test.describe('0.26 - Hub ville : SSR', () => {
     }
   });
 
-  test('0.26.6c - /ville/ : une seule liste de villes, sans section séparée', async ({ page }) => {
+  test('0.26.6c - /ville/ : les villes sont rangées par région, la plus fournie en tête', async ({ page }) => {
     const html = await (await page.request.get('/ville/')).text();
-    // Une seule liste : les cartes des communes ne sont plus mises à part
-    expect(html.match(/class="vh-villes"/g) || []).toHaveLength(1);
-    expect(html).not.toContain('vh-section__title');
-    expect(html).not.toContain('Les espaces des collectivités');
-    // La liste va du plus fourni au moins fourni
-    const counts = [...html.matchAll(/class="vh-ville__count">(\d+) projets?</g)].map(m => Number(m[1]));
-    expect(counts.length).toBeGreaterThan(1);
-    expect([...counts].sort((a, b) => b - a)).toEqual(counts);
+    // Une section par région, chacune avec son titre et son décompte
+    const sections = [...html.matchAll(/class="vh-ix-region" id="region-([a-z0-9]+)"/g)].map(m => m[1]);
+    expect(sections.length).toBeGreaterThan(1);
+    expect(new Set(sections).size).toBe(sections.length); // pas deux fois la même
+    expect(html).toMatch(/class="vh-ix-region__name">[^<]+</);
+    expect(html).toMatch(/class="vh-ix-region__meta" data-villes="\d+">[^<]*villes?,/);
+    // Un h2 par région, et toujours un seul h1
+    expect((html.match(/<h2 class="vh-ix-region__title">/g) || []).length).toBe(sections.length);
+    expect((html.match(/<h1[^>]*>/g) || []).length).toBe(1);
+    // Les régions vont de la plus fournie à la moins fournie
+    const villesParRegion = [...html.matchAll(/data-villes="(\d+)"/g)].map(m => Number(m[1]));
+    expect([...villesParRegion].sort((a, b) => b - a)).toEqual(villesParRegion);
+    // Les raccourcis de région mènent bien à une section existante
+    const ancres = [...html.matchAll(/class="vh-ix-nav__link" href="#region-([a-z0-9]+)"/g)].map(m => m[1]);
+    expect(ancres).toEqual(sections);
+    // Chaque ville porte son département
+    expect(html).toMatch(/class="vh-ville__dep">[^<]+</);
+  });
+
+  test('0.26.6d - /ville/ : la carte de France est rendue côté serveur, un point par ville', async ({ page }) => {
+    const html = await (await page.request.get('/ville/')).text();
+    expect(html).toContain('class="vh-ixmap"');
+    // Le tracé de la France et les points sont dans le HTML, sans librairie
+    expect(html).toMatch(/class="vh-ixmap__land" d="M[-\d.,LZM]+"/);
+    const pins = [...html.matchAll(/class="vh-ixmap__pin" href="\/ville\/([a-z0-9-]+)"/g)].map(m => m[1]);
+    const cartes = [...html.matchAll(/class="vh-ville" data-ville="([a-z0-9-]+)"/g)].map(m => m[1]);
+    expect(pins.length).toBeGreaterThan(1);
+    // Chaque point correspond à une ville de la liste, et réciproquement
+    expect([...pins].sort()).toEqual([...cartes].sort());
+    // Chaque point est nommé pour les lecteurs d'écran
+    expect(html).toMatch(/class="vh-ixmap__pin"[^>]*aria-label="[^"]+, \d+ projets?"/);
+  });
+
+  test('0.26.6e - /ville/ : la recherche filtre la liste et la carte', async ({ page }) => {
+    await page.goto('/ville/', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#vh-ix-q');
+    const total = await page.locator('.vh-ville').count();
+    expect(total).toBeGreaterThan(5);
+
+    // Le nom d'une ville présente : une seule reste, les autres points s'estompent
+    const nom = (await page.locator('.vh-ville__name').first().textContent()).trim();
+    await page.fill('#vh-ix-q', nom);
+    // Le filtrage passe par requestAnimationFrame : on attend qu'il ait mordu
+    await expect.poll(() => page.locator('.vh-ville:not([hidden])').count()).toBeLessThan(total);
+    expect(await page.locator('.vh-ville:not([hidden])').count()).toBeGreaterThan(0);
+    expect(await page.locator('.vh-ixmap__pin.is-dimmed').count()).toBeGreaterThan(0);
+    // Le titre de la région annonce le nombre trouvé, pas le nombre total
+    await expect(page.locator('.vh-ix-region:not([hidden]) .vh-ix-region__meta').first()).toContainText(' sur ');
+    await expect(page.locator('#vh-ix-empty')).toBeHidden();
+
+    // Un nom qui n'existe pas : état vide qui dit quoi faire ensuite
+    await page.fill('#vh-ix-q', 'zzzzqqqq');
+    await expect(page.locator('#vh-ix-empty')).toBeVisible();
+    await expect(page.locator('#vh-ix-count')).toHaveText('Aucune ville');
+
+    // Champ vidé : tout revient, compteurs de région compris
+    await page.fill('#vh-ix-q', '');
+    await expect.poll(() => page.locator('.vh-ville:not([hidden])').count()).toBe(total);
+    await expect(page.locator('.vh-ix-region__meta').first()).not.toContainText(' sur ');
+  });
+
+  test('0.26.6f - /ville/ : la barre du haut renvoie à l\'accueil, pas à « la carte »', async ({ page }) => {
+    const html = await (await page.request.get('/ville/')).text();
+    expect(html).toContain('<span>Accueil</span>');
+    expect(html).toMatch(/id="vh-btn-back"[^>]*aria-label="Revenir à l'accueil/);
   });
 
   test('0.26.7 - Le sitemap référence le hub de la ville', async ({ page }) => {

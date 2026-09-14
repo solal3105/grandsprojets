@@ -595,18 +595,258 @@ p.vh-foot__b2b:last-child { margin-bottom: 0; }
   .vh-hero__map { transition: none !important; opacity: 1; }
 }
 
-/* ═══════════════ INDEX DES VILLES (/ville/) ═══════════════ */
-.vh-index .vh-hero { min-height: clamp(240px, 32vh, 380px); }
-.vh-section { margin-top: 40px; }
+/* ═══════════════ INDEX DES VILLES (/ville/) ═══════════════
+
+   Trois étages : un héros sombre où la carte de France tient la moitié de la
+   largeur, une barre de recherche collante, puis une section par région.
+   La carte est un SVG rendu par l'edge function : pas de librairie, pas de
+   tuile, chaque point est un lien vers le hub d'une ville.                  */
+
+/* ─── Héros ─── */
+.vh-ix-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--vh-radius);
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 22% -10%, var(--primary-alpha-25), transparent 58%),
+    linear-gradient(150deg, color-mix(in srgb, var(--primary) 46%, #0b1220) 0%, #0b1220 62%);
+  box-shadow: var(--vh-glass-shadow);
+}
+/* Trame de points : le héros doit évoquer une carte avant même d'être lu */
+.vh-ix-hero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.10) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse at 70% 45%, #000 12%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse at 70% 45%, #000 12%, transparent 72%);
+}
+.vh-ix-hero__text {
+  position: relative;
+  z-index: 2;
+  padding: 44px 8px 44px 38px;
+  color: #fff;
+}
+.vh-ix-hero__text .vh-hero__intro { margin-bottom: 0; }
+.vh-ix-hero__map {
+  position: relative;
+  z-index: 1;
+  padding: 26px 30px 22px;
+}
+.vh-ix-hero__hint {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* ─── Carte de France ─── */
+.vh-ixmap {
+  display: block;
+  width: 100%;
+  max-height: 58vh;
+  overflow: visible;
+}
+.vh-ixmap__land {
+  fill: rgba(255, 255, 255, 0.075);
+  stroke: rgba(255, 255, 255, 0.38);
+  stroke-width: 0.022;
+  stroke-linejoin: round;
+}
+.vh-ixmap__inset rect {
+  fill: rgba(255, 255, 255, 0.03);
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 0.014;
+}
+.vh-ixmap__inset path {
+  fill: rgba(255, 255, 255, 0.055);
+  stroke: rgba(255, 255, 255, 0.30);
+  stroke-width: 0.06;
+  stroke-linejoin: round;
+}
+.vh-ixmap__inset text {
+  fill: rgba(255, 255, 255, 0.68);
+  font-family: var(--vh-sans);
+  /* 0.24 unité ≈ 13 px au rendu : sous 11 px le nom du territoire ne se lit plus */
+  font-size: 0.24px;
+  text-anchor: middle;
+}
+.vh-ixmap__pin { cursor: pointer; }
+.vh-ixmap__pin .vh-ixmap__dot {
+  fill: color-mix(in srgb, var(--pin, var(--color-primary)) 84%, white);
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 0.018;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.25s var(--vh-spring), stroke 0.2s ease;
+}
+.vh-ixmap__pin text {
+  fill: #fff;
+  font-family: var(--vh-heading);
+  font-size: 0.3px;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+  opacity: 0;
+  paint-order: stroke;
+  stroke: rgba(6, 10, 20, 0.85);
+  stroke-width: 0.13;
+  stroke-linejoin: round;
+  transition: opacity 0.2s ease;
+}
+.vh-ixmap__pin:hover .vh-ixmap__dot,
+.vh-ixmap__pin:focus-visible .vh-ixmap__dot,
+.vh-ixmap__pin.is-lit .vh-ixmap__dot {
+  transform: scale(1.55);
+  stroke: #fff;
+}
+.vh-ixmap__pin:hover text,
+.vh-ixmap__pin:focus-visible text,
+.vh-ixmap__pin.is-lit text { opacity: 1; }
+.vh-ixmap__pin:focus { outline: none; }
+/* Recherche en cours : les villes écartées s'effacent sans disparaître */
+.vh-ixmap__pin.is-dimmed .vh-ixmap__dot { opacity: 0.14; }
+
+/* ─── Barre de recherche ─── */
+.vh-ix-bar {
+  position: sticky;
+  top: calc(var(--vh-topbar-h) + var(--banner-h, 0px));
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 34px 0 0;
+  padding: 14px 18px;
+  border-radius: var(--vh-radius-sm);
+  background: var(--vh-glass-bg);
+  backdrop-filter: blur(var(--vh-glass-blur)) saturate(var(--vh-glass-saturate));
+  -webkit-backdrop-filter: blur(var(--vh-glass-blur)) saturate(var(--vh-glass-saturate));
+  box-shadow: var(--vh-glass-shadow);
+}
+.vh-ix-search { flex: 1; min-width: 0; }
+.vh-ix-search__label {
+  display: block;
+  margin: 0 0 6px 2px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+}
+.vh-ix-search__field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 100px;
+  background: var(--surface-base);
+  border: 1px solid var(--border-light);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.vh-ix-search__field:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-alpha-12);
+}
+.vh-ix-search__field i { font-size: 0.82rem; color: var(--text-tertiary); }
+.vh-ix-search__field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+}
+.vh-ix-search__field input::-webkit-search-cancel-button { cursor: pointer; }
+.vh-ix-count {
+  flex: none;
+  margin: 0 2px 11px 0;
+  font-family: var(--vh-heading);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* ─── Raccourcis vers les régions ─── */
+.vh-ix-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+.vh a.vh-ix-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 100px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-light);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease, transform 0.25s var(--vh-spring);
+}
+.vh a.vh-ix-nav__link:hover {
+  color: var(--primary);
+  border-color: var(--primary-alpha-35);
+  background: var(--primary-alpha-12);
+  transform: translateY(-1px);
+}
+.vh-ix-nav__link span {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.vh-ix-nav__link:hover span { color: inherit; }
+.vh-ix-nav__link[hidden] { display: none; }
+
+/* ─── Sections par région ─── */
+.vh-ix-region { margin-top: 42px; scroll-margin-top: calc(var(--vh-topbar-h) + 84px); }
+.vh-ix-region[hidden] { display: none; }
+.vh-ix-region__title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
+}
+.vh-ix-region__name {
+  font-family: var(--vh-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+.vh-ix-region__meta {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Cartes de ville ─── */
 .vh-villes {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
   gap: 12px;
 }
 .vh-ville { --ville-accent: var(--ville-color, var(--primary)); }
+.vh-ville[hidden] { display: none; }
 .vh a.vh-ville__link {
   display: flex;
   align-items: center;
@@ -625,6 +865,11 @@ p.vh-foot__b2b:last-child { margin-bottom: 0; }
   border-color: color-mix(in srgb, var(--ville-accent) 40%, transparent);
 }
 .vh a.vh-ville__link:focus-visible { outline: 2px solid var(--ville-accent); outline-offset: 2px; }
+/* Survol du point correspondant sur la carte */
+.vh a.vh-ville__link.is-lit {
+  border-color: color-mix(in srgb, var(--ville-accent) 55%, transparent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
 .vh-ville__dot {
   flex: none;
   width: 12px;
@@ -633,16 +878,67 @@ p.vh-foot__b2b:last-child { margin-bottom: 0; }
   background: var(--ville-accent);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--ville-accent) 18%, transparent);
 }
+.vh-ville__body { flex: 1; min-width: 0; }
 .vh-ville__name {
-  flex: 1;
+  display: block;
   font-family: var(--vh-heading);
   font-weight: 600;
   font-size: 0.98rem;
   line-height: 1.25;
 }
+.vh-ville__dep {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.76rem;
+  color: var(--text-tertiary);
+}
 .vh-ville__count {
+  flex: none;
+  align-self: center;
   font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
   color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Aucune ville trouvée ─── */
+.vh-ix-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 48px auto 0;
+  max-width: 44ch;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+.vh-ix-empty i { font-size: 1.6rem; color: var(--text-tertiary); opacity: 0.6; }
+.vh-ix-empty[hidden] { display: none; }
+
+/* ─── Responsive ─── */
+@media (max-width: 960px) {
+  .vh-ix-hero { grid-template-columns: 1fr; gap: 0; }
+  .vh-ix-hero__text { padding: 30px 24px 6px; }
+  .vh-ix-hero__map { padding: 10px 22px 20px; }
+  .vh-ixmap { max-height: none; }
+}
+@media (max-width: 720px) {
+  /* Treize régions en pastilles feraient sept lignes : une seule qui défile */
+  .vh-ix-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
+  .vh-ix-nav::-webkit-scrollbar { display: none; }
+  .vh-ix-nav__link { flex: none; }
+  .vh-ix-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .vh-ix-search__field { max-width: none; }
+  .vh-ix-count { margin: 0 0 2px 2px; }
+  .vh-villes { grid-template-columns: 1fr; }
+  .vh-ix-region__title { margin-bottom: 12px; }
 }

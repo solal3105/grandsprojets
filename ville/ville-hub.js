@@ -176,6 +176,9 @@
   }
 
   function bindTags() {
+    // Hub d'une ville seulement : sur l'index, le hash sert aux ancres de
+    // région et applyFilters() l'effacerait
+    if (!el.grid) return;
     for (const tag of document.querySelectorAll('.vh-tag')) {
       tag.addEventListener('click', () => { activeCat = tag.dataset.cat || ''; applyFilters(); });
     }
@@ -308,6 +311,90 @@
     }
   }
 
+  /* ═══════════════ INDEX DES VILLES (/ville/) ═══════════════
+     Recherche instantanée sur les 100+ villes, et lien vivant entre la carte
+     et la liste : survoler une ville allume son point, et inversement. */
+
+  function foldAccents(text) {
+    return String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+
+  function initIndex() {
+    const root = $('vh-index');
+    if (!root) return;
+
+    const input = $('vh-ix-q');
+    const count = $('vh-ix-count');
+    const empty = $('vh-ix-empty');
+    const items = [...root.querySelectorAll('.vh-ville')];
+    const regions = [...root.querySelectorAll('.vh-ix-region')];
+    const navLinks = [...root.querySelectorAll('.vh-ix-nav__link')];
+    const pins = new Map([...root.querySelectorAll('.vh-ixmap__pin')].map(p => [p.dataset.ville, p]));
+
+    // On garde le texte plein sous la main : la recherche le remplace, l'effacer le rend
+    for (const meta of root.querySelectorAll('.vh-ix-region__meta')) meta.dataset.full = meta.textContent.trim();
+    for (const puce of root.querySelectorAll('.vh-ix-nav__link span')) puce.dataset.total = puce.textContent.trim();
+
+    /* ─── Recherche ─── */
+    function filter() {
+      const q = foldAccents(input ? input.value.trim() : '');
+      let visible = 0;
+      for (const li of items) {
+        const show = !q || (li.dataset.search || '').includes(q);
+        li.hidden = !show;
+        pins.get(li.dataset.ville)?.classList.toggle('is-dimmed', Boolean(q) && !show);
+        if (show) visible++;
+      }
+      for (const section of regions) {
+        const restants = section.querySelectorAll('.vh-ville:not([hidden])').length;
+        section.hidden = restants === 0;
+        const nav = navLinks.find(a => a.dataset.region === section.dataset.region);
+        if (nav) {
+          nav.hidden = restants === 0;
+          const puce = nav.querySelector('span');
+          if (puce) puce.textContent = q ? String(restants) : (puce.dataset.total || puce.textContent);
+        }
+        // Le titre de région annoncerait sinon 32 villes au-dessus d'une seule
+        const meta = section.querySelector('.vh-ix-region__meta');
+        if (meta) {
+          meta.textContent = q
+            ? `${restants} ${restants > 1 ? 'villes' : 'ville'} sur ${meta.dataset.villes}`
+            : (meta.dataset.full || meta.textContent);
+        }
+      }
+      if (count) {
+        count.textContent = visible === 0 ? 'Aucune ville' : `${visible} ${visible > 1 ? 'villes' : 'ville'}`;
+      }
+      if (empty) empty.hidden = visible > 0;
+    }
+
+    if (input) {
+      let raf = null;
+      input.addEventListener('input', () => {
+        if (!raf) raf = requestAnimationFrame(() => { raf = null; filter(); });
+      });
+      // Échap vide le champ : sur une liste filtrée, c'est le geste attendu
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && input.value) { input.value = ''; filter(); }
+      });
+    }
+
+    /* ─── Carte et liste se répondent ─── */
+    const light = (slug, on) => {
+      pins.get(slug)?.classList.toggle('is-lit', on);
+      root.querySelector(`.vh-ville[data-ville="${CSS.escape(slug)}"] .vh-ville__link`)?.classList.toggle('is-lit', on);
+    };
+    for (const li of items) {
+      const slug = li.dataset.ville;
+      li.addEventListener('mouseenter', () => light(slug, true));
+      li.addEventListener('mouseleave', () => light(slug, false));
+    }
+    root.addEventListener('click', (e) => {
+      const lien = e.target.closest('.vh-ville__link, .vh-ixmap__pin');
+      if (lien) window.OPAnalytics?.capture('city_index_clicked', { depuis: lien.closest('.vh-ixmap') ? 'carte' : 'liste' });
+    });
+  }
+
   /* ═══════════════ INIT ═══════════════ */
   function init() {
     // La ville est injectée par l'edge function ville-hub dans le conteneur.
@@ -321,6 +408,7 @@
     initBranding();
     bindTags();
     bindSearch();
+    initIndex();
     // Départ vers une fiche : mesure le taux de clic réel du hub d'une ville.
     el.grid?.addEventListener('click', (e) => {
       const card = e.target.closest('.vh-card');

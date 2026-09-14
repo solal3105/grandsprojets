@@ -34,6 +34,8 @@ import {
   fetchAllRows,
   SUPABASE_URL,
 } from './_lib/seo.js';
+// Carte de France en SVG de l'index des villes (tracés + projection)
+import { renderFranceMap } from './_lib/france-map.js';
 
 // Storage : seules les URLs de notre propre projet Supabase sont servies
 const SUPABASE_HOST = new URL(SUPABASE_URL).host;
@@ -324,11 +326,25 @@ ${filterbar}
 
 /* ─── Index des villes : /ville/ ───
    La seule page du site qui relie toutes les pages ville entre elles : sans
-   elle, un hub n'est atteignable que par le sitemap et par ses propres fiches. */
+   elle, un hub n'est atteignable que par le sitemap et par ses propres fiches.
+   Les villes y sont rangées par région, et posées sur une carte de France
+   rendue en SVG côté serveur (netlify/edge-functions/_lib/france-map.js). */
+
+/** Sans accents ni casse : ce qui sert à la recherche côté navigateur. */
+function foldAccents(text) {
+  return String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+/** Code département d'un code INSEE : 2A/2B en Corse, 3 chiffres outre-mer. */
+function departementCode(insee) {
+  const s = String(insee || '').trim().toUpperCase();
+  if (!/^(?:[0-9]{2}|2A|2B)[0-9]{3}$/.test(s)) return '';
+  return s.startsWith('97') || s.startsWith('98') ? s.slice(0, 3) : s.slice(0, 2);
+}
 
 /** Villes ayant au moins une fiche publiée, avec leur nombre de projets. */
 async function fetchVillesIndex() {
-  const [rows, brandings] = await Promise.all([
+  const [rows, brandings, departements] = await Promise.all([
     fetchAllRows('contribution_uploads', {
       select: 'ville',
       approved: 'eq.true',
@@ -337,9 +353,16 @@ async function fetchVillesIndex() {
       category_slug: 'not.is.null',
       order: 'id.asc',
     }),
-    fetchAllRows('city_branding', { select: 'ville,brand_name,primary_color,indexable', order: 'ville.asc' }),
+    fetchAllRows('city_branding', {
+      select: 'ville,brand_name,primary_color,indexable,insee,center_lat,center_lng',
+      order: 'ville.asc',
+    }),
+    // Table de référence : si elle manque, la page retombe sur une liste unique
+    fetchAllRows('fr_departements', { select: 'code,nom,region_code,region_nom', order: 'code.asc' })
+      .catch(() => []),
   ]);
   const brandBy = new Map(brandings.map(b => [String(b?.ville || '').toLowerCase(), b]));
+  const depBy = new Map(departements.map(d => [String(d?.code || '').toUpperCase(), d]));
   const counts = new Map();
   for (const r of rows) {
     const ville = String(r?.ville || '').toLowerCase();
@@ -348,73 +371,162 @@ async function fetchVillesIndex() {
     if (brandBy.get(ville)?.indexable === false) continue;
     counts.set(ville, (counts.get(ville) || 0) + 1);
   }
-  // Une seule liste, du plus fourni au moins fourni : l'index ne distingue pas
-  // l'origine des cartes, il relie tous les espaces ouverts aux moteurs.
   return [...counts].map(([slug, count]) => {
     const b = brandBy.get(slug);
+    const dep = depBy.get(departementCode(b?.insee)) || null;
+    const label = String(b?.brand_name || '').trim() || humanize(slug);
+    const lat = Number(b?.center_lat);
+    const lng = Number(b?.center_lng);
     return {
       slug,
       count,
-      label: String(b?.brand_name || '').trim() || humanize(slug),
+      label,
       color: safeHexColor(b?.primary_color),
+      departement: dep ? String(dep.nom || '') : '',
+      regionCode: dep ? String(dep.region_code || '') : '',
+      regionNom: dep ? String(dep.region_nom || '') : '',
+      lat: Number.isFinite(lat) ? lat : null,
+      lng: Number.isFinite(lng) ? lng : null,
+      search: foldAccents(`${label} ${dep ? `${dep.nom} ${dep.region_nom}` : ''}`),
     };
-  }).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'fr'));
+  }).sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+}
+
+/** Les villes rangées par région, la plus fournie d'abord. */
+function groupByRegion(villes) {
+  const groups = new Map();
+  for (const v of villes) {
+    const code = v.regionCode || 'zz';
+    if (!groups.has(code)) {
+      groups.set(code, { code, nom: v.regionNom || 'Autres villes', villes: [], count: 0 });
+    }
+    const g = groups.get(code);
+    g.villes.push(v);
+    g.count += v.count;
+  }
+  return [...groups.values()].sort((a, b) => {
+    // Les villes sans région connue ferment la marche
+    if ((a.code === 'zz') !== (b.code === 'zz')) return a.code === 'zz' ? 1 : -1;
+    return b.villes.length - a.villes.length || a.nom.localeCompare(b.nom, 'fr');
+  });
+}
+
+function projetsMot(n) {
+  return `${frNumber(n)} ${n > 1 ? 'projets' : 'projet'}`;
 }
 
 function renderVilleItem(v) {
-  const word = v.count > 1 ? 'projets' : 'projet';
+  const dep = v.departement ? `<span class="vh-ville__dep">${escHtml(v.departement)}</span>` : '';
   return `
-        <li class="vh-ville"${v.color ? ` style="--ville-color:${v.color}"` : ''}>
-          <a class="vh-ville__link" href="/ville/${encodeURIComponent(v.slug)}">
-            <span class="vh-ville__dot" aria-hidden="true"></span>
-            <span class="vh-ville__name">${escHtml(v.label)}</span>
-            <span class="vh-ville__count">${v.count} ${word}</span>
-          </a>
-        </li>`;
+          <li class="vh-ville" data-ville="${escAttr(v.slug)}" data-search="${escAttr(v.search)}"${v.color ? ` style="--ville-color:${v.color}"` : ''}>
+            <a class="vh-ville__link" href="/ville/${encodeURIComponent(v.slug)}">
+              <span class="vh-ville__dot" aria-hidden="true"></span>
+              <span class="vh-ville__body">
+                <span class="vh-ville__name">${escHtml(v.label)}</span>${dep}
+              </span>
+              <span class="vh-ville__count">${projetsMot(v.count)}</span>
+            </a>
+          </li>`;
 }
 
-/** Phrase d'accroche de l'index, partagée par la page et la meta description. */
-function indexIntro(nbVilles, total) {
-  return `Open Projets rassemble les projets urbains de ${frNumber(nbVilles)} villes, soit ${frNumber(total)} projets en tout. Pour chaque ville, vous trouvez la liste des projets, leur avancement et leur carte.`;
+function renderRegionSection(g, seule) {
+  const nbVilles = g.villes.length;
+  // Table de référence absente : une seule section, sans titre « Autres villes »
+  const titre = seule && g.code === 'zz' ? '' : `
+        <h2 class="vh-ix-region__title">
+          <span class="vh-ix-region__name">${escHtml(g.nom)}</span>
+          <span class="vh-ix-region__meta" data-villes="${nbVilles}">${frNumber(nbVilles)} ${nbVilles > 1 ? 'villes' : 'ville'}, ${projetsMot(g.count)}</span>
+        </h2>`;
+  return `
+      <section class="vh-ix-region" id="region-${escAttr(g.code)}" data-region="${escAttr(g.code)}">${titre}
+        <ul class="vh-villes">${g.villes.map(renderVilleItem).join('')}
+        </ul>
+      </section>`;
 }
 
-function buildIndexContent(villes) {
+function renderRegionNav(groups) {
+  if (groups.length < 2) return '';
+  return `
+      <nav class="vh-ix-nav" aria-label="Aller à une région">${groups.map(g => `
+        <a class="vh-ix-nav__link" href="#region-${escAttr(g.code)}" data-region="${escAttr(g.code)}">${escHtml(g.nom)}<span>${frNumber(g.villes.length)}</span></a>`).join('')}
+      </nav>`;
+}
+
+/** Phrase d'accroche de l'index, partagée par la page et la meta description.
+    La première phrase doit tenir seule : c'est elle que summarize() retient
+    pour la meta description, donc elle porte les trois chiffres. */
+function indexIntro(nbVilles, total, nbRegions) {
+  const regions = nbRegions > 1 ? ` réparties dans ${frNumber(nbRegions)} régions` : '';
+  return `Open Projets rassemble les projets urbains de ${frNumber(nbVilles)} villes${regions},`
+    + ` soit ${projetsMot(total)} en tout.`
+    + ` Pour chaque ville, vous trouvez la liste des projets, leur avancement et leur carte.`;
+}
+
+function buildIndexContent(villes, groups) {
   const total = villes.reduce((n, v) => n + v.count, 0);
+  const nbRegions = groups.filter(g => g.code !== 'zz').length;
+  const situees = villes.filter(v => v.lat !== null && v.lng !== null);
+
+  const carte = situees.length
+    ? `
+      <div class="vh-ix-hero__map">
+        ${renderFranceMap(situees)}
+        <p class="vh-ix-hero__hint">Chaque point est une ville. Ouvrez-la depuis son point, ou depuis la liste ci-dessous.</p>
+      </div>`
+    : '';
 
   return `
     <div class="vh-index" id="vh-index">
-      <header class="vh-hero">
-        <div class="vh-hero__scrim" aria-hidden="true"></div>
-        <div class="vh-hero__inner">
+      <header class="vh-ix-hero">
+        <div class="vh-ix-hero__scrim" aria-hidden="true"></div>
+        <div class="vh-ix-hero__text">
           <nav class="vh-breadcrumb" aria-label="Fil d'Ariane">
             <a href="/">Open Projets</a>
             <span aria-hidden="true">›</span>
             <span aria-current="page">Par ville</span>
           </nav>
           <h1 class="vh-hero__title">Les projets urbains, ville par ville</h1>
-          <p class="vh-hero__intro">${indexIntro(villes.length, total)}</p>
-        </div>
+          <p class="vh-hero__intro">${escHtml(indexIntro(villes.length, total, nbRegions))}</p>
+        </div>${carte}
       </header>
-      <section class="vh-section">
-        <ul class="vh-villes">${villes.map(renderVilleItem).join('')}
-        </ul>
-      </section>
+
+      <div class="vh-ix-bar" id="vh-ix-bar">
+        <div class="vh-ix-search">
+          <label class="vh-ix-search__label" for="vh-ix-q">Chercher une ville</label>
+          <div class="vh-ix-search__field">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input id="vh-ix-q" type="search" autocomplete="off" spellcheck="false" placeholder="Par exemple Quimper">
+          </div>
+        </div>
+        <p class="vh-ix-count" id="vh-ix-count" role="status">${frNumber(villes.length)} villes</p>
+      </div>
+${renderRegionNav(groups)}
+
+      <div class="vh-ix-list" id="vh-ix-list">${groups.map(g => renderRegionSection(g, groups.length === 1)).join('')}
+      </div>
+
+      <p class="vh-ix-empty" id="vh-ix-empty" hidden>
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        Aucune ville ne porte ce nom. Essayez une autre orthographe, ou parcourez la liste par région.
+      </p>
+
       <footer class="vh-foot">
-        <p class="vh-foot__b2b">Votre commune n'est pas dans la liste ?
-          <a href="/cartes/">Voir les cartes des communes</a>
+        <p class="vh-foot__b2b">Votre commune n'est pas dans cette liste ? Nous construisons sa carte à partir de son site et de la presse locale.
+          <a href="/demo/">Construire la carte de ma commune</a>
         </p>
-        <p class="vh-foot__b2b">Vous représentez une collectivité ?
+        <p class="vh-foot__b2b">Vous représentez une collectivité et vous voulez publier vos projets ?
           <a href="/">Découvrir Open Projets</a>
         </p>
       </footer>
     </div>`;
 }
 
-function injectIndexIntoHtml(html, villes) {
+function injectIndexIntoHtml(html, villes, groups) {
   const canonical = `${BASE_ORIGIN}/ville/`;
   const title = fitTitle('Les projets urbains, ville par ville', 'Open Projets');
   const total = villes.reduce((n, v) => n + v.count, 0);
-  const metaDesc = summarize(indexIntro(villes.length, total), 160);
+  const nbRegions = groups.filter(g => g.code !== 'zz').length;
+  const metaDesc = summarize(indexIntro(villes.length, total, nbRegions), 160);
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
@@ -456,7 +568,13 @@ function injectIndexIntoHtml(html, villes) {
   html = html.replace(/(<meta\s+name="twitter:description"\s+content=")[^"]*"/, (_, p1) => `${p1}${escAttr(metaDesc)}"`);
   html = html.replace(/<script\s+type="application\/ld\+json"\s+id="vh-jsonld">[^<]*<\/script>/, () =>
     `<script type="application/ld+json" id="vh-jsonld">${ldJson(jsonLd)}</script>\n  <script type="application/ld+json">${ldJson(breadcrumb)}</script>`);
-  html = html.replace(/<!--VH:CONTENT-START-->[\s\S]*?<!--VH:CONTENT-END-->/, () => buildIndexContent(villes));
+  // La coquille est celle du hub d'une ville : son bouton « Carte » n'a pas de
+  // sens sur l'index, il y renvoie à l'accueil du site.
+  html = html.replace(
+    /<a href="\/" id="vh-btn-back"([^>]*)aria-label="[^"]*"/,
+    (_, attrs) => `<a href="/" id="vh-btn-back"${attrs}aria-label="Revenir à l'accueil d'Open Projets"`);
+  html = html.replace(/(<a href="\/" id="vh-btn-back"[\s\S]*?<span>)Carte(<\/span>)/, (_, a, b) => `${a}Accueil${b}`);
+  html = html.replace(/<!--VH:CONTENT-START-->[\s\S]*?<!--VH:CONTENT-END-->/, () => buildIndexContent(villes, groups));
   return html;
 }
 
@@ -481,7 +599,7 @@ async function renderIndex(context) {
     });
   }
 
-  return new Response(injectIndexIntoHtml(html, villes), {
+  return new Response(injectIndexIntoHtml(html, villes, groupByRegion(villes)), {
     status: 200,
     headers: {
       ...safeShellHeaders(response),
