@@ -440,6 +440,8 @@
      à la fin, ce qui reste est sans adresse fiable et part au rebut. */
   const mainKey = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
   const CARTE_LARGEUR = 190;
+  // Sous cette part visible, le titre n'a plus la place d'un mot entier
+  const TITRE_LARGEUR_MIN = 150;
 
   /* Redistribue les places. La main est FENÊTRÉE : seules les douze cartes
      les plus récentes sont visibles, la plus neuve à gauche, et le reste se
@@ -472,8 +474,12 @@
       const x = depart + (m - 1 - i) * pas;
       c.dataset.cx = (x + CARTE_LARGEUR / 2).toFixed(0);
       c.style.zIndex = String(m - i);
-      // Le titre est borné à la part RÉELLEMENT visible de la carte
+      /* Le titre est borné à la part RÉELLEMENT visible de la carte, et il
+         disparaît quand cette part ne laisse pas la place d'un mot : sous une
+         main serrée, il se coupait lettre à lettre (« Rén o… »). La carte ne
+         montre alors que sa source, et son titre revient entier au survol. */
       const visible = i === 0 ? CARTE_LARGEUR : Math.min(CARTE_LARGEUR, pas);
+      c.classList.toggle('is-narrow', visible < TITRE_LARGEUR_MIN);
       c.style.setProperty('--visible', `${visible.toFixed(0)}px`);
       c.style.setProperty('--slot', `translate3d(${x.toFixed(1)}px, 0, 0)`);
       c.style.setProperty('--chute', `translate3d(${x.toFixed(1)}px, -150px, 0)`);

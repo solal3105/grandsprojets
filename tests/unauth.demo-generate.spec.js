@@ -1572,7 +1572,7 @@ test.describe('0.83 - Démo : le nom de l\'intercommunalité se retrouve dans l\
  * attributs HTML sont sans guillemets.
  */
 test.describe('0.84 - Démo : le logo de la commune', () => {
-  const { findSiteLogo, attributHtml, couleurDepuisSvg } = _internals;
+  const { findSiteLogo, attributHtml, couleurDepuisSvg, couleurUtilisable } = _internals;
   const BASE = 'https://www.ville.fr/';
 
   test('0.84.1 - Les attributs se lisent avec ou sans guillemets', () => {
@@ -1612,5 +1612,26 @@ test.describe('0.84 - Démo : le logo de la commune', () => {
     expect(couleurDepuisSvg(svg)).toBe('#e30613');
     expect(couleurDepuisSvg('<svg><path fill="#fff"/><path fill="#333"/></svg>')).toBeNull();
     expect(couleurDepuisSvg('<svg><path fill="#0af"/></svg>')).toBe('#00aaff');
+  });
+
+  test('0.84.6 - Un en-tête de page très lourd ne cache pas le logo (relevé sur Vénissieux : 110 Ko de styles avant le body)', () => {
+    const tete = `<html><head><style>${'.a{color:red}'.repeat(9000)}</style></head>`;
+    expect(tete.length).toBeGreaterThan(60000);
+    const html = `${tete}<body><header><a class="logo" href="/"><img src="/img/logo-ville.png" alt="Ville" width="300"></a></header></body></html>`;
+    expect(findSiteLogo(html, BASE)).toEqual(['https://www.ville.fr/img/logo-ville.png']);
+  });
+
+  test('0.84.7 - Une couleur déclarée trop pâle, trop sombre ou grise est écartée', () => {
+    // Le bleu-gris de fond d'écran déclaré par Vénissieux prenait la place du rouge de son logo
+    expect(couleurUtilisable('#D5E0EB')).toBeNull();
+    expect(couleurUtilisable('#ffffff')).toBeNull();
+    expect(couleurUtilisable('#000')).toBeNull();
+    expect(couleurUtilisable('#777777')).toBeNull();
+    expect(couleurUtilisable('#E30613')).toBe('#e30613');
+    expect(couleurUtilisable('#14AE5C')).toBe('#14ae5c');
+    expect(couleurUtilisable('#05a')).toBe('#0055aa');
+    expect(couleurUtilisable('#F59E0B')).toBe('#f59e0b');
+    expect(couleurUtilisable('rouge')).toBeNull();
+    expect(couleurUtilisable('')).toBeNull();
   });
 });

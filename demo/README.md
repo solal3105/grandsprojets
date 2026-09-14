@@ -363,7 +363,7 @@ Suivi : `select mail_status, count(*) from demo_leads group by 1;`
 | `avis_marches` | une fois, les avis BOAMP en une passe | ~8 000 tokens |
 | `article` | **un par fiche**, avec recherche web restreinte aux domaines attestés | ~15 000 entrée / 700 sortie |
 | `choix_image` | un par projet, images en `detail: 'low'` | ~950 tokens |
-| `logo_commune` | une fois, jusqu'à 4 candidats en `detail: 'low'` | ~400 tokens |
+| `logo_commune` | une fois, jusqu'à 4 candidats logo et 3 icônes du site en `detail: 'low'` | ~400 tokens |
 | `lieux_projets` | une fois, seulement s'il reste des projets à situer | ~1 000 tokens |
 | `themes_illustration` | **rare** : seulement si l'IGN ne couvre pas la commune | ~700 tokens |
 | `tri_boamp` | **conditionnel** : seulement si les avis dépassent le plafond | ~4 500 tokens |
@@ -403,8 +403,27 @@ qui était donc retiré de sa liste, tandis que l'icône, un `.png`, lui était
 toujours présentée ; il la désignait, elle passait en tête, et le logo trouvé
 n'était jamais essayé. L'icône est désormais tenue à part (`iconeUrl`) et
 ferme la cascade d'installation : elle n'est installée que si aucun logo n'a
-pu l'être. Le juge visuel ne tranche plus qu'entre de vrais candidats ; quand
-tous sont des `.svg`, le tri par position et par nom fait foi. Un logo SVG
+pu l'être. Quand tous les candidats sont des `.svg`, le tri par position et
+par nom fait foi.
+
+**L'icône passe tout de même devant le juge, en dernier.** Relevé sur
+Vénissieux le 14 septembre 2026 : l'en-tête du site pèse 110 Ko de styles en
+ligne, la recherche du logo ne lisait que les 60 premiers Ko et ne rendait
+rien ; l'espace recevait alors l'icône la plus grande déclarée par le site,
+qui était l'image générique d'un module WordPress (« DEFAULT APP », 512 px),
+sans que personne ne l'ait regardée. Trois corrections : la fenêtre de
+recherche commence au `<body>` ; les trois plus grandes icônes déclarées sont
+présentées au juge **après** les candidats logo, avec la consigne de n'en
+retenir une qu'à défaut de logo et jamais une image générique ; et le verdict
+dit d'où vient l'image retenue (`source` : `logo`, `icone` ou `aucun`), ce qui
+sort de la cascade d'installation tout ce que le juge a regardé et écarté. Un
+logo blanc n'est plus jamais retenu, même seul : mieux vaut le logo Open
+Projets qu'un logo invisible. Un `.svg`, que le juge ne lit pas, garde la
+priorité sur une icône. Même jour, même commune : la `meta theme-color`
+déclarée était « #D5E0EB », un bleu-gris de fond d'écran, et le contrôle ne
+rejetait que le blanc et le noir exacts ; une couleur trop claire, trop sombre
+ou trop grise est désormais écartée (`couleurUtilisable`), et c'est la
+couleur lue sur le logo qui sert. Un logo SVG
 n'est pas converti en image matricielle : les navigateurs l'affichent tel
 quel, et sa couleur de marque se lit directement dans le fichier
 (`couleurDepuisSvg`, la couleur saturée la plus présente, hors blancs, noirs et

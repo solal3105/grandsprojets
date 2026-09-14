@@ -1108,6 +1108,14 @@ html[data-theme='dark'] .fx-sonar { mix-blend-mode: screen; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* Main serrée : la carte ne montre que sa source, son titre n'aurait pas la
+   place d'un mot. Au survol, la carte passe devant ses voisines et le titre
+   revient en entier. */
+.bench__card.is-narrow .bench__title { display: none; }
+.bench__hand.is-magnify .bench__card:hover .bench__title {
+  display: -webkit-box;
+  max-width: none;
+}
 /* Le favicon annonce la source, au bord gauche : c'est la part de la carte
    qui reste visible quand la main se resserre */
 .bench__favicon {

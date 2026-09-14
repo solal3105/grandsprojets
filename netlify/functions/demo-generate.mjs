@@ -1074,8 +1074,37 @@ function attributHtml(tag, nom) {
   return m ? (m[1] ?? m[2] ?? m[3] ?? '') : '';
 }
 
+/* Une couleur ne devient celle de l'espace que si elle peut porter des boutons
+   et des titres sur fond clair. Le controle ne rejetait que le blanc et le noir
+   exacts : la meta theme-color de Vénissieux, « #D5E0EB », un bleu-gris de fond
+   d'ecran, prenait ainsi la place du rouge de son logo. Une teinte trop claire,
+   trop sombre ou trop peu saturee est ecartee, et c'est alors la couleur lue
+   par le juge visuel sur le logo qui sert. Rend la couleur normalisee en
+   #rrggbb, ou null. */
+function couleurUtilisable(brute) {
+  let hex = String(brute || '').trim().toLowerCase();
+  if (/^#[0-9a-f]{3}$/.test(hex)) hex = `#${hex.slice(1).split('').map((c) => c + c).join('')}`;
+  hex = hex.slice(0, 7);
+  if (!/^#[0-9a-f]{6}$/.test(hex)) return null;
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const [haut, bas] = [Math.max(r, g, b), Math.min(r, g, b)];
+  // Clarte au sens HSL : un ambre franc (#F59E0B) reste admis, un bleu-gris de
+  // fond d'ecran (#D5E0EB) ou un jaune pale sont ecartes
+  const clarte = (haut + bas) / 2;
+  if (clarte > 0.78 || clarte < 0.08) return null;
+  if (haut - bas < 0.15) return null;
+  return hex;
+}
+
 function findSiteLogo(html, baseUrl) {
-  const zone = html.slice(0, 60000);
+  /* La fenetre de lecture commence au CORPS de la page, pas a son premier
+     caractere. Un site qui ecrit ses feuilles de style dans l'en-tete
+     (releve sur Vénissieux : 110 Ko avant le <body>) repoussait son logo hors
+     des 60 Ko lus, et la recherche ne rendait rien : l'espace recevait alors
+     l'icone de repli, en l'occurrence l'image generique d'un module
+     WordPress. La position, qui sert au classement, se compte du meme point. */
+  const debut = Math.max(0, html.search(/<body\b/i));
+  const zone = html.slice(debut, debut + 60000);
   const hits = [];
   for (const tag of zone.match(/<img[^>]+>/gi) || []) {
     // La position prime : le logo d'identite est dans l'en-tete, les logos de
@@ -1167,10 +1196,7 @@ async function inspectMairieSite(siteUrl, communeNom, onFinding, echeance = Infi
 
   const color = /<meta[^>]+name=["']theme-color["'][^>]+content=["'](#[0-9a-fA-F]{3,8})["']/.exec(html)
     || /<meta[^>]+content=["'](#[0-9a-fA-F]{3,8})["'][^>]+name=["']theme-color["']/.exec(html);
-  if (color) {
-    const hex = color[1].toLowerCase().slice(0, 7);
-    if (!/^#(fff|ffffff|000|000000|f8f8f8|fefefe)$/.test(hex)) out.themeColor = hex;
-  }
+  if (color) out.themeColor = couleurUtilisable(color[1]);
 
   const iconCandidates = [];
   const linkRe = /<link[^>]+rel=["']([^"']*)["'][^>]*>/gi;
@@ -1203,6 +1229,19 @@ async function inspectMairieSite(siteUrl, communeNom, onFinding, echeance = Infi
      78 portaient l'icône de l'onglet à la place du logo. */
   out.logoCandidats = logoCandidats.filter((u) => u !== icone);
   out.iconeUrl = icone;
+  /* Les icones declarees passent AUSSI devant le juge visuel, apres les
+     candidats logo. Installee sans jamais avoir ete regardee, l'icone la plus
+     grande etait sur Vénissieux l'image generique d'un module WordPress
+     (« DEFAULT APP », 512 px, la plus grande de toutes), alors que le vrai
+     monogramme de la commune, declare en 192 px, attendait juste a cote. */
+  out.iconeCandidats = [];
+  for (const c of iconCandidates) {
+    try {
+      const abs = new URL(c.href, finalUrl).toString();
+      if (!out.iconeCandidats.includes(abs)) out.iconeCandidats.push(abs);
+    } catch { /* url invalide */ }
+    if (out.iconeCandidats.length >= 3) break;
+  }
   out.logoUrl = out.logoCandidats[0] || icone;
   // Le finding logo est émis par coreSources, une fois que la vision a tranché
   // entre les candidats et donné la couleur de la commune
@@ -2276,17 +2315,27 @@ const LOGO_SCHEMA = {
   required: ['best_index', 'color'],
 };
 
-async function choisirLogoEtCouleur(candidats) {
-  const usables = (candidats || []).filter((u) => u && !VISION_UNSUPPORTED_RE.test(u)).slice(0, 4);
+/* `icones` : les icones declarees par le site pour l'onglet du navigateur.
+   Elles sont presentees APRES les candidats logo, et le juge ne peut en retenir
+   une qu'a defaut de logo. Le verdict dit d'ou vient l'image retenue
+   (`source` : 'logo', 'icone' ou 'aucun') : l'appelant s'en sert pour ne plus
+   installer, en repli, une image que le juge a ecartee. */
+async function choisirLogoEtCouleur(candidats, icones = []) {
+  const logos = (candidats || []).filter((u) => u && !VISION_UNSUPPORTED_RE.test(u)).slice(0, 4);
+  const marques = (icones || []).filter((u) => u && !VISION_UNSUPPORTED_RE.test(u) && !logos.includes(u)).slice(0, 3);
+  const usables = [...logos, ...marques];
   if (!usables.length) return null;
   try {
+    const consigneIcones = marques.length
+      ? `\n\nLes images ${logos.length} à ${usables.length - 1} sont les icônes que le site déclare pour l'onglet du navigateur. Une icône n'est retenue qu'en dernier recours, si aucune image précédente n'est le logo de la commune, et seulement si elle porte l'identité de la commune (monogramme, blason, marque). Écarte toute icône générique : pictogramme d'installation d'application (« Default App », « Get the app »), image fournie par un module technique, forme neutre sans rapport avec la commune.`
+      : '';
     const content = [{
       type: 'input_text',
       text: `Voici ${usables.length} image(s) numérotée(s) de 0 à ${usables.length - 1}, prises sur le site d'une mairie française.
 
 Choisis celle qui est le LOGO OFFICIEL DE LA COMMUNE (son nom, son blason ou sa marque). Écarte : les logos de labels et de partenaires (« Ville active et sportive », « Villes fleuries »), les couvertures de magazine municipal, les bandeaux, les pictogrammes d'interface.
 
-Écarte aussi toute version BLANCHE ou monochrome claire du logo : elle est faite pour un fond sombre et serait invisible sur une interface claire. Si la seule image disponible est blanche, choisis-la quand même mais rends une couleur vide.
+Écarte aussi toute version BLANCHE ou monochrome claire du logo : elle est faite pour un fond sombre et serait invisible sur une interface claire. Ne la retiens jamais, même si c'est la seule image disponible : réponds -1 plutôt.${consigneIcones}
 
 Réponds -1 si aucune de ces images n'est le logo de la commune.
 
@@ -2301,16 +2350,10 @@ color : la couleur de marque la plus saturée et identitaire du logo choisi, en 
 
     const idx = out.best_index;
     const logoUrl = (typeof idx === 'number' && idx >= 0 && idx < usables.length) ? usables[idx] : null;
-
-    let hex = String(out.color || '').toLowerCase();
-    if (!/^#[0-9a-f]{6}$/.test(hex)) {
-      hex = null;
-    } else {
-      // Écarter le quasi blanc / quasi noir : inutilisable comme couleur primaire
-      const [rr, gg, bb] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-      if ((rr > 232 && gg > 232 && bb > 232) || (rr < 24 && gg < 24 && bb < 24)) hex = null;
-    }
-    return { logoUrl, themeColor: hex };
+    const source = !logoUrl ? 'aucun' : (idx < logos.length ? 'logo' : 'icone');
+    // Meme exigence que pour la couleur declaree par le site : ni trop claire,
+    // ni trop sombre, ni grise
+    return { logoUrl, source, themeColor: couleurUtilisable(out.color) };
   } catch (e) {
     console.warn('[demo-generate] choix du logo :', e?.message);
     return null;
@@ -3355,12 +3398,31 @@ async function coreSources(send, step, insee, runState) {
       const enRetard = Date.now() >= echeanceMairie;
       if (enRetard) m.tronque = true;
       const [identite, pdfsLus] = enRetard ? [null, []] : await Promise.all([
-        (m.logoCandidats || []).length ? choisirLogoEtCouleur(m.logoCandidats) : Promise.resolve(null),
+        ((m.logoCandidats || []).length || (m.iconeCandidats || []).length)
+          ? choisirLogoEtCouleur(m.logoCandidats, m.iconeCandidats)
+          : Promise.resolve(null),
         readMairiePdfs(m.pdfs || []),
       ]);
-      // La vision tranche entre les candidats du scoring texte, qui reste le
-      // repli quand elle échoue ou que tous les candidats sont des .svg.
-      if (identite?.logoUrl) m.logoUrl = identite.logoUrl;
+      /* La vision tranche entre les candidats du scoring texte puis les
+         icones du site ; le scoring reste le repli quand elle echoue. Un
+         logo .svg, qu'elle ne sait pas lire, garde la priorite sur une icone :
+         c'est le cas le plus frequent du vrai logo. Ce qu'elle a REGARDE et
+         ecarte sort de la cascade d'installation : jusqu'ici, un logo blanc
+         refuse par le juge etait tout de meme installe en repli, et l'icone
+         generique d'un module prenait la place quand la recherche ne rendait
+         rien. */
+      const svg = (m.logoCandidats || []).find((u) => /\.svg(\?|#|$)/i.test(u)) || null;
+      if (identite?.source === 'logo') {
+        m.logoUrl = identite.logoUrl;
+      } else if (identite?.source === 'icone') {
+        m.logoCandidats = svg ? [svg] : [];
+        m.iconeUrl = identite.logoUrl;
+        m.logoUrl = svg || identite.logoUrl;
+      } else if (identite?.source === 'aucun') {
+        m.logoCandidats = svg ? [svg] : [];
+        m.iconeUrl = null;
+        m.logoUrl = svg;
+      }
       // La meta theme-color du site prime : c'est la couleur que la commune a
       // elle-même déclarée. La vision ne sert qu'à défaut.
       if (!m.themeColor && identite?.themeColor) m.themeColor = identite.themeColor;
@@ -5751,6 +5813,8 @@ export const _internals = {
   INSEE_RE,
   findSiteLogo,
   attributHtml,
+  couleurUtilisable,
+  choisirLogoEtCouleur,
   couleurDepuisSvg,
   inChunks,
   lireFluxBorne,
