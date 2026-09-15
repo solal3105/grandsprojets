@@ -62,10 +62,12 @@ const base = import.meta.env.BASE_URL
      haut et la capture peut le deborder franchement. Sur un telephone, texte et
      capture sont empiles et le socle ne fait guere plus que l'image : les memes
      valeurs sortaient la capture entierement de son cadre pendant le
-     defilement. Le mouvement y est donc reduit, et la capture ne bascule pas. */
+     defilement. Le socle garde un leger glissement, mais la capture ne bouge
+     pas par rapport a lui : elle reste centree dans son cadre, et ne bascule
+     pas. Seule la respiration d'echelle subsiste. */
   --socle-y: 24px;
   --colonne-y: 0px;
-  --ecran-y: -36px;
+  --ecran-y: 0px;
   --ecran-rx: 0deg;
   /* La capture sort de son socle par le haut et par le bas : seule la largeur
      est coupee, sinon le debordement lateral des socles creerait une barre de
