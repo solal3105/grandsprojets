@@ -312,20 +312,241 @@
   }
 
   /* ═══════════════ INDEX DES VILLES (/ville/) ═══════════════
-     Recherche instantanée sur les 100+ villes, et lien vivant entre la carte
-     et la liste : survoler une ville allume son point, et inversement. */
+     Recherche instantanée sur les 100+ villes, lien vivant entre la carte et
+     la liste, et zoom sur la carte pour séparer les villes qui se touchent
+     autour de Paris et de Lyon. */
 
   function foldAccents(text) {
-    return String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    return String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  }
+
+  /* ─── Carte : zoom et déplacement ───
+     On agit sur le viewBox du SVG, pas sur un transform : les points gardent
+     ainsi leur taille à l'écran (leur rayon est recalculé), donc grossir la
+     carte SÉPARE les villes au lieu de les épaissir. */
+  // Au-delà de cinq fois, la côte sort du cadre et la carte n'apprend plus rien
+  const ZOOM_MAX = 5;
+  // À partir du double, chaque ville visible porte son nom : c'est ce qui
+  // remplace la silhouette de la France quand on est entré dedans
+  const ZOOM_NOMS = 2;
+
+  function initMapZoom() {
+    const wrap = $('vh-ixmap');
+    const svg = $('vh-ixmap-svg');
+    const zoomBox = $('vh-ixmap-zoom');
+    if (!wrap || !svg) return null;
+
+    const [bx, by, bw, bh] = (svg.dataset.viewbox || '').split(/\s+/).map(Number);
+    if (![bx, by, bw, bh].every(Number.isFinite) || bw <= 0) return null;
+
+    // Rayon et position d'origine de chaque point : le zoom les recalcule
+    const dots = [...svg.querySelectorAll('.vh-ixmap__dot')].map(c => ({
+      c,
+      label: c.parentElement.querySelector('text'),
+      r: Number(c.getAttribute('r')),
+      cy: Number(c.getAttribute('cy')),
+    }));
+
+    const view = { x: bx, y: by, w: bw, h: bh };
+
+    function clamp() {
+      view.w = Math.min(bw, Math.max(bw / ZOOM_MAX, view.w));
+      view.h = view.w * (bh / bw);
+      view.x = Math.min(bx + bw - view.w, Math.max(bx, view.x));
+      view.y = Math.min(by + bh - view.h, Math.max(by, view.y));
+    }
+
+    function apply() {
+      clamp();
+      const k = view.w / bw;
+      svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`);
+      svg.style.setProperty('--k', String(k));
+      for (const d of dots) {
+        d.c.setAttribute('r', (d.r * k).toFixed(4));
+        if (d.label) d.label.setAttribute('y', (d.cy - (d.r + 0.14) * k).toFixed(4));
+      }
+      wrap.classList.toggle('is-zoomed', k < 0.999);
+      wrap.classList.toggle('is-labelled', k <= 1 / ZOOM_NOMS + 1e-6);
+      if (zoomBox) {
+        zoomBox.querySelector('[data-zoom="in"]').disabled = view.w <= bw / ZOOM_MAX + 1e-6;
+        zoomBox.querySelector('[data-zoom="out"]').disabled = k >= 0.999;
+        zoomBox.querySelector('[data-zoom="reset"]').disabled = k >= 0.999;
+      }
+    }
+
+    /** Grossit autour d'un point donné en coordonnées du SVG (0→1 dans la vue). */
+    function zoomBy(facteur, ancreX = 0.5, ancreY = 0.5) {
+      const px = view.x + view.w * ancreX;
+      const py = view.y + view.h * ancreY;
+      view.w = view.w / facteur;
+      view.h = view.h / facteur;
+      view.x = px - view.w * ancreX;
+      view.y = py - view.h * ancreY;
+      apply();
+    }
+
+    function reset() {
+      view.x = bx; view.y = by; view.w = bw; view.h = bh;
+      apply();
+    }
+
+    if (zoomBox) {
+      zoomBox.hidden = false;
+      zoomBox.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-zoom]');
+        if (!btn) return;
+        if (btn.dataset.zoom === 'reset') reset();
+        else zoomBy(btn.dataset.zoom === 'in' ? 1.6 : 1 / 1.6);
+      });
+    }
+
+    // Molette : on grossit là où est le curseur, pas au centre
+    svg.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) < 1) return;
+      e.preventDefault();
+      const b = svg.getBoundingClientRect();
+      zoomBy(e.deltaY < 0 ? 1.18 : 1 / 1.18, (e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height);
+    }, { passive: false });
+
+    svg.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      const b = svg.getBoundingClientRect();
+      zoomBy(1.8, (e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height);
+    });
+
+    // Glisser : seulement une fois la carte grossie, sinon on volerait le
+    // défilement de la page au doigt
+    let drag = null;
+    svg.addEventListener('pointerdown', (e) => {
+      if (!wrap.classList.contains('is-zoomed') || e.button !== 0) return;
+      const b = svg.getBoundingClientRect();
+      drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, ech: view.w / b.width, bouge: false };
+      svg.setPointerCapture(e.pointerId);
+      wrap.classList.add('is-dragging');
+    });
+    svg.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) drag.bouge = true;
+      view.x = drag.vx - dx * drag.ech;
+      view.y = drag.vy - dy * drag.ech;
+      apply();
+    });
+    const finDrag = (e) => {
+      if (!drag) return;
+      // Un glisser ne doit pas ouvrir la ville qui se trouvait sous le doigt
+      if (drag.bouge) svg.addEventListener('click', (ev) => ev.preventDefault(), { capture: true, once: true });
+      drag = null;
+      wrap.classList.remove('is-dragging');
+      if (e?.pointerId !== undefined && svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
+    };
+    svg.addEventListener('pointerup', finDrag);
+    svg.addEventListener('pointercancel', finDrag);
+
+    apply();
+    return { reset, zoomSur(cx, cy) { view.w = bw / 4; view.h = bh / 4; view.x = cx - view.w / 2; view.y = cy - view.h / 2; apply(); } };
+  }
+
+  /* ─── Logos : à chacun le fond qui le rend lisible ───
+     Les logos de communes sont des tracés sur fond transparent, tantôt
+     sombres, tantôt blancs. On regarde la clarté moyenne des pixels opaques
+     pour choisir la pastille, et on repasse à la pastille de couleur quand
+     l'image manque ou qu'elle est vide. */
+  function initLogoPlates(root) {
+    const logos = [...root.querySelectorAll('.vh-ville__logo')];
+    if (!logos.length) return;
+    const cv = document.createElement('canvas');
+    cv.width = 24;
+    cv.height = 24;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+
+    const pastille = (img) => {
+      const span = document.createElement('span');
+      span.className = 'vh-ville__dot';
+      span.setAttribute('aria-hidden', 'true');
+      img.replaceWith(span);
+    };
+
+    const juger = (img) => {
+      if (!img.naturalWidth) return pastille(img);
+      let somme = 0;
+      let poids = 0;
+      try {
+        ctx.clearRect(0, 0, 24, 24);
+        ctx.drawImage(img, 0, 0, 24, 24);
+        const px = ctx.getImageData(0, 0, 24, 24).data;
+        for (let i = 0; i < px.length; i += 4) {
+          const a = px[i + 3] / 255;
+          if (a < 0.15) continue;
+          somme += (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) * a;
+          poids += a;
+        }
+      } catch {
+        return; // image d'un autre domaine sans CORS : on garde le fond clair
+      }
+      if (poids < 2) return pastille(img); // rien de visible dans l'image
+      img.classList.toggle('is-light', somme / poids > 176);
+    };
+
+    for (const img of logos) {
+      img.addEventListener('error', () => pastille(img), { once: true });
+      if (img.complete) juger(img);
+      else img.addEventListener('load', () => juger(img), { once: true });
+    }
+  }
+
+  /* ─── Barre collante : étiquette flottante, état collé, région courante ─── */
+  function initStickyBar(root) {
+    const bar = $('vh-ix-bar');
+    const nav = root.querySelector('.vh-ix-nav');
+    if (bar) {
+      // Le rail se resserre dès qu'il vient toucher la barre du haut. Une
+      // sentinelle d'un pixel juste au-dessus le dit sans écouter le défilement.
+      const haut = Math.round(parseFloat(getComputedStyle(bar).top) || 0);
+      const sentinelle = document.createElement('div');
+      sentinelle.className = 'vh-ix-bar__sentinel';
+      sentinelle.setAttribute('aria-hidden', 'true');
+      bar.parentNode.insertBefore(sentinelle, bar);
+      new IntersectionObserver(
+        ([e]) => bar.classList.toggle('is-stuck', !e.isIntersecting),
+        { rootMargin: `-${haut + 1}px 0px 0px 0px` },
+      ).observe(sentinelle);
+    }
+    if (!nav) return;
+
+    // Toutes les régions tiennent sur la largeur : plus besoin de défilement
+    const mesurer = () => nav.classList.toggle('is-complete', nav.scrollWidth <= nav.clientWidth + 1);
+    mesurer();
+    window.addEventListener('resize', mesurer, { passive: true });
+
+    // La région qu'on est en train de lire s'allume dans le rail
+    const liens = new Map([...nav.querySelectorAll('.vh-ix-nav__link')].map(a => [a.dataset.region, a]));
+    const sections = [...root.querySelectorAll('.vh-ix-region')];
+    if (!sections.length) return;
+    const vus = new Set();
+    const obs = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) vus.add(e.target); else vus.delete(e.target);
+      }
+      const courant = sections.find(sec => vus.has(sec));
+      for (const [code, a] of liens) a.classList.toggle('is-current', Boolean(courant) && code === courant.dataset.region);
+    }, { rootMargin: '-40% 0px -50% 0px' });
+    sections.forEach(sec => obs.observe(sec));
   }
 
   function initIndex() {
     const root = $('vh-index');
     if (!root) return;
 
+    const champ = root.querySelector('.vh-ix-search');
     const input = $('vh-ix-q');
     const count = $('vh-ix-count');
     const empty = $('vh-ix-empty');
+    const emptyQ = $('vh-ix-empty-q');
+    const emptyCta = $('vh-ix-empty-cta');
+    const footDemo = $('vh-foot-demo');
     const items = [...root.querySelectorAll('.vh-ville')];
     const regions = [...root.querySelectorAll('.vh-ix-region')];
     const navLinks = [...root.querySelectorAll('.vh-ix-nav__link')];
@@ -335,9 +556,15 @@
     for (const meta of root.querySelectorAll('.vh-ix-region__meta')) meta.dataset.full = meta.textContent.trim();
     for (const puce of root.querySelectorAll('.vh-ix-nav__link span')) puce.dataset.total = puce.textContent.trim();
 
+    const carte = initMapZoom();
+    initStickyBar(root);
+    initLogoPlates(root);
+
     /* ─── Recherche ─── */
     function filter() {
-      const q = foldAccents(input ? input.value.trim() : '');
+      const saisie = input ? input.value.trim() : '';
+      const q = foldAccents(saisie);
+      if (champ) champ.classList.toggle('is-filled', Boolean(input && input.value));
       let visible = 0;
       for (const li of items) {
         const show = !q || (li.dataset.search || '').includes(q);
@@ -365,7 +592,20 @@
       if (count) {
         count.textContent = visible === 0 ? 'Aucune ville' : `${visible} ${visible > 1 ? 'villes' : 'ville'}`;
       }
-      if (empty) empty.hidden = visible > 0;
+      // Rien trouvé : la démonstration sait construire la carte d'une commune
+      // qui n'a pas encore d'espace, et on lui passe le nom déjà tapé.
+      if (empty) {
+        empty.hidden = visible > 0;
+        // Le pied de page proposerait la même chose, mot pour mot
+        if (footDemo) footDemo.hidden = visible === 0;
+        if (visible === 0) {
+          if (emptyQ) emptyQ.textContent = `« ${saisie} »`;
+          if (emptyCta) {
+            emptyCta.href = `/demo/?q=${encodeURIComponent(saisie)}`;
+            emptyCta.querySelector('span').textContent = `Construire la carte de ${saisie}`;
+          }
+        }
+      }
     }
 
     if (input) {
@@ -377,6 +617,7 @@
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && input.value) { input.value = ''; filter(); }
       });
+      filter(); // le navigateur peut avoir restauré une saisie
     }
 
     /* ─── Carte et liste se répondent ─── */
@@ -389,10 +630,15 @@
       li.addEventListener('mouseenter', () => light(slug, true));
       li.addEventListener('mouseleave', () => light(slug, false));
     }
+    for (const [slug, pin] of pins) {
+      pin.addEventListener('mouseenter', () => light(slug, true));
+      pin.addEventListener('mouseleave', () => light(slug, false));
+    }
     root.addEventListener('click', (e) => {
       const lien = e.target.closest('.vh-ville__link, .vh-ixmap__pin');
       if (lien) window.OPAnalytics?.capture('city_index_clicked', { depuis: lien.closest('.vh-ixmap') ? 'carte' : 'liste' });
     });
+    if (carte) window.addEventListener('hashchange', () => { if (!window.location.hash) carte.reset(); });
   }
 
   /* ═══════════════ INIT ═══════════════ */

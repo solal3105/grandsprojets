@@ -335,6 +335,21 @@ function foldAccents(text) {
   return String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
+/** Logo de la collectivité, s'il lui appartient vraiment : la création d'un
+    espace pose le logo Open Projets quand la commune n'en publie pas, et le
+    répéter seize fois dans la liste n'apprendrait rien. */
+function isOwnStorage(url) {
+  try { return Boolean(url) && new URL(url, BASE_ORIGIN).host === SUPABASE_HOST; }
+  catch { return false; }
+}
+
+function cityLogo(branding) {
+  // Le logo clair, jamais la variante sombre : il est posé sur une pastille
+  // blanche, qui le rend lisible dans les deux thèmes.
+  const url = safeUrl(branding?.logo_url) || safeUrl(branding?.dark_logo_url);
+  return !url || /classic_color\.png$/i.test(url) ? '' : url;
+}
+
 /** Code département d'un code INSEE : 2A/2B en Corse, 3 chiffres outre-mer. */
 function departementCode(insee) {
   const s = String(insee || '').trim().toUpperCase();
@@ -354,7 +369,7 @@ async function fetchVillesIndex() {
       order: 'id.asc',
     }),
     fetchAllRows('city_branding', {
-      select: 'ville,brand_name,primary_color,indexable,insee,center_lat,center_lng',
+      select: 'ville,brand_name,primary_color,indexable,insee,center_lat,center_lng,logo_url,dark_logo_url',
       order: 'ville.asc',
     }),
     // Table de référence : si elle manque, la page retombe sur une liste unique
@@ -374,6 +389,7 @@ async function fetchVillesIndex() {
   return [...counts].map(([slug, count]) => {
     const b = brandBy.get(slug);
     const dep = depBy.get(departementCode(b?.insee)) || null;
+    const logo = cityLogo(b);
     const label = String(b?.brand_name || '').trim() || humanize(slug);
     const lat = Number(b?.center_lat);
     const lng = Number(b?.center_lng);
@@ -382,6 +398,8 @@ async function fetchVillesIndex() {
       count,
       label,
       color: safeHexColor(b?.primary_color),
+      logo,
+      logoLisible: isOwnStorage(logo),
       departement: dep ? String(dep.nom || '') : '',
       regionCode: dep ? String(dep.region_code || '') : '',
       regionNom: dep ? String(dep.region_nom || '') : '',
@@ -417,10 +435,18 @@ function projetsMot(n) {
 
 function renderVilleItem(v) {
   const dep = v.departement ? `<span class="vh-ville__dep">${escHtml(v.departement)}</span>` : '';
+  // Le logo est muet : le nom de la ville est juste à côté. `crossorigin` sur
+  // les logos de notre stockage laisse le navigateur en lire les couleurs, ce
+  // qui sert à leur donner le fond qui les rend lisibles (ville/ville-hub.js) ;
+  // il faut le poser AVANT le premier chargement, sinon l'image reste teintée.
+  const cors = v.logo && v.logoLisible ? ' crossorigin="anonymous"' : '';
+  const marque = v.logo
+    ? `<img class="vh-ville__logo" src="${escAttr(v.logo)}" alt="" loading="lazy" decoding="async" width="46" height="34"${cors}>`
+    : `<span class="vh-ville__dot" aria-hidden="true"></span>`;
   return `
           <li class="vh-ville" data-ville="${escAttr(v.slug)}" data-search="${escAttr(v.search)}"${v.color ? ` style="--ville-color:${v.color}"` : ''}>
             <a class="vh-ville__link" href="/ville/${encodeURIComponent(v.slug)}">
-              <span class="vh-ville__dot" aria-hidden="true"></span>
+              ${marque}
               <span class="vh-ville__body">
                 <span class="vh-ville__name">${escHtml(v.label)}</span>${dep}
               </span>
@@ -491,27 +517,30 @@ function buildIndexContent(villes, groups) {
       </header>
 
       <div class="vh-ix-bar" id="vh-ix-bar">
-        <div class="vh-ix-search">
-          <label class="vh-ix-search__label" for="vh-ix-q">Chercher une ville</label>
-          <div class="vh-ix-search__field">
+        <div class="vh-ix-bar__row">
+          <label class="vh-ix-search" for="vh-ix-q">
             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-            <input id="vh-ix-q" type="search" autocomplete="off" spellcheck="false" placeholder="Par exemple Quimper">
-          </div>
-        </div>
-        <p class="vh-ix-count" id="vh-ix-count" role="status">${frNumber(villes.length)} villes</p>
+            <span class="vh-ix-search__label">Chercher une ville</span>
+            <input id="vh-ix-q" type="search" autocomplete="off" spellcheck="false" placeholder="Chercher une ville">
+          </label>
+          <p class="vh-ix-count" id="vh-ix-count" role="status">${frNumber(villes.length)} villes</p>
+        </div>${renderRegionNav(groups)}
       </div>
-${renderRegionNav(groups)}
 
       <div class="vh-ix-list" id="vh-ix-list">${groups.map(g => renderRegionSection(g, groups.length === 1)).join('')}
       </div>
 
-      <p class="vh-ix-empty" id="vh-ix-empty" hidden>
-        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-        Aucune ville ne porte ce nom. Essayez une autre orthographe, ou parcourez la liste par région.
-      </p>
+      <div class="vh-ix-empty" id="vh-ix-empty" hidden>
+        <p class="vh-ix-empty__lead">Aucune ville de cette liste ne s'appelle <b id="vh-ix-empty-q"></b>.</p>
+        <p class="vh-ix-empty__text">Nous pouvons construire sa carte à partir du site de la commune et de la presse locale, ou vous pouvez corriger l'orthographe et chercher à nouveau.</p>
+        <a class="vh-ix-empty__cta" id="vh-ix-empty-cta" href="/demo/">
+          <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+          <span>Construire la carte de cette commune</span>
+        </a>
+      </div>
 
       <footer class="vh-foot">
-        <p class="vh-foot__b2b">Votre commune n'est pas dans cette liste ? Nous construisons sa carte à partir de son site et de la presse locale.
+        <p class="vh-foot__b2b" id="vh-foot-demo">Votre commune n'est pas dans cette liste ? Nous construisons sa carte à partir de son site et de la presse locale.
           <a href="/demo/">Construire la carte de ma commune</a>
         </p>
         <p class="vh-foot__b2b">Vous représentez une collectivité et vous voulez publier vos projets ?

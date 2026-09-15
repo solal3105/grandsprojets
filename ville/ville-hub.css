@@ -553,6 +553,7 @@ body { margin: 0; background: var(--surface-base); }
 .vh-foot__b2b { font-size: 0.85rem; color: var(--text-tertiary); }
 p.vh-foot__b2b { margin: 0 0 8px; }
 p.vh-foot__b2b:last-child { margin-bottom: 0; }
+p.vh-foot__b2b[hidden] { display: none; }
 .vh-foot__b2b a {
   color: var(--primary);
   font-weight: 600;
@@ -648,41 +649,87 @@ p.vh-foot__b2b:last-child { margin-bottom: 0; }
 }
 
 /* ─── Carte de France ─── */
-.vh-ixmap {
+.vh-ixmap { position: relative; }
+.vh-ixmap__svg {
   display: block;
   width: 100%;
   max-height: 58vh;
-  overflow: visible;
+  /* Le cadrage laisse de la marge autour des terres : les noms tiennent
+     dedans, et rien ne vient se poser sur le texte du héros */
+  overflow: hidden;
+  touch-action: pan-y; /* au repos, le doigt fait défiler la page */
 }
+.vh-ixmap.is-zoomed .vh-ixmap__svg { touch-action: none; cursor: grab; }
+.vh-ixmap.is-dragging .vh-ixmap__svg { cursor: grabbing; }
+
+/* Commandes de zoom : posées par le JS, donc masquées tant qu'il n'a pas pris
+   la main (sans lui la carte reste une belle image cliquable) */
+.vh-ixmap__zoom {
+  /* En haut à gauche : au large de la Bretagne, la seule zone de la carte que
+     les villes ne remplissent jamais */
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.vh-ixmap__zoom[hidden] { display: none; }
+.vh-ixmap__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.8rem;
+  transition: background 0.2s ease, color 0.2s ease, opacity 0.25s ease;
+}
+.vh-ixmap__btn:hover { background: rgba(255, 255, 255, 0.18); color: #fff; }
+.vh-ixmap__btn:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.vh-ixmap__btn[disabled] { opacity: 0.28; cursor: default; background: none; }
+/* Revenir à la France entière n'a de sens qu'une fois la carte grossie */
+.vh-ixmap__btn[data-zoom="reset"] { display: none; }
+.vh-ixmap.is-zoomed .vh-ixmap__btn[data-zoom="reset"] { display: flex; }
+/* --k suit le zoom (1 au cadrage d'origine) : traits, étiquettes et encarts
+   gardent la même épaisseur à l'écran quand on grossit la carte. */
+.vh-ixmap__svg { --k: 1; }
 .vh-ixmap__land {
   fill: rgba(255, 255, 255, 0.075);
   stroke: rgba(255, 255, 255, 0.38);
-  stroke-width: 0.022;
+  stroke-width: calc(0.022px * var(--k));
   stroke-linejoin: round;
 }
 .vh-ixmap__inset rect {
   fill: rgba(255, 255, 255, 0.03);
   stroke: rgba(255, 255, 255, 0.14);
-  stroke-width: 0.014;
+  stroke-width: calc(0.014px * var(--k));
 }
 .vh-ixmap__inset path {
   fill: rgba(255, 255, 255, 0.055);
   stroke: rgba(255, 255, 255, 0.30);
-  stroke-width: 0.06;
+  stroke-width: calc(0.06px * var(--k));
   stroke-linejoin: round;
 }
 .vh-ixmap__inset text {
   fill: rgba(255, 255, 255, 0.68);
   font-family: var(--vh-sans);
   /* 0.24 unité ≈ 13 px au rendu : sous 11 px le nom du territoire ne se lit plus */
-  font-size: 0.24px;
+  font-size: calc(0.24px * var(--k));
   text-anchor: middle;
 }
 .vh-ixmap__pin { cursor: pointer; }
 .vh-ixmap__pin .vh-ixmap__dot {
   fill: color-mix(in srgb, var(--pin, var(--color-primary)) 84%, white);
   stroke: rgba(255, 255, 255, 0.55);
-  stroke-width: 0.018;
+  stroke-width: calc(0.018px * var(--k));
   transform-box: fill-box;
   transform-origin: center;
   transition: transform 0.25s var(--vh-spring), stroke 0.2s ease;
@@ -690,17 +737,22 @@ p.vh-foot__b2b:last-child { margin-bottom: 0; }
 .vh-ixmap__pin text {
   fill: #fff;
   font-family: var(--vh-heading);
-  font-size: 0.3px;
+  font-size: calc(0.3px * var(--k));
   font-weight: 600;
   text-anchor: middle;
   pointer-events: none;
   opacity: 0;
   paint-order: stroke;
   stroke: rgba(6, 10, 20, 0.85);
-  stroke-width: 0.13;
+  stroke-width: calc(0.13px * var(--k));
   stroke-linejoin: round;
   transition: opacity 0.2s ease;
 }
+/* Carte grossie : chaque ville visible porte son nom. Sans cela, entrer dans
+   la carte revient à regarder des points sur un fond vide. */
+.vh-ixmap.is-labelled .vh-ixmap__pin text { opacity: 0.8; }
+.vh-ixmap.is-labelled .vh-ixmap__pin:hover text { opacity: 1; }
+
 .vh-ixmap__pin:hover .vh-ixmap__dot,
 .vh-ixmap__pin:focus-visible .vh-ixmap__dot,
 .vh-ixmap__pin.is-lit .vh-ixmap__dot {
@@ -714,104 +766,148 @@ p.vh-foot__b2b:last-child { margin-bottom: 0; }
 /* Recherche en cours : les villes écartées s'effacent sans disparaître */
 .vh-ixmap__pin.is-dimmed .vh-ixmap__dot { opacity: 0.14; }
 
-/* ─── Barre de recherche ─── */
+/* ─── Barre collante : recherche et régions dans un seul rail ─── */
 .vh-ix-bar {
   position: sticky;
   top: calc(var(--vh-topbar-h) + var(--banner-h, 0px));
   z-index: 40;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 18px;
-  margin: 34px 0 0;
-  padding: 14px 18px;
-  border-radius: var(--vh-radius-sm);
+  margin: 30px 0 0;
+  padding: 10px 12px;
+  border-radius: 18px;
   background: var(--vh-glass-bg);
   backdrop-filter: blur(var(--vh-glass-blur)) saturate(var(--vh-glass-saturate));
   -webkit-backdrop-filter: blur(var(--vh-glass-blur)) saturate(var(--vh-glass-saturate));
   box-shadow: var(--vh-glass-shadow);
+  /* Une fois collée sous la barre du haut, elle se pose : l'ombre s'affirme et
+     les angles se referment. On n'anime ni marge ni remplissage, qui
+     relanceraient la mise en page à chaque image. */
+  transition: border-radius 0.3s var(--vh-ease), box-shadow 0.3s ease;
 }
-.vh-ix-search { flex: 1; min-width: 0; }
-.vh-ix-search__label {
-  display: block;
-  margin: 0 0 6px 2px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--text-secondary);
+.vh-ix-bar.is-stuck {
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 10px 30px rgba(0, 0, 0, 0.14);
 }
-.vh-ix-search__field {
+/* Repère d'un pixel qui prévient quand la barre vient se coller (ville-hub.js) */
+.vh-ix-bar__sentinel { height: 1px; margin-bottom: -1px; }
+.vh-ix-bar__row { display: flex; align-items: center; gap: 12px; }
+
+/* Le champ EST son étiquette : le libellé glisse au-dessus dès qu'on écrit,
+   il ne disparaît donc jamais. */
+.vh-ix-search {
+  position: relative;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 10px;
-  max-width: 420px;
-  height: 42px;
-  padding: 0 14px;
+  height: 46px;
+  padding: 0 16px;
   border-radius: 100px;
   background: var(--surface-base);
   border: 1px solid var(--border-light);
+  cursor: text;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-.vh-ix-search__field:focus-within {
+.vh-ix-search:focus-within {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-alpha-12);
 }
-.vh-ix-search__field i { font-size: 0.82rem; color: var(--text-tertiary); }
-.vh-ix-search__field input {
+.vh-ix-search > i {
+  flex: none;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  transition: color 0.2s ease;
+}
+.vh-ix-search:focus-within > i { color: var(--primary); }
+.vh-ix-search__label {
+  position: absolute;
+  left: 42px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 0.92rem;
+  color: var(--text-tertiary);
+  transition: transform 0.22s var(--vh-ease), font-size 0.22s var(--vh-ease), color 0.22s ease;
+}
+.vh-ix-search.is-filled .vh-ix-search__label {
+  transform: translateY(-19px);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+}
+.vh-ix-search input {
   flex: 1;
   min-width: 0;
+  height: 100%;
   border: none;
   outline: none;
   background: none;
   color: var(--text-primary);
   font-size: 0.92rem;
 }
-.vh-ix-search__field input::-webkit-search-cancel-button { cursor: pointer; }
+/* L'invite doublerait l'étiquette tant que le champ est vide */
+.vh-ix-search input::placeholder { color: transparent; }
+.vh-ix-search.is-filled input { padding-top: 12px; }
 .vh-ix-count {
   flex: none;
-  margin: 0 2px 11px 0;
+  margin: 0;
+  padding-right: 6px;
   font-family: var(--vh-heading);
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-/* ─── Raccourcis vers les régions ─── */
+/* ─── Raccourcis vers les régions, dans le même rail ─── */
 .vh-ix-nav {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 18px;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 2px 2px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  /* Les régions coupées au bord se devinent au lieu de s'arrêter net */
+  mask-image: linear-gradient(90deg, #000 calc(100% - 42px), transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 42px), transparent);
 }
+.vh-ix-nav::-webkit-scrollbar { display: none; }
+.vh-ix-nav.is-complete { mask-image: none; -webkit-mask-image: none; flex-wrap: wrap; overflow-x: visible; }
 .vh a.vh-ix-nav__link {
+  flex: none;
+  scroll-snap-align: start;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 13px;
+  gap: 6px;
+  padding: 6px 12px;
   border-radius: 100px;
   background: var(--surface-raised);
   border: 1px solid var(--border-light);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-secondary);
-  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease, transform 0.25s var(--vh-spring);
+  white-space: nowrap;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
-.vh a.vh-ix-nav__link:hover {
+.vh a.vh-ix-nav__link:hover,
+.vh a.vh-ix-nav__link.is-current {
   color: var(--primary);
   border-color: var(--primary-alpha-35);
   background: var(--primary-alpha-12);
-  transform: translateY(-1px);
 }
 .vh-ix-nav__link span {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
-.vh-ix-nav__link:hover span { color: inherit; }
+.vh-ix-nav__link:hover span,
+.vh-ix-nav__link.is-current span { color: inherit; }
 .vh-ix-nav__link[hidden] { display: none; }
 
 /* ─── Sections par région ─── */
-.vh-ix-region { margin-top: 42px; scroll-margin-top: calc(var(--vh-topbar-h) + 84px); }
+.vh-ix-region { margin-top: 42px; scroll-margin-top: calc(var(--vh-topbar-h) + 132px); }
 .vh-ix-region[hidden] { display: none; }
 .vh-ix-region__title {
   display: flex;
@@ -870,13 +966,37 @@ p.vh-foot__b2b:last-child { margin-bottom: 0; }
   border-color: color-mix(in srgb, var(--ville-accent) 55%, transparent);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
 }
+/* Logo de la collectivité, posé sur une pastille blanche : la plupart sont
+   des tracés sombres sur fond transparent, qui disparaîtraient en thème
+   sombre. Les villes qui n'en publient pas gardent la pastille de couleur. */
+.vh-ville__logo {
+  flex: none;
+  /* Plus large que haut : beaucoup de logos de communes sont des bandeaux, et
+     un cadre carré les réduirait à rien */
+  width: 46px;
+  height: 34px;
+  border-radius: 9px;
+  padding: 3px 5px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid var(--border-light);
+}
+/* Logo tracé en blanc : sur une pastille blanche il n'existait pas */
+.vh-ville__logo.is-light {
+  background: #131a24;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+/* Faute de logo, un point aux couleurs de la ville, centré dans le même cadre
+   que les logos pour que la colonne reste alignée */
 .vh-ville__dot {
   flex: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--ville-accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ville-accent) 18%, transparent);
+  width: 46px;
+  height: 34px;
+  border-radius: 9px;
+  background:
+    radial-gradient(circle at center, var(--ville-accent) 0 5.5px, transparent 5.5px),
+    color-mix(in srgb, var(--ville-accent) 14%, var(--surface-base));
+  border: 1px solid color-mix(in srgb, var(--ville-accent) 30%, transparent);
 }
 .vh-ville__body { flex: 1; min-width: 0; }
 .vh-ville__name {
@@ -902,21 +1022,55 @@ p.vh-foot__b2b:last-child { margin-bottom: 0; }
   font-variant-numeric: tabular-nums;
 }
 
-/* ─── Aucune ville trouvée ─── */
+/* ─── Aucune ville trouvée : la démonstration prend le relais ─── */
 .vh-ix-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  margin: 48px auto 0;
-  max-width: 44ch;
+  margin: 44px auto 0;
+  padding: 34px 28px;
+  max-width: 560px;
+  border-radius: var(--vh-radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-light);
   text-align: center;
-  color: var(--text-secondary);
+}
+.vh-ix-empty[hidden] { display: none; }
+.vh-ix-empty__lead {
+  margin: 0 0 8px;
+  font-family: var(--vh-heading);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.vh-ix-empty__lead b { color: var(--primary); }
+.vh-ix-empty__text {
+  margin: 0 0 22px;
+  max-width: 46ch;
   font-size: 0.92rem;
   line-height: 1.6;
+  color: var(--text-secondary);
 }
-.vh-ix-empty i { font-size: 1.6rem; color: var(--text-tertiary); opacity: 0.6; }
-.vh-ix-empty[hidden] { display: none; }
+.vh a.vh-ix-empty__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 24px;
+  border-radius: 100px;
+  font-family: var(--vh-heading);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--primary) 32%, transparent);
+  transition: transform 0.22s var(--vh-spring), box-shadow 0.25s ease, background 0.2s ease;
+}
+.vh a.vh-ix-empty__cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+.vh a.vh-ix-empty__cta:active { transform: translateY(0) scale(0.98); transition-duration: 0.08s; }
+.vh a.vh-ix-empty__cta:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 
 /* ─── Responsive ─── */
 @media (max-width: 960px) {
@@ -926,19 +1080,9 @@ p.vh-foot__b2b:last-child { margin-bottom: 0; }
   .vh-ixmap { max-height: none; }
 }
 @media (max-width: 720px) {
-  /* Treize régions en pastilles feraient sept lignes : une seule qui défile */
-  .vh-ix-nav {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    margin-inline: -16px;
-    padding-inline: 16px;
-  }
-  .vh-ix-nav::-webkit-scrollbar { display: none; }
-  .vh-ix-nav__link { flex: none; }
-  .vh-ix-bar { flex-direction: column; align-items: stretch; gap: 10px; }
-  .vh-ix-search__field { max-width: none; }
-  .vh-ix-count { margin: 0 0 2px 2px; }
+  .vh-ix-nav { flex-wrap: nowrap; overflow-x: auto; }
+  .vh-ix-count { font-size: 0.78rem; }
   .vh-villes { grid-template-columns: 1fr; }
   .vh-ix-region__title { margin-bottom: 12px; }
+  .vh-ix-empty { padding: 28px 20px; }
 }

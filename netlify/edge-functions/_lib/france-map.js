@@ -167,10 +167,21 @@ function inset(i) {
 export function renderFranceMap(villes) {
   const { viewBox, land, insets, pins } = layoutMap(villes);
   const titre = `Carte de France : ${frNumber(villes.length)} villes qui publient leurs projets`;
-  return `<svg class="vh-ixmap" viewBox="${viewBox}" role="img" aria-labelledby="vh-ixmap-title" focusable="false">`
+  // data-viewbox garde le cadrage d'origine : c'est le repère du zoom et du
+  // bouton qui remet la carte d'aplomb (ville/ville-hub.js).
+  const svg = `<svg class="vh-ixmap__svg" id="vh-ixmap-svg" viewBox="${viewBox}" data-viewbox="${viewBox}"`
+    + ` role="img" aria-labelledby="vh-ixmap-title" focusable="false">`
     + `<title id="vh-ixmap-title">${escHtml(titre)}</title>`
     + `<path class="vh-ixmap__land" d="${land}"></path>`
     + insets.map(inset).join('')
     + `<g class="vh-ixmap__pins">${pins.map(pin).join('')}</g>`
     + `</svg>`;
+  // Les boutons sont le chemin sûr : ils marchent au doigt, au clavier et sans
+  // molette. La roulette et le glisser ne font que doubler ce qu'ils offrent.
+  const zoom = `<div class="vh-ixmap__zoom" id="vh-ixmap-zoom" hidden>`
+    + `<button type="button" class="vh-ixmap__btn" data-zoom="in" aria-label="Agrandir la carte"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>`
+    + `<button type="button" class="vh-ixmap__btn" data-zoom="out" aria-label="Réduire la carte"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>`
+    + `<button type="button" class="vh-ixmap__btn" data-zoom="reset" aria-label="Revoir la France entière"><i class="fa-solid fa-expand" aria-hidden="true"></i></button>`
+    + `</div>`;
+  return `<div class="vh-ixmap" id="vh-ixmap">${svg}${zoom}</div>`;
 }

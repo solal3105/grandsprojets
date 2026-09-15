@@ -198,15 +198,63 @@ test.describe('0.26 - Hub ville : SSR', () => {
     await expect(page.locator('.vh-ix-region:not([hidden]) .vh-ix-region__meta').first()).toContainText(' sur ');
     await expect(page.locator('#vh-ix-empty')).toBeHidden();
 
-    // Un nom qui n'existe pas : état vide qui dit quoi faire ensuite
-    await page.fill('#vh-ix-q', 'zzzzqqqq');
+    // Un nom qui n'existe pas : on propose de construire la carte de la commune
+    await page.fill('#vh-ix-q', 'Zzzzville');
     await expect(page.locator('#vh-ix-empty')).toBeVisible();
     await expect(page.locator('#vh-ix-count')).toHaveText('Aucune ville');
+    await expect(page.locator('.vh-ix-empty__lead')).toContainText('Zzzzville');
+    await expect(page.locator('#vh-ix-empty-cta')).toHaveAttribute('href', '/demo/?q=Zzzzville');
+    await expect(page.locator('#vh-ix-empty-cta')).toContainText('Zzzzville');
+    // Le pied de page proposerait la même chose au même moment
+    await expect(page.locator('#vh-foot-demo')).toBeHidden();
 
     // Champ vidé : tout revient, compteurs de région compris
     await page.fill('#vh-ix-q', '');
     await expect.poll(() => page.locator('.vh-ville:not([hidden])').count()).toBe(total);
     await expect(page.locator('.vh-ix-region__meta').first()).not.toContainText(' sur ');
+  });
+
+  test('0.26.6g - /ville/ : la carte se grossit, et les villes gardent leur taille', async ({ page }) => {
+    await page.goto('/ville/', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.vh-ixmap__btn[data-zoom="in"]:not([hidden])');
+    const svg = page.locator('#vh-ixmap-svg');
+    const nombres = (s) => String(s || '').trim().split(/\s+/).map(Number);
+    const depart = nombres(await svg.getAttribute('data-viewbox'));
+    const cadre = async () => nombres(await svg.getAttribute('viewBox'));
+    expect(await cadre()).toEqual(depart);
+
+    const point = page.locator('.vh-ixmap__dot').first();
+    const avant = await point.boundingBox();
+    await page.click('.vh-ixmap__btn[data-zoom="in"]');
+    await page.click('.vh-ixmap__btn[data-zoom="in"]');
+    await expect.poll(async () => (await cadre())[2]).toBeLessThan(depart[2]);
+    // Grossir la carte SÉPARE les villes : le point garde sa taille à l'écran
+    const apres = await point.boundingBox();
+    expect(Math.abs(apres.width - avant.width)).toBeLessThan(1.5);
+    // Une fois entré dans la carte, chaque ville visible porte son nom
+    await expect(page.locator('#vh-ixmap')).toHaveClass(/is-labelled/);
+
+    await page.click('.vh-ixmap__btn[data-zoom="reset"]');
+    await expect.poll(cadre).toEqual(depart);
+    await expect(page.locator('#vh-ixmap')).not.toHaveClass(/is-zoomed/);
+  });
+
+  test('0.26.6h - /ville/ : les villes portent le logo de leur collectivité', async ({ page }) => {
+    const html = await (await page.request.get('/ville/')).text();
+    const logos = [...html.matchAll(/class="vh-ville__logo" src="([^"]+)"/g)].map((m) => m[1]);
+    expect(logos.length).toBeGreaterThan(10);
+    // Jamais le logo Open Projets posé par défaut : il ne dirait rien, répété
+    expect(logos.some((u) => u.endsWith('classic_color.png'))).toBe(false);
+    // Les logos de notre stockage sont lisibles par le navigateur, ce qui lui
+    // permet de choisir le fond qui les fait ressortir
+    expect(html).toMatch(/class="vh-ville__logo"[^>]*crossorigin="anonymous"/);
+    // Les villes sans logo propre gardent la pastille de couleur
+    expect(html).toContain('class="vh-ville__dot"');
+
+    await page.goto('/ville/', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.vh-ville__logo');
+    const img = page.locator('.vh-ville__logo').first();
+    await expect.poll(() => img.evaluate((e) => e.complete && e.naturalWidth > 0)).toBe(true);
   });
 
   test('0.26.6f - /ville/ : la barre du haut renvoie à l\'accueil, pas à « la carte »', async ({ page }) => {

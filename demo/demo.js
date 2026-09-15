@@ -1293,5 +1293,15 @@
       .catch(() => attractStart());
   } else {
     attractStart();
+    /* `q=` : un nom tapé ailleurs, qu'on reprend ici. L'index des villes
+       (/ville/) s'en sert quand la commune cherchée n'a pas encore d'espace :
+       le visiteur retrouve son nom déjà écrit, avec les communes proposées. */
+    const nomCherche = (URL_PARAMS.get('q') || '').trim().slice(0, 60);
+    if (nomCherche) {
+      input.value = nomCherche;
+      input.focus();
+      input.setSelectionRange(nomCherche.length, nomCherche.length);
+      fetchSuggestions(nomCherche);
+    }
   }
 })();
