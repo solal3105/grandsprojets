@@ -80,7 +80,7 @@
       </button>
 
       <p v-if="submitted" class="text-center text-sm text-green-600 font-medium">
-        Merci, nous avons bien reçu votre demande. Nous vous répondons par courriel.
+        Merci pour votre demande de démo. Nous reviendrons vers vous dans les meilleurs délais.
       </p>
 
       <p v-if="errorMsg" class="text-center text-sm text-red-600 font-medium">

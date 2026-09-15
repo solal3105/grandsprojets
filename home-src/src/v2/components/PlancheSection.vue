@@ -58,6 +58,15 @@ const base = import.meta.env.BASE_URL
 .planche {
   --p: 0;
   --c: 0;
+  /* Amplitude des trois plans. Sur un ecran large, le socle fait 500 pixels de
+     haut et la capture peut le deborder franchement. Sur un telephone, texte et
+     capture sont empiles et le socle ne fait guere plus que l'image : les memes
+     valeurs sortaient la capture entierement de son cadre pendant le
+     defilement. Le mouvement y est donc reduit, et la capture ne bascule pas. */
+  --socle-y: 24px;
+  --colonne-y: 0px;
+  --ecran-y: -36px;
+  --ecran-rx: 0deg;
   /* La capture sort de son socle par le haut et par le bas : seule la largeur
      est coupee, sinon le debordement lateral des socles creerait une barre de
      defilement horizontale. `clip` est la seule valeur qui laisse l'autre axe
@@ -65,20 +74,23 @@ const base = import.meta.env.BASE_URL
   overflow-x: clip;
   overflow-y: visible;
 }
+@media (min-width: 1024px) {
+  .planche { --socle-y: 96px; --colonne-y: -34px; --ecran-y: -122px; --ecran-rx: 3.4deg; }
+}
 
 .socle {
-  transform: translate3d(0, calc(var(--p) * 96px), 0);
+  transform: translate3d(0, calc(var(--p) * var(--socle-y)), 0);
   will-change: transform;
 }
 .colonne {
-  transform: translate3d(0, calc(var(--p) * -34px), 0);
+  transform: translate3d(0, calc(var(--p) * var(--colonne-y)), 0);
   will-change: transform;
 }
 .ecran {
   transform:
     perspective(1400px)
-    translate3d(0, calc(var(--p) * -122px), 0)
-    rotateX(calc(var(--p) * 3.4deg))
+    translate3d(0, calc(var(--p) * var(--ecran-y)), 0)
+    rotateX(calc(var(--p) * var(--ecran-rx)))
     scale(calc(0.93 + var(--c) * 0.07));
   transform-origin: 50% 50%;
   will-change: transform;
