@@ -2,7 +2,8 @@
  * (Remotion, voix ElevenLabs). Les fichiers vivent à la racine du site, dans
  * /video/ (voir video/README.md) ; la transcription est le texte dit, mot pour
  * mot : c'est elle que les moteurs lisent, la vidéo ne leur dit rien.
- * `duree` est en secondes. */
+ * `duree` est en secondes, `publieLe` est une date ISO 8601 complète avec son
+ * fuseau : Google refuse une date de publication sans heure ni décalage. */
 import { SITE_URL } from '@/data/siteUrls.js'
 
 export const videoPresentation = {
@@ -11,7 +12,7 @@ export const videoPresentation = {
   fichier: '/video/open-projets-presentation.mp4',
   affiche: '/video/open-projets-presentation.webp',
   duree: 294,
-  publieLe: '2026-09-10',
+  publieLe: '2026-09-10T09:00:00+02:00',
   transcription: [
       "Bienvenue à la découverte d'Open Projets. Open Projets, c'est cinq modules qui travaillent en synergie pour améliorer le quotidien des équipes de votre collectivité, et améliorer l'information des habitants. Alors pour vous montrer comment tous ces modules fonctionnent ensemble, nous allons prendre un exemple de projet que vous pourriez porter.",
       "Au départ, tout projet vit dans une délibération, dans un PDF quelque part sur le site de la mairie, peut-être dans le bulletin municipal. Autrement dit, seuls vos habitants les plus aguerris découvriront ce projet, ou bien ils le découvriront par la presse, dans un endroit où la communication ne sera pas maîtrisée par la collectivité. C'est exactement pour cette raison qu'on a construit notre première carte publique. Tous vos projets urbains et d'aménagement du territoire ont vocation à être présentés sur cette carte. Chaque projet a ainsi sa page, avec ses mots, ses images, ses documents de concertation. Grâce à elle, vos habitants comprendront immédiatement ce qui est prévu à côté de chez eux, sur leur chemin vers le travail, et votre communication est maîtrisée. Et quand quelqu'un tape le nom de son quartier sur internet, c'est votre présentation du projet qu'il trouve, avec une interface qualitative et ergonomique.",
