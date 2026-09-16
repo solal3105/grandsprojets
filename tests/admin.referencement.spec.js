@@ -156,10 +156,14 @@ test.describe('19.2 - Référencement : l\'écran', () => {
     const total = await page.locator('.idx-row').count();
     expect(total).toBeGreaterThan(1);
 
+    // La recherche est différée de 200 ms : on attend que la liste soit filtrée,
+    // sinon l'assertion lit encore les 100 et quelques espaces de départ.
     await page.fill('#idx-search', 'TEST-E2E');
+    await page.waitForFunction(() => {
+      const rows = [...document.querySelectorAll('.idx-row')];
+      return rows.length > 0 && rows.every((el) => (el.getAttribute('data-ville') || '').includes('test-e2e'));
+    }, { timeout: 5000 });
     await expect(page.locator('.idx-row[data-ville="test-e2e"]')).toBeVisible();
-    const villes = await page.locator('.idx-row').evaluateAll((els) => els.map((el) => el.getAttribute('data-ville')));
-    for (const v of villes) expect(v).toContain('test-e2e');
 
     await page.fill('#idx-search', 'zzz-inexistant-zzz');
     await expect(page.locator('#idx-list .adm-empty__title')).toHaveText('Aucun espace ne correspond à cette recherche');
