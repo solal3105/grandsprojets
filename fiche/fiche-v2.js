@@ -981,6 +981,8 @@
 
     // La ville est celle de la contribution en DB (contribution_uploads.ville → city_branding)
     const ville = data.ville || villeSlug || null;
+    const provenance = document.getElementById('fv2-provenance');
+    if (provenance) provenance.hidden = !/^essai-/i.test(String(ville || ''));
 
     // Une fiche réellement consultée, avec sa ville : c'est la mesure qui dit à
     // une collectivité quels projets intéressent ses habitants.

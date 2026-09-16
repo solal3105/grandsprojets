@@ -8,6 +8,12 @@
         "value": "inter",
         "createdAt": "2026-09-14T11:04:08.476Z",
         "reason": "Inter et Space Grotesk sont les polices de la marque (home-src/tailwind.config.js), reprises dans les pages servies par les edge functions"
+      },
+      {
+        "rule": "overused-font",
+        "value": "space grotesk",
+        "createdAt": "2026-09-16T20:33:19.657Z",
+        "reason": "Space Grotesk est la police de titre de la marque, déjà choisie dans home-src/tailwind.config.js et les fiches."
       }
     ]
   }

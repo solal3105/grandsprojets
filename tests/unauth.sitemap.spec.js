@@ -8,6 +8,21 @@ import { test, expect } from '@playwright/test';
 
 const SITEMAP = '/sitemap.xml';
 const LLMS = '/llms.txt';
+let sitemapXml = '';
+
+test.beforeAll(async ({ request }) => {
+  const index = await (await request.get(SITEMAP)).text();
+  const paths = [...index.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
+  expect(paths).toEqual(['/sitemap-pages.xml', '/sitemap-villes.xml', '/sitemap-fiches.xml']);
+  sitemapXml = (await Promise.all(paths.map(async (path) => {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(200);
+    expect(response.headers()['content-type']).toContain('xml');
+    const xml = await response.text();
+    expect(xml.trim().endsWith('</urlset>')).toBe(true);
+    return xml;
+  }))).join('\n');
+});
 
 /** Entrées <url> du sitemap : { loc, lastmod } */
 function parseUrls(xml) {
@@ -26,11 +41,12 @@ test.describe('0.66 - sitemap.xml : plan du site', () => {
     const xml = await res.text();
     expect(xml.startsWith('<?xml')).toBe(true);
     expect(xml).not.toContain('<!DOCTYPE html>');
-    expect(xml.trim().endsWith('</urlset>')).toBe(true);
+    expect(xml.trim().endsWith('</sitemapindex>')).toBe(true);
+    expect(xml).not.toContain('<lastmod>');
   });
 
-  test('0.66.2 - Les pages d\'entrée du site sont présentes, sans date inventée', async ({ request }) => {
-    const urls = parseUrls(await (await request.get(SITEMAP)).text());
+  test('0.66.2 - Les pages d\'entrée du site sont présentes, sans date inventée', async () => {
+    const urls = parseUrls(sitemapXml);
     const byLoc = new Map(urls.map((u) => [u.loc, u]));
     for (const path of ['/', '/carte', '/travaux', '/participer', '/tarification', '/ressources', '/aide', '/ville/', '/cartes/', '/demo/', '/ville/metropole-lyon/carte']) {
       const entry = byLoc.get(`https://openprojets.com${path}`);
@@ -41,10 +57,10 @@ test.describe('0.66 - sitemap.xml : plan du site', () => {
     }
   });
 
-  test('0.66.3 - Les fiches ne s\'arrêtent pas au premier millier de lignes de la base', async ({ request }) => {
+  test('0.66.3 - Les fiches ne s\'arrêtent pas au premier millier de lignes de la base', async () => {
     // PostgREST plafonne chaque réponse à 1 000 lignes : sans lecture paginée,
     // le sitemap ne contenait plus une seule fiche des collectivités réelles
-    const urls = parseUrls(await (await request.get(SITEMAP)).text());
+    const urls = parseUrls(sitemapXml);
     const fiches = urls.filter((u) => u.loc.includes('/fiche/'));
     const villes = urls.filter((u) => /\/ville\/[a-z0-9-]+$/.test(u.loc));
     expect(fiches.length).toBeGreaterThan(1000);
@@ -53,18 +69,31 @@ test.describe('0.66 - sitemap.xml : plan du site', () => {
     expect(villes.some((u) => !u.loc.includes('/ville/essai-'))).toBe(true);
   });
 
-  test('0.66.4 - Aucune adresse en double, aucune entrée de test', async ({ request }) => {
-    const urls = parseUrls(await (await request.get(SITEMAP)).text());
+  test('0.66.4 - Aucune adresse en double, aucune entrée de test', async () => {
+    const urls = parseUrls(sitemapXml);
     const locs = urls.map((u) => u.loc);
     expect(new Set(locs).size).toBe(locs.length);
     expect(locs.every((l) => l.startsWith('https://openprojets.com/'))).toBe(true);
     expect(locs.some((l) => /\/fiche\/[^/]+\/[^/]+\/e2e[-_]/i.test(l))).toBe(false);
+    expect(locs.some((l) => l.includes('/fiche/essai-'))).toBe(true);
   });
 
-  test('0.66.5 - Chaque fiche porte sa date et, quand elle en a une, son image', async ({ request }) => {
-    const xml = await (await request.get(SITEMAP)).text();
+  test('0.66.9 - Chaque sous-plan ne contient que ses pages', async ({ request }) => {
+    const pages = parseUrls(await (await request.get('/sitemap-pages.xml')).text());
+    const villes = parseUrls(await (await request.get('/sitemap-villes.xml')).text());
+    const fiches = parseUrls(await (await request.get('/sitemap-fiches.xml')).text());
+    expect(pages.some((u) => u.loc.includes('/ressources/'))).toBe(true);
+    expect(pages.every((u) => !/\/(ville|fiche)\//.test(u.loc))).toBe(true);
+    expect(villes.every((u) => u.loc.includes('/ville/'))).toBe(true);
+    expect(fiches.every((u) => u.loc.includes('/fiche/'))).toBe(true);
+  });
+
+  test('0.66.5 - Chaque fiche porte sa date et, quand elle en a une, son image', async () => {
+    const xml = sitemapXml;
     const blocks = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((m) => m[1]).filter((b) => b.includes('/fiche/'));
     expect(blocks.length).toBeGreaterThan(0);
+    expect(xml).not.toContain('<image:title>');
+    expect(xml).not.toContain('<image:caption>');
     for (const b of blocks.slice(0, 200)) {
       expect(b).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
     }
@@ -77,7 +106,7 @@ test.describe('0.66 - sitemap.xml : plan du site', () => {
 
   test('0.66.6 - llms.txt liste exactement les mêmes fiches que le sitemap', async ({ request }) => {
     const [xml, txt] = await Promise.all([
-      request.get(SITEMAP).then((r) => r.text()),
+      Promise.resolve(sitemapXml),
       request.get(LLMS).then((r) => r.text()),
     ]);
     const fromSitemap = new Set(parseUrls(xml).map((u) => u.loc).filter((l) => l.includes('/fiche/')));
@@ -88,7 +117,7 @@ test.describe('0.66 - sitemap.xml : plan du site', () => {
 
   test('0.66.7 - Le sitemap et l\'index /ville/ relient les mêmes villes', async ({ request }) => {
     const [xml, html] = await Promise.all([
-      request.get(SITEMAP).then((r) => r.text()),
+      Promise.resolve(sitemapXml),
       request.get('/ville/').then((r) => r.text()),
     ]);
     const fromSitemap = new Set(parseUrls(xml).map((u) => u.loc).filter((l) => /\/ville\/[a-z0-9-]+$/.test(l)).map((l) => l.split('/ville/')[1]));
@@ -103,7 +132,7 @@ test.describe('0.66 - sitemap.xml : plan du site', () => {
    * des villes ne le relie plus. Les pages restent lisibles par lien. */
   test('0.66.8 - Un espace retiré des moteurs est servi mais ni référencé ni indexable', async ({ request }) => {
     const [xml, llms, index] = await Promise.all([
-      request.get(SITEMAP).then((r) => r.text()),
+      Promise.resolve(sitemapXml),
       request.get(LLMS).then((r) => r.text()),
       request.get('/ville/').then((r) => r.text()),
     ]);

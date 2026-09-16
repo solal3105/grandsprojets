@@ -12,6 +12,8 @@
    home-src/src/v2/router.js. Les deux doivent rester identiques (docs/seo.md).
    ============================================================================ */
 
+import { resourceSeo } from '../../home-src/src/lib/resource-seo.mjs';
+
 const BASE_ORIGIN = 'https://openprojets.com';
 
 const DEFAULT = {
@@ -128,8 +130,7 @@ async function ressourceMeta(path) {
   const article = manifest?.find((a) => a.slug === slug);
   if (!article) return null;
   return {
-    title: `${article.title} | Open Projets`,
-    description: article.description,
+    ...resourceSeo(article),
     canonical: `${BASE_ORIGIN}/ressources/${article.slug}`,
     article,
   };

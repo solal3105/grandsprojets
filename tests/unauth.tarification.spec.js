@@ -74,7 +74,7 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     const cache = await request.get(`${PAGE}/estimation?population=12000&modules=carte&annees=1`);
     expect(cache.headers()['x-robots-tag'] || '').toContain('noindex');
     // Et le plan du site la liste
-    expect(await (await request.get('/sitemap.xml')).text()).toContain('<loc>https://openprojets.com/tarification</loc>');
+    expect(await (await request.get('/sitemap-pages.xml')).text()).toContain('<loc>https://openprojets.com/tarification</loc>');
   });
 
   test('0.39.1 - la page est dans le menu et s\'ouvre sur une petite ville avec la carte seule', async ({ page }) => {

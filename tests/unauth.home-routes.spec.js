@@ -121,7 +121,7 @@ test.describe('0.39 - Routes du site vitrine', () => {
   test('0.39.7 - La page Hélios n\'est reliée nulle part sur le site', async ({ page, request }) => {
     await visiter(page, '/');
     expect(await page.locator('a[href="/helios"]').count()).toBe(0);
-    expect(await (await request.get('/sitemap.xml')).text()).not.toContain('/helios');
+    expect(await (await request.get('/sitemap-pages.xml')).text()).not.toContain('/helios');
   });
 
   for (const { de, vers, hash } of REDIRECTIONS) {

@@ -12,6 +12,8 @@
    projet sont de toute façon déclarées explicitement dans netlify.toml.
    ============================================================================ */
 
+import { fetchProjectResponse } from '../../lib/project-seo.mjs';
+
 export const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
 export const BASE_ORIGIN = 'https://openprojets.com';
@@ -148,7 +150,7 @@ const supaHeaders = {
 export async function fetchRows(path, params) {
   const url = new URL(`/rest/v1/${path}`, SUPABASE_URL);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const resp = await fetch(url.toString(), { headers: supaHeaders });
+  const resp = await (path === 'contribution_uploads' ? fetchProjectResponse : fetch)(url.toString(), { headers: supaHeaders });
   if (!resp.ok) return [];
   const rows = await resp.json();
   return Array.isArray(rows) ? rows : [];

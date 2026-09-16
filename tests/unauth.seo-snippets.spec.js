@@ -21,7 +21,8 @@ let VILLE_URL = null;
 let FICHE_URL = null;
 
 test.beforeAll(async ({ request }) => {
-  const xml = await (await request.get('/sitemap.xml')).text();
+  const xml = (await Promise.all(['villes', 'fiches'].map(async (section) =>
+    (await request.get(`/sitemap-${section}.xml`)).text()))).join('\n');
   const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
   const chemin = (u) => u.replace(/^https?:\/\/[^/]+/, '');
   VILLE_URL = chemin(locs.find(u => /\/ville\/[^/]+$/.test(u)) || '');

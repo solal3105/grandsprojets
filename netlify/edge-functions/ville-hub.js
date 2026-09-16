@@ -36,6 +36,7 @@ import {
 } from './_lib/seo.js';
 // Carte de France en SVG de l'index des villes (tracés + projection)
 import { renderFranceMap } from './_lib/france-map.js';
+import { isGeneratedSpace } from '../lib/project-seo.mjs';
 
 // Storage : seules les URLs de notre propre projet Supabase sont servies
 const SUPABASE_HOST = new URL(SUPABASE_URL).host;
@@ -269,6 +270,7 @@ function buildContent({ villeSlug, villeLabel, projects, categories, branding, t
           </nav>
           <h1 class="vh-hero__title">${escHtml(villeLabel)} : les projets urbains</h1>
           <p class="vh-hero__intro">${n} ${projectWord}${multiCat ? ` dans ${categories.length} catégories` : ''}. Chacun a sa description, son avancement et sa place sur la carte.</p>
+          ${isGeneratedSpace(villeSlug) ? '<p class="vh-hero__intro">Ces projets sont recensés par Open Projets à partir de sources publiques, sans participation de la commune.</p>' : ''}
           <a class="vh-cta" id="vh-open-map" href="${escAttr(mapAppUrl)}">
             <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
             <span>Ouvrir la carte interactive</span>
@@ -762,7 +764,7 @@ export default async (request, context) => {
   // base : leur libellé est saisi par la collectivité, on ne le donne pas à
   // lire tel quel dans les résultats de recherche.
   const metaDesc = summarize(
-    `${villeLabel} publie ${frNumber(projects.length)} ${projects.length > 1 ? 'projets' : 'projet'} sur Open Projets : pour chacun, sa description, son avancement et sa place sur la carte.`,
+    `${frNumber(projects.length)} ${projects.length > 1 ? 'projets recensés' : 'projet recensé'} sur le territoire de ${villeLabel} : pour chacun, sa description, son avancement et sa place sur la carte.`,
     160
   );
   const ogImage = absUrl(projects.find(p => p.cover_url)?.cover_url)

@@ -673,7 +673,7 @@ test.describe('0.8 - Fiche : SSR', () => {
     // La page de référence se désigne elle-même, et le doublon reste indexable
     const refHtml = await (await page.request.get(refUrl)).text();
     expect(refHtml.match(/rel="canonical"\s+href="([^"]*)"/)?.[1]).toBe(`https://openprojets.com${refUrl}`);
-    const sitemap = await (await page.request.get('/sitemap.xml')).text();
+    const sitemap = await (await page.request.get('/sitemap-fiches.xml')).text();
     expect(sitemap).toContain(`https://openprojets.com${refUrl}</loc>`);
     expect(sitemap).not.toContain(`https://openprojets.com${ficheUrl(pair.dup.slug, pair.dup.category_slug, pair.dup.ville)}</loc>`);
   });

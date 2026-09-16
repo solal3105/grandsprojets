@@ -27,6 +27,7 @@ import {
   isValidCityCode,
   fetchRows,
 } from './_lib/seo.js';
+import { isGeneratedSpace, projectModifiedAt } from '../lib/project-seo.mjs';
 
 /* ─── Markdown → HTML (rendu serveur, sans dépendance) ───
    Sous-ensemble de ce que rend le client (marked + DOMPurify) : titres,
@@ -240,7 +241,7 @@ function mdToHtml(rawMd) {
 
 function fetchProjectBySlug(villeSlug, categorySlug, projSlug) {
   return fetchRows('contribution_uploads', {
-    select: 'project_name,description,cover_url,official_url,geojson_url,markdown_url,category,category_slug,slug,ville,created_at',
+    select: 'project_name,description,cover_url,official_url,geojson_url,markdown_url,category,category_slug,slug,ville,created_at,content_updated_at',
     category_slug: `eq.${categorySlug}`,
     slug: `eq.${projSlug}`,
     ville: `eq.${villeSlug}`,
@@ -364,14 +365,16 @@ async function fetchMarkdownArticle(markdownUrl) {
 function buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, structureName, articlePlain) {
   const name = project.project_name;
   const defaultDesc = structureName
-    ? `Découvrez ${name}, projet ${catLabel} porté par ${structureName}.`
+    ? `Découvrez ${name}, projet ${catLabel} sur le territoire de ${structureName}.`
     : `Découvrez le projet ${catLabel} : ${name}.`;
   const desc = summarize(stripMarkdown(project.description || '') || articlePlain || defaultDesc, 300);
   const cover = project.cover_url || `${BASE_ORIGIN}/img/cover/meta.png`;
-  const created = project.created_at ? new Date(project.created_at).toISOString() : undefined;
+  const created = projectModifiedAt({ created_at: project.created_at });
+  const modified = projectModifiedAt(project);
 
-  const publisherName = structureName || 'Open Projets';
-  const publisherLogo = cityBrand?.logo_url || `${BASE_ORIGIN}/img/logos/classic_color-1.png`;
+  const generated = isGeneratedSpace(project.ville);
+  const publisherName = generated ? 'Open Projets' : structureName || 'Open Projets';
+  const publisherLogo = (!generated && cityBrand?.logo_url) || `${BASE_ORIGIN}/img/logos/classic_color.png`;
 
   const ld = {
     '@context': 'https://schema.org',
@@ -397,10 +400,8 @@ function buildArticleJsonLd(project, category, catLabel, canonical, cityBrand, s
     },
   };
 
-  if (created) {
-    ld.datePublished = created;
-    ld.dateModified = created;
-  }
+  if (created) ld.datePublished = created;
+  if (modified) ld.dateModified = modified;
 
   if (structureName) {
     ld.about = {
@@ -483,6 +484,10 @@ function buildSsrContentBlock(project, category, catLabel, related, cityBrand, s
   html += `
       </div>
     </header>`;
+
+  if (isGeneratedSpace(ville)) {
+    html += '<p>Cette fiche est publiée par Open Projets à partir de sources publiques, sans participation de la commune.</p>';
+  }
 
   // Article complet si disponible (même logique que le client : la description
   // est masquée quand un markdown existe). .fv2-prose = typographie partagée
@@ -568,7 +573,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
     || (project.ville ? humanizeCategory(project.ville) : '');
 
   const defaultDesc = structureName
-    ? `Découvrez ${name}, projet ${catLabel} porté par ${structureName}.`
+    ? `Découvrez ${name}, projet ${catLabel} sur le territoire de ${structureName}.`
     : `Découvrez ${name}, un projet ${catLabel}.`;
   // Description : celle du projet, sinon un extrait de l'article, sinon le générique
   const metaDesc = summarize(stripMarkdown(project.description || '') || articlePlain || defaultDesc, 160);
@@ -593,7 +598,7 @@ function injectIntoHtml(html, project, category, catLabel, canonical, related, c
   );
 
   // 3. Open Graph - site_name dynamique (nom de la structure)
-  const ogSiteName = structureName || 'Open Projets';
+  const ogSiteName = isGeneratedSpace(project.ville) ? 'Open Projets' : structureName || 'Open Projets';
   html = html.replace(
     /(<meta\s+property="og:site_name"\s+content=")[^"]*"/,
     (_, p1) => `${p1}${escAttr(ogSiteName)}"`

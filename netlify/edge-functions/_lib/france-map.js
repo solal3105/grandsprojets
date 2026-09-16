@@ -166,7 +166,7 @@ function inset(i) {
  */
 export function renderFranceMap(villes) {
   const { viewBox, land, insets, pins } = layoutMap(villes);
-  const titre = `Carte de France : ${frNumber(villes.length)} villes qui publient leurs projets`;
+  const titre = `Carte de France : les projets recensés dans ${frNumber(villes.length)} villes`;
   // data-viewbox garde le cadrage d'origine : c'est le repère du zoom et du
   // bouton qui remet la carte d'aplomb (ville/ville-hub.js).
   const svg = `<svg class="vh-ixmap__svg" id="vh-ixmap-svg" viewBox="${viewBox}" data-viewbox="${viewBox}"`

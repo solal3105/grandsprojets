@@ -17,7 +17,10 @@ base de données, pages servies en production).
 | `/fiche/{ville}/{catégorie}/{slug}` | edge `fiche-ssr` | fil d'Ariane, titre, article markdown rendu en HTML, description, image, projets liés du même espace, lien vers le hub |
 | `/cartes/` | edge `cartes` | la liste des communes qui ont une carte d'essai |
 | `/demo/` | statique | l'écran de démonstration |
-| `/sitemap.xml` | fonction `sitemap` | toutes les adresses ci-dessus |
+| `/sitemap.xml` | fonction `sitemap` | index des trois sous-plans ci-dessous |
+| `/sitemap-pages.xml` | fonction `sitemap-pages` | site vitrine, guides Ressources, catalogue et démo |
+| `/sitemap-villes.xml` | fonction `sitemap-villes` | index des villes, hubs et modules publics des espaces indexables |
+| `/sitemap-fiches.xml` | fonction `sitemap-fiches` | fiches canoniques et images de couverture |
 | `/llms.txt` | fonction `llms-txt` | le même inventaire, en markdown, pour les assistants IA |
 
 Un espace entier peut être retiré des moteurs sans être fermé :
@@ -93,10 +96,40 @@ production ne contenait plus aucune fiche des collectivités réelles. Toute
 lecture complète d'une table passe par `fetchAllRows` (fonctions Node dans
 `projects-index.mjs`, edge dans `_lib/seo.js`).
 
-Le sitemap ne porte pas de `lastmod` sur les pages statiques : Google ignore
-les dates qu'il constate fausses, puis toutes celles du site. Les fiches
-portent leur date de création, les villes la date de leur fiche la plus
-récente, les guides leur date de mise à jour.
+L'adresse `/sitemap.xml` reste déclarée dans `robots.txt` et Search Console.
+Elle liste trois sous-plans, ce qui permet de suivre séparément les pages,
+les villes et les fiches. Les espaces `essai-*` restent indexables selon le
+même réglage `city_branding.indexable`. Les images gardent `image:loc` ; les
+anciennes balises `image:title` et `image:caption` ne sont plus émises.
+
+Le sitemap ne porte pas de `lastmod` sur les pages statiques ni sur l'index :
+une date de génération ne prouve pas une modification. Les fiches portent
+`content_updated_at`, avec repli sur `created_at` pour l'historique inconnu.
+Le JSON-LD conserve `created_at` dans `datePublished` et utilise la même date
+éditoriale dans `dateModified`. Un hub reprend la modification la plus récente
+de ses fiches, même si la fiche modifiée est ancienne. Les guides gardent leur
+date `updated` ou `date` issue du frontmatter.
+
+La migration `20260916205020_fiches_date_editoriale.sql` ajoute le champ et
+le trigger `contribution_content_updated`. Celui-ci suit les changements du
+titre, de la description, de la catégorie, de l'adresse, des liens d'article,
+d'image et de géométrie, du lien officiel, des métadonnées publiques, des tags
+et de l'approbation. Les articles déposés depuis l'admin reçoivent une nouvelle
+URL à chaque sauvegarde. Un fichier remplacé directement dans Storage à la
+même adresse doit aussi faire évoluer sa référence dans la fiche pour que
+sa modification soit signalée. Une sauvegarde identique conserve la date ;
+le client ne peut pas imposer une autre date. Aucune date historique n'est
+inventée lors de la migration.
+
+Appliquer cette migration Supabase avant ou avec le déploiement. Si le code
+arrive avant elle, la lecture réessaie sans le nouveau champ uniquement pour
+l'erreur SQL « colonne absente » et garde la date de création. Les autres
+erreurs ne sont pas masquées. Le test SQL autonome
+`tests/sql/project-content-updates.sql` vérifie le trigger dans une table
+temporaire avec rollback, sans modifier les fiches de l'application.
+
+Si le manifest des guides est indisponible, le sous-plan des pages répond
+en erreur au lieu de publier un inventaire tronqué.
 
 ## Doublons
 
@@ -118,6 +151,22 @@ puis le plus ancien) et répond par une redirection 301 vers l'adresse
 canonique. Sans correspondance, la page est servie en `noindex`.
 
 ## Titres
+
+Les guides Ressources appliquent automatiquement `resourceSeo` de
+`home-src/src/lib/resource-seo.mjs` dans la vue et dans `home-seo`. Le
+prérendu utilise cette même vue. Le titre tient en 60 caractères : un
+sous-titre après deux-points peut être retiré, puis la marque si nécessaire,
+avec une coupure au mot en dernier recours. La description tient en 160
+caractères, en gardant des phrases entières si possible, sinon une ellipse.
+Le H1 et l'introduction visibles restent complets. Ajouter un nouveau guide
+ne demande aucun champ SEO supplémentaire ni modification du routeur.
+
+Les hubs parlent de projets « recensés sur le territoire ». Sur les espaces
+`essai-*`, une mention visible sur le hub et les fiches précise qu'Open Projets
+les publie à partir de sources publiques, sans participation de la commune.
+Le `publisher` des fiches et leur `og:site_name` désignent Open Projets ; la
+ville reste le sujet (`about`), le titre et le fil d'Ariane. Les espaces des
+collectivités conservent leur attribution.
 
 - Carte (`/ville/{ville}/carte`) : `{nom de la structure} : la carte des projets et des travaux | Open Projets`, le suffixe sacrifié si le nom est long ; `/travaux` et `/participer` ont leur propre formule (edge `carte-seo`). Chaque espace a aussi sa page `/ville/{ville}`.
 - Accueil du site (`/`) : « La carte des projets de votre collectivité | Open Projets » ; pages de modules : « Carte des projets urbains de votre commune », « Les travaux du quotidien sur une carte »… (routeur et edge `home-seo`).

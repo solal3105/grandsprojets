@@ -147,6 +147,7 @@ import SolutionShowcase from '@/components/SolutionShowcase.vue'
 import RessourceCouverture from '@/components/RessourceCouverture.vue'
 import { articleBySlug, articlesLies, teintePourArticle, formatDateFr } from '@/data/ressources.js'
 import { setMeta, setCanonical } from '@/lib/head.js'
+import { resourceSeo } from '@/lib/resource-seo.mjs'
 
 const BASE = 'https://openprojets.com'
 // Hauteur de l'en-tête fixe, plus une respiration : une ancre qui atterrit
@@ -242,14 +243,15 @@ watch(
       router.replace('/ressources')
       return
     }
-    const title = `${a.title} | Open Projets`
+    const { title, description } = resourceSeo(a)
     const canonical = `${BASE}/ressources/${a.slug}`
     document.title = title
     setMeta('og:title', title, 'property')
     setMeta('twitter:title', title, 'name')
-    setMeta('description', a.description)
-    setMeta('og:description', a.description, 'property')
-    setMeta('twitter:description', a.description)
+    setMeta('description', description)
+    setMeta('og:description', description, 'property')
+    setMeta('twitter:description', description)
+    setMeta('robots', 'index, follow')
     setCanonical(canonical)
     setMeta('og:url', canonical, 'property')
     // Passer d'un guide a l'autre remonte le sommaire et l'avancement.

@@ -34,7 +34,8 @@ test.describe('Ressources - article', () => {
   test('0.31.3 - la page article rend le titre, les metas et le contenu', async ({ page }) => {
     await page.goto(ARTICLE_PATH, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('h1')).toContainText('plan de mandat 2026-2032');
-    await expect(page).toHaveTitle(/plan de mandat 2026-2032.*Open Projets/);
+    await expect(page).toHaveTitle(/plan de mandat 2026-2032/);
+    expect((await page.title()).length).toBeLessThanOrEqual(60);
     const canonical = page.locator('link[rel="canonical"]');
     await expect(canonical).toHaveAttribute('href', `https://openprojets.com${ARTICLE_PATH}`);
     // Corps de l'article rendu (markdown -> HTML)

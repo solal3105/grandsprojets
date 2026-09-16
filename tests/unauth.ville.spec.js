@@ -265,7 +265,7 @@ test.describe('0.26 - Hub ville : SSR', () => {
 
   test('0.26.7 - Le sitemap référence le hub de la ville', async ({ page }) => {
     test.skip(!CITY, 'Aucune ville trouvée en base');
-    const response = await page.request.get('/sitemap.xml');
+    const response = await page.request.get('/sitemap-villes.xml');
     const xml = await response.text();
     expect(xml).toContain(`https://openprojets.com/ville/${encodeURIComponent(CITY.ville)}`);
   });

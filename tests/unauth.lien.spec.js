@@ -140,7 +140,7 @@ test.describe('0.74 Fabrique de liens - les adresses courtes', () => {
   });
 
   test('0.74.9 ni la fabrique ni les adresses courtes ne sont dans le plan du site', async ({ request }) => {
-    const xml = await (await request.get('/sitemap.xml')).text();
+    const xml = await (await request.get('/sitemap-pages.xml')).text();
     expect(xml).not.toContain('openprojets.com/lien');
     expect(xml).not.toContain('openprojets.com/l/');
   });

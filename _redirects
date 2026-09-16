@@ -95,6 +95,9 @@
 
 # /sitemap.xml - routage explicite vers la fonction Netlify
 /sitemap.xml        /.netlify/functions/sitemap  200
+/sitemap-pages.xml  /.netlify/functions/sitemap-pages  200
+/sitemap-villes.xml /.netlify/functions/sitemap-villes 200
+/sitemap-fiches.xml /.netlify/functions/sitemap-fiches 200
 
 # API Phaos SSO - doit être avant le catch-all /*
 /api/auth/token     /.netlify/functions/auth-token  200

@@ -14,6 +14,7 @@
  */
 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './http.mjs';
+import { fetchProjectResponse, projectModifiedAt } from '../../lib/project-seo.mjs';
 
 export const BASE_ORIGIN = 'https://openprojets.com';
 
@@ -38,7 +39,7 @@ export async function fetchAllRows(table, params) {
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     url.searchParams.set('limit', String(PAGE_SIZE));
     url.searchParams.set('offset', String(page * PAGE_SIZE));
-    const resp = await fetch(url.toString(), { headers: supaHeaders });
+    const resp = await (table === 'contribution_uploads' ? fetchProjectResponse : fetch)(url.toString(), { headers: supaHeaders });
     if (!resp.ok) {
       const txt = await resp.text().catch(() => '');
       throw new Error(`Supabase ${table} ${resp.status}: ${txt.slice(0, 200)}`);
@@ -90,7 +91,7 @@ export async function fetchNoindexVilles() {
  *   toujours ajoutées)
  */
 export async function fetchIndexableProjects(select = '') {
-  const REQUIRED = ['project_name', 'category', 'category_slug', 'slug', 'ville', 'markdown_url', 'description', 'created_at'];
+  const REQUIRED = ['project_name', 'category', 'category_slug', 'slug', 'ville', 'markdown_url', 'description', 'created_at', 'content_updated_at'];
   const cols = [...new Set([...REQUIRED, ...select.split(',').map((c) => c.trim()).filter(Boolean)])];
   const [rows, noindex] = await Promise.all([
     fetchAllRows('contribution_uploads', {
@@ -126,17 +127,19 @@ export async function fetchIndexableProjects(select = '') {
 }
 
 /**
- * Villes ayant au moins une fiche référençable, avec la date de leur fiche la
- * plus récente. Entrée : la liste renvoyée par fetchIndexableProjects (triée
- * de la plus récente à la plus ancienne).
+ * Villes ayant au moins une fiche référençable, avec leur modification la
+ * plus récente, même lorsqu'elle concerne une fiche ancienne.
  * @returns {Map<string, {lastmod: string|null, count: number}>}
  */
 export function groupByVille(projects) {
   const villes = new Map();
   for (const p of projects) {
     const ville = String(p.ville).toLowerCase();
-    if (!villes.has(ville)) villes.set(ville, { lastmod: toDay(p.created_at), count: 0 });
-    villes.get(ville).count += 1;
+    const lastmod = toDay(projectModifiedAt(p));
+    if (!villes.has(ville)) villes.set(ville, { lastmod, count: 0 });
+    const info = villes.get(ville);
+    if (lastmod && (!info.lastmod || lastmod > info.lastmod)) info.lastmod = lastmod;
+    info.count += 1;
   }
   return villes;
 }
