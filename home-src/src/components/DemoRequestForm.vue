@@ -180,15 +180,15 @@ async function handleSubmit() {
       referrer: props.referrer,
     }
 
-    const { data: insertedData, error } = await supabase
-      .from('contact_requests')
-      .insert(payload)
-      .select()
-      .single()
+    // Pas de `.select()` après l'insertion : demander la ligne en retour exige
+    // le droit de lecture sur la table, et les demandes de contact ne sont plus
+    // lisibles que par un super administrateur. La notification part avec ce
+    // qu'on vient d'écrire, qui contient déjà tout ce que le message affiche.
+    const { error } = await supabase.from('contact_requests').insert(payload)
 
     if (error) throw error
 
-    supabase.functions.invoke('clever-endpoint', { body: insertedData }).catch(() => {})
+    supabase.functions.invoke('clever-endpoint', { body: payload }).catch(() => {})
 
     // La conversion du site vitrine. `referrer` dit d'où vient la demande
     // (page d'accueil, page alternative, bannière de la carte...), l'identité
