@@ -21,6 +21,11 @@
   path = "/*"
   function = "domain-redirect"
 
+# Les adresses courtes partagées par l'équipe commerciale (page /lien)
+[[edge_functions]]
+  path = "/l/*"
+  function = "lien-court"
+
 # Les anciennes adresses de la carte portées par la racine (?city=, ?cat=...)
 [[edge_functions]]
   path = "/"

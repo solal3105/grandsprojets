@@ -14,6 +14,7 @@
     "lucide-vue-next": "^0.344.0",
     "maplibre-gl": "^4.7.1",
     "marked": "^16.4.2",
+    "qrcode-generator": "^2.0.4",
     "vue": "^3.4.0",
     "vue-router": "^4.3.0"
   },

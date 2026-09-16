@@ -162,6 +162,15 @@ const routes = [
       robots: 'noindex, nofollow',
     },
   },
+  {
+    /* La fabrique de liens de l'équipe commerciale : on y colle une adresse,
+       on dit où on va la partager, et on repart avec un lien marqué (utm_*)
+       que PostHog reconnaît. Hors du menu, du plan du site et des moteurs. */
+    path: '/lien',
+    name: 'lien',
+    component: () => import('./views/LienView.vue'),
+    meta: { title: 'Fabriquez un lien à partager | Open Projets', robots: 'noindex, nofollow' },
+  },
   // Les pages de l'ancien site absorbées par l'accueil, et les liens déjà partagés
   { path: '/fonctionnalites', redirect: '/' },
   { path: '/contact', redirect: { path: '/', hash: '#contact' } },
