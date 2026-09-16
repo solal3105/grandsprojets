@@ -14,7 +14,7 @@
    se poser de question.
    ============================================================================ */
 
-import { analyserCible, CODE_VALIDE } from '../../home-src/src/lib/utm.mjs';
+import { validerCible, CODE_VALIDE } from '../../home-src/src/lib/utm.mjs';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 const SITE = 'https://openprojets.com';
@@ -90,7 +90,9 @@ export default async (req) => {
     return json(409, { error: 'Cette fin d’adresse est déjà celle d’une page du site. Choisissez-en une autre.' });
   }
 
-  const { url: cible, erreur } = analyserCible(body?.target_url);
+  // validerCible, pas analyserCible : la cible arrive déjà marquée et ses
+  // marqueurs doivent arriver intacts au bout de la redirection.
+  const { url: cible, erreur } = validerCible(body?.target_url);
   if (!cible) return json(400, { error: erreur || 'Le lien à raccourcir manque.' });
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {

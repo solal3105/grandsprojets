@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { analyserCible, validerCible } from '../home-src/src/lib/utm.mjs';
 
 /**
  * La fabrique de liens de l'équipe commerciale - /lien
@@ -138,5 +139,36 @@ test.describe('0.74 Fabrique de liens - les adresses courtes', () => {
     const xml = await (await request.get('/sitemap.xml')).text();
     expect(xml).not.toContain('openprojets.com/lien');
     expect(xml).not.toContain('openprojets.com/l/');
+  });
+});
+
+/* Ce que le serveur enregistre derrière une adresse courte.
+ *
+ * Non-régression : la première version enregistrait la cible nettoyée de ses
+ * marqueurs, si bien que /l/{code} redirigeait vers une page nue et que la
+ * visite n'était plus rattachée à sa campagne. Deux lectures d'adresse
+ * cohabitent donc, et elles ne sont pas interchangeables. */
+test.describe('0.74 Fabrique de liens - ce que garde une adresse courte', () => {
+  const marquee = 'https://openprojets.com/carte?utm_source=salon&utm_medium=terrain&utm_campaign=amif-2026';
+
+  test('0.74.10 la cible enregistrée garde ses marqueurs intacts', () => {
+    const { url } = validerCible(marquee);
+    expect(url.searchParams.get('utm_source')).toBe('salon');
+    expect(url.searchParams.get('utm_medium')).toBe('terrain');
+    expect(url.searchParams.get('utm_campaign')).toBe('amif-2026');
+  });
+
+  test('0.74.11 la saisie du commercial, elle, est débarrassée des marqueurs', () => {
+    const { url } = analyserCible(marquee);
+    expect(url.searchParams.get('utm_source')).toBeNull();
+    expect(url.toString()).toBe('https://openprojets.com/carte');
+  });
+
+  test('0.74.12 le serveur refuse de raccourcir une page qui n\'est pas la nôtre', async ({ request }) => {
+    const r = await request.post('/api/lien-court', {
+      data: { code: 'essai-refus', target_url: 'https://exemple.fr/une-page' },
+    });
+    expect(r.status()).toBe(400);
+    expect((await r.json()).error).toContain("n'est pas la nôtre");
   });
 });

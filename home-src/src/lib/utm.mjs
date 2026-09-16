@@ -32,12 +32,11 @@ export function normaliser(texte) {
     .slice(0, 60)
 }
 
-/* Lit l'adresse collée par le commercial.
- *
- * Tolère l'absence de https://, les espaces autour, et retire les marqueurs
- * déjà présents : on recolle souvent un lien déjà marqué pour le refaire
- * autrement, et deux jeux de marqueurs empilés fausseraient la mesure. */
-export function analyserCible(saisie) {
+/* Lit une adresse et dit si nous acceptons de la traiter, sans rien y toucher
+ * d'autre que le protocole. C'est ce que vérifie l'enregistrement d'une adresse
+ * courte : la cible y arrive déjà marquée, et ses marqueurs doivent survivre
+ * intacts jusqu'à la redirection. */
+export function validerCible(saisie) {
   const brut = String(saisie || '').trim()
   if (!brut) return { url: null, erreur: null }
 
@@ -56,6 +55,16 @@ export function analyserCible(saisie) {
   }
 
   url.protocol = 'https:'
+  return { url, erreur: null }
+}
+
+/* Lit l'adresse collée par le commercial, et retire les marqueurs qu'elle
+ * porterait déjà : on recolle souvent un lien marqué pour le refaire
+ * autrement, et deux jeux de marqueurs empilés fausseraient la mesure. */
+export function analyserCible(saisie) {
+  const { url, erreur } = validerCible(saisie)
+  if (!url) return { url: null, erreur }
+
   // La liste est figée avant de supprimer : on ne retire pas des clés en
   // parcourant celles de l'objet qu'on modifie.
   const marqueurs = Array.from(url.searchParams.keys()).filter((cle) => cle.startsWith('utm_'))
