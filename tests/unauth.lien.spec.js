@@ -39,10 +39,14 @@ test.describe('0.74 Fabrique de liens - la page /lien', () => {
     await expect(page.locator('#lien-cible')).toBeVisible();
   });
 
-  test('0.74.1 la page est servie et reste hors des moteurs', async ({ page }) => {
+  test('0.74.1 la page est servie et reste hors des moteurs', async ({ page, request }) => {
     await expect(page.locator('h1')).toContainText('Fabriquez un lien');
     const robots = await page.locator('meta[name="robots"]').getAttribute('content');
     expect(robots).toContain('noindex');
+    // La balise n'existe qu'après le JavaScript : l'en-tête, lui, part avec la
+    // première réponse, donc un robot qui ne rend pas les pages la voit aussi.
+    const entete = await request.get('/lien');
+    expect(entete.headers()['x-robots-tag']).toContain('noindex');
   });
 
   test('0.74.2 le support choisi fixe la source et la nature du lien', async ({ page }) => {

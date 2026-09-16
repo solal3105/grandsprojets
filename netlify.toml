@@ -199,6 +199,15 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
+# La fabrique de liens est une page d'équipe. Le routeur pose déjà sa balise
+# noindex, mais elle n'existe qu'une fois le JavaScript exécuté : l'en-tête la
+# met hors des moteurs dès la première réponse, y compris pour les robots qui
+# ne rendent pas les pages.
+[[headers]]
+  for = "/lien"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
 # Même règle pour la page des cartes, qui tourne sur le même écran de salon
 [[headers]]
   for = "/cartes/*"
