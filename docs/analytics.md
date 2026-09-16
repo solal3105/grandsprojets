@@ -134,21 +134,20 @@ Aucun bandeau de consentement. Les garde-fous qui rendent ce choix tenable :
   `data-op-mask` masque le texte d'un bloc entier, `data-op-noreplay` l'exclut
   complètement de l'enregistrement.
 
-### Point à trancher côté juridique
+### L'enregistrement de session, décision du 16 septembre 2026
 
 L'enregistrement de session (session replay) n'entre pas dans l'exemption de
-consentement que la CNIL accorde à la mesure d'audience anonyme. Il est
-actuellement actif sur tous les espaces. Deux réponses possibles :
+consentement que la CNIL accorde à la mesure d'audience anonyme. Solal a tranché :
+on l'assume et on le dit. Il reste actif sur tous les espaces, il est annoncé sur
+`/confidentialite` en trois endroits (ce qui est mesuré, ce qui ne l'est jamais,
+et les limites qu'on assume), et il est décrit dans la fiche de registre
+`docs/engagements/registre-mesure-audience.md`.
 
-- le couper là où il n'est pas indispensable, en ajoutant `data-op-replay="off"`
-  sur la balise de l'espace concerné (la carte publique en premier lieu, c'est
-  celle que voient les administrés de nos clients) ;
-- ou l'assumer, le documenter dans le registre des traitements et le mentionner
-  explicitement sur `/confidentialite`.
-
-Note commerciale : `home-src/src/views/AboutView.vue` annonce « sans traceurs » et
-« Zéro traceur ». Cette promesse et la mesure sur la carte publique ne peuvent pas
-coexister telles quelles.
+Le refus se donne depuis la même page, sans compte : il coupe PostHog et Google
+Analytics d'un coup sur tous les espaces ouverts depuis ce navigateur.
+L'enregistrement se coupe aussi de lui-même dans une iframe cliente, là où le
+visiteur ne pourrait pas exprimer son refus, et sur un espace qui porte
+`data-op-replay="off"`.
 
 ## Ce qui n'émet jamais d'événement
 

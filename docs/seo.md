@@ -141,6 +141,6 @@ canonique. Sans correspondance, la page est servie en `noindex`.
 
 ## À faire côté compte Google
 
-- Ajouter `https://openprojets.com/` comme propriété « préfixe d'URL » dans Search Console, en plus de la propriété de domaine : la lecture des sitemaps par l'API l'exige, et c'est là que l'on soumet le sitemap après un déploiement.
+- Rien à ajouter dans Search Console : la propriété de domaine suffit. La note précédente réclamait une seconde propriété « préfixe d'URL » pour lire et soumettre le plan du site par l'API ; c'était une limite du connecteur installé sur le poste, pas de l'API. `scripts/google-index.mjs` lit l'état du plan du site et le resoumet avec la propriété de domaine, vérifié le 14 septembre 2026.
 - Après déploiement, demander l'inspection de `/sitemap.xml`, `/ville/` et de deux ou trois anciennes adresses de fiches pour accélérer la prise en compte des redirections.
 - Après la bascule du 14 septembre 2026 : demander l'inspection de `/`, de `/ville/metropole-lyon/carte` et de `/home/` (redirigée), et surveiller les requêtes lyonnaises pendant quelques semaines.
