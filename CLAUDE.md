@@ -186,6 +186,7 @@ Les remarques se lisent et se prennent au sérieux, elles ne se survolent pas. T
 L'outil est installé par poste : `.claude/` n'est pas suivi par git. S'il manque, `npx impeccable install` (Node 20 suffit malgré l'avertissement, le moteur est un binaire natif) ; en attendant, le travail n'est pas bloqué.
 
 ## Sécurité
+- Une table qui reçoit des données personnelles (`contact_requests`, `demo_leads`) n'a **jamais** de politique de lecture publique : le dépôt est ouvert, la lecture est réservée. Conséquence pour le code : une insertion faite avec la clé anonyme ne demande pas la ligne en retour (pas de `.select()` après `.insert()`, pas de `Prefer: return=representation`), sinon PostgREST exige le droit de lecture et l'écriture échoue en entier.
 - `SecurityUtils.escapeHtml()` pour toute injection DOM de contenu utilisateur
 - `SecurityUtils.sanitizeUrl()` pour les liens externes (bloque `javascript:`, `data:text/html`)
 - Valider les codes ville : `/^[a-z0-9-]+$/i`
