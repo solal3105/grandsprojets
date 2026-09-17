@@ -231,7 +231,7 @@
   let progressPct = 0;
   function setProgress(pct) {
     progressPct = pct <= 2 ? pct : Math.max(progressPct, pct);
-    $('topline-fill').style.width = `${Math.min(100, progressPct)}%`;
+    $('topline-fill').style.transform = `scaleX(${Math.min(100, progressPct) / 100})`;
   }
 
   function setPill(label, detail, done) {
@@ -1078,11 +1078,16 @@
           kiosk: KIOSK,
         }),
       });
-      envoye = r.ok && (await r.json().catch(() => ({}))).mailed === true;
+      const data = r.ok ? await r.json().catch(() => null) : null;
+      if (!data?.ok) throw new Error(String(r.status));
+      envoye = data.mailed === true;
     } catch {
-      // Un enregistrement raté ne doit pas gâcher la fin de la démo : on
-      // remercie quand même, le visiteur a fait sa part.
       console.warn('[demo] enregistrement de l\'adresse impossible');
+      $('lead-email').disabled = false;
+      $('lead-submit').disabled = false;
+      setLeadError('Nous n\'avons pas pu enregistrer votre adresse. Vérifiez votre connexion, puis réessayez.');
+      armerFiletLead();
+      return;
     }
     // Le lead de la démo salon : l'événement le plus important du tunnel.
     // Seul le fait qu'une adresse ait été laissée est mesuré, jamais l'adresse.

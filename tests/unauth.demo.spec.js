@@ -238,6 +238,36 @@ test.describe('Démo salon - relance depuis l\'écran', () => {
     expect(urls[urls.length - 1]).toContain('regen=1');
     expect(urls[urls.length - 1]).toContain('commune=01283');
   });
+
+  test('0.33.5 - un enregistrement refusé garde le formulaire et permet une nouvelle tentative', async ({ page }, testInfo) => {
+    // Ce contrat de formulaire ne dépend pas du rendu WebGL.
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, ...args) {
+        return /webgl/i.test(String(type)) ? null : original.call(this, type, ...args);
+      };
+    });
+    let attempts = 0;
+    await page.route('**/api/demo-lead', (route) => {
+      attempts += 1;
+      return route.fulfill({ status: attempts === 1 ? 503 : 200,
+        contentType: 'application/json', body: attempts === 1 ? '{"error":"indisponible"}' : '{"ok":true,"mailed":false}' });
+    });
+    await allerAuDone(page, DONE_NEUF);
+    await page.locator('#lead-email').fill('elu@exemple.fr');
+    await page.locator('#lead-submit').click();
+    await expect(page.locator('#lead-error')).toContainText('réessayez');
+    await expect(page.locator('#lead-email')).toHaveValue('elu@exemple.fr');
+    await expect(page.locator('#lead-submit')).toBeEnabled();
+    await expect(page.locator('#lead-thanks')).toBeHidden();
+    await expect(page.locator('#done-suite')).toBeHidden();
+    await page.locator('.done').screenshot({ path: testInfo.outputPath('adresse-refusee.png') });
+    await page.locator('#lead-submit').click();
+    await expect(page.locator('#lead-thanks-texte')).toHaveText('Merci, votre adresse est bien enregistrée.');
+    await expect(page.locator('#btn-open')).toBeVisible();
+    await page.locator('.done').screenshot({ path: testInfo.outputPath('adresse-enregistree.png') });
+    expect(attempts).toBe(2);
+  });
 });
 
 test.describe('Démo salon - endpoint d\'enregistrement de l\'adresse', () => {

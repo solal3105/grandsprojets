@@ -126,6 +126,7 @@ const ciel = (() => {
   const imageFrance = $('ciel-france-image');
   const constellation = $('constellation');
   const calquesVille = [$('ciel-ville-a'), $('ciel-ville-b')];
+  const villesCalques = new Map();
   const nuit = $('ciel-nuit');
   let calqueCourant = -1;
   let vueCourante = '';
@@ -183,6 +184,7 @@ const ciel = (() => {
     const url = urlAerienne(v.lat, v.lng, vueCourante);
     const suivant = (calqueCourant + 1) % 2;
     const calque = calquesVille[suivant];
+    villesCalques.set(calque, v);
     const img = calque.querySelector('img');
     let prete = false;
     if (url) {
@@ -223,8 +225,15 @@ const ciel = (() => {
     demarrer() {
       poserFrance();
       window.addEventListener('resize', () => {
-        // Un changement d'orientation change les cadres : la page repart propre
-        if (orientation() !== vueCourante && KIOSK) { window.location.reload(); return; }
+        // Le clavier et le plein écran peuvent aussi changer le ratio :
+        // recadrer le décor sans perdre la saisie, la carte ou la génération.
+        if (orientation() !== vueCourante) {
+          poserFrance();
+          for (const [calque, ville] of villesCalques) {
+            const url = urlAerienne(ville.lat, ville.lng, vueCourante);
+            if (url) calque.querySelector('img').src = url;
+          }
+        }
         dimensionner();
       });
     },
@@ -764,26 +773,31 @@ const geo = (() => {
   let sequence = 0;
   function chercher(texte, rendre) {
     clearTimeout(minuteur);
+    // Invalider dès la frappe, avant même le délai de la nouvelle requête.
+    const seq = ++sequence;
     const q = String(texte || '').trim();
+    rendre(null);
     if (q.length < 2) {
-      sequence += 1;
-      rendre(null);
       return;
     }
     minuteur = setTimeout(async () => {
-      sequence += 1;
-      const seq = sequence;
       try {
         const r = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=departement,centre,population&boost=population&limit=6`);
-        const liste = r.ok ? await r.json() : [];
+        if (!r.ok) throw new Error(String(r.status));
+        const liste = await r.json();
+        if (!Array.isArray(liste)) throw new Error('Réponse de recherche invalide');
         if (seq !== sequence) return;
-        rendre(Array.isArray(liste) ? liste : []);
+        rendre(liste);
       } catch {
-        if (seq === sequence) rendre([]);
+        if (seq === sequence) rendre([], true);
       }
     }, 220);
   }
-  return { chercher };
+  function annuler() {
+    clearTimeout(minuteur);
+    sequence += 1;
+  }
+  return { chercher, annuler };
 })();
 
 /* Même construction de slug que l'écran de génération, pour retrouver la carte
@@ -840,10 +854,12 @@ function renderSuggestion(commune, index) {
   return li;
 }
 
-function renderVide(liste) {
+function renderVide(liste, erreur) {
   const li = document.createElement('li');
   li.className = 'is-vide';
-  li.textContent = 'Aucune commune ne porte ce nom. Vérifiez l\'orthographe.';
+  li.textContent = erreur
+    ? 'La recherche est indisponible. Vérifiez votre connexion, puis retapez le nom de votre commune.'
+    : 'Aucune commune ne porte ce nom. Vérifiez l\'orthographe.';
   liste.replaceChildren(li);
 }
 
@@ -871,7 +887,7 @@ function lierChamp({ champ, liste, auChoix }) {
     [...liste.children].forEach((li, i) => li.classList.toggle('is-selected', i === index));
   }
 
-  function rendre(resultats) {
+  function rendre(resultats, erreur = false) {
     index = -1;
     if (resultats === null) {
       communes = [];
@@ -881,7 +897,7 @@ function lierChamp({ champ, liste, auChoix }) {
     }
     communes = resultats;
     if (!communes.length) {
-      renderVide(liste);
+      renderVide(liste, erreur);
     } else {
       liste.replaceChildren(...communes.map(renderSuggestion));
     }
@@ -899,6 +915,7 @@ function lierChamp({ champ, liste, auChoix }) {
       e.preventDefault();
       auChoix(communes[index] || communes[0] || null);
     } else if (e.key === 'Escape') {
+      geo.annuler();
       rendre(null);
     }
   });
@@ -911,7 +928,7 @@ function lierChamp({ champ, liste, auChoix }) {
   });
 
   return {
-    vider() { champ.value = ''; rendre(null); },
+    vider() { geo.annuler(); champ.value = ''; rendre(null); },
     premiere() { return communes[index] || communes[0] || null; },
   };
 }
@@ -938,6 +955,7 @@ function ouvrirSaisie() {
 function fermerSaisie(motif) {
   if (!saisie.ouverte) return;
   saisie.ouverte = false;
+  saisieChamp?.vider();
   $('saisie').hidden = true;
   document.body.classList.remove('is-saisie');
   ciel.nuit(document.body.dataset.scene === 'comment');

@@ -432,4 +432,104 @@ test.describe('0.38 - Les cartes des communes : le stand', () => {
     expect(new URL(page.url()).pathname).toBe('/cartes/');
     expect(page.context().pages()).toHaveLength(1);
   });
+
+  test('0.38.16 - changer de format conserve la saisie puis la génération en cours', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 1280 });
+    await generationSimulee(page);
+    await ouvrirKiosque(page);
+    await page.locator('#recherche-champ').click();
+    await page.locator('#saisie-champ').fill('Trif');
+    // Un clavier peut réduire la hauteur au point de changer le ratio CSS.
+    await page.setViewportSize({ width: 800, height: 480 });
+    await expect(page.locator('#saisie')).toBeVisible();
+    await expect(page.locator('#saisie-champ')).toHaveValue('Trif');
+    await page.locator('#saisie-fermer').click();
+    const frame = await lancerGeneration(page);
+    await page.setViewportSize({ width: 800, height: 1280 });
+    await expect(page.locator('#generation')).toBeVisible();
+    await expect(frame.locator('#screen-progress')).toHaveClass(/is-active/);
+    await frame.locator('#btn-retour').click();
+    await expect(page.locator('#generation')).toBeHidden();
+    await expect(page.locator('#ciel-france-image')).toHaveAttribute('src', /WIDTH=1080/);
+  });
+
+  test('0.38.17 - une réponse tardive ne réapparaît pas après fermeture de la saisie', async ({ page }) => {
+    let pending;
+    await page.route('**/geo.api.gouv.fr/**', (route) => { pending = route; });
+    await ouvrirKiosque(page);
+    await page.locator('#recherche-champ').click();
+    await page.locator('#saisie-champ').fill('Trif');
+    await expect.poll(() => Boolean(pending)).toBe(true);
+    await page.locator('#saisie-fermer').click();
+    await page.locator('#recherche-champ').click();
+    const response = page.waitForResponse('**/geo.api.gouv.fr/**');
+    await pending.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([INCONNUE]) });
+    await (await response).finished();
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(page.locator('#saisie-champ')).toHaveValue('');
+    await expect(page.locator('#saisie-suggestions li')).toHaveCount(0);
+    await expect(page.locator('#saisie-suggestions')).toBeHidden();
+  });
+
+  test('0.38.18 - une nouvelle frappe retire les résultats du nom précédent', async ({ page }) => {
+    await generationSimulee(page);
+    await geoDouble(page, [INCONNUE]);
+    await ouvrirKiosque(page);
+    await page.locator('#recherche-champ').click();
+    await page.locator('#saisie-champ').fill('Trif');
+    await expect(page.locator('#saisie-suggestions li[data-index]')).toHaveCount(1);
+    await page.route('**/geo.api.gouv.fr/**', (route) => route.abort());
+    await page.locator('#saisie-champ').fill('Paris');
+    await page.locator('#saisie-champ').press('Enter');
+    await expect(page.locator('#generation')).toBeHidden();
+    await expect(page.locator('#saisie')).toBeVisible();
+    await expect(page.locator('#saisie-suggestions')).toContainText('recherche est indisponible');
+  });
+
+  test('0.38.19 - la recherche distingue une panne réseau et permet de réessayer', async ({ page }) => {
+    await page.route('**/geo.api.gouv.fr/**', (route) => route.fulfill({ status: 503, body: '' }));
+    await ouvrirKiosque(page);
+    await page.locator('#recherche-champ').click();
+    await page.locator('#saisie-champ').fill('Trif');
+    await expect(page.locator('#saisie-suggestions')).toContainText('recherche est indisponible');
+    await geoDouble(page, [INCONNUE]);
+    await page.locator('#saisie-champ').fill('Trifou');
+    await expect(page.locator('#saisie-suggestions li[data-index]')).toHaveCount(1);
+  });
+
+  for (const [width, height] of [[800, 480], [600, 960]]) {
+    test(`0.38.20 - emporter la carte reste utilisable à ${width} x ${height}`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height });
+      await coquilles(page);
+      await generationSimulee(page);
+      await ouvrirKiosque(page, '/cartes/?kiosk=1&ouvrir=essai-vandoeuvre-les-nancy&nom=Vand%C5%93uvre-l%C3%A8s-Nancy');
+      for (const selector of ['#couche-retour', '#couche-emporter']) {
+        const box = await page.locator(selector).boundingBox();
+        expect.soft(box.x).toBeGreaterThanOrEqual(0);
+        expect.soft(box.x + box.width).toBeLessThanOrEqual(width);
+      }
+      await page.locator('#couche-emporter').click();
+      await expect(page.locator('#emporter')).toBeVisible();
+      for (const selector of ['#emporter-fermer', '#emporter-email', '#emporter-envoyer']) {
+        const control = page.locator(selector);
+        await control.scrollIntoViewIfNeeded();
+        const box = await control.boundingBox();
+        expect.soft(box.x).toBeGreaterThanOrEqual(0);
+        expect.soft(box.x + box.width).toBeLessThanOrEqual(width);
+        expect.soft(box.y).toBeGreaterThanOrEqual(0);
+        expect.soft(box.y + box.height).toBeLessThanOrEqual(height);
+      }
+      const field = await page.locator('#emporter-email').evaluate((input) => {
+        const style = getComputedStyle(input);
+        const context = document.createElement('canvas').getContext('2d');
+        context.font = `${style.fontSize} ${style.fontFamily}`;
+        return { text: context.measureText(input.placeholder).width,
+          space: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) };
+      });
+      expect.soft(field.text).toBeLessThanOrEqual(field.space);
+      await page.screenshot({ path: testInfo.outputPath(`emporter-${width}.png`) });
+      await page.locator('#emporter-fermer').click();
+      await expect(page.locator('#emporter')).toBeHidden();
+    });
+  }
 });

@@ -128,7 +128,11 @@ Deux garde-fous de plus : un script en erreur entraîne un rechargement de
 l'accueil après une minute de calme, et après trois heures de fonctionnement
 la page se recharge d'elle-même au premier moment calme de dix minutes (hygiène
 mémoire, et prise en compte des corrections déployées). Un changement
-d'orientation recharge aussi la page : les cadres du ciel en dépendent.
+d'orientation recadre uniquement le ciel : la saisie, la carte ouverte et une
+génération en cours restent en place, y compris quand un clavier change le
+ratio de la fenêtre. Les réponses de recherche devenues obsolètes sont
+ignorées dès la frappe suivante ou la fermeture de la saisie ; une panne de
+l'annuaire est signalée séparément d'une commune introuvable.
 
 ## La tablette
 
@@ -201,8 +205,12 @@ Espace `cartes` (PostHog, voir `docs/analytics.md`) : `cartes_ville_ouverte`
 `tests/unauth.cartes.spec.js` (section 0.38) : rendu serveur, catalogue et
 JSON-LD, rotation et veille à l'horloge simulée, couche et neutralisation des
 liens, saisie, envoi par e-mail, retour de génération. Les cartes ouvertes en
-couche sont remplacées par des coquilles : aucun test ne démarre l'application
-carte dans l'iframe. Le retour depuis l'écran de génération est couvert dans
+couche sont généralement remplacées par des coquilles. Le test de
+non-régression de la destination charge aussi la vraie application, pour
+détecter un retour accidentel au site vitrine. La conservation du parcours au
+redimensionnement, les réponses de recherche tardives, les pannes réseau et le
+panneau pour emporter une carte sont également couverts.
+Le retour depuis l'écran de génération est couvert dans
 `tests/unauth.demo.spec.js` (section 0.37).
 
 `tests/unauth.cartes-tablette.spec.js` vérifie les zones de contenu, les boutons

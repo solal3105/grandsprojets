@@ -65,6 +65,24 @@
         ],
         "createdAt": "2026-09-17T12:53:35.795Z",
         "reason": "L’éclairage coloré du stand et les couleurs des communes font partie de la page existante décrite dans cartes/README.md. Ils sont conservés pendant la correction responsive demandée."
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "demo/index.html"
+        ],
+        "createdAt": "2026-09-17T13:15:05.402Z",
+        "reason": "Les halos de la scène de génération et la couleur de la commune sont décrits dans demo/README.md. Cette correction conserve le décor existant."
+      },
+      {
+        "rule": "pulsing-dot",
+        "value": "*",
+        "files": [
+          "demo/index.html"
+        ],
+        "createdAt": "2026-09-17T13:15:05.430Z",
+        "reason": "Le sonar accompagne la génération en cours sur la carte. Il signale une activité réelle du parcours, décrite dans demo/README.md."
       }
     ]
   }

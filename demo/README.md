@@ -212,6 +212,10 @@ sa table `THEMES`.
   qu'une fois l'espace déverrouillé ; en mode kiosque, 120 s sans frappe
   ramènent l'écran à l'accueil (le visiteur est parti, l'espace n'est pas
   déverrouillé pour autant). Route `POST /api/demo-lead`, table `demo_leads`.
+  En cas d'échec réseau ou de refus du serveur, le formulaire conserve
+  l'adresse et permet de réessayer. Le remerciement n'apparaît qu'après un
+  enregistrement confirmé ; il annonce l'envoi du lien uniquement si le
+  serveur confirme aussi cet envoi.
 - **Journal des générations** : table `demo_runs`, une ligne par tentative,
   ouverte en `running` puis close en `ready` ou `failed`, avec l'étape atteinte,
   le motif d'échec, la durée RÉELLE (de la première invocation à la dernière) et
