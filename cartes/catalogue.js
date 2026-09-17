@@ -21,6 +21,9 @@ export const BASE_ORIGIN = 'https://openprojets.com';
 export const PREFIXE_ESSAI = 'essai-';
 export const VILLE_LYON = 'metropole-lyon';
 
+// Une même adresse pour les liens, les cadres du stand et les QR codes.
+export const urlCarte = (slug) => `/ville/${encodeURIComponent(slug)}/carte`;
+
 /* Vitrine tournante : une commune n'y entre qu'avec au moins ce nombre de
    fiches illustrées. En dessous, elle reste dans la liste complète (un passant
    cherche d'abord la sienne) mais on ne la met pas en scène : trois tirages
@@ -400,7 +403,7 @@ export function renderVille(v, { lyon = false } = {}) {
   <p class="ville__genere">${genere}</p>
   <h2 class="ville__nom" style="--n:${Math.max(4, nom.length)};--mot:${Math.max(4, mot)}">${logo}<span>${escHtml(nom)}</span></h2>
   <p class="ville__sous">${sous}</p>
-  <p class="ville__action"><a class="bouton bouton--ville" href="/${encodeURIComponent(v.slug)}" data-ville="${escAttr(v.slug)}" data-nom="${escAttr(nom)}">Ouvrir la carte de ${lyon ? 'la ' : ''}${escHtml(nom)}</a></p>
+  <p class="ville__action"><a class="bouton bouton--ville" href="${urlCarte(v.slug)}" data-ville="${escAttr(v.slug)}" data-nom="${escAttr(nom)}">Ouvrir la carte de ${lyon ? 'la ' : ''}${escHtml(nom)}</a></p>
 </div>
 <div class="scene__tirages" data-ville="${escAttr(v.slug)}" data-nom="${escAttr(nom)}">${tirages}</div>`;
 }

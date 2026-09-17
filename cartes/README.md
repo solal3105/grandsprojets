@@ -91,6 +91,10 @@ même barème repris par l'écran de génération dans sa première étape). Les
 homonymes (Saint-Denis en Seine-Saint-Denis, Saint-Denis de La Réunion) sont
 départagés par la position de la commune.
 
+Toutes les ouvertures de carte utilisent `/ville/<slug>/carte`, y compris au
+retour d'une génération. L'ancienne adresse `/<slug>` d'une commune d'essai
+est absorbée par le site vitrine et ne doit plus servir de destination.
+
 Sur le stand, le champ porte le texte court « Votre commune », lisible en
 portrait comme en paysage. L'en-tête garde sa propre zone au-dessus des scènes
 et les commandes restent accessibles pendant les fondus. Sous 700 px de haut

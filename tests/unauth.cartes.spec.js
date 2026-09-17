@@ -21,7 +21,7 @@ import { test, expect } from '@playwright/test';
 const KIOSK = '/cartes/?kiosk=1';
 
 /** Une carte ouverte en couche, et une fiche : des coquilles */
-const estUneCarte = (url) => /^\/(essai-[a-z0-9-]+|metropole-lyon)$/.test(url.pathname);
+const estUneCarte = (url) => /^\/ville\/(essai-[a-z0-9-]+|metropole-lyon)\/carte$/.test(url.pathname);
 const estUneFiche = (url) => url.pathname.startsWith('/fiche/essai-test/');
 
 async function coquilles(page) {
@@ -149,7 +149,7 @@ test.describe('0.38 - Les cartes des communes : rendu serveur', () => {
     await page.goto('/cartes/', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#scene-ville .ville__nom')).not.toBeEmpty();
     expect(await page.locator('#scene-ville .tirage').count()).toBeGreaterThanOrEqual(1);
-    await expect(page.locator('#scene-ville .bouton--ville')).toHaveAttribute('href', /^\/essai-/);
+    await expect(page.locator('#scene-ville .bouton--ville')).toHaveAttribute('href', /^\/ville\/essai-[a-z0-9-]+\/carte$/);
     await expect(page.locator('.lyon__inner .ville__nom')).toContainText('Métropole de Lyon');
     await expect(page.locator('body')).not.toHaveClass(/is-kiosk/);
     await expect(page.locator('#theme-toggle')).toBeHidden();
@@ -222,7 +222,7 @@ test.describe('0.38 - Les cartes des communes : le stand', () => {
     await lien.click();
     await expect(page.locator('#couche')).toBeVisible();
     await expect(page.locator('#couche-nom')).toHaveText(nom || '');
-    await expect(page.locator('#couche-cadre')).toHaveAttribute('src', `/${slug}`);
+    await expect(page.locator('#couche-cadre')).toHaveAttribute('src', `/ville/${slug}/carte`);
     expect(new URL(page.url()).pathname).toBe('/cartes/');
 
     // Un lien vers un autre site est neutralisé, et le visiteur sait pourquoi ;
@@ -290,7 +290,7 @@ test.describe('0.38 - Les cartes des communes : le stand', () => {
     await expect(lignes.nth(1).locator('.s-etat')).toHaveText('À construire, 3 à 4 minutes');
     await lignes.nth(0).click();
     await expect(page.locator('#couche')).toBeVisible();
-    await expect(page.locator('#couche-cadre')).toHaveAttribute('src', `/${connue.slug}`);
+    await expect(page.locator('#couche-cadre')).toHaveAttribute('src', `/ville/${connue.slug}/carte`);
     await expect(page.locator('#saisie')).toBeHidden();
     await page.locator('#couche-retour').click();
     await expect(page.locator('#scene-accueil')).toBeVisible();
@@ -329,7 +329,7 @@ test.describe('0.38 - Les cartes des communes : le stand', () => {
     await expect(page.locator('#generation-cadre')).toHaveAttribute('src', 'about:blank');
     await expect(page.locator('#couche')).toBeVisible();
     await expect(page.locator('#couche-nom')).toHaveText('Trifouillis-les-Oies');
-    await expect(page.locator('#couche-cadre')).toHaveAttribute('src', '/essai-trifouillis-les-oies');
+    await expect(page.locator('#couche-cadre')).toHaveAttribute('src', '/ville/essai-trifouillis-les-oies/carte');
     expect(new URL(page.url()).pathname).toBe('/cartes/');
     expect(page.context().pages().length).toBe(1);
   });
@@ -391,7 +391,7 @@ test.describe('0.38 - Les cartes des communes : le stand', () => {
     await ouvrirKiosque(page, '/cartes/?kiosk=1&ouvrir=essai-trifouillis&nom=Trifouillis');
     await expect(page.locator('#couche')).toBeVisible();
     await expect(page.locator('#couche-nom')).toHaveText('Trifouillis');
-    await expect(page.locator('#couche-cadre')).toHaveAttribute('src', '/essai-trifouillis');
+    await expect(page.locator('#couche-cadre')).toHaveAttribute('src', '/ville/essai-trifouillis/carte');
     await page.locator('#couche-retour').click();
     await expect(page.locator('#couche')).toBeHidden();
     // L'adresse est nettoyée : un rechargement ne rouvrirait pas cette carte
@@ -407,5 +407,29 @@ test.describe('0.38 - Les cartes des communes : le stand', () => {
     await expect(page.locator('body')).toHaveClass(/is-kiosk/);
     await expect(page.locator('#lien-bloque')).toBeVisible();
     await expect(page.locator('#lien-bloque')).toContainText('openprojets.com');
+  });
+
+  test('0.38.15 - après génération, la destination sert la vraie application carte', async ({ page }) => {
+    await generationSimulee(page);
+    await ouvrirKiosque(page);
+    // Aucun double sur la destination : une coquille sur /essai-* masquait
+    // le retour au site vitrine depuis le changement des routes publiques.
+    const ville = (await catalogueDe(page)).villes[0];
+    const frame = await lancerGeneration(page);
+    await frame.evaluate((ville) => window.__envoyer({
+      type: 'done', url: `/?city=${ville.slug}`, ville: ville.slug,
+      communeNom: ville.nom, projectsCount: ville.total,
+    }), ville);
+    await expect(frame.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 15000 });
+    await frame.locator('#lead-email').fill('vazy');
+    await frame.locator('#lead-submit').click();
+    await frame.locator('#btn-open').click();
+    await expect(page.locator('#generation')).toBeHidden();
+    await expect(page.locator('#couche-cadre')).toHaveAttribute('src', `/ville/${ville.slug}/carte`);
+    const carte = page.frameLocator('#couche-cadre');
+    await expect(carte.locator('#map')).toHaveAttribute('role', 'application');
+    await expect(carte.locator('script[src="/main.js"]')).toHaveCount(1);
+    expect(new URL(page.url()).pathname).toBe('/cartes/');
+    expect(page.context().pages()).toHaveLength(1);
   });
 });

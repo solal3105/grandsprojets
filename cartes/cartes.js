@@ -23,7 +23,7 @@
 import {
   chargerCatalogue, villeVedette, renderCommune, renderPoint, renderVille, renderCompte,
   nomDepuisSlug, dureeEstimee, urlFrance, urlAerienne, positionDansVue, viewBoxDe, VUES_FRANCE,
-  BASE_ORIGIN, PREFIXE_ESSAI, VILLE_LYON,
+  BASE_ORIGIN, PREFIXE_ESSAI, VILLE_LYON, urlCarte,
 } from './catalogue.js';
 
 const $ = (id) => document.getElementById(id);
@@ -516,7 +516,7 @@ function ouvrirCouche(slug, nom, origine) {
   logo.hidden = !src;
   if (src) logo.src = src;
   emporter.fermer();
-  cadre.src = `/${encodeURIComponent(slug)}`;
+  cadre.src = urlCarte(slug);
   $('couche').hidden = false;
   document.body.classList.add('is-couche');
   veille.toucher();
@@ -693,7 +693,7 @@ const emporter = (() => {
     const slug = couche.slug;
     $('emporter-nom').textContent = couche.nom;
     // Le lien de l'espace, tel que l'e-mail de la démo le donne
-    const lien = `${BASE_ORIGIN}/ville/${encodeURIComponent(slug)}/carte`;
+    const lien = `${BASE_ORIGIN}${urlCarte(slug)}`;
     $('emporter-qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=6&data=${encodeURIComponent(lien)}`;
     // Seules les cartes d'essai s'envoient par e-mail : l'API n'accepte qu'elles
     const avecMail = slug.startsWith(PREFIXE_ESSAI);
@@ -852,7 +852,7 @@ function choisir(commune) {
   const v = correspondance(commune);
   if (v) {
     if (KIOSK) ouvrirCouche(v.slug, v.nom, 'recherche');
-    else window.location.href = `/${encodeURIComponent(v.slug)}`;
+    else window.location.href = urlCarte(v.slug);
     return;
   }
   mesurer('cartes_generation_lancee', { commune: commune.code || null, population: commune.population || null, kiosk: KIOSK });
