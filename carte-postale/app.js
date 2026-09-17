@@ -27,6 +27,8 @@
 
   let commune = null;
   let epoque = null;
+  // Une saisie manuelle suspend le suivi ; choisir une suggestion le réactive.
+  let captionTemplate = 'period';
 
   const aScene = window.Scene?.init('map');
   const addressSearch = window.AddressSearch.init({ onSelect: selectLocation });
@@ -117,9 +119,7 @@
 
   /* Un seul choix ouvre la carte et retrouve la commune du lieu. */
   function selectLocation(location) {
-    const previousCity = commune;
     const initial = !epoque;
-    const updateInscription = !previousCity || $('inscription').value.trim() === previousCity.nom;
     commune = location.commune;
     const selectedCity = commune;
     carte.dataset.etat = 'carte';
@@ -134,10 +134,6 @@
       choisirEpoque(window.Epoques.liste.find((e) => e.id === 'photo-1950') || window.Epoques.liste[0]);
     } else {
       majLegendes();
-    }
-    if (updateInscription) {
-      majInscription(commune.nom);
-      $('inscription').value = commune.nom;
     }
     if (aScene) {
       window.Scene.quandPrete(() => {
@@ -215,6 +211,13 @@
     $('cp-inscription').textContent = t || '';
   }
 
+  function updateAutomaticCaption() {
+    if (captionTemplate === null) return;
+    const text = window.Epoques.caption(commune?.nom, epoque, captionTemplate);
+    $('inscription').value = text;
+    majInscription(text);
+  }
+
   function majLegendes() {
     const boite = $('legendes');
     boite.innerHTML = '';
@@ -222,13 +225,17 @@
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'puce';
-      b.textContent = l;
-      b.addEventListener('click', () => { $('inscription').value = l; majInscription(l); });
+      b.textContent = l.text;
+      b.addEventListener('click', () => { captionTemplate = l.id; updateAutomaticCaption(); });
       boite.appendChild(b);
     }
+    updateAutomaticCaption();
   }
 
-  $('inscription').addEventListener('input', (e) => majInscription(e.target.value));
+  $('inscription').addEventListener('input', (e) => {
+    captionTemplate = null;
+    majInscription(e.target.value);
+  });
 
   /* ─── Angle de prise de vue ─── */
 

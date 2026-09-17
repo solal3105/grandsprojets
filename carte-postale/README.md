@@ -85,8 +85,10 @@ le nom et le code INSEE de la commune. S'ils manquent ou si un lieu couvre
 plusieurs communes, geo.api.gouv.fr les retrouve automatiquement par coordonnées.
 Les communes présentes dans les deux index n'apparaissent qu'une fois.
 Le choix recentre la carte et actualise la commune sans changer l'époque,
-l'inclinaison ou une inscription personnalisée. Une inscription restée au nom
-de la commune suit la nouvelle commune.
+l'inclinaison ou une inscription personnalisée. L'inscription par défaut indique
+la commune et la période. Elle suit automatiquement les changements de lieu et
+d'époque, tout comme le modèle choisi parmi les suggestions. Une saisie manuelle
+suspend ce suivi ; choisir une suggestion le réactive.
 Aucun repère supplémentaire n'apparaît sur la carte imprimée.
 
 ## Les époques

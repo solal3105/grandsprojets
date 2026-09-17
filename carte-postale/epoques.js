@@ -134,30 +134,28 @@
      Le présent n'a pas d'âge : « cette carte a 0 an » n'aurait aucun sens, la
      formule bascule. */
   function punchline(epoque, anneeCourante) {
-    if (!epoque?.annee) return "Voilà votre commune aujourd'hui.\nÀ vous d'écrire la suite.";
+    if (!epoque?.annee) return "Votre commune aujourd'hui.\nÀ vous d'écrire la suite.";
     const ans = Math.max(1, anneeCourante - epoque.annee);
     return `Cette carte a ${ans} ans.\nÀ vous d'écrire la suite.`;
   }
 
-  // Légendes proposées pour l'inscription du recto, dans l'ordre d'utilité
-  function legendes(communeNom, epoque) {
+  // Le modèle reste le même quand l'époque change, y compris via le présent.
+  function caption(communeNom, epoque, template = 'period') {
     const nom = communeNom || 'Votre commune';
-    if (!epoque) return [nom];
-    const p = epoque.periode;
-    return epoque.annee
-      ? [
-        `${nom}, ${p}`,
-        `${nom} vue du ciel, ${p}`,
-        `${nom}, il y a ${new Date().getFullYear() - epoque.annee} ans`,
-        `Souvenir de ${nom}, ${p}`,
-        nom,
-      ]
-      : [
-        `${nom}, aujourd'hui`,
-        `${nom} vue du ciel`,
-        nom,
-      ];
+    if (!epoque || template === 'name') return nom;
+    const period = epoque.annee ? epoque.periode : "aujourd'hui";
+    if (template === 'sky') return `${nom} vue du ciel${epoque.annee ? `, ${period}` : ''}`;
+    if (template === 'souvenir') return `Souvenir de ${nom}, ${period}`;
+    if (template === 'age' && epoque.annee) return `${nom}, il y a ${new Date().getFullYear() - epoque.annee} ans`;
+    return `${nom}, ${period}`;
   }
 
-  window.Epoques = { liste: EPOQUES, punchline, legendes };
+  // Légendes proposées pour l'inscription du recto, dans l'ordre d'utilité.
+  function legendes(communeNom, epoque) {
+    const templates = !epoque ? ['name'] : epoque.annee
+      ? ['period', 'sky', 'age', 'souvenir', 'name'] : ['period', 'sky', 'name'];
+    return templates.map((id) => ({ id, text: caption(communeNom, epoque, id) }));
+  }
+
+  window.Epoques = { liste: EPOQUES, punchline, caption, legendes };
 })();

@@ -71,7 +71,7 @@ test.describe('0.44 - Carte postale : recherche d’adresse', () => {
     expect(new URL((await request).url()).searchParams.has('citycode')).toBe(false);
     await page.getByRole('option', { name: '12 Rue de la Liberté 38300 Bourgoin-Jallieu', exact: true }).click();
     await expect(page.locator('#entete-commune')).toHaveText(CITY.nom);
-    await expect(page.locator('#inscription')).toHaveValue(CITY.nom);
+    await expect(page.locator('#inscription')).toHaveValue(`${CITY.nom}, 1950 - 1965`);
     await expect(page.locator('#etape-atelier')).toBeVisible();
     await expect(page.locator('#search-intro')).toBeHidden();
     await expect(page.getByRole('combobox')).toHaveCount(1);
@@ -190,7 +190,7 @@ test.describe('0.44 - Carte postale : recherche d’adresse', () => {
     await openSearch(page);
     await search(page);
     await page.locator('#address').press('Enter');
-    await expect(page.locator('#inscription')).toHaveValue(CITY.nom);
+    await expect(page.locator('#inscription')).toHaveValue(`${CITY.nom}, 1950 - 1965`);
     await page.locator('#inscription').fill('Notre futur quartier');
     await page.locator('.epoque[data-id="cassini"]').click();
     await page.route(API, (route) => respond(route, [{ ...FEATURES[0],

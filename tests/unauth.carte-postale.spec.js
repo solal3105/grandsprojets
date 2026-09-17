@@ -119,9 +119,9 @@ test.describe('0.40 - Carte postale : amorçage et époques', () => {
     }));
     expect(res.datee.length).toBe(5);
     expect(res.presente.length).toBe(3);
-    for (const l of res.datee) expect(l).toContain('Vaulx-en-Velin');
-    expect(res.sansNom[0]).toContain('Votre commune');
-    expect(res.sansEpoque).toEqual(['Vaulx-en-Velin']);
+    for (const l of res.datee) expect(l.text).toContain('Vaulx-en-Velin');
+    expect(res.sansNom[0].text).toContain('Votre commune');
+    expect(res.sansEpoque).toEqual([{ id: 'name', text: 'Vaulx-en-Velin' }]);
   });
 
 });
@@ -229,8 +229,8 @@ test.describe('0.42 - Carte postale : atelier et composition', () => {
   test("0.42.4 - L'inscription saisie se reporte sur la carte postale", async ({ page }) => {
     await ouvrir(page);
     await entrer(page);
-    // Pré-remplie avec le nom de la commune
-    await expect(page.locator('#cp-inscription')).toHaveText('Bourgoin-Jallieu');
+    // Pré-remplie avec la commune et la période du fond choisi.
+    await expect(page.locator('#cp-inscription')).toHaveText('Bourgoin-Jallieu, 1950 - 1965');
     await page.locator('#inscription').fill('Souvenir de Bourgoin-Jallieu, 1957');
     await expect(page.locator('#cp-inscription')).toHaveText('Souvenir de Bourgoin-Jallieu, 1957');
   });
@@ -475,6 +475,118 @@ test.describe('0.42 - Carte postale : atelier et composition', () => {
       if (width === 430 || width === 1400) {
         await page.locator('#carte-postale').screenshot({ path: testInfo.outputPath(`marge-source-${width}.png`) });
       }
+    }
+  });
+
+  test('0.42.15 - Le libellé automatique suit la période et la commune', async ({ page }) => {
+    await ouvrir(page);
+    await entrer(page);
+    await expect(page.locator('#inscription')).toHaveValue('Bourgoin-Jallieu, 1950 - 1965');
+    await page.locator('.epoque[data-id="photo-1965"]').click();
+    await expect(page.locator('#inscription')).toHaveValue('Bourgoin-Jallieu, 1965 - 1980');
+    await expect(page.locator('#cp-inscription')).toHaveText('Bourgoin-Jallieu, 1965 - 1980');
+    await page.locator('.epoque[data-id="aujourdhui"]').click();
+    await expect(page.locator('#inscription')).toHaveValue("Bourgoin-Jallieu, aujourd'hui");
+    await page.locator('#address').fill('Bourg');
+    await page.locator('#address-results [role="option"]').nth(1).click();
+    await expect(page.locator('#inscription')).toHaveValue("Bourg-en-Bresse, aujourd'hui");
+    await page.locator('.epoque[data-id="cassini"]').click();
+    await expect(page.locator('#cp-inscription')).toHaveText('Bourg-en-Bresse, XVIIIe siècle');
+  });
+
+  test('0.42.16 - Le modèle choisi suit les époques, même après un passage au présent', async ({ page }) => {
+    await ouvrir(page);
+    await entrer(page);
+    await page.getByRole('button', { name: 'Souvenir de Bourgoin-Jallieu, 1950 - 1965', exact: true }).click();
+    await page.locator('.epoque[data-id="aujourdhui"]').click();
+    await expect(page.locator('#inscription')).toHaveValue("Souvenir de Bourgoin-Jallieu, aujourd'hui");
+    await page.locator('.epoque[data-id="photo-1965"]').click();
+    await expect(page.locator('#cp-inscription')).toHaveText('Souvenir de Bourgoin-Jallieu, 1965 - 1980');
+    await page.getByRole('button', { name: 'Bourgoin-Jallieu vue du ciel, 1965 - 1980', exact: true }).click();
+    await page.locator('.epoque[data-id="scan50"]').click();
+    await expect(page.locator('#inscription')).toHaveValue('Bourgoin-Jallieu vue du ciel, 1950');
+  });
+
+  test('0.42.17 - Une saisie personnelle reste intacte et une suggestion réactive le suivi', async ({ page }) => {
+    await ouvrir(page);
+    await entrer(page);
+    await page.locator('#inscription').fill('Notre quartier en 1957');
+    await page.locator('.epoque[data-id="aujourdhui"]').click();
+    await expect(page.locator('#cp-inscription')).toHaveText('Notre quartier en 1957');
+    // Effacer volontairement le libellé est aussi une personnalisation.
+    await page.locator('#inscription').fill('');
+    await page.locator('.epoque[data-id="scan50"]').click();
+    await expect(page.locator('#inscription')).toHaveValue('');
+    await expect(page.locator('#cp-inscription')).toHaveText('');
+    await page.getByRole('button', { name: 'Bourgoin-Jallieu, 1950', exact: true }).click();
+    await page.locator('.epoque[data-id="photo-1965"]').click();
+    await expect(page.locator('#cp-inscription')).toHaveText('Bourgoin-Jallieu, 1965 - 1980');
+  });
+
+  test('0.42.18 - Toutes les accroches tiennent sur deux lignes sans déplacer les contacts', async ({ page }, testInfo) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await ouvrir(page);
+    await entrer(page);
+    await page.evaluate(() => document.fonts.ready);
+    const epochs = await page.evaluate(() => window.Epoques.liste.map((epoch) => epoch.id));
+    for (const width of [320, 430, 1180, 1400]) {
+      await page.setViewportSize({ width, height: 950 });
+      for (const epoch of epochs) {
+        await page.locator(`.epoque[data-id="${epoch}"]`).click();
+        const layout = await page.evaluate(() => {
+          const headline = document.getElementById('cp-punchline');
+          const rect = headline.getBoundingClientRect();
+          return {
+            lines: rect.height / parseFloat(getComputedStyle(headline).lineHeight),
+            contactGap: document.getElementById('cp-email').getBoundingClientRect().top - rect.bottom,
+            creditGap: document.querySelector('.cp__credit').getBoundingClientRect().top
+              - document.getElementById('cp-phone').getBoundingClientRect().bottom,
+          };
+        });
+        expect(layout.lines, `${epoch}, ${width} px`).toBeCloseTo(2, 1);
+        expect(layout.contactGap).toBeGreaterThan(0);
+        expect(layout.creditGap).toBeGreaterThan(0);
+      }
+      if (width === 430 || width === 1400) {
+        await page.locator('#carte-postale').screenshot({ path: testInfo.outputPath(`accroche-actuelle-${width}.png`) });
+      }
+    }
+  });
+
+  test('0.42.19 - Les accroches imprimées gardent deux lignes et les marges de sécurité', async ({ page }) => {
+    await ouvrir(page);
+    const compositions = await page.evaluate(async () => {
+      const original = CanvasRenderingContext2D.prototype.fillText;
+      const compositions = [];
+      let texts;
+      CanvasRenderingContext2D.prototype.fillText = function (text, x, y, ...args) {
+        const metrics = this.measureText(text);
+        texts.push({ text, top: y - metrics.actualBoundingBoxAscent, bottom: y + metrics.actualBoundingBoxDescent });
+        return original.call(this, text, x, y, ...args);
+      };
+      try {
+        for (const epoch of window.Epoques.liste) {
+          texts = [];
+          const punchline = window.Epoques.punchline(epoch, new Date().getFullYear());
+          await window.Postcard.composer({ imageCarte: null, inscription: '', punchline });
+          compositions.push({ id: epoch.id, texts, expected: punchline.split('\n'), height: window.Postcard.hauteur });
+        }
+        return compositions;
+      } finally {
+        CanvasRenderingContext2D.prototype.fillText = original;
+      }
+    });
+    for (const composition of compositions) {
+      const { texts, expected, height } = composition;
+      expect(texts.slice(0, 2).map((item) => item.text), composition.id).toEqual(expected);
+      // Deux lignes d'accroche, deux contacts, le site et la source.
+      expect(texts).toHaveLength(6);
+      const email = texts.find((item) => item.text === 'contact@vazy.app');
+      const phone = texts.find((item) => item.text === '07 60 77 16 13');
+      const credit = texts.find((item) => item.text.startsWith('Fond de carte'));
+      expect(email.top).toBeGreaterThan(texts[1].bottom);
+      expect(credit.top).toBeGreaterThan(phone.bottom);
+      for (const item of texts) expect(height - item.bottom).toBeGreaterThanOrEqual(5 * 300 / 25.4);
     }
   });
 

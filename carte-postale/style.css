@@ -263,6 +263,8 @@ body:not(.a-commune) .scene::before { background:
 .cp__phone:hover { text-decoration: underline; }
 .cp.is-plat .cp__map { pointer-events: none; }
 .cp__qr {
+  /* La légende à 11 px ne doit pas élargir la colonne sur petit écran. */
+  width: calc(var(--cp-l) * 0.24);
   align-self: center;
   display: flex;
   flex-direction: column;
