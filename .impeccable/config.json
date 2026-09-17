@@ -14,6 +14,48 @@
         "value": "space grotesk",
         "createdAt": "2026-09-16T20:33:19.657Z",
         "reason": "Space Grotesk est la police de titre de la marque, déjà choisie dans home-src/tailwind.config.js et les fiches."
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "createdAt": "2026-09-17T08:41:20.597Z",
+        "reason": "Rebond des boutons flottants explicitement prescrit par AGENTS.md."
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "carte-postale/index.html"
+        ],
+        "createdAt": "2026-09-17T08:42:13.884Z",
+        "reason": "Papier crème de la carte postale existante, conservé pour cette retouche du format et du contact."
+      },
+      {
+        "rule": "buried-raster",
+        "value": "*",
+        "files": [
+          "carte-postale/index.html"
+        ],
+        "createdAt": "2026-09-17T08:42:14.072Z",
+        "reason": "Le fond à 0.03 est un grain SVG décoratif existant ; il ne masque pas la photographie IGN qui reste à pleine opacité."
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "carte-postale/index.html"
+        ],
+        "createdAt": "2026-09-17T08:42:25.914Z",
+        "reason": "Accent lumineux du studio carte postale existant, conservé dans cette retouche ciblée."
+      },
+      {
+        "rule": "radial-halo",
+        "value": "*",
+        "files": [
+          "carte-postale/index.html"
+        ],
+        "createdAt": "2026-09-17T08:42:26.070Z",
+        "reason": "Décor du studio carte postale existant, conservé dans cette retouche ciblée."
       }
     ]
   }

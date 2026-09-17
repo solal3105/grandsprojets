@@ -232,60 +232,63 @@
       });
     },
 
-    plongerSur({ lat, lng, population }) {
-      if (!map) return;
-      const zoom = population > 100000 ? 13.4 : population > 20000 ? 14.2 : population > 5000 ? 14.8 : 15.4;
-      map.flyTo({
-        center: [lng, lat], zoom, pitch: 52, bearing: -18,
-        duration: prefereCalme ? 0 : 4200, curve: 1.5, essential: true,
-      });
-    },
-
     angle(pitch, bearing) {
       if (!map) return;
       map.easeTo({ pitch, bearing, duration: prefereCalme ? 0 : 900, essential: true });
     },
 
-    /* Image de la carte à la définition d'impression.
-       On ne peut pas agrandir après coup une capture d'écran sans la rendre
-       floue : le conteneur est donc porté à la taille cible le temps du rendu,
-       hors champ, puis remis comme il était. */
+    focusLocation({ lng, lat, type, population = 0, initial = false }) {
+      if (!map) return;
+      // On conserve l'angle choisi et le fond historique, sans repère imprimé.
+      map.stop();
+      const cityZoom = !population || population > 100000 ? 13.4 : population > 20000 ? 14.2 : population > 5000 ? 14.8 : 15.4;
+      map.flyTo({
+        center: [lng, lat], zoom: type === 'municipality' ? cityZoom : type === 'housenumber' ? 17 : 16,
+        ...(initial ? { pitch: 52, bearing: -18 } : {}),
+        duration: prefereCalme ? 0 : 900, essential: true,
+      });
+    },
+
+    /* Seule la densité de pixels augmente pour l'impression. Agrandir le
+       conteneur à zoom constant élargirait le territoire visible, surtout en
+       vue inclinée : sa taille et la caméra doivent rester inchangées. */
     async capturer(largeur, hauteur) {
       if (!map) return null;
       const el = map.getContainer();
-      const avant = { width: el.style.width, height: el.style.height, position: el.style.position };
-      el.style.width = `${largeur}px`;
-      el.style.height = `${hauteur}px`;
-      map.resize();
-      await Scene.reposee(9000);
+      if (!el.clientWidth || !el.clientHeight) return null;
+      map.stop();
+      const pixelRatio = map.getPixelRatio();
+      try {
+        map.setPixelRatio(Math.max(pixelRatio, largeur / el.clientWidth, hauteur / el.clientHeight));
+        await Scene.reposee(9000);
 
-      /* La lecture se fait PENDANT le rendu, pas après.
-         `preserveDrawingBuffer` ne suffit pas : une fois la trame composée par
-         le navigateur, le tampon peut être vidé, et `toDataURL` rend alors une
-         image parfaitement vide, sans la moindre erreur. Mesuré ici même : le
-         PNG faisait 48 Ko et tous ses pixels étaient noirs. On demande donc un
-         nouveau dessin et on lit dans la foulée, depuis l'événement `render`. */
-      const donnees = await new Promise((resoudre) => {
-        let rendu = false;
-        map.once('render', () => {
-          rendu = true;
-          try {
-            resoudre(map.getCanvas().toDataURL('image/png'));
-          } catch (e) {
-            // L'autre cause possible : une source sans en-tête CORS a « teinté »
-            // le canvas, et le navigateur en interdit toute relecture.
-            console.error('[carte-postale] relecture refusée (source sans CORS ?) ::', e?.message);
-            resoudre(null);
-          }
+        /* La lecture se fait PENDANT le rendu, pas après.
+           `preserveDrawingBuffer` ne suffit pas : une fois la trame composée par
+           le navigateur, le tampon peut être vidé, et `toDataURL` rend alors une
+           image parfaitement vide, sans la moindre erreur. Mesuré ici même : le
+           PNG faisait 48 Ko et tous ses pixels étaient noirs. On demande donc un
+           nouveau dessin et on lit dans la foulée, depuis l'événement `render`. */
+        return await new Promise((resolve) => {
+          const readFrame = () => {
+            clearTimeout(timeout);
+            try {
+              resolve(map.getCanvas().toDataURL('image/png'));
+            } catch (error) {
+              // Une source sans en-tête CORS peut interdire la relecture.
+              console.error('[carte-postale] Relecture refusée (source sans CORS ?) :', error?.message);
+              resolve(null);
+            }
+          };
+          const timeout = setTimeout(() => {
+            map.off('render', readFrame);
+            resolve(null);
+          }, 6000);
+          map.once('render', readFrame);
+          map.triggerRepaint();
         });
-        map.triggerRepaint();
-        setTimeout(() => { if (!rendu) resoudre(null); }, 6000);
-      });
-      el.style.width = avant.width;
-      el.style.height = avant.height;
-      el.style.position = avant.position;
-      map.resize();
-      return donnees;
+      } finally {
+        map.setPixelRatio(pixelRatio);
+      }
     },
 
     centre() {

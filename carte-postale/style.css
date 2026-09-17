@@ -6,8 +6,8 @@
    au centre, tous les réglages tiennent dans un pupitre unique à droite, dans
    l'ordre du geste : l'époque, l'inscription, le point de vue, la sortie.
 
-   Format : 10 x 15 cm en portrait. --cp-l porte la largeur, la hauteur en
-   découle par le rapport 1,5. Le rendu papier est calculé à part, en 300 points
+   Format : 100 x 148 mm en portrait. --cp-l porte la largeur, la hauteur en
+   découle par le rapport 1,48. Le rendu papier est calculé à part, en 300 points
    par pouce (voir postcard.js), à partir des mêmes proportions.
    ============================================================================ */
 
@@ -17,11 +17,11 @@
   --encre: #12121a;
   --gris: #5d5d6b;
 
-  /* Largeur de la carte à l'écran ; la hauteur suit le format 10 x 15 */
+  /* Largeur de la carte à l'écran ; la hauteur suit le format 100 x 148 */
   --cp-l: clamp(250px, 33vw, 440px);
-  --cp-h: calc(var(--cp-l) * 1.5);
+  --cp-h: calc(var(--cp-l) * 1.48);
   /* Part de l'image dans la hauteur, le bandeau prend le reste */
-  --cp-image: 72%;
+  --cp-image: 70%;
 
   --verre: rgba(255, 255, 255, 0.055);
   --verre-bord: rgba(255, 255, 255, 0.13);
@@ -138,14 +138,12 @@ body:not(.a-commune) .scene::before { background:
   grid-area: plateau;
   display: grid;
   place-items: center;
-  perspective: 1500px;
-  perspective-origin: 50% 45%;
   min-height: 0;
 }
 
 /* ─── La carte postale ─── */
 
-.cp { position: relative; }
+.cp { position: relative; perspective: 1200px; perspective-origin: center; }
 
 .cp__objet {
   position: relative;
@@ -155,14 +153,13 @@ body:not(.a-commune) .scene::before { background:
   border-radius: 9px;
   overflow: hidden;
   transform-style: preserve-3d;
-  transform: rotateX(var(--rx, 5deg)) rotateY(var(--ry, -12deg));
-  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.55) inset,
     0 60px 120px -40px rgba(0, 0, 0, 0.95),
     0 18px 46px -18px rgba(0, 0, 0, 0.75);
-  will-change: transform;
 }
+.cp.is-tilting .cp__objet { will-change: transform; }
 
 /* Pendant qu'on cadre, la carte se met À PLAT. Ce n'est pas décoratif : une
    carte inclinée fausse les coordonnées que MapLibre lit du pointeur, et le
@@ -233,36 +230,38 @@ body:not(.a-commune) .scene::before { background:
   grid-template-columns: 1fr auto;
   gap: calc(var(--cp-l) * 0.034);
   align-items: start;
-  padding: calc(var(--cp-l) * 0.037) calc(var(--cp-l) * 0.066) 0;
+  padding: calc(var(--cp-l) * 0.03) calc(var(--cp-l) * 0.066) 0;
   background: var(--papier);
   color: var(--encre);
 }
 .cp__logo {
-  width: calc(var(--cp-l) * 0.26);
+  width: calc(var(--cp-l) * 0.22);
   height: auto;
   display: block;
-  margin-bottom: calc(var(--cp-l) * 0.026);
+  margin-bottom: calc(var(--cp-l) * 0.015);
 }
 .cp__punchline {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
   font-size: calc(var(--cp-l) * 0.0406);
-  line-height: 1.21;
+  line-height: 1.3;
   letter-spacing: -0.01em;
 }
-.cp__sous {
-  margin-top: calc(var(--cp-l) * 0.02);
-  font-size: calc(var(--cp-l) * 0.0195);
-  line-height: 1.3;
-  color: var(--gris);
-}
-.cp__tel[hidden] { display: none; }
-.cp__tel {
-  margin-top: calc(var(--cp-l) * 0.017);
+.cp__email,
+.cp__phone {
+  display: block;
+  width: fit-content;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 600;
-  font-size: calc(var(--cp-l) * 0.0246);
+  font-size: max(11px, calc(var(--cp-l) * 0.032));
+  line-height: 1.26;
+  color: var(--encre);
+  text-decoration: none;
 }
+.cp__email { margin-top: calc(var(--cp-l) * 0.045); }
+.cp__email:hover,
+.cp__phone:hover { text-decoration: underline; }
+.cp.is-plat .cp__map { pointer-events: none; }
 .cp__qr {
   align-self: center;
   display: flex;
@@ -270,9 +269,9 @@ body:not(.a-commune) .scene::before { background:
   align-items: center;
   gap: calc(var(--cp-l) * 0.008);
 }
-.cp__qr img { width: calc(var(--cp-l) * 0.157); height: auto; display: block; }
+.cp__qr img { width: calc(var(--cp-l) * 0.24); height: auto; display: block; }
 .cp__qr span {
-  font-size: calc(var(--cp-l) * 0.017);
+  font-size: max(11px, calc(var(--cp-l) * 0.0237));
   line-height: 1.24;
   text-align: center;
   color: var(--gris);
@@ -280,9 +279,10 @@ body:not(.a-commune) .scene::before { background:
 .cp__credit {
   position: absolute;
   left: calc(var(--cp-l) * 0.066);
-  bottom: calc(var(--cp-l) * 0.018);
-  font-size: calc(var(--cp-l) * 0.0144);
-  color: color-mix(in srgb, var(--gris) 70%, transparent);
+  /* Même retrait de 5 mm que sur la carte imprimée de 100 mm de large. */
+  bottom: calc(var(--cp-l) * 0.05);
+  font-size: max(10px, calc(var(--cp-l) * 0.0203));
+  color: var(--gris);
 }
 
 /* Reflet : la bande claire qui glisse selon l'inclinaison. C'est ce détail qui
@@ -299,8 +299,7 @@ body:not(.a-commune) .scene::before { background:
     transparent 70%
   );
   mix-blend-mode: screen;
-  opacity: var(--reflet-force, 0.6);
-  transition: opacity 0.4s ease;
+  opacity: var(--reflet-force, 0.3);
 }
 .cp.is-plat .cp__reflet { opacity: 0.14; }
 
@@ -316,10 +315,15 @@ body:not(.a-commune) .scene::before { background:
   border-radius: 22px;
   padding: clamp(18px, 2vw, 26px);
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
   box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.09) inset;
 }
 
 .bloc { display: none; }
+.search-intro { display: flex; flex-direction: column; gap: 20px; margin-bottom: 20px; }
+.search-intro[hidden] { display: none; }
+#address-search { margin-bottom: 20px; }
 .bloc.is-actif { display: flex; flex-direction: column; gap: 20px; flex: 1; animation: monte 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes monte { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
@@ -332,7 +336,7 @@ body:not(.a-commune) .scene::before { background:
 }
 .bloc__intro { font-size: 0.9rem; line-height: 1.55; color: rgba(255, 255, 255, 0.55); margin-top: -10px; }
 
-.recherche { position: relative; }
+.recherche { position: relative; display: flex; flex-direction: column; gap: 9px; }
 .recherche__champ {
   width: 100%;
   font-family: inherit;
@@ -377,16 +381,42 @@ body:not(.a-commune) .scene::before { background:
 .recherche__liste .n { font-weight: 600; font-size: 0.92rem; }
 .recherche__liste .m { font-size: 0.74rem; color: rgba(255, 255, 255, 0.45); }
 
+/* Dans l'atelier, les résultats poussent les réglages et restent défilables. */
+.recherche__liste--address { position: static; max-height: 240px; overflow-y: auto; }
+.recherche__liste--address li { padding: 0; }
+.recherche__liste--address button {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  transition: background 0.15s ease;
+}
+.recherche__liste--address button:hover,
+.recherche__liste--address button.is-choisi { background: rgba(255, 255, 255, 0.09); }
+.recherche__liste--address button:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.recherche__liste--address .m { color: rgba(255, 255, 255, 0.7); }
+.recherche__champ[type="search"]::placeholder { color: rgba(255, 255, 255, 0.7); }
+.recherche__statut:empty { display: none; }
+
 /* ─── Réglages ─── */
 
 .reglage { display: flex; flex-direction: column; gap: 9px; }
 .reglage__label {
-  font-size: 0.66rem;
+  font-size: 0.75rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.7);
 }
-.reglage__aide { font-size: 0.74rem; color: rgba(255, 255, 255, 0.34); line-height: 1.45; }
+.reglage__aide { font-size: 0.75rem; color: rgba(255, 255, 255, 0.7); line-height: 1.45; }
 .reglage__alerte[hidden] { display: none; }
 .reglage__alerte {
   font-size: 0.78rem;
@@ -518,7 +548,7 @@ body:not(.a-commune) .scene::before { background:
 }
 .btn--primaire {
   background: var(--accent);
-  color: #fff;
+  color: var(--encre);
   box-shadow: 0 16px 40px -14px color-mix(in srgb, var(--accent) 75%, transparent);
 }
 .btn--primaire:hover:not(:disabled) { transform: scale(1.03); }
@@ -541,26 +571,40 @@ body:not(.a-commune) .scene::before { background:
 
 /* ─── Impression ─────────────────────────────────────────────────────────────
    On n'imprime PAS la page : on imprime l'image composée en 300 points par
-   pouce. Le rendu papier est donc identique au fichier téléchargé, et ne
-   dépend ni du navigateur ni de ses marges. */
-.sortie { display: none; }
+   pouce. Le navigateur reçoit le format exact, sans marge. Le pilote garde
+   la main sur le format du papier et les éventuelles marges matérielles. */
+.sortie, .sortie[hidden] { display: none; }
 
 @media print {
-  @page { size: 100mm 150mm; margin: 0; }
+  @page { size: 100mm 148mm; margin: 0; }
+  html, body {
+    width: 100mm;
+    height: 148mm;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: var(--papier);
+    color: var(--encre);
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
   body > *:not(.sortie) { display: none !important; }
   .sortie {
     display: block !important;
     position: absolute;
     inset: 0;
     width: 100mm;
-    height: 150mm;
+    height: 148mm;
+    overflow: hidden;
+    break-inside: avoid;
   }
-  .sortie img { width: 100mm; height: 150mm; display: block; }
+  .sortie img { width: 100%; height: 100%; display: block; }
 }
 
 /* ─── Écrans étroits : une seule colonne, la page défile ─── */
 
-@media (max-width: 1040px) {
+@media screen and (max-width: 1040px) {
   body { overflow: auto; }
   :root { --cp-l: min(330px, 74vw); }
   .studio {
@@ -572,9 +616,13 @@ body:not(.a-commune) .scene::before { background:
   }
   .plateau { padding: 26px 0 34px; }
   .pupitre { overflow: visible; }
+  /* Les contacts restent lisibles à 11 px sans toucher la mention IGN. */
+  .cp__bandeau { padding-top: calc(var(--cp-l) * 0.02); }
+  .cp__logo { margin-bottom: calc(var(--cp-l) * 0.005); }
+  .cp__email { margin-top: calc(var(--cp-l) * 0.03); }
 }
 
-@media (max-width: 560px) {
+@media screen and (max-width: 560px) {
   :root { --cp-l: min(300px, 84vw); }
   .studio { padding: 14px 14px 26px; }
   .entete__commune { padding-left: 8px; }
@@ -582,5 +630,5 @@ body:not(.a-commune) .scene::before { background:
 
 @media (prefers-reduced-motion: reduce) {
   .scene__grain { animation: none; }
-  .cp__objet { transition: none; }
+  .cp__objet { transform: none; }
 }

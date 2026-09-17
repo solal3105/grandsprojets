@@ -6,159 +6,145 @@
 
    Parti pris d'interface : la carte postale n'est pas un aperçu posé à côté
    d'un éditeur, elle EST l'éditeur. Elle flotte au centre en perspective, et
-   c'est en la survolant qu'elle se met à plat pour se laisser cadrer.
+   elle se met à plat dès qu'on commence à cadrer ou à zoomer.
    ============================================================================ */
 (() => {
   'use strict';
 
   const $ = (id) => document.getElementById(id);
 
-  // À renseigner quand le numéro du stand sera arrêté. Vide, la ligne
-  // n'apparaît ni à l'écran ni à l'impression : mieux vaut pas de numéro qu'un
-  // numéro faux sur un objet qu'on laisse entre les mains d'un élu.
-  const TELEPHONE = '';
-  const CIBLE_QR = 'https://openprojets.com/demo/';
   const ANNEE = new Date().getFullYear();
 
+  const { email, phone, url, qrImage } = window.Postcard.contact;
+  $('cp-email').textContent = email;
+  $('cp-email').href = `mailto:${email}`;
+  $('cp-phone').textContent = phone;
+  $('cp-phone').href = `tel:${phone.replace(/\s/g, '')}`;
+  $('cp-qr-link').href = url;
+  $('cp-qr-img').src = qrImage;
+
   const carte = $('carte-postale');
-  const champCommune = $('commune');
-  const listeSug = $('suggestions');
 
   let commune = null;
   let epoque = null;
-  let suggestions = [];
-  let choisi = -1;
-  let minuteurSaisie = null;
-  let sequence = 0;
 
   const aScene = window.Scene?.init('map');
+  const addressSearch = window.AddressSearch.init({ onSelect: selectLocation });
 
-  /* ─── L'objet : inclinaison et reflet ───────────────────────────────────
-     Deux états. Au repos, la carte suit le pointeur : elle a du volume, elle
-     accroche la lumière. Dès qu'on la survole pour travailler, elle se met à
-     plat, et ce n'est pas qu'une coquetterie : une carte inclinée fausse les
-     coordonnées que MapLibre lit du pointeur, et le cadrage dériverait. */
+  /* Le pointeur agit autour du centre de la carte, dans son cadre non tourné.
+     Un seul lissage, indépendant de la fréquence d'écran, puis la boucle
+     s'arrête. Les réglages du pupitre ne font jamais bouger l'objet. */
+  const cardObject = carte.querySelector('.cp__objet');
+  const reflection = carte.querySelector('.cp__reflet');
+  const motionPreference = window.matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)');
+  let target = { x: 0, y: 0 };
+  let current = { x: 0, y: 0 };
+  let frameId = 0;
+  let lastFrame = 0;
+  let motionLocked = false;
 
-  let cible = { x: 0, y: 0 };
-  let courant = { x: 0, y: 0 };
-  let anim = null;
-
-  function boucle() {
-    anim = requestAnimationFrame(boucle);
-    courant.x += (cible.x - courant.x) * 0.08;
-    courant.y += (cible.y - courant.y) * 0.08;
-    const objet = carte.querySelector('.cp__objet');
-    if (!objet) return;
-    objet.style.setProperty('--ry', `${courant.x * 14}deg`);
-    objet.style.setProperty('--rx', `${-courant.y * 10 + 4}deg`);
-    const reflet = carte.querySelector('.cp__reflet');
-    if (reflet) {
-      reflet.style.setProperty('--reflet-angle', `${100 + courant.x * 55}deg`);
-      reflet.style.setProperty('--reflet-force', String(0.45 + Math.abs(courant.x) * 0.5));
-    }
-    const halo = document.querySelector('.scene__halo');
-    if (halo) halo.style.transform = `translate(calc(-50% + ${courant.x * 40}px), calc(-50% + ${courant.y * 26}px))`;
+  function paintTilt() {
+    cardObject.style.setProperty('--ry', `${current.x * 5}deg`);
+    cardObject.style.setProperty('--rx', `${-current.y * 4}deg`);
+    reflection.style.setProperty('--reflet-angle', `${115 + current.x * 20}deg`);
+    reflection.style.setProperty('--reflet-force', String(0.3 + Math.hypot(current.x, current.y) * 0.12));
+    carte.classList.toggle('is-tilting', !!(current.x || current.y || target.x || target.y));
   }
 
-  window.addEventListener('pointermove', (e) => {
-    cible = {
-      x: (e.clientX / window.innerWidth) * 2 - 1,
-      y: (e.clientY / window.innerHeight) * 2 - 1,
-    };
-  });
-
-  // Survol de la carte : elle s'aplatit pour se laisser manipuler
-  carte.addEventListener('pointerenter', () => {
-    if (carte.dataset.etat === 'carte') carte.classList.add('is-plat');
-  });
-  carte.addEventListener('pointerleave', () => carte.classList.remove('is-plat'));
-
-  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) boucle();
-  window.addEventListener('pagehide', () => cancelAnimationFrame(anim));
-
-  /* ─── Choix de la commune ─── */
-
-  async function chercher(q) {
-    if (q.length < 2) return rendreSuggestions([]);
-    const n = ++sequence;
-    try {
-      const r = await fetch(`https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(q)}&fields=departement,population,centre&boost=population&limit=6`);
-      const l = r.ok ? await r.json() : [];
-      if (n === sequence) rendreSuggestions(l);
-    } catch {
-      if (n === sequence) rendreSuggestions([]);
-    }
+  function animateTilt(time) {
+    const delta = Math.min(time - (lastFrame || time - 16), 50);
+    const blend = 1 - Math.exp(-delta / 65);
+    lastFrame = time;
+    current.x += (target.x - current.x) * blend;
+    current.y += (target.y - current.y) * blend;
+    const settled = Math.abs(target.x - current.x) + Math.abs(target.y - current.y) < 0.002;
+    if (settled) current = { ...target };
+    paintTilt();
+    frameId = settled ? 0 : requestAnimationFrame(animateTilt);
+    if (settled) lastFrame = 0;
   }
+
+  function setTilt(x, y) {
+    target = { x, y };
+    if (!frameId) frameId = requestAnimationFrame(animateTilt);
+  }
+
+  function resetTilt() {
+    cancelAnimationFrame(frameId);
+    frameId = 0;
+    lastFrame = 0;
+    target = { x: 0, y: 0 };
+    current = { x: 0, y: 0 };
+    paintTilt();
+  }
+
+  carte.addEventListener('pointermove', (event) => {
+    if (!motionPreference.matches || event.pointerType !== 'mouse' || event.buttons
+      || motionLocked || carte.classList.contains('is-plat') || carte.matches(':focus-within')) return;
+    const rect = carte.getBoundingClientRect();
+    const clamp = (value) => Math.max(-1, Math.min(1, value));
+    setTilt(
+      clamp((event.clientX - rect.left - rect.width / 2) / (rect.width / 2)),
+      clamp((event.clientY - rect.top - rect.height / 2) / (rect.height / 2)),
+    );
+  });
+  carte.addEventListener('pointerleave', () => {
+    motionLocked = false;
+    if (motionPreference.matches) setTilt(0, 0);
+    else resetTilt();
+  });
+
+  // Avant que MapLibre lise le geste, le plan redevient plat sans transition.
+  // Il le reste jusqu'à la sortie du pointeur, même après le relâchement.
+  function lockTilt() {
+    motionLocked = true;
+    resetTilt();
+  }
+  $('map').addEventListener('pointerdown', lockTilt, { capture: true });
+  $('map').addEventListener('wheel', lockTilt, { capture: true, passive: true });
+  carte.addEventListener('focusin', lockTilt);
+  carte.addEventListener('pointercancel', lockTilt);
+  motionPreference.addEventListener('change', () => { if (!motionPreference.matches) resetTilt(); });
+  window.addEventListener('resize', resetTilt);
+  window.addEventListener('blur', resetTilt);
+  window.addEventListener('pagehide', resetTilt);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) resetTilt(); });
+  resetTilt();
 
   const echapper = (s) => String(s || '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
 
-  function rendreSuggestions(liste) {
-    suggestions = liste;
-    choisi = -1;
-    if (!liste.length) { listeSug.hidden = true; listeSug.innerHTML = ''; return; }
-    listeSug.innerHTML = liste.map((c, i) => `
-      <li data-i="${i}">
-        <span class="n">${echapper(c.nom)}</span>
-        <span class="m">${echapper(c.departement?.nom || '')} · ${(c.population || 0).toLocaleString('fr-FR')} hab.</span>
-      </li>`).join('');
-    listeSug.hidden = false;
-  }
-
-  champCommune.addEventListener('input', () => {
-    clearTimeout(minuteurSaisie);
-    minuteurSaisie = setTimeout(() => chercher(champCommune.value.trim()), 170);
-  });
-
-  champCommune.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (!suggestions.length) return;
-      choisi = (choisi + (e.key === 'ArrowDown' ? 1 : -1) + suggestions.length) % suggestions.length;
-      [...listeSug.children].forEach((li, i) => li.classList.toggle('is-choisi', i === choisi));
-    } else if (e.key === 'Enter') {
-      const c = suggestions[choisi >= 0 ? choisi : 0];
-      if (c) demarrer(c);
-    } else if (e.key === 'Escape') {
-      rendreSuggestions([]);
-    }
-  });
-
-  listeSug.addEventListener('click', (e) => {
-    const li = e.target.closest('li[data-i]');
-    if (li) demarrer(suggestions[parseInt(li.dataset.i, 10)]);
-  });
-
-  /* ─── Entrée dans l'atelier ─── */
-
-  function demarrer(c) {
-    commune = c;
-    rendreSuggestions([]);
-    champCommune.blur();
+  /* Un seul choix ouvre la carte et retrouve la commune du lieu. */
+  function selectLocation(location) {
+    const previousCity = commune;
+    const initial = !epoque;
+    const updateInscription = !previousCity || $('inscription').value.trim() === previousCity.nom;
+    commune = location.commune;
+    const selectedCity = commune;
     carte.dataset.etat = 'carte';
+    resetTilt();
     document.body.classList.add('a-commune');
-    $('entete-commune').textContent = c.nom;
-    $('etape-commune').classList.remove('is-actif');
+    $('entete-commune').textContent = commune.nom;
+    $('search-intro').hidden = true;
     $('etape-atelier').classList.add('is-actif');
-    $('cp-qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=0&data=${encodeURIComponent(CIBLE_QR)}`;
-    if (TELEPHONE) { $('cp-tel').textContent = TELEPHONE; $('cp-tel').hidden = false; }
 
+    if (initial) {
+      construireFrise();
+      choisirEpoque(window.Epoques.liste.find((e) => e.id === 'photo-1950') || window.Epoques.liste[0]);
+    } else {
+      majLegendes();
+    }
+    if (updateInscription) {
+      majInscription(commune.nom);
+      $('inscription').value = commune.nom;
+    }
     if (aScene) {
       window.Scene.quandPrete(() => {
-        window.Scene.plongerSur({
-          lat: c.centre.coordinates[1],
-          lng: c.centre.coordinates[0],
-          population: c.population || 0,
-        });
+        if (commune !== selectedCity) return;
+        window.Scene.focusLocation({ ...location, population: selectedCity.population, initial });
       });
     }
-    construireFrise();
-    // Par défaut, la vue aérienne des années 1950 : c'est celle qui provoque la
-    // réaction, un centre-bourg entouré de champs là où il y a des lotissements.
-    choisirEpoque(window.Epoques.liste.find((e) => e.id === 'photo-1950') || window.Epoques.liste[0]);
-    majInscription(`${c.nom}`);
-    $('inscription').value = c.nom;
   }
 
   /* ─── La frise des époques ─── */
@@ -256,12 +242,14 @@
   /* ─── Sortie ─── */
 
   async function fabriquer(bouton) {
+    if (carte.classList.contains('is-plat')) return null;
     const avant = bouton.textContent;
-    bouton.disabled = true;
+    $('btn-imprimer').disabled = true;
+    $('btn-png').disabled = true;
     bouton.textContent = 'Préparation...';
-    // Pendant la capture, la carte est portée à la taille d'impression : on la
-    // met à plat pour que rien ne bouge sous le rendu.
+    // La carte reste immobile pendant le rendu à la définition d'impression.
     carte.classList.add('is-plat');
+    resetTilt();
     try {
       const image = aScene
         ? await window.Scene.capturer(window.Postcard.imageLargeur, window.Postcard.imageHauteur)
@@ -276,11 +264,14 @@
         imageCarte: image,
         inscription: $('inscription').value.trim(),
         punchline: window.Epoques.punchline(epoque, ANNEE),
-        telephone: TELEPHONE,
-        cibleQr: CIBLE_QR,
       });
+    } catch (error) {
+      console.error('La préparation de la carte postale a échoué.', error);
+      alert("La carte postale n'a pas pu être préparée. Rechargez la page et réessayez.");
+      return null;
     } finally {
-      bouton.disabled = false;
+      $('btn-imprimer').disabled = false;
+      $('btn-png').disabled = false;
       bouton.textContent = avant;
       carte.classList.remove('is-plat');
     }
@@ -290,7 +281,14 @@
 
   $('btn-imprimer').addEventListener('click', async (e) => {
     const c = await fabriquer(e.currentTarget);
-    if (c) window.Postcard.imprimer(c);
+    if (c) {
+      try {
+        await window.Postcard.imprimer(c);
+      } catch (error) {
+        console.error("L'impression de la carte postale a échoué.", error);
+        alert("L'impression n'a pas pu démarrer. Réessayez ou téléchargez l'image.");
+      }
+    }
   });
 
   $('btn-png').addEventListener('click', async (e) => {
@@ -298,17 +296,6 @@
     if (c) window.Postcard.telecharger(c, nomFichier());
   });
 
-  $('btn-autre').addEventListener('click', () => {
-    commune = null;
-    epoque = null;
-    carte.dataset.etat = 'attente';
-    document.body.classList.remove('a-commune');
-    $('etape-atelier').classList.remove('is-actif');
-    $('etape-commune').classList.add('is-actif');
-    champCommune.value = '';
-    $('entete-commune').textContent = '';
-    majHalo(null);
-    majInscription('');
-    champCommune.focus();
-  });
+  $('btn-autre').addEventListener('click', () => addressSearch.focus());
+
 })();

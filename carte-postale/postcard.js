@@ -1,8 +1,8 @@
 /* ============================================================================
    COMPOSITION - carte-postale/postcard.js  (window.Postcard)
 
-   Fabrique l'image finale : 10 x 15 cm à 300 points par pouce, soit
-   1181 x 1772 pixels. Tout est peint dans un canvas plutôt que confié à
+   Fabrique l'image finale : 100 x 148 mm à 300 points par pouce, soit
+   1181 x 1748 pixels. Tout est peint dans un canvas plutôt que confié à
    l'impression du navigateur, pour une raison simple : une page imprimée
    dépend des marges, du navigateur et du pilote. Une image, non. Ce qui est
    téléchargé et ce qui sort de l'imprimante sont alors le même objet.
@@ -11,21 +11,29 @@
   'use strict';
 
   const DPI = 300;
-  const CM = DPI / 2.54;
-  const L = Math.round(10 * CM);   // 1181
-  const H = Math.round(15 * CM);   // 1772
+  const MM = DPI / 25.4;
+  const L = Math.round(100 * MM);  // 1181
+  const H = Math.round(148 * MM);  // 1748
   /* Part de l'image dans la hauteur. DOIT rester égale à --cp-image de la
      feuille de style, sinon l'aperçu à l'écran et le papier ne cadrent pas
      pareil et l'inscription se décale. */
-  const IMAGE_H = Math.round(H * 0.72);
+  const IMAGE_H = Math.round(H * 0.70);
   const MARGE = Math.round(L * 0.066);
+  const PRINT_SAFE_MARGIN = Math.ceil(5 * MM);
 
   const PAPIER = '#f7f5f1';
   const ENCRE = '#12121a';
   const GRIS = '#5d5d6b';
 
   const LOGO = '/img/logos/classic_color.png';
-  const QR = (cible) => `https://api.qrserver.com/v1/create-qr-code/?size=420x420&margin=0&data=${encodeURIComponent(cible)}`;
+  // Même contact et même QR pour l'aperçu et le papier. Le SVG embarqué encode
+  // cette adresse et garde une zone blanche de quatre modules sur chaque côté.
+  const CONTACT = Object.freeze({
+    email: 'contact@vazy.app',
+    phone: '07 60 77 16 13',
+    url: 'https://openprojets.com/l/carte-postale',
+    qrImage: '/carte-postale/qr-carte-postale.svg',
+  });
 
   function charger(src) {
     return new Promise((ok) => {
@@ -72,6 +80,7 @@
   }
 
   const Postcard = {
+    contact: CONTACT,
     largeur: L,
     hauteur: H,
     // Proportions de la zone image, pour que la capture ait le bon cadrage
@@ -83,14 +92,14 @@
     async policesPretes() {
       if (!document.fonts) return;
       await Promise.all([
-        document.fonts.load('700 52px "Space Grotesk"'),
+        document.fonts.load('700 48px "Space Grotesk"'),
         document.fonts.load('600 54px "Space Grotesk"'),
         document.fonts.load('400 25px "Inter"'),
       ]).catch(() => {});
       await document.fonts.ready;
     },
 
-    async composer({ imageCarte, inscription, punchline, telephone, cibleQr }) {
+    async composer({ imageCarte, inscription, punchline }) {
       await Postcard.policesPretes();
       const c = document.createElement('canvas');
       c.width = L;
@@ -133,27 +142,23 @@
         ctx.shadowOffsetY = 0;
       }
 
-      /* ── Le bandeau, invariant ──────────────────────────────────────────
-         Rythme vertical calculé, pas approximé : le bandeau ne fait que 496
-         pixels de haut et doit contenir le logo, deux lignes de punchline, une
-         phrase de rappel, un téléphone et le QR. Au premier essai le logo
-         débordait sur la photographie. */
+      // Le bandeau accueille le logo, l'accroche, le contact et un QR de 24 mm.
       const yB = IMAGE_H;
       const hB = H - IMAGE_H;
       ctx.fillStyle = PAPIER;
       ctx.fillRect(0, yB, L, hB);
 
-      const qrTaille = 186;
+      const qrTaille = Math.round(24 * MM);
       const qrX = L - MARGE - qrTaille;
       const colonne = qrX - MARGE - 40;
 
       /* Le logo, EN COULEUR, ouvre le bandeau : c'est la seule note vive de
          l'objet et elle signe qui l'a fabriqué. Sur le papier crème il ressort
          sans retouche. */
-      let y = yB + 44;
+      let y = yB + Math.round(L * 0.03);
       const logo = await charger(LOGO);
       if (logo) {
-        const lLogo = Math.round(L * 0.26);
+        const lLogo = Math.round(L * 0.22);
         const hLogo = Math.round((logo.height / logo.width) * lLogo);
         ctx.drawImage(logo, MARGE, y, lLogo, hLogo);
         y += hLogo + 52;
@@ -166,38 +171,34 @@
       ctx.font = '700 48px "Space Grotesk", sans-serif';
       ctx.fillStyle = ENCRE;
       const lignesPunch = lignes(ctx, punchline || '', colonne);
-      ecrire(ctx, punchline || '', MARGE, y, colonne, 58);
-      y += (lignesPunch.length - 1) * 58 + 44;
+      ecrire(ctx, punchline || '', MARGE, y, colonne, 62);
+      y += (lignesPunch.length - 1) * 62 + 90;
 
-      // Ce que fait Open Projets, en une phrase
-      ctx.font = '400 23px "Inter", sans-serif';
-      ctx.fillStyle = GRIS;
-      const sous = "Publiez vos projets d'aménagement sur une carte publique, à vos couleurs.";
-      const lignesSous = lignes(ctx, sous, colonne);
-      ecrire(ctx, sous, MARGE, y, colonne, 30);
-      y += (lignesSous.length - 1) * 30 + 40;
-
-      if (telephone) {
-        ctx.font = '600 29px "Space Grotesk", sans-serif';
-        ctx.fillStyle = ENCRE;
-        ctx.fillText(telephone, MARGE, y);
-      }
+      // Le contact est détaché de l'accroche pour rester facile à repérer.
+      ctx.font = '600 38px "Space Grotesk", sans-serif';
+      ctx.fillStyle = ENCRE;
+      ctx.fillText(CONTACT.email, MARGE, y);
+      ctx.fillText(CONTACT.phone, MARGE, y + 48);
 
       // QR et sa légende, centrés verticalement dans le bandeau
-      const qr = await charger(QR(cibleQr));
-      const qrY = yB + Math.round((hB - (qrTaille + 56)) / 2);
-      if (qr) ctx.drawImage(qr, qrX, qrY, qrTaille, qrTaille);
-      ctx.font = '400 20px "Inter", sans-serif';
+      const qr = await charger(CONTACT.qrImage);
+      if (!qr) throw new Error('Le QR code de la carte postale est indisponible.');
+      const qrY = yB + Math.round((hB - (qrTaille + 42)) / 2);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(qr, qrX, qrY, qrTaille, qrTaille);
+      ctx.imageSmoothingEnabled = true;
+      ctx.font = '400 28px "Inter", sans-serif';
       ctx.fillStyle = GRIS;
       ctx.textAlign = 'center';
-      ctx.fillText('openprojets.com', qrX + qrTaille / 2, qrY + qrTaille + 28);
-      ctx.fillText('/demo', qrX + qrTaille / 2, qrY + qrTaille + 52);
+      ctx.fillText(new URL(CONTACT.url).hostname, qrX + qrTaille / 2, qrY + qrTaille + 34);
       ctx.textAlign = 'left';
 
-      // Mention IGN : obligatoire, discrète
-      ctx.font = '400 17px "Inter", sans-serif';
-      ctx.fillStyle = 'rgba(93,93,107,0.7)';
-      ctx.fillText('Fond de carte © IGN, Géoplateforme', MARGE, H - 26);
+      // La mention IGN garde 5 mm de sécurité sous les lettres descendantes.
+      ctx.font = '400 24px "Inter", sans-serif';
+      ctx.fillStyle = GRIS;
+      const credit = 'Fond de carte © IGN, Géoplateforme';
+      const creditDescent = ctx.measureText(credit).actualBoundingBoxDescent;
+      ctx.fillText(credit, MARGE, H - PRINT_SAFE_MARGIN - creditDescent);
 
       return c;
     },
@@ -211,18 +212,20 @@
 
     /* L'impression ne montre QUE cette image, au format exact de la carte.
        Voir la règle @page de la feuille de style. */
-    imprimer(canvas) {
-      const img = document.getElementById('sortie-img');
+    async imprimer(canvas) {
+      const img = new Image();
+      img.id = 'sortie-img';
+      img.alt = 'Carte postale prête à imprimer';
       const boite = document.getElementById('sortie');
       img.src = canvas.toDataURL('image/png');
+      // L'image doit être décodée avant l'ouverture de l'aperçu d'impression.
+      await img.decode();
+      boite.replaceChildren(img);
       boite.hidden = false;
-      const lancer = () => {
-        window.print();
-        // On laisse le temps au navigateur d'ouvrir sa fenêtre avant de ranger
-        setTimeout(() => { boite.hidden = true; }, 800);
-      };
-      if (img.complete) lancer();
-      else img.onload = lancer;
+      // Certains navigateurs rendent la main avant la fermeture du dialogue :
+      // aucun minuteur ne doit retirer la carte pendant que l'on choisit le papier.
+      window.addEventListener('afterprint', () => { boite.hidden = true; }, { once: true });
+      window.print();
     },
   };
 

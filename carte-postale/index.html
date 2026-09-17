@@ -14,7 +14,7 @@
   <!-- ?v= : marque de version. Les fichiers statiques du site sont servis avec
        24 h de cache ; seul un changement d'adresse déloge un fichier déjà pris.
        À INCRÉMENTER à chaque modification des fichiers de ce dossier. -->
-  <link rel="stylesheet" href="style.css?v=3" />
+  <link rel="stylesheet" href="style.css?v=13" />
   <script defer src="/modules/analytics.js" data-op-space="carte-postale"></script>
 </head>
 <body>
@@ -38,7 +38,7 @@
     <!-- ─────────────────────────────────────────────────────────────────────
          LA CARTE POSTALE, au centre du début à la fin. On ne manipule pas une
          carte avec un aperçu à côté : on manipule l'objet.
-         Format 10 x 15 cm, tenu par le rapport 1:1,5 de --cp-l / --cp-h.
+         Format 100 x 148 mm, tenu par le rapport 1:1,48 de --cp-l / --cp-h.
          ───────────────────────────────────────────────────────────────────── -->
     <section class="plateau">
       <div id="carte-postale" class="cp" data-etat="attente">
@@ -57,12 +57,14 @@
             <div class="cp__mots">
               <img src="/img/logos/classic_color.png" alt="Open Projets" class="cp__logo" />
               <p id="cp-punchline" class="cp__punchline">Votre commune a une histoire.<br />À vous d'écrire la suite.</p>
-              <p class="cp__sous">Publiez vos projets d'aménagement sur une carte publique, à vos couleurs.</p>
-              <p id="cp-tel" class="cp__tel" hidden></p>
+              <a id="cp-email" class="cp__email"></a>
+              <a id="cp-phone" class="cp__phone"></a>
             </div>
             <div class="cp__qr">
-              <img id="cp-qr-img" alt="" width="150" height="150" />
-              <span>openprojets.com<br />/demo</span>
+              <a id="cp-qr-link" aria-label="Découvrir Open Projets">
+                <img id="cp-qr-img" src="qr-carte-postale.svg" alt="QR code vers le site Open Projets" width="222" height="222" />
+              </a>
+              <span class="cp__site">openprojets.com</span>
             </div>
           </div>
           <p class="cp__credit">Fond de carte © IGN, Géoplateforme</p>
@@ -74,18 +76,21 @@
 
     <!-- ── Le pupitre : tous les réglages au même endroit, dans l'ordre du geste ── -->
     <aside class="pupitre">
-      <!-- Étape 1 -->
-      <section id="etape-commune" class="bloc is-actif">
+      <header id="search-intro" class="search-intro">
         <h1 class="bloc__titre">Une carte postale<br />de votre commune</h1>
-        <p class="bloc__intro">Choisissez la commune, remontez le temps, imprimez.</p>
-        <div class="recherche">
-          <input id="commune" class="recherche__champ" type="text" autocomplete="off" autofocus
-                 placeholder="Nom de la commune" aria-label="Nom de la commune" />
-          <ul id="suggestions" class="recherche__liste" hidden></ul>
-        </div>
-      </section>
+        <p class="bloc__intro">Recherchez une adresse, une rue ou une commune, puis choisissez l’époque.</p>
+      </header>
+      <div id="address-search" class="recherche">
+        <label class="reglage__label" for="address">Adresse, rue ou commune</label>
+        <input id="address" class="recherche__champ" type="search" autocomplete="off" autofocus
+               placeholder="Ex. 12 rue de la Liberté, Bourgoin" role="combobox" aria-autocomplete="list"
+               aria-expanded="false" aria-controls="address-results" aria-describedby="address-hint" />
+        <p id="address-hint" class="reglage__aide">Ajoutez une ville ou un code postal pour préciser les résultats.</p>
+        <ul id="address-results" class="recherche__liste recherche__liste--address"
+            role="listbox" aria-label="Adresses et lieux proposés" hidden></ul>
+        <p id="address-status" class="reglage__aide recherche__statut" role="status" aria-live="polite"></p>
+      </div>
 
-      <!-- Étape 2 -->
       <section id="etape-atelier" class="bloc">
         <div class="reglage">
           <span class="reglage__label">Époque</span>
@@ -113,20 +118,22 @@
 
         <div class="pupitre__actions">
           <button id="btn-imprimer" class="btn btn--primaire" type="button">Imprimer</button>
-          <button id="btn-png" class="btn btn--fantome" type="button">Télécharger</button>
-          <button id="btn-autre" class="btn btn--lien" type="button">Changer de commune</button>
+          <p class="reglage__aide">La carte s’imprime sur une page de 100 × 148 mm, en portrait.</p>
+          <button id="btn-png" class="btn btn--fantome" type="button">Télécharger l’image</button>
+          <button id="btn-autre" class="btn btn--lien" type="button">Rechercher un autre lieu</button>
         </div>
       </section>
     </aside>
   </main>
 
   <!-- Sortie d'impression : uniquement l'image composée, au format réel -->
-  <div id="sortie" class="sortie" hidden><img id="sortie-img" alt="" /></div>
+  <div id="sortie" class="sortie" hidden></div>
 
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
   <script src="epoques.js?v=3"></script>
-  <script src="scene.js?v=3"></script>
-  <script src="postcard.js?v=3"></script>
-  <script src="app.js?v=3"></script>
+  <script src="scene.js?v=6"></script>
+  <script src="postcard.js?v=7"></script>
+  <script src="address.js?v=3"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

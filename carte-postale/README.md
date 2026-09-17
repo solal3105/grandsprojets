@@ -8,13 +8,14 @@ clé d'API. Ouvrir `/carte-postale/` suffit.
 
 ## Le geste
 
-1. On tape le nom de la commune (autocomplétion officielle geo.api.gouv.fr).
-2. La carte plonge sur la commune. La vue aérienne de 1950-1965 s'affiche par
+1. On recherche une adresse, une rue, un lieu ou une commune dans le champ unique.
+   La commune est retrouvée automatiquement à partir du résultat choisi.
+2. La carte se centre sur le lieu. La vue aérienne de 1950-1965 s'affiche par
    défaut : c'est celle qui provoque la réaction, un centre-bourg entouré de
    champs là où il y a aujourd'hui des lotissements.
 3. On remonte ou on descend le temps sur la frise. Le fond change **en fondu**.
-4. On cadre en glissant sur la carte postale elle-même, on choisit le point de
-   vue, on écrit l'inscription.
+4. On ajuste le cadrage en glissant sur la carte postale. On choisit le point
+   de vue et on écrit l'inscription. Le même champ permet de changer de lieu.
 5. On imprime, ou on télécharge l'image.
 
 ## Le paysage derrière l'objet
@@ -35,25 +36,58 @@ donc marginal.
 ## Parti pris d'interface
 
 La carte postale n'est pas un aperçu posé à côté d'un éditeur : **elle est
-l'éditeur**. Elle flotte au centre, en perspective, suit le pointeur et accroche
-la lumière. Au survol elle se met à plat pour se laisser cadrer.
+l'éditeur**. Au survol, elle s'incline autour de son propre centre : au maximum
+5 degrés horizontalement et 4 verticalement. Elle revient doucement à plat à la
+sortie. Déplacer le pointeur sur les réglages ne la fait pas bouger.
 
 Ce dernier point n'est pas décoratif. Une carte inclinée par une transformation
 3D fausse les coordonnées que MapLibre lit du pointeur : le glissé dériverait.
-La mise à plat au survol résout le problème en le transformant en geste.
+Dès un appui ou un coup de molette sur la carte, l'objet revient donc à plat
+avant que MapLibre lise le geste. Il reste stable jusqu'à la sortie du pointeur.
+L'effet est désactivé sur écran tactile et avec la préférence de mouvement réduit.
+Le lissage suit le temps écoulé et s'arrête au repos ; aucune boucle ne tourne
+en continu pour cet effet.
 
 ## Format
 
-**10 x 15 cm en portrait**, soit 1181 x 1772 pixels à 300 points par pouce.
+**100 x 148 mm en portrait**, soit 1181 x 1748 pixels à 300 points par pouce.
 
 L'impression ne passe PAS par la page : l'image est composée dans un canvas puis
-imprimée seule, avec `@page { size: 100mm 150mm; margin: 0 }`. Ce qui est
-téléchargé et ce qui sort de l'imprimante sont donc le même objet, indépendant
-du navigateur, de ses marges et du pilote.
+imprimée seule, avec `@page { size: 100mm 148mm; margin: 0 }`. Le document tient
+sur une page, sans marge ajoutée par le site. L'image est décodée avant l'ouverture
+du dialogue et reste disponible jusqu'à sa fermeture (`afterprint`).
+
+Le navigateur reçoit le format exact. Le pilote de l'imprimante peut toutefois
+imposer son papier ou ses marges matérielles : choisir alors 100 x 148 mm,
+une échelle de 100 % et le mode sans bordure si l'imprimante le propose.
 
 Les proportions de l'écran et du papier sont tenues par les mêmes fractions.
 `--cp-image` dans la feuille de style et `IMAGE_H` dans `postcard.js` doivent
 rester égaux, sinon l'aperçu et le papier ne cadrent pas pareil.
+
+Les informations du bandeau restent à au moins 5 mm du bord inférieur.
+La mention IGN respecte ce retrait jusque sous les lettres descendantes,
+afin de garder une marge de sécurité lors d'une impression sans bordure.
+
+La capture augmente uniquement la densité de pixels de MapLibre avec
+`setPixelRatio`. Le conteneur, le centre, le zoom et l'inclinaison restent
+inchangés : agrandir le conteneur à zoom constant élargissait le cadrage.
+La densité initiale est rétablie après la capture, même en cas d'échec.
+
+## Recherche d'adresse
+
+`address.js` interroge le [géocodage de la Géoplateforme IGN](https://cartes.gouv.fr/aide/fr/guides-utilisateur/utiliser-les-services-de-la-geoplateforme/geocodage/)
+avec les index `address,poi`, sur toute la France, dès l'accueil.
+Les propositions arrivent après trois caractères ; les flèches et Entrée
+permettent de choisir au clavier, Échap ferme la liste. Les requêtes dépassées
+sont annulées et ne peuvent pas rouvrir une liste fermée. Le résultat fournit
+le nom et le code INSEE de la commune. S'ils manquent ou si un lieu couvre
+plusieurs communes, geo.api.gouv.fr les retrouve automatiquement par coordonnées.
+Les communes présentes dans les deux index n'apparaissent qu'une fois.
+Le choix recentre la carte et actualise la commune sans changer l'époque,
+l'inclinaison ou une inscription personnalisée. Une inscription restée au nom
+de la commune suit la nouvelle commune.
+Aucun repère supplémentaire n'apparaît sur la carte imprimée.
 
 ## Les époques
 
@@ -84,11 +118,18 @@ suffit pas : une fois la trame composée, le tampon peut être vidé et
 Mesuré ici : un PNG de 48 Ko dont tous les pixels étaient noirs. On demande donc
 un nouveau dessin et on lit depuis l'événement `render`.
 
-## À renseigner
+## Contact et QR code
 
-`TELEPHONE` en tête de `app.js`. Vide, la ligne n'apparaît ni à l'écran ni à
-l'impression : mieux vaut pas de numéro qu'un numéro faux sur un objet qu'on
-laisse entre les mains d'un élu.
+`Postcard.contact` dans `postcard.js` fournit `contact@vazy.app`,
+`07 60 77 16 13` et l'adresse
+`https://openprojets.com/l/carte-postale` à l'aperçu et à l'image imprimée.
+Le QR est embarqué dans `qr-carte-postale.svg`, sans service tiers au moment
+d'imprimer. Il mesure 24 mm, avec une zone blanche de quatre modules de chaque
+côté et une correction d'erreur M. L'adresse du site est aussi écrite en clair.
+
+Si la cible change, régénérer aussi le SVG avec `qrcode-generator`, déjà installé
+dans `home-src` : `qrcode(0, 'M')`, `addData(url)`, `make()`, puis
+`createSvgTag({ cellSize: 6, margin: 24, title: 'Ouvrir le site Open Projets' })`.
 
 ## Banc de captures
 

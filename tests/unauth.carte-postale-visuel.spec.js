@@ -34,13 +34,20 @@ async function ouvrir(page) {
   await page.route('**/geo.api.gouv.fr/**', (route) => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify([COMMUNE]),
   }));
+  await page.route('**/data.geopf.fr/geocodage/search?*', (route) => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({ features: [{
+      type: 'Feature', geometry: COMMUNE.centre,
+      properties: { name: COMMUNE.nom, label: COMMUNE.nom, city: COMMUNE.nom, citycode: COMMUNE.code,
+        population: COMMUNE.population, type: 'municipality' },
+    }] }),
+  }));
   await page.goto('/carte-postale/', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1200);
 }
 
 async function entrerDansAtelier(page) {
-  await page.locator('#commune').fill('Bourgoin');
-  await page.locator('#suggestions li').first().click();
+  await page.locator('#address').fill('Bourgoin');
+  await page.locator('#address-results [role="option"]').first().click();
   await expect(page.locator('#etape-atelier')).toHaveClass(/is-actif/);
   // La plongée dure quelques secondes, puis les tuiles IGN arrivent
   await page.waitForTimeout(11000);
@@ -94,6 +101,7 @@ test('04 - image d impression 300 dpi', async ({ page }) => {
   await entrerDansAtelier(page);
   await page.locator('#inscription').fill('Bourgoin-Jallieu, vue du ciel, 1950 - 1965');
   await page.waitForTimeout(400);
+  await page.locator('#carte-postale').screenshot({ path: `${SORTIE}/04-avant-impression.png` });
 
   const dataUrl = await page.evaluate(async () => {
     const image = await window.Scene.capturer(window.Postcard.imageLargeur, window.Postcard.imageHauteur);
@@ -101,13 +109,14 @@ test('04 - image d impression 300 dpi', async ({ page }) => {
       imageCarte: image,
       inscription: document.getElementById('inscription').value,
       punchline: window.Epoques.punchline(window.Epoques.liste.find((e) => e.id === 'photo-1950'), new Date().getFullYear()),
-      telephone: '06 12 34 56 78',
-      cibleQr: 'https://openprojets.com/demo/',
     });
+    window.print = () => {};
+    await window.Postcard.imprimer(c);
     return { url: c.toDataURL('image/png'), l: c.width, h: c.height };
   });
 
   expect(dataUrl.l).toBe(1181);
-  expect(dataUrl.h).toBe(1772);
+  expect(dataUrl.h).toBe(1748);
   fs.writeFileSync(`${SORTIE}/04-impression-300dpi.png`, Buffer.from(dataUrl.url.split(',')[1], 'base64'));
+  await page.pdf({ path: `${SORTIE}/04-impression.pdf`, preferCSSPageSize: true, printBackground: true });
 });
