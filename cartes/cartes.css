@@ -24,7 +24,7 @@
   --paper: #ffffff;
   --ink: #101014;
   --ink-2: #494955;
-  --ink-3: #74747f;
+  --ink-3: #6b6b76;
   --line: rgba(16, 16, 20, 0.09);
   --line-strong: rgba(16, 16, 20, 0.17);
   --brand: #ff0037;
@@ -335,11 +335,11 @@ html[data-theme='dark'] .commande__soleil { display: block; }
 }
 .bouton:active { transform: scale(0.97); }
 .bouton--principal {
-  background: var(--brand);
+  background: var(--brand-ink);
   color: #fff;
   box-shadow: 0 12px 34px -12px rgba(255, 0, 55, 0.7);
 }
-.bouton--principal:hover { background: var(--brand-ink); }
+.bouton--principal:hover { background: color-mix(in srgb, var(--brand-ink) 90%, black); }
 .bouton--ville {
   background: var(--ville);
   color: var(--ville-texte);
@@ -714,6 +714,7 @@ html:not([data-theme='dark']) body.is-kiosk .s-etat--existe { color: #0b7a4a; ba
 
 .is-kiosk { height: 100%; overflow: hidden; }
 body.is-kiosk {
+  height: 100vh;
   height: 100dvh;
   display: grid;
   /* minmax(0, 1fr) : sans ce plancher à zéro, le ruban des communes (16 000 px
@@ -722,7 +723,7 @@ body.is-kiosk {
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   grid-template-areas: 'entete' 'scene' 'recherche' 'communes';
   row-gap: 1.5vh;
-  padding: 0 3vw 1.6vh;
+  padding: env(safe-area-inset-top, 0px) max(3vw, env(safe-area-inset-right, 0px)) max(1.6vh, env(safe-area-inset-bottom, 0px)) max(3vw, env(safe-area-inset-left, 0px));
   overflow: hidden;
   background: var(--c-fond);
   color: var(--c-ink);
@@ -733,7 +734,7 @@ body.is-kiosk {
 body.is-kiosk .hero,
 body.is-kiosk .principal { display: contents; }
 body.is-kiosk .ciel { position: fixed; inset: 0; z-index: 0; }
-body.is-kiosk .entete { grid-area: entete; max-width: none; width: 100%; margin: 0; padding: 2vh 0 0; gap: 16px; }
+body.is-kiosk .entete { grid-area: entete; max-width: none; width: 100%; margin: 0; padding: 2vh 0 0; gap: 16px; z-index: 3; }
 body.is-kiosk .entete__logo img { height: clamp(34px, 4.4vh, 52px); }
 body.is-kiosk .entete__nav { display: none; }
 body.is-kiosk .commandes { display: flex; }
@@ -748,17 +749,21 @@ body.is-kiosk .scene {
   grid-template-columns: minmax(0, 46fr) minmax(0, 54fr);
   column-gap: 3vw;
   align-items: center;
+  align-self: stretch;
+  min-width: 0;
   min-height: 0;
   max-width: none;
   margin: 0;
   padding: 0;
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
   transition: opacity 0.7s ease, visibility 0s linear 0.7s;
 }
 body.is-kiosk .scene.is-active {
   opacity: 1;
   visibility: visible;
+  pointer-events: auto;
   transition-delay: 0s;
 }
 /* Le texte d'une scène monte en place à son arrivée, les tirages se distribuent */
@@ -793,6 +798,9 @@ body.is-kiosk .scene__compte b { color: var(--c-ink); }
 body.is-kiosk .scene--ville { --col: 41vw; padding: 0; }
 body.is-kiosk .ville__genere { font-size: clamp(16px, min(1.2vw, 2.2vh), 24px); margin-bottom: min(14px, 1.4vh); color: var(--c-ink-3); }
 body.is-kiosk .ville__nom {
+  display: flex;
+  align-items: center;
+  gap: 0.22em;
   /* Trois plafonds : la largeur de l'écran, la hauteur (deux lignes au plus),
      et le nom lui-même (son plus long mot tient sur une ligne, l'ensemble en
      deux lignes ; 0,6 em par caractère est la largeur prudente de la fonte) */
@@ -800,6 +808,8 @@ body.is-kiosk .ville__nom {
   color: var(--c-ink);
   text-shadow: var(--c-halo);
 }
+body.is-kiosk .ville__logo { flex: 0 0 0.82em; margin-right: 0; }
+body.is-kiosk .ville__nom > span:last-child { min-width: 0; overflow-wrap: anywhere; }
 body.is-kiosk .ville__sous { font-size: clamp(18px, min(1.45vw, 2.6vh), 29px); margin-top: min(22px, 2.2vh); max-width: 46ch; color: var(--c-ink-2); }
 body.is-kiosk .ville__action { margin-top: min(28px, 3vh); }
 body.is-kiosk .scene__tirages { --tirage-w: min(26vw, 44vh); box-shadow: none; }
@@ -819,14 +829,19 @@ body.is-kiosk .bouton {
 
 body.is-kiosk .recherche {
   grid-area: recherche;
+  /* Le site empile ce formulaire sous 900 px. Le stand garde une ligne,
+     même en paysage sur une tablette, et le champ prend tout l'espace libre. */
+  flex-direction: row;
   width: min(1080px, 92vw);
   margin: 0 auto;
   padding: 0.8vh;
   z-index: 2;
 }
+body.is-kiosk .recherche__champ { flex: 1 1 0; width: 100%; }
+body.is-kiosk .recherche .bouton { width: auto; }
 body.is-kiosk .recherche__champ input {
   font-size: clamp(22px, 1.9vw, 34px);
-  padding: 1.4vh 30px;
+  padding: 1.4vh clamp(16px, 3vw, 30px);
   /* Sur le stand, le champ ouvre la saisie plein écran : pas de clavier ici */
   cursor: pointer;
 }
@@ -886,13 +901,56 @@ body.is-kiosk .commune__n { font-size: clamp(13px, 1vw, 17px); color: var(--c-in
   body.is-kiosk .scene__sous { max-width: none; }
   body.is-kiosk .scene--ville { --col: 88vw; align-content: center; }
   body.is-kiosk .scene--ville .scene__texte { order: 2; }
-  body.is-kiosk .scene--ville .scene__tirages { order: 1; --tirage-w: min(56vw, 34vh); }
+  body.is-kiosk .scene--ville .scene__tirages { order: 1; --tirage-w: min(48vw, 25vh); }
   /* En portrait l'éventail se resserre : la largeur manque, pas la hauteur */
   body.is-kiosk .tirage:nth-child(1) { --dx: -26%; --dy: 12%; }
   body.is-kiosk .tirage:nth-child(3) { --dx: 26%; --dy: 14%; }
   body.is-kiosk .ville__nom { font-size: clamp(44px, min(9.4vw, 6.4vh, calc(var(--col) / var(--mot, 8) / 0.6), max(calc(var(--col) / var(--n, 8) / 0.6), min(calc(2 * var(--col) / var(--n, 8) / 0.6), 4.2vh))), 120px); }
   body.is-kiosk .etapes { grid-template-columns: minmax(0, 1fr); gap: 2.4vh; }
   body.is-kiosk .etapes li { grid-template-columns: auto 1fr; grid-template-rows: none; column-gap: 20px; align-items: start; }
+}
+
+/* Fenêtres peu hautes : réserver l'en-tête, la recherche et le ruban avant
+   de dimensionner la scène. Le même cas existe sur tablette et ordinateur. */
+@media (orientation: landscape) and (max-height: 700px) {
+  body.is-kiosk { row-gap: 8px; }
+  body.is-kiosk .scene { column-gap: 4vw; }
+  body.is-kiosk .scene--accueil { grid-template-columns: minmax(0, 60fr) minmax(0, 40fr); }
+  body.is-kiosk .scene--ville { --col: 45vw; grid-template-columns: minmax(0, 52fr) minmax(0, 48fr); }
+  body.is-kiosk .titre { font-size: clamp(30px, min(4.8vw, 7vh), 48px); }
+  body.is-kiosk .titre--2 { max-width: none; font-size: clamp(28px, 5.5vh, 38px); }
+  body.is-kiosk .scene__sous { font-size: 16px; line-height: 1.4; margin-top: 12px; }
+  body.is-kiosk .scene__compte { font-size: 14px; margin-top: 10px; }
+  body.is-kiosk .ville__nom { font-size: clamp(28px, min(6.5vw, 8vh, calc(var(--col) / var(--mot, 8) / 0.6)), 56px); }
+  body.is-kiosk .ville__genere { font-size: 14px; margin-bottom: 8px; }
+  body.is-kiosk .ville__sous { font-size: 16px; line-height: 1.4; margin-top: 12px; }
+  body.is-kiosk .ville__action { margin-top: 16px; }
+  body.is-kiosk .scene__tirages { --tirage-w: min(25vw, 32vh); }
+  body.is-kiosk .tirage__titre { font-size: 14px; }
+  body.is-kiosk .bouton { min-height: 48px; padding: 10px 22px; font-size: 17px; }
+  body.is-kiosk .bouton--ville { max-width: 100%; white-space: normal; text-align: center; }
+  body.is-kiosk .recherche__champ input { font-size: 20px; }
+  body.is-kiosk .etapes { grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 16px; }
+  body.is-kiosk .etapes li { grid-template-columns: 32px minmax(0, 1fr); grid-template-rows: auto; gap: 12px; align-items: start; }
+  body.is-kiosk .etapes__n { font-size: 28px; }
+  body.is-kiosk .etapes p { max-width: 68ch; font-size: 16px; line-height: 1.4; }
+}
+
+@media (orientation: portrait) and (max-height: 1000px) {
+  body.is-kiosk .scene { row-gap: 16px; }
+  body.is-kiosk .scene--ville .scene__tirages { --tirage-w: min(46vw, 22vh); }
+  body.is-kiosk .ville__nom { font-size: clamp(32px, min(7vw, 5vh), 52px); }
+  body.is-kiosk .ville__sous { font-size: 17px; margin-top: 12px; }
+  body.is-kiosk .ville__action { margin-top: 16px; }
+  body.is-kiosk .bouton--ville { max-width: 100%; white-space: normal; text-align: center; }
+  body.is-kiosk .etapes { gap: 16px; margin-top: 24px; }
+  body.is-kiosk .etapes__n { font-size: 40px; }
+  body.is-kiosk .etapes p { font-size: 18px; }
+}
+
+@media (max-width: 560px) {
+  body.is-kiosk .recherche { flex-direction: column; align-items: stretch; border-radius: 24px; }
+  body.is-kiosk .recherche .bouton { width: 100%; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -56,6 +56,15 @@
         ],
         "createdAt": "2026-09-17T08:42:26.070Z",
         "reason": "Décor du studio carte postale existant, conservé dans cette retouche ciblée."
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "cartes/index.html"
+        ],
+        "createdAt": "2026-09-17T12:53:35.795Z",
+        "reason": "L’éclairage coloré du stand et les couleurs des communes font partie de la page existante décrite dans cartes/README.md. Ils sont conservés pendant la correction responsive demandée."
       }
     ]
   }

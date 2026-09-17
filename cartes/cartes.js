@@ -953,6 +953,7 @@ function lierRecherche() {
     // Sur le stand, le champ de la page n'est qu'une porte : la saisie se fait
     // plein écran, avec le clavier de la tablette en bas
     champ.readOnly = true;
+    champ.placeholder = 'Votre commune';
     champ.addEventListener('click', (e) => { e.preventDefault(); ouvrirSaisie(); });
     champ.addEventListener('focus', () => { champ.blur(); ouvrirSaisie(); });
     form.addEventListener('submit', (e) => { e.preventDefault(); ouvrirSaisie(); });
@@ -984,9 +985,20 @@ async function garderAllume() {
 function initPleinEcran() {
   const bouton = $('plein-ecran');
   if (!document.fullscreenEnabled) return;
-  const maj = () => { bouton.hidden = !!document.fullscreenElement; };
+  const maj = () => {
+    const active = !!document.fullscreenElement;
+    bouton.hidden = false;
+    bouton.setAttribute('aria-label', active ? 'Quitter le plein écran' : 'Passer en plein écran');
+    bouton.setAttribute('aria-pressed', String(active));
+    bouton.title = bouton.getAttribute('aria-label');
+    bouton.querySelector('path').setAttribute('d', active
+      ? 'M4 9h5V4M15 4v5h5M20 15h-5v5M9 20v-5H4'
+      : 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5');
+  };
   bouton.addEventListener('click', () => {
-    document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })?.catch?.(() => {});
+    const action = document.fullscreenElement ? document.exitFullscreen?.()
+      : document.documentElement.requestFullscreen?.({ navigationUI: 'hide' });
+    action?.catch?.(() => {});
   });
   document.addEventListener('fullscreenchange', maj);
   maj();

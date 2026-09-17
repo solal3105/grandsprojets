@@ -91,6 +91,14 @@ même barème repris par l'écran de génération dans sa première étape). Les
 homonymes (Saint-Denis en Seine-Saint-Denis, Saint-Denis de La Réunion) sont
 départagés par la position de la commune.
 
+Sur le stand, le champ porte le texte court « Votre commune », lisible en
+portrait comme en paysage. L'en-tête garde sa propre zone au-dessus des scènes
+et les commandes restent accessibles pendant les fondus. Sous 700 px de haut
+en paysage, les textes et les tirages s'adaptent à la hauteur disponible ; les
+trois étapes se lisent en lignes. En portrait, les tirages laissent la place au
+nom de la commune et à son bouton. Le plein écran conserve son bouton, qui
+permet aussi de revenir à la fenêtre.
+
 Une carte ouverte en couche porte une barre : revenir à l'accueil, l'identité
 de la commune, « Emporter cette carte » (un code à scanner, et le lien par
 e-mail via `/api/demo-lead`, réservé aux cartes d'essai puisque l'API n'accepte
@@ -192,6 +200,11 @@ liens, saisie, envoi par e-mail, retour de génération. Les cartes ouvertes en
 couche sont remplacées par des coquilles : aucun test ne démarre l'application
 carte dans l'iframe. Le retour depuis l'écran de génération est couvert dans
 `tests/unauth.demo.spec.js` (section 0.37).
+
+`tests/unauth.cartes-tablette.spec.js` vérifie les zones de contenu, les boutons
+accessibles au toucher, le texte du champ et le changement de thème sur six
+formats, de 800 × 480 à 1920 × 1080, dont deux en portrait. Le contrat de l'API
+plein écran est simulé pour vérifier le bouton d'entrée et de sortie.
 
 Non testable en E2E : le rendu réel de la carte dans la couche (WebGL), le
 plein écran et le Wake Lock (gestes utilisateur et matériel), la fluidité de la
