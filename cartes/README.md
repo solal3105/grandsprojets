@@ -139,6 +139,7 @@ détruite (`src` vidé) pour rendre sa mémoire.
 ## Paramètres d'adresse
 
 - `/cartes/` : la page du site
+- `/kiosk` : adresse courte, redirigée vers `/cartes/?kiosk=1`
 - `/cartes/?kiosk=1` : le stand
 - `/cartes/?kiosk=1&k=<clé>` : idem, la clé de stand est transmise à l'écran
   de génération (levée du quota par adresse IP, voir `demo/README.md`)
