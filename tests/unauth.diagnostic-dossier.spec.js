@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { polygonAreaKm2, clipLines, intersectsRing, distanceToGeometryM } from '../admin/sections/diagnostic/geometry.js';
 import { coverage, dossierSummary, dossierRow, analysisRequired } from '../admin/sections/diagnostic/dossier/model.js';
-import { makeBatches, validateBatchResult, validateSynthesis, validateOverview, assertGroundedWording, assertClearWording } from '../admin/sections/diagnostic/dossier/contract.mjs';
+import { makeBatches, validateBatchResult, validateSynthesis, validateOverview, assertGroundedWording, assertClearWording, BATCH_POINTS } from '../admin/sections/diagnostic/dossier/contract.mjs';
 import { analyzeDossier, prepareWordingRefresh, prepareLayerRefresh } from '../admin/sections/diagnostic/dossier/analyze.js';
 import { pageHtml, printHtml } from '../admin/sections/diagnostic/dossier/view.js';
 import { validateDossierRequest, analyzeDossier as serveDossierImpl } from '../netlify/functions/lib/diagnostic-dossier.mjs';
@@ -90,7 +90,7 @@ test.describe('0.69 - Dossiers de zone : lecture complète, reprise et preuves',
   test('0.69.3 - Une panne puis une reprise ne relisent pas les lots terminés',async()=>{
     const {dossier}=dossierCase('large');let calls=0;
     await analyzeDossier(dossier,{request:async(body)=>{if(body.phase==='read')calls++;if(calls===2)throw new Error('Interruption réseau');return readResult(body);}});
-    expect(dossier.analysis.status).toBe('partial');expect(dossier.analysis.completedIds).toHaveLength(36);
+    expect(dossier.analysis.status).toBe('partial');expect(dossier.analysis.completedIds).toHaveLength(BATCH_POINTS);
     const first=dossier.analysis.batches.b1;
     const sent=[];
     await analyzeDossier(dossier,{request:async(body)=>{if(body.phase==='read'){sent.push(...body.observations.map(o=>o.originalId));return readResult(body);}if(body.phase==='overview')return {text:'Les témoignages décrivent des difficultés de circulation, avec une liaison appréciée.',refs:body.readings.map(r=>r.id)};return reviewResult(body);}});

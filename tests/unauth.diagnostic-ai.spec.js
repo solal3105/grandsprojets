@@ -88,7 +88,7 @@ test('0.72.8 - Une sortie tronquée est payée et un usage inconnu reste réserv
     const fetch=async url=>url.endsWith('/input_tokens')?new Response('{"input_tokens":100}'):new Response(JSON.stringify({status:'incomplete',usage,output:[]}));
     const res=await serve(b,'test',{}, {user,budget,fetch});
     const result=await res.json();expect(result.code).toBe('incomplete');
-    expect(result._usage.spent_micro).toBe(usage?975:reservedCost('gpt-5.4-mini',100,4000));
+    expect(result._usage.spent_micro).toBe(usage?975:reservedCost('gpt-5.4-mini',100,buildDossierPayload(b).max_output_tokens));
   }
 });
 test('0.72.9 - Un suivi indisponible empêche tout appel de génération',async()=>{
