@@ -3,6 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Retour de connexion arrivé ici par défaut : la racine était la carte
+         avant septembre 2026, elle est maintenant le site vitrine, et le
+         fournisseur d'authentification y renvoie encore quand l'adresse de
+         retour demandée ne figure pas dans sa liste. Le site ne sait pas
+         ouvrir une session : on repasse la main à la page de connexion, jeton
+         compris, avant que le client Supabase du formulaire de démo ne le
+         consomme sous sa propre clé de stockage. En tête du head : ce script
+         doit passer avant tout le reste. -->
+    <script>
+      (function () {
+        try {
+          var h = window.location.hash || '';
+          var s = window.location.search || '';
+          var retour = /[#&](access_token|refresh_token|error_code)=/.test(h)
+            || /[?&]code=[A-Za-z0-9_-]{20,}/.test(s);
+          if (!retour) return;
+          if (window.location.pathname.indexOf('/login') === 0) return;
+          window.location.replace('/login/' + s + h);
+        } catch (e) {}
+      })();
+    </script>
     <!-- Titre, description, canonical et balises de partage : les valeurs de
          l'accueil. Le routeur (src/v2/router.js) les réécrit à chaque page, le
          prérendu (scripts/prerender.mjs) fige le résultat dans le HTML de

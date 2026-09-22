@@ -132,6 +132,29 @@ test.describe('0.39 - Routes du site vitrine', () => {
     });
   }
 
+  /* Non-regression : depuis que la racine sert le site vitrine, le retour
+     d'une connexion (GitHub ou lien par email) y atterrit quand l'adresse de
+     retour n'est pas reconnue par le fournisseur. Le site doit repasser la
+     main a la page de connexion, jeton compris. */
+  const RETOURS = [
+    '#access_token=faux123&refresh_token=faux456&type=magiclink',
+    '#error=access_denied&error_code=otp_expired',
+  ];
+
+  for (const fragment of RETOURS) {
+    test(`0.39.9 - Un retour de connexion sur la racine repart vers /login/ (${fragment.slice(0, 22)})`, async ({ page }) => {
+      await page.goto(`/${fragment}`, { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => location.pathname === '/login/', null, { timeout: 10000 });
+      expect(page.url()).toContain(fragment);
+    });
+  }
+
+  test('0.39.10 - Une page du site avec des marqueurs de campagne reste sur place', async ({ page }) => {
+    await visiter(page, '/carte?utm_source=linkedin&utm_medium=social');
+    await page.waitForTimeout(500);
+    expect(new URL(page.url()).pathname).toBe('/carte');
+  });
+
   test('0.39.4 - Une route inconnue ne rend pas une page vide', async ({ page }) => {
     await page.goto('/route-qui-nexiste-pas', { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#app', { timeout: 15000 });
