@@ -31,3 +31,7 @@ docs/cahier-des-charges/*.pdf
 
 # Cache de la ligne de commande Supabase, recréé à chaque appel
 supabase/.temp/
+
+# Repertoires de travail local : resultats bruts d audit et exports ponctuels
+output/
+outputs/
