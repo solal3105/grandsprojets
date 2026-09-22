@@ -53,10 +53,10 @@ export const DEFAULT_STYLE = { mode: 'single', color: PALETTE[1], radius: 4 };
 /**
  * Nature d'une couche - ce qu'en fait l'analyse de zone.
  * - temoignages : des points qui disent quelque chose (signalements, avis,
- *   relevés). L'analyse les lit un par un, dans la limite de MAX_ANALYSIS_POINTS.
+ *   relevés). Le dossier les lit intégralement par lots relançables.
  * - reference : des données chiffrées ou de contexte (comptages, mesures,
  *   zonages). Elles s'affichent, produisent les chiffres de zone, et sont
- *   données au modèle comme contexte ; elles ne comptent jamais dans le plafond.
+ *   données au modèle comme contexte calculé.
  * La nature et les chiffres de zone vivent dans le jsonb `popup` de la couche
  * (ce que la couche expose : champs de popup, nature, métriques) - aucune
  * colonne dédiée n'est requise.
@@ -84,10 +84,8 @@ export function layerMetrics(layer) {
 }
 
 /**
- * Nombre maximal de points analysables en une fois. L'IA lit l'INTÉGRALITÉ des
- * points sélectionnés : au-delà de ce seuil la requête ne tiendrait plus dans
- * la fenêtre de contexte du modèle, et l'analyse serait un sondage déguisé.
- * L'analyse porte donc sur une intersection, un carrefour ou un tronçon.
+ * Plafond du format historique, conservé pour la compatibilité de ses helpers.
+ * Le dossier web utilise les lots définis dans dossier/contract.mjs.
  */
 export const MAX_ANALYSIS_POINTS = 300;
 

@@ -921,3 +921,4 @@ test.describe('0.62 - Diagnostic : lecture chiffrée d\'une zone', () => {
     expect(ins.constats.join(' ')).not.toMatch(/undefined|NaN/);
   });
 });
+

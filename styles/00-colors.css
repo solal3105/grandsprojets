@@ -10,6 +10,12 @@
      ======================================== */
   
   --white: #FFFFFF;
+  /* Neutres papier : même échelle que l'interface claire, indépendants du thème écran. */
+  --print-paper: #FFFFFF;
+  --print-text-primary: #0F172A;
+  --print-text-secondary: #475569;
+  --print-surface: #F8FAFC;
+  --print-border: #E2E8F0;
   
   --color-primary: #14AE5C;    /* Couleur principale */
   --color-success: #10B981;    /* Vert (pour progression travaux) */

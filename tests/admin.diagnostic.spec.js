@@ -139,7 +139,7 @@ test.describe('12.1 - Boot & navigation', () => {
     await expect(page.locator('#dg-panel-layers')).toBeHidden();
     await page.click('.dg-tab[data-tab="analyse"]');
     await expect(page.locator('.dg-tab[data-tab="analyse"]')).toHaveClass(/is-active/);
-    await expect(page.locator('#dg-panel-analyse .dg-empty__title')).toContainText('Aucune zone sélectionnée');
+    await expect(page.locator('#dg-panel-analyse .dg-empty__title')).toContainText('Un dossier pour comprendre votre secteur');
     await expect(page.locator('#dg-panel-layers')).toBeHidden();
   });
 });
@@ -694,8 +694,8 @@ test.describe('12.4 - Historique des rapports', () => {
     await goToDiagnostic(page);
     await page.click('#dg-history-btn');
     await expect(page.locator('#adm-slide-panel')).toHaveAttribute('aria-hidden', 'false');
-    await expect(page.locator('.adm-slide-panel__title')).toContainText('Historique des diagnostics');
-    await expect(page.locator('#adm-slide-content .adm-empty__title')).toContainText('Aucun diagnostic', { timeout: 10000 });
+    await expect(page.locator('.adm-slide-panel__title')).toContainText('Dossiers de zone');
+    await expect(page.locator('#adm-slide-content .adm-empty__title')).toContainText('Aucun dossier enregistré', { timeout: 10000 });
   });
 });
 

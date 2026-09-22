@@ -31,6 +31,11 @@ function _gradedStroke(layer, f) {
   return { color, width: 0.8 + Math.max(0, Math.min(1, span)) * 3.2, alpha: 0.35 + Math.max(0, Math.min(1, span)) * 0.65 };
 }
 
+function _featureColor(layer, feature) {
+  const style = layer?.style;
+  return safeColor(style?.mode === 'category' ? style.cat_colors?.[feature.properties?.[style.category_field]] || style.color : style?.color);
+}
+
 // 16:10 : un tracé au lasso est grossièrement isotrope, la bande large du
 // gabarit précédent écrasait la figure.
 const FIG_W = 1120;
@@ -48,8 +53,8 @@ const VEIL = 'rgba(255,255,255,0.58)';
  * Style dédié : uniquement le fond, dégrisé. Aucune couche de données ne peut
  * y entrer par effet de bord - ni heatmap, ni bâtiments 3D, ni survol.
  */
-function _figureStyle() {
-  const satellite = dg.basemap === 'satellite';
+function _figureStyle(basemap) {
+  const satellite = basemap === 'satellite';
   return {
     version: 8,
     sources: {
@@ -70,9 +75,9 @@ function _figureStyle() {
         type: 'raster',
         source: 'fig-raster',
         paint: {
-          'raster-saturation': -0.9,
-          'raster-brightness-min': 0.3,
-          'raster-contrast': -0.1,
+          'raster-saturation': -0.4,
+          'raster-brightness-min': 0.03,
+          'raster-contrast': 0.05,
         },
       },
     ],
@@ -83,12 +88,12 @@ function _figureStyle() {
 function _waitIdle(map, timeoutMs) {
   return new Promise((resolve) => {
     let done = false;
-    const finish = () => { if (!done) { done = true; resolve(); } };
-    const timer = setTimeout(finish, timeoutMs);
+    const finish = (complete = false) => { if (!done) { done = true; resolve(complete); } };
+    const timer = setTimeout(() => finish(false), timeoutMs);
     const check = () => {
       if (done) return;
       // areTilesLoaded : 'idle' peut survenir avant l'arrivée des tuiles réseau.
-      if (map.loaded() && map.areTilesLoaded()) { clearTimeout(timer); finish(); return; }
+      if (map.loaded() && map.areTilesLoaded()) { clearTimeout(timer); finish(true); return; }
       map.once('idle', check);
     };
     map.once('idle', check);
@@ -227,7 +232,7 @@ function _drawPoints(ctx, map, features, w, h, k, { radius = 4.4, context = fals
     ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
     // Opaque, jamais translucide : des disques empilés fabriqueraient des
     // zones plus sombres, qu'on lirait comme une intensité.
-    ctx.fillStyle = safeColor(layer?.style?.color);
+    ctx.fillStyle = _gradedStroke(layer, f)?.color || _featureColor(layer, f);
     ctx.fill();
     if (context) continue; // le voile se chargera de les atténuer
     ctx.lineWidth = 1.4;
@@ -266,9 +271,14 @@ function _drawLines(ctx, map, features, w, h, k, { width = 2.2, context = false 
       });
     }
     const graded = _gradedStroke(layer, f);
+    if (/Polygon/.test(g.type)) {
+      ctx.fillStyle = _featureColor(layer, f);
+      ctx.globalAlpha = context ? 0.06 : 0.14;
+      ctx.fill('evenodd');
+    }
     ctx.lineWidth = (graded ? graded.width : width) * (context ? 0.7 : 1);
     ctx.globalAlpha = graded ? graded.alpha : 1;
-    ctx.strokeStyle = graded ? graded.color : safeColor(layer?.style?.color);
+    ctx.strokeStyle = graded ? graded.color : _featureColor(layer, f);
     ctx.stroke();
     ctx.globalAlpha = 1;
   }
@@ -341,6 +351,7 @@ export async function renderZoneFigure(selection, opts = {}) {
   const context = (selection?.context || []).filter(keep);
   if (!ring?.length && !features.length && !context.length) return null;
   const [W, H] = opts.size || [FIG_W, FIG_H];
+  const basemap = opts.basemap || dg.basemap;
 
   const host = document.createElement('div');
   host.style.cssText = `position:fixed;left:-20000px;top:0;width:${W}px;height:${H}px;pointer-events:none`;
@@ -350,7 +361,7 @@ export async function renderZoneFigure(selection, opts = {}) {
   try {
     map = new maplibregl.Map({
       container: host,
-      style: _figureStyle(),
+      style: _figureStyle(basemap),
       center: [0, 0],
       zoom: 2,
       pixelRatio: PIXEL_RATIO,
@@ -361,8 +372,10 @@ export async function renderZoneFigure(selection, opts = {}) {
     });
 
     const bounds = new maplibregl.LngLatBounds();
-    for (const c of ring || []) bounds.extend(c);
-    for (const f of [...features, ...context]) {
+    if (opts.focusBounds) {
+      bounds.extend(opts.focusBounds.slice(0, 2)); bounds.extend(opts.focusBounds.slice(2, 4));
+    } else for (const c of ring || []) bounds.extend(c);
+    for (const f of ring?.length || opts.focusBounds ? [] : [...features, ...context]) {
       if (f.__bbox) {
         bounds.extend([f.__bbox[0], f.__bbox[1]]);
         bounds.extend([f.__bbox[2], f.__bbox[3]]);
@@ -382,7 +395,9 @@ export async function renderZoneFigure(selection, opts = {}) {
       });
     }
 
-    await _waitIdle(map, 8000);
+    let tileError = false;
+    map.on('error', () => { tileError = true; });
+    const complete = await _waitIdle(map, 8000);
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     const src = map.getCanvas();
@@ -398,19 +413,24 @@ export async function renderZoneFigure(selection, opts = {}) {
     const k = src.width / (src.clientWidth || W);
     // Ordre : contexte, puis voile (qui l'atténue), puis sélection au-dessus,
     // puis repères. Un seul levier d'atténuation, aucun gris arbitraire.
-    const around = _contextFeatures([...features, ...context], opts.layerIds);
+    const around = opts.focusBounds ? [] : _contextFeatures([...features, ...context], opts.layerIds);
     _drawLines(ctx, map, around, out.width, out.height, k, { context: true });
     _drawPoints(ctx, map, around.filter((f) => f.geometry?.type === 'Point'), out.width, out.height, k, { radius: 3, context: true });
-    if (!opts.center) _drawVeil(ctx, map, ring, out.width, out.height, k);
+    if (!opts.center && !opts.focusBounds) _drawVeil(ctx, map, ring, out.width, out.height, k);
     _drawLines(ctx, map, context, out.width, out.height, k);
-    _drawPoints(ctx, map, context.filter((f) => f.geometry?.type === 'Point'), out.width, out.height, k, { radius: 3.4 });
+    _drawPoints(ctx, map, context.filter((f) => f.geometry?.type === 'Point'), out.width, out.height, k, { radius: 5.5 });
     _drawPoints(ctx, map, features, out.width, out.height, k);
     _drawMarkers(ctx, map, opts.markers, out.width, out.height, k);
     _drawScaleBar(ctx, map, out.width, out.height, k);
     if (!opts.center) _drawNorth(ctx, out.width, k);
-    _drawAttribution(ctx, out.width, out.height, k, dg.basemap === 'satellite' ? IGN_ATTRIBUTION : '© OpenStreetMap contributors');
+    _drawAttribution(ctx, out.width, out.height, k, basemap === 'satellite' ? IGN_ATTRIBUTION : '© OpenStreetMap contributors');
 
-    return out.toDataURL('image/png');
+    const url = opts.compact ? out.toDataURL('image/jpeg', 0.78) : out.toDataURL('image/png');
+    if (opts.asset) {
+      const b = map.getBounds();
+      return { url, basemap, bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], width: out.width, height: out.height, complete: complete && !tileError, credit: basemap === 'satellite' ? IGN_ATTRIBUTION : 'Fond © OpenStreetMap contributors' };
+    }
+    return url;
   } catch (err) {
     console.warn('[admin/diagnostic] Figure de zone:', err);
     return null;

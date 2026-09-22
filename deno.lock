@@ -11,6 +11,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@electric-sql/pglite@~0.5.8",
         "npm:@playwright/test@^1.58.2",
         "npm:@supabase/supabase-js@^2.102.1",
         "npm:dotenv@^17.3.1",

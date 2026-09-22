@@ -9,7 +9,7 @@
  * Supporte le streaming SSE (mêmes événements que ai-generate).
  *
  * Variables d'environnement requises :
- *   OPENAI_API_KEY - clé API OpenAI
+ *   OPENAI_DIRECT_KEY, sinon OPENAI_API_KEY - clé du compte OpenAI
  *
  * Événements SSE émis vers le client :
  *   { content: '...' }   - chunk du JSON de diagnostic
@@ -21,6 +21,7 @@
 // messages d'erreur IA, et le relais SSE. Voir netlify/functions/lib/ai-common.mjs.
 import {
   OPENAI_RESPONSES_URL,
+  OPENAI_KEY,
   getCorsHeaders,
   errResp,
   preflightResp,
@@ -29,6 +30,7 @@ import {
   isAdminForVille,
   relayOpenAIStream,
 } from './lib/ai-common.mjs';
+import { analyzeDossier } from './lib/diagnostic-dossier.mjs';
 
 const SYSTEM_PROMPT = `Tu es un analyste qui dépouille des relevés de terrain. Ta mission est unique : LIRE les points d'une zone et RESTITUER, SOURCE PAR SOURCE, ce qu'ils disent. Tu ne notes rien, tu ne hiérarchises rien, tu ne recommandes rien.
 
@@ -171,19 +173,19 @@ export default async function handler(req) {
   const user = await getAuthedUser(req);
   if (!user) return errResp(401, 'Unauthorized', corsHeaders);
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return errResp(500, 'OPENAI_API_KEY not configured', corsHeaders);
-
   let body;
   try { body = await req.json(); }
   catch { return errResp(400, 'Invalid JSON', corsHeaders); }
 
   const ville = String(body.ville || '');
   if (!/^[a-z0-9-]+$/i.test(ville)) return errResp(400, 'Paramètre ville invalide', corsHeaders);
-  if (!Array.isArray(body.sample) || !body.sample.length) return errResp(400, 'Aucun point à analyser', corsHeaders);
+  if (body.mode !== 'dossier' && (!Array.isArray(body.sample) || !body.sample.length)) return errResp(400, 'Aucun point à analyser', corsHeaders);
 
   const allowed = await isAdminForVille(user, ville);
   if (!allowed) return errResp(403, 'Réservé aux administrateurs de cette structure', corsHeaders);
+  const apiKey = OPENAI_KEY;
+  if (!apiKey) return errResp(500, 'OPENAI_API_KEY not configured', corsHeaders);
+  if (body.mode === 'dossier') return analyzeDossier(body, apiKey, corsHeaders, { user });
 
   const payload = {
     ville,

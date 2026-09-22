@@ -1359,7 +1359,7 @@
       const exclude = [
         'fetchAllProjects', 'fetchProjectsByCategory', 'fetchProjectByCategoryAndName',
         'fetchMyTravaux', 'fetchProjectBySlug', 'fetchCityTravaux',
-        'fetchDiagnosticLayers', 'fetchDiagnosticReports', 'fetchUIToggles',
+        'fetchDiagnosticLayers', 'fetchDiagnosticReports', 'fetchDiagnosticReport', 'fetchUIToggles',
       ];
       const fetchers = Object
         .entries(svc)
@@ -2824,7 +2824,7 @@
         if (!ville) return [];
         const { data, error } = await supabaseClient
           .from('diagnostic_reports')
-          .select('*')
+          .select('id,ville,title,zone,stats,point_count,created_at')
           .eq('ville', ville)
           .order('created_at', { ascending: false })
           .limit(limit);
@@ -2837,6 +2837,15 @@
         console.error('[supabaseService] fetchDiagnosticReports exception:', e);
         return [];
       }
+    },
+
+    /** Lecture d'une version complète, figures comprises, sous le RLS de la ville. */
+    fetchDiagnosticReport: async function(ville, id) {
+      if (!ville || !/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Adresse de dossier invalide.');
+      const { data, error } = await supabaseClient.from('diagnostic_reports')
+        .select('*').eq('ville', ville).eq('id', id).maybeSingle();
+      if (error) throw error;
+      return data;
     },
 
     /**

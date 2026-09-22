@@ -267,6 +267,10 @@ export async function getDiagnosticReports(limit) {
   return svc().fetchDiagnosticReports(requireCity(), limit);
 }
 
+export async function getDiagnosticReport(id) {
+  return svc().fetchDiagnosticReport(requireCity(), id);
+}
+
 export async function deleteDiagnosticReport(id) {
   return svc().deleteDiagnosticReport(requireCity(), id);
 }

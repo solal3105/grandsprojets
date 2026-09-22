@@ -6,7 +6,8 @@
  */
 
 import { dg, onCleanup, safeColor, layerKind } from './state.js';
-import { pointInPolygon, someVertex } from './data.js';
+import { geometryBbox } from './data.js';
+import { clipLines, intersectsRing } from './geometry.js';
 import { renderPopup } from './popups.js';
 
 const EMPTY_FC = () => ({ type: 'FeatureCollection', features: [] });
@@ -686,7 +687,7 @@ export function wireLasso(mapWrap, onSelect) {
 /**
  * Sélectionne les features des couches VISIBLES contenues dans un anneau
  * géographique : un point est retenu si son ancrage y tombe, une ligne ou un
- * polygone si l'un de ses sommets y tombe. Le test est géographique (et non
+ * polygone dès qu'il intersecte le périmètre. Les lignes sont découpées. Le test est géographique (et non
  * écran), donc rejouable après un déplacement de carte ou un changement de
  * couches. Pré-filtre par emprise pour rester fluide sur de gros jeux.
  */
@@ -698,8 +699,6 @@ export function selectInRing(ring) {
     if (y < minY) minY = y;
     if (y > maxY) maxY = y;
   }
-  const inRing = (lngLat) => pointInPolygon(lngLat, ring);
-
   const selected = [];
   for (const layer of dg.layers) {
     const rt = dg.runtime.get(layer.id);
@@ -707,10 +706,12 @@ export function selectInRing(ring) {
     for (const f of rt.features) {
       const [bMinX, bMinY, bMaxX, bMaxY] = f.__bbox;
       if (bMaxX < minX || bMinX > maxX || bMaxY < minY || bMinY > maxY) continue;
-      const hit = f.geometry.type === 'Point'
-        ? inRing(f.__pt)
-        : (inRing(f.__pt) || someVertex(f.geometry, (lng, lat) => inRing([lng, lat])));
-      if (hit) selected.push({ ...f, __layerId: layer.id });
+      if (/LineString/.test(f.geometry.type)) {
+        const geometry = clipLines(f.geometry, ring);
+        if (!geometry) continue;
+        const bbox = geometryBbox(geometry);
+        selected.push({ ...f, geometry, __bbox: bbox, __pt: [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], __layerId: layer.id });
+      } else if (intersectsRing(f.geometry, ring)) selected.push({ ...f, __layerId: layer.id });
     }
   }
   return selected;
@@ -726,4 +727,3 @@ export function resolveSelection(screenPoints) {
   ring.push(ring[0]);
   return { features: selectInRing(ring), polygon: { type: 'Polygon', coordinates: [ring] } };
 }
-

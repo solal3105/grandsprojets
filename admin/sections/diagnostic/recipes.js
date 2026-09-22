@@ -41,8 +41,8 @@ export const RECIPES = [
       style: { mode: 'graduated', value_field: 'total_trip_count', color: '#DC2626', radius: 3 },
       popup: { title_field: '', fields: ['total_trip_count', 'forward_trip_count', 'reverse_trip_count', 'ebike_ride_count'] },
       metrics: [
-        { field: 'total_trip_count', agg: 'sum' },
-        { field: 'ebike_ride_count', agg: 'sum' },
+        { field: 'total_trip_count', agg: 'max' },
+        { field: 'ebike_ride_count', agg: 'max' },
         { field: 'forward_average_speed_meters_per_second', agg: 'mean' },
       ],
       ai_context: 'Passages par tronçon de rue sur une année, comptés par Strava Metro à partir des déplacements enregistrés par les utilisateurs de l\'application (échantillon de pratiquants, pas un comptage exhaustif)',

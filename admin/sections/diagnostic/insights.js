@@ -10,6 +10,7 @@
 import { layerKind } from './state.js';
 import { sourceOfLayer } from './sources.js';
 import { distanceM, toNumber } from './data.js';
+import { distanceToGeometryM } from './geometry.js';
 
 const _num = (v) => { const n = toNumber(v); return isFinite(n) ? n : 0; };
 const _pct = (part, all) => (all > 0 ? Math.round((part / all) * 100) : 0);
@@ -236,40 +237,29 @@ export function clusterPoints(points, radiusM = 40) {
       sources.get(p.__layerId).push(p);
     }
     return { center: c.center, count: c.points.length, sources, score: sources.size * 10 + c.points.length };
-  }).sort((a, b) => b.score - a.score);
+  }).sort((a, b) => b.sources.size - a.sources.size || b.count - a.count);
 }
 
 /* ── Points d'attention à règles ───────────────────────────────── */
 
-/** Plus courte distance d'un point à l'un des sommets d'une liste de géométries. */
-function _nearestVertexM(pt, feats) {
-  let best = Infinity;
-  for (const f of feats) {
-    const g = f.geometry;
-    const walk = (coords) => {
-      if (!Array.isArray(coords)) return;
-      if (typeof coords[0] === 'number') { const d = distanceM(pt, coords); if (d < best) best = d; return; }
-      for (const c of coords) walk(c);
-    };
-    walk(g?.coordinates);
-    if (best === 0) break;
-  }
-  return best;
+/** Plus courte distance d'un point aux géométries, segments compris. */
+function _nearestGeometryM(pt, feats) {
+  return feats.reduce((best, f) => Math.min(best, distanceToGeometryM(pt, f.geometry)), Infinity);
 }
 
 /**
  * Règles écrites, chacune avec son critère chiffré :
- *  R1  un tronçon parmi les 10 % les plus fréquentés du territoire (Strava) sans aménagement cyclable à moins de 25 m
+ *  R1  un tronçon parmi les 5 % les plus fréquentés du territoire (Strava) sans aménagement cyclable à moins de 30 m
  *  R2  un accident corporel à moins de 40 m d'un point à améliorer du Baromètre
  *  R3  un lieu où convergent au moins trois sources différentes
  */
 export function attentionPoints({ strava, stravaAll, cycleways, accidents, fubRed, hotspots }) {
   const out = [];
-  if (strava?.length && stravaAll?.length) {
+  if (strava?.length && stravaAll?.length && cycleways?.length) {
     const p95 = quantile(stravaAll.map((f) => _num(f.properties.total_trip_count)), 0.95);
     const busy = strava.filter((f) => _num(f.properties.total_trip_count) >= p95 && p95 > 0);
     const without = cycleways?.length
-      ? busy.filter((f) => _nearestVertexM(f.__pt, cycleways) > 30)
+      ? busy.filter((f) => _nearestGeometryM(f.__pt, cycleways) > 30)
       : busy;
     if (without.length) {
       out.push({
@@ -281,7 +271,7 @@ export function attentionPoints({ strava, stravaAll, cycleways, accidents, fubRe
     }
   }
   if (accidents?.length && fubRed?.length) {
-    const both = accidents.filter((a) => _nearestVertexM(a.__pt, fubRed) <= 40);
+    const both = accidents.filter((a) => _nearestGeometryM(a.__pt, fubRed) <= 40);
     if (both.length) {
       out.push({
         rule: 'R2',

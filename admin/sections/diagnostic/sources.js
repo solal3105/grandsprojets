@@ -84,6 +84,7 @@ export const SOURCES = [
       ['Licence', 'Open Database Licence (ODbL), FUB'],
     ],
     credit: 'Baromètre vélo, FUB, licence ODbL',
+    publicUrl: 'https://opendata.parlons-velo.fr/',
   },
   {
     id: 'osm-cycleways',
@@ -100,6 +101,7 @@ export const SOURCES = [
       ['Licence', 'ODbL, contributeurs OpenStreetMap'],
     ],
     credit: 'OpenStreetMap, licence ODbL',
+    publicUrl: 'https://www.openstreetmap.org/',
   },
   {
     id: 'accidents',

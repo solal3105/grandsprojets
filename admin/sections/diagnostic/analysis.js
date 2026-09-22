@@ -1,18 +1,18 @@
 /**
  * Diagnostic terrain - onglet Analyse.
- * Les nombres sont calculés ici (répartition par source, décompte des points
- * par sujet) ; l'IA (via /api/ai-diagnostic) ne fait que restituer, source par
- * source, ce que disent les points, en citant. Aucune note, aucun jugement.
+ * Prépare la sélection et ouvre le dossier web. Les helpers de lecture de
+ * l'ancien format restent isolés pour la compatibilité des rapports historiques.
  */
 
-import { store } from '../../store.js';
-import { esc, escAttr } from '../../components/ui.js';
-import { dg, safeColor, MAX_ANALYSIS_POINTS, layerKind, layerMetrics } from './state.js';
-import { featuresBbox, bboxAreaKm2, geometryBbox, aggregateMetrics, METRIC_AGGS } from './data.js';
+import { esc } from '../../components/ui.js';
+import { dg, safeColor, layerKind, layerMetrics } from './state.js';
+import { geometryBbox, aggregateMetrics } from './data.js';
 import { resolveSelection, selectInRing, renderSelection, setHover, fitBoundsSafely, zoneBounds } from './map.js';
 import { setAnalysisBadge, showTab } from './panel.js';
 import { openReport } from './report.js';
-import { buildInsights } from './insights.js';
+import { polygonAreaKm2 } from './geometry.js';
+import { observationText } from './dossier/model.js';
+import { estimateAnalysisMicro, EXPECTED_BUDGET_MICRO, HARD_LIMIT_MICRO } from './dossier/contract.mjs';
 
 const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
 const _fmtKm2 = (n) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
@@ -77,7 +77,7 @@ function _extraOf(f) {
 
 /**
  * Sépare les entités retenues par le lasso selon la nature de leur couche :
- * les témoignages (lus par l'analyse, comptés dans le plafond) et le contexte
+ * les témoignages (lus par lots dans le dossier) et le contexte
  * (couches de référence : chiffres de zone, jamais lus point par point).
  */
 function _partitionSelection(all) {
@@ -95,10 +95,10 @@ export function handleSelection(screenPoints) {
   dg.abortCtrl?.abort(); // une analyse en cours ne doit jamais se rattacher à la nouvelle zone
   const { features: all, polygon } = resolveSelection(screenPoints);
   const { features, context } = _partitionSelection(all);
-  // Emprise des entités retenues - à défaut, celle du polygone tracé (zone vide).
-  const bbox = featuresBbox(all) || geometryBbox(polygon);
+  // Emprise et surface du périmètre tracé, même sans observation.
+  const bbox = geometryBbox(polygon);
   // Une zone vide reste une sélection : le panneau explique quoi faire.
-  dg.selection = { features, context, polygon, bbox, areaKm2: bboxAreaKm2(bbox) };
+  dg.selection = { features, context, polygon, bbox, areaKm2: polygonAreaKm2(polygon) };
   dg.analysis = null;
   dg.aiSample = null;
   renderSelection(dg.selection);
@@ -111,8 +111,8 @@ export function handleSelection(screenPoints) {
 
 /**
  * Recalcule la sélection sur la zone déjà tracée : appelé quand les couches
- * visibles changent (affichage, suppression). Masquer une couche allège donc
- * immédiatement la sélection - c'est le levier pour repasser sous le plafond.
+ * visibles changent (affichage, suppression). Le dossier reflète ainsi les
+ * sources effectivement retenues par l'agent.
  * Posé sur dg.onSelectionStale par diagnostic.js (évite un import circulaire).
  */
 export function refreshSelection() {
@@ -121,8 +121,8 @@ export function refreshSelection() {
   dg.abortCtrl?.abort();
   const all = selectInRing(ring);
   const { features, context } = _partitionSelection(all);
-  const bbox = featuresBbox(all) || geometryBbox(dg.selection.polygon);
-  dg.selection = { ...dg.selection, features, context, bbox, areaKm2: bboxAreaKm2(bbox) };
+  const bbox = geometryBbox(dg.selection.polygon);
+  dg.selection = { ...dg.selection, features, context, bbox, areaKm2: polygonAreaKm2(dg.selection.polygon) };
   dg.analysis = null;
   dg.aiSample = null;
   renderSelection(dg.selection);
@@ -204,9 +204,8 @@ function _contextStats(context) {
 }
 
 /**
- * Ordonne les points à la ronde entre couches : la liste envoyée à l'IA reste
- * équilibrée d'un bout à l'autre. Tous les points sont transmis - le plafond
- * MAX_ANALYSIS_POINTS garantit que la liste tient dans la requête.
+ * Contrat historique : ordonne les points à la ronde entre couches, dans la
+ * limite fournie. Le dossier utilise désormais son propre découpage par lots.
  */
 function _orderedPoints(features, cap) {
   const groups = new Map();
@@ -323,442 +322,37 @@ export const _internals = {
   contextStats: _contextStats,
 };
 
-/* ── Appel IA ──────────────────────────────────────────────────── */
-
-async function _runAnalysis() {
-  const sel = dg.selection;
-  if (!sel || !sel.features.length || sel.features.length > MAX_ANALYSIS_POINTS) return;
-  const panel = dg.container?.querySelector('#dg-panel-analyse');
-  if (!panel) return;
-
-  const stats = _zoneStats(sel.features);
-  const context = _contextStats(sel.context);
-  // Intégralité des points de la zone, ordonnés à la ronde entre couches.
-  const sampled = _orderedPoints(sel.features, MAX_ANALYSIS_POINTS);
-  dg.aiSample = sampled;
-
-  // Code de source stable (S1, S2…) : l'appariement de la réponse ne dépend
-  // plus du libellé, qui peut être long, accentué, dupliqué entre deux couches
-  // ou réécrit par le modèle - autant de façons de perdre une source.
-  const codeOf = new Map(stats.rows.map((r, i) => [r.layer.id, `S${i + 1}`]));
-
-  const body = {
-    ville: store.city,
-    zone: { area_km2: Math.round(sel.areaKm2 * 100) / 100, point_count: sel.features.length },
-    stats: stats.text,
-    // Chiffres de zone des couches de référence : un contexte, pas des points.
-    context: context.map((c) => ({
-      label: c.label,
-      ai_context: c.ai_context,
-      count: c.count,
-      metrics: c.metrics.map(({ field, agg, value }) => ({ field, agg, value })),
-    })),
-    layers: stats.rows.map((r) => ({
-      code: codeOf.get(r.layer.id),
-      label: r.layer.label,
-      ai_context: r.layer.ai_context,
-      count: r.count,
-    })),
-    sample: sampled.map((f, i) => ({
-      i: i + 1,
-      code: codeOf.get(f.__layerId) || '',
-      layer: _layerOf(f)?.label || '',
-      label: _titleOf(f),
-      text: _textOf(f),
-      extra: _extraOf(f),
-    })),
-  };
-
-  _renderLoading(panel);
-  dg.abortCtrl?.abort();
-  dg.abortCtrl = new AbortController();
-
-  try {
-    const res = await fetch('/api/ai-diagnostic', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(store.session?.access_token ? { 'Authorization': `Bearer ${store.session.access_token}` } : {}),
-      },
-      body: JSON.stringify(body),
-      signal: dg.abortCtrl.signal,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `HTTP ${res.status}`);
-    }
-
-    // Le serveur streame le JSON du diagnostic en SSE ({content} … [DONE]).
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let fullText = '';
-    let streamError = null;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed.startsWith('data: ')) continue;
-        const data = trimmed.slice(6);
-        if (data === '[DONE]') continue;
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.content) fullText += parsed.content;
-          if (parsed.error) streamError = parsed.error;
-        } catch { /* fragment non JSON, ignoré */ }
-      }
-    }
-    if (streamError) throw new Error(streamError);
-    if (!fullText.trim()) throw new Error('Réponse vide');
-    if (dg.selection !== sel) return; // la zone a changé pendant le stream : résultat obsolète
-
-    const result = JSON.parse(fullText);
-    const couches = _mergeCouches(result, stats.rows, sampled, codeOf);
-
-    dg.analysis = {
-      resume: String(result.resume || ''),
-      couches,
-      context,
-      pointCount: sel.features.length,
-      areaKm2: sel.areaKm2,
-      // Lecture chiffrée : indicateurs, comparaisons, lieux, points d'attention.
-      insights: buildInsights({ selection: sel, layers: dg.layers, runtime: dg.runtime, territoryLabel: dg.territory?.commune?.nom || dg.branding?.brand_name || '' }),
-    };
-    renderAnalysisPanel();
-  } catch (err) {
-    if (err.name === 'AbortError' || dg.selection !== sel) return;
-    console.error('[admin/diagnostic] Analyse IA:', err);
-    _renderError(panel, err.message || 'Erreur inconnue');
-  }
-}
-
-/* ── Rendu de l'onglet ─────────────────────────────────────────── */
-
-/** Rend l'onglet Analyse selon l'état : vide / sélection / résultats. */
+/** L’ouverture du dossier lance la lecture des témoignages disponibles. */
 export function renderAnalysisPanel() {
   const panel = dg.container?.querySelector('#dg-panel-analyse');
   if (!panel) return;
-  if (dg.analysis) { _renderResults(panel); return; }
-  if (dg.selection) { _renderSelectionView(panel); return; }
-  panel.innerHTML = `
-    <div class="dg-empty">
-      <i class="fa-solid fa-draw-polygon dg-empty__icon"></i>
-      <div class="dg-empty__title">Aucune zone sélectionnée</div>
-      <div class="dg-empty__text">Cliquez sur <b>Sélectionner une zone</b> (ou maintenez <b>Maj</b>) puis entourez les points à analyser sur la carte.</div>
-    </div>
-  `;
-}
-
-function _breakdownHtml(features) {
-  const rows = _breakdown(features).map((r) => ({
-    id: r.layer.id, label: r.layer.label, color: safeColor(r.layer.style?.color), count: r.count,
-  }));
-  if (!rows.length) return '';
-  const total = rows.reduce((acc, r) => acc + r.count, 0);
-  return _mixBarHtml(rows, total) + `<ul class="dg-legend-list">${rows.map((r) => `
-    <li class="dg-legend-item" data-layer="${escAttr(r.id)}">
-      <span class="dg-legend-dot" style="background:${escAttr(r.color)}"></span>
-      <span class="dg-legend-name">${esc(r.label)}</span>
-      <span class="dg-legend-count">${_fmt(r.count)}</span>
-    </li>`).join('')}</ul>`;
-}
-
-const _fmtValue = (v) => Number(v || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
-
-/**
- * Bloc « données de référence » de la zone : par couche, le nombre d'entités
- * retenues et les chiffres configurés. Le survol allume les entités sur la carte.
- */
-function _contextHtml(rows) {
-  if (!rows?.length) return '';
-  return `<div class="dg-ctx">
-    <div class="dg-ctx__title"><i class="fa-solid fa-chart-simple"></i> Données de référence dans la zone</div>
-    ${rows.map((r) => `
-      <div class="dg-ctx__row" data-layer="${escAttr(r.id)}">
-        <div class="dg-ctx__head">
-          <span class="dg-legend-dot" style="background:${escAttr(r.color)}"></span>
-          <span class="dg-legend-name">${esc(r.label)}</span>
-          <span class="dg-legend-count">${_fmt(r.count)} entité${r.count > 1 ? 's' : ''}</span>
-        </div>
-        ${r.metrics.length ? `<dl class="dg-ctx__metrics">${r.metrics.map((m) => `
-          <div class="dg-ctx__metric"><dt>${esc(METRIC_AGGS[m.agg]?.label || 'Total')} <span>${esc(m.field)}</span></dt><dd>${_fmtValue(m.value)}</dd></div>`).join('')}</dl>` : ''}
-      </div>`).join('')}
-  </div>`;
-}
-
-function _bindContext(panel) {
-  panel.querySelectorAll('.dg-ctx__row').forEach((row) => {
-    row.addEventListener('mouseenter', () => setHover(_contextOfLayer(row.dataset.layer)));
-    row.addEventListener('mouseleave', () => setHover([]));
-  });
-}
-
-function _renderSelectionView(panel) {
-  const sel = dg.selection;
-  const n = sel.features.length;
-  const tooMany = n > MAX_ANALYSIS_POINTS;
-  const context = _contextStats(sel.context);
-
-  let body;
-  if (n === 0 && context.length) {
-    // Des chiffres, mais rien à lire : le dire, sans bouton qui échouerait.
-    body = `
-      ${_contextHtml(context)}
-      <div class="dg-empty dg-empty--inline">
-        <div class="dg-empty__text">Aucun témoignage dans cette zone : il n'y a rien à lire pour l'analyse. Les chiffres ci-dessus restent valables ; élargissez la sélection ou activez une couche de témoignages pour lancer une analyse.</div>
-      </div>`;
-  } else if (n === 0) {
-    body = `
-      <div class="dg-empty">
-        <i class="fa-solid fa-magnifying-glass-location dg-empty__icon"></i>
-        <div class="dg-empty__text">Aucun point des couches visibles dans cette zone. Élargissez la sélection ou activez d'autres couches.</div>
-      </div>`;
-  } else if (tooMany) {
-    // L'analyse lit l'intégralité des points : au-delà du plafond, elle serait
-    // un sondage. On montre le poids de chaque couche pour guider l'allègement.
-    body = `
-      <div class="dg-over">
-        <div class="dg-over__title"><i class="fa-solid fa-circle-exclamation"></i> Zone trop large pour être analysée</div>
-        <div class="dg-over__text">
-          L'analyse lit <b>tous</b> les points de la zone, dans la limite de ${_fmt(MAX_ANALYSIS_POINTS)}.
-          Resserrez la sélection autour d'un carrefour ou d'un tronçon, ou masquez des couches ci-dessous
-          - le décompte se met à jour aussitôt.
-        </div>
-      </div>
-      ${_breakdownHtml(sel.features)}
-      ${_contextHtml(context)}
-      <button type="button" class="dg-analyze-btn" id="dg-analyze" disabled>
-        <i class="fa-solid fa-wand-magic-sparkles"></i> ${_fmt(n)} points - maximum ${_fmt(MAX_ANALYSIS_POINTS)}
-      </button>`;
-  } else {
-    body = `
-      ${_breakdownHtml(sel.features)}
-      ${_contextHtml(context)}
-      <button type="button" class="dg-analyze-btn" id="dg-analyze">
-        <i class="fa-solid fa-wand-magic-sparkles"></i> Analyser la zone
-      </button>
-      <div class="adm-form-hint dg-analyze-hint">L'IA lit l'intégralité des ${_fmt(n)} points sélectionnés et en tire des constats sourcés - chaque constat renvoie aux points qui le justifient.${context.length ? ' Les chiffres de référence lui sont donnés comme contexte, elle ne les interprète pas.' : ''}</div>`;
+  const selection = dg.selection;
+  if (!selection) {
+    panel.innerHTML = `<div class="dg-empty"><i class="fa-solid fa-draw-polygon dg-empty__icon"></i><div class="dg-empty__title">Un dossier pour comprendre votre secteur</div><p class="dg-empty__text">Sélectionnez une zone sur la carte. Ses témoignages seront analysés pour préparer une synthèse documentée et un rapport à partager.</p></div>`;
+    return;
   }
-
+  const all = [...selection.features, ...(selection.context || [])];
+  const rows = _breakdown(all);
+  const readable = selection.features.filter((f) => observationText(f, _layerOf(f))).length;
+  const hasTestimonies = readable > 0;
+  /* La taille de la zone est jugée ICI, avant le premier appel, et non
+     découverte à la fin sur un dossier aux trois quarts fait. Au-delà du budget
+     prévu on prévient sans empêcher : la génération ira au bout sous le
+     plafond. Seule une zone qui dépasserait le plafond lui-même ne se lance
+     pas. Aucun montant n'est affiché : la consigne suffit. */
+  const estimate = estimateAnalysisMicro(readable);
+  const tooLarge = estimate > HARD_LIMIT_MICRO;
+  const consigne = 'Sélectionnez une zone plus petite ou masquez les sources inutiles dans l’onglet Couches.';
+  const costNote = !hasTestimonies ? ''
+    : tooLarge ? `<p class="dg-dossier-warn">Cette zone contient ${_fmt(readable)} textes, trop pour un seul dossier. ${consigne}</p>`
+    : estimate > EXPECTED_BUDGET_MICRO ? `<p class="dg-dossier-warn">Cette zone contient ${_fmt(readable)} textes, c’est beaucoup pour un seul dossier. ${consigne}</p>`
+    : '';
   panel.innerHTML = `
-    <div class="dg-sel-status${tooMany ? ' dg-sel-status--over' : ''}">
-      <i class="fa-solid fa-vector-square"></i>
-      <span><b>${_fmt(n)}</b> point${n > 1 ? 's' : ''} dans la zone (~${_fmtKm2(sel.areaKm2)} km²)</span>
-      <button type="button" class="dg-sel-clear" id="dg-sel-clear" title="Effacer la sélection"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    ${body}
-  `;
-  panel.querySelector('#dg-sel-clear')?.addEventListener('click', clearSelection);
-  panel.querySelector('#dg-analyze')?.addEventListener('click', _runAnalysis);
-  _bindContext(panel);
-
-  // Survol de la barre ou de la légende : les points concernés s'allument sur la carte
-  const rows = _breakdown(sel.features).map((r) => ({
-    id: r.layer.id, label: r.layer.label, color: safeColor(r.layer.style?.color), count: r.count,
-  }));
-  _bindMixBar(panel, rows);
-  panel.querySelectorAll('.dg-legend-item').forEach((item) => {
-    item.addEventListener('mouseenter', () => setHover(_featuresOfLayer(item.dataset.layer)));
-    item.addEventListener('mouseleave', () => setHover([]));
-  });
-}
-
-function _renderLoading(panel) {
-  panel.innerHTML = `
-    <div class="dg-loading">
-      <div class="adm-skeleton dg-skel dg-skel--bar"></div>
-      <div class="adm-skeleton dg-skel dg-skel--line"></div>
-      <div class="adm-skeleton dg-skel dg-skel--card"></div>
-      <div class="adm-skeleton dg-skel dg-skel--card"></div>
-      <div class="dg-loading__txt"><i class="fa-solid fa-wand-magic-sparkles"></i> Analyse de la zone en cours…</div>
-    </div>
-  `;
-}
-
-function _renderError(panel, message) {
-  panel.innerHTML = `
-    <div class="dg-empty">
-      <i class="fa-solid fa-triangle-exclamation dg-empty__icon" style="color:var(--color-danger)"></i>
-      <div class="dg-empty__title">Analyse indisponible</div>
-      <div class="dg-empty__text">${esc(message)}</div>
-      <button type="button" class="adm-btn adm-btn--secondary adm-btn--sm" id="dg-retry"><i class="fa-solid fa-rotate"></i> Réessayer</button>
-    </div>
-  `;
-  panel.querySelector('#dg-retry')?.addEventListener('click', _runAnalysis);
-}
-
-function _renderResults(panel) {
-  const a = dg.analysis;
-  const n = a.pointCount || 0;
-  const nbSujets = a.couches.reduce((acc, c) => acc + c.sujets.length, 0);
-
-  panel.innerHTML = `
-    <div class="dg-rbar">
-      <span class="dg-rbar__meta"><b>${_fmt(n)}</b> point${n > 1 ? 's' : ''} lu${n > 1 ? 's' : ''} · ${a.couches.length} source${a.couches.length > 1 ? 's' : ''}${nbSujets ? ` · ${nbSujets} sujet${nbSujets > 1 ? 's' : ''}` : ''}</span>
-      <span class="dg-rbar__spacer"></span>
-      <button type="button" class="dg-rbar__btn" id="dg-re" title="Relancer l'analyse"><i class="fa-solid fa-rotate"></i></button>
-      <button type="button" class="dg-rbar__btn" id="dg-cl" title="Fermer l'analyse"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    ${_mixBarHtml(a.couches, n)}
-    ${a.resume ? `<div class="dg-resume">${esc(a.resume)}</div>` : ''}
-    ${_contextHtml(a.context)}
-    <div class="dg-layers-detail" id="dg-layers-detail"></div>
-    <button type="button" class="dg-report-btn" id="dg-report">
-      <i class="fa-solid fa-file-lines"></i> Générer le rapport de zone
-    </button>
-  `;
-
-  panel.querySelector('#dg-re')?.addEventListener('click', _runAnalysis);
-  panel.querySelector('#dg-cl')?.addEventListener('click', () => {
-    dg.analysis = null;
-    renderAnalysisPanel();
-  });
-  panel.querySelector('#dg-report')?.addEventListener('click', (e) => openReport(e.currentTarget));
-
-  _bindMixBar(panel, a.couches);
-  _bindContext(panel);
-  const detail = panel.querySelector('#dg-layers-detail');
-  for (const couche of a.couches) detail.appendChild(_coucheBlock(couche));
-}
-
-/* ── Répartition : une seule barre, la légende est au survol ────── */
-
-function _mixBarHtml(couches, total) {
-  if (!couches.length || !total) return '';
-  const segs = couches.map((c) => `<button type="button" class="dg-mix__seg" data-layer="${escAttr(c.id)}"
-      style="width:${(c.count / total * 100).toFixed(3)}%;background:${escAttr(c.color)}"
-      aria-label="${escAttr(`${c.label} : ${c.count} points`)}"></button>`).join('');
-  return `<div class="dg-mix" id="dg-mix">
-      <div class="dg-mix__bar">${segs}</div>
-      <div class="dg-mix__tip" id="dg-mix-tip" hidden></div>
-    </div>`;
-}
-
-/**
- * Survol d'un segment : infobulle + mise en évidence des points de cette
- * source sur la carte. Clic : ouvre la section correspondante.
- */
-function _bindMixBar(panel, couches) {
-  const wrap = panel.querySelector('#dg-mix');
-  const tip = panel.querySelector('#dg-mix-tip');
-  if (!wrap || !tip) return;
-  const total = couches.reduce((acc, c) => acc + c.count, 0) || 1;
-
-  wrap.querySelectorAll('.dg-mix__seg').forEach((seg) => {
-    const couche = couches.find((c) => c.id === seg.dataset.layer);
-    if (!couche) return;
-    seg.addEventListener('mouseenter', () => {
-      const share = Math.round((couche.count / total) * 100);
-      tip.innerHTML = `<span class="dg-mix__tip-dot" style="background:${escAttr(couche.color)}"></span>`
-        + `${esc(couche.label)} · <b>${_fmt(couche.count)}</b> pt${couche.count > 1 ? 's' : ''} (${share} %)`;
-      tip.hidden = false;
-      // Centrer l'infobulle sur le segment, bornée à la largeur du panneau
-      const left = seg.offsetLeft + seg.offsetWidth / 2;
-      tip.style.left = `${Math.min(Math.max(left, 70), wrap.clientWidth - 70)}px`;
-      setHover(_featuresOfLayer(couche.id));
-    });
-    seg.addEventListener('mouseleave', () => { tip.hidden = true; setHover([]); });
-    seg.addEventListener('click', () => {
-      const block = panel.querySelector(`.dg-couche[data-layer="${CSS.escape(couche.id)}"]`);
-      if (!block) return; // vue « sélection » : pas encore de sections par source
-      _toggleCouche(block, true);
-      block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
-  });
-}
-
-const _featuresOfLayer = (id) => (dg.selection?.features || []).filter((f) => f.__layerId === id);
-const _contextOfLayer = (id) => (dg.selection?.context || []).filter((f) => f.__layerId === id);
-
-/* ── Une source : synthèse visible, détail au clic ──────────────── */
-
-function _toggleCouche(block, open) {
-  const body = block.querySelector('.dg-couche__body');
-  const head = block.querySelector('.dg-couche__head');
-  const next = open === undefined ? body.hidden : open;
-  body.hidden = !next;
-  block.classList.toggle('is-open', next);
-  head.setAttribute('aria-expanded', String(next));
-}
-
-function _coucheBlock(couche) {
-  const block = document.createElement('div');
-  block.className = 'dg-couche';
-  block.dataset.layer = couche.id;
-  const nbSujets = couche.sujets.length;
-  block.innerHTML = `
-    <button type="button" class="dg-couche__head" aria-expanded="false">
-      <span class="dg-couche__dot" style="background:${escAttr(couche.color)}"></span>
-      <span class="dg-couche__name">${esc(couche.label)}</span>
-      <span class="dg-couche__count">${_fmt(couche.count)}</span>
-      <i class="fa-solid fa-chevron-down dg-couche__chev"></i>
-    </button>
-    ${couche.synthese ? `<div class="dg-couche__synth">${esc(couche.synthese)}</div>` : ''}
-    <div class="dg-couche__body" hidden></div>
-  `;
-  const head = block.querySelector('.dg-couche__head');
-  head.addEventListener('click', () => _toggleCouche(block));
-  head.addEventListener('mouseenter', () => setHover(_featuresOfLayer(couche.id)));
-  head.addEventListener('mouseleave', () => setHover([]));
-
-  const body = block.querySelector('.dg-couche__body');
-  if (nbSujets) {
-    for (const sujet of couche.sujets) body.appendChild(_sujetCard(sujet));
-  } else if (!couche.hasText) {
-    body.innerHTML = `<div class="dg-couche__none">Ces points ne portent pas de texte descriptif : seul leur décompte est exploitable.</div>`;
-  } else {
-    // La source porte du texte mais aucun sujet n'en est ressorti : le dire,
-    // et restituer quand même son contenu plutôt que laisser un blanc.
-    body.innerHTML = `<div class="dg-couche__none">Aucun sujet récurrent ne se dégage de ces points. Leur contenu, tel quel :</div>`
-      + couche.apercu.map((p) => `<div class="dg-couche__raw"><b>${esc(p.label)}</b> ${esc(p.texte)}</div>`).join('')
-      + (couche.count > couche.apercu.length ? `<div class="dg-couche__none">+ ${_fmt(couche.count - couche.apercu.length)} autre${couche.count - couche.apercu.length > 1 ? 's' : ''} point${couche.count - couche.apercu.length > 1 ? 's' : ''}.</div>` : '');
-  }
-  return block;
-}
-
-function _sujetCard(sujet) {
-  const feats = sujet.refs.map((num) => dg.aiSample?.[num - 1]).filter(Boolean);
-  const n = sujet.refs.length;
-  const card = document.createElement('div');
-  card.className = 'dg-sujet';
-  card.innerHTML = `
-    <div class="dg-sujet__head">
-      <span class="dg-sujet__title">${esc(sujet.sujet)}</span>
-      <span class="dg-sujet__count">${_fmt(n)} point${n > 1 ? 's' : ''}</span>
-    </div>
-    <div class="dg-ins__refs"></div>
-    ${sujet.verbatims.map((v) => `<div class="dg-ins__verb">« ${esc(v)} »</div>`).join('')}
-  `;
-  const refsWrap = card.querySelector('.dg-ins__refs');
-  for (const num of sujet.refs.slice(0, 12)) {
-    const f = dg.aiSample?.[num - 1];
-    if (!f) continue;
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'dg-ref';
-    chip.textContent = `#${num}`;
-    chip.title = _titleOf(f);
-    chip.addEventListener('mouseenter', () => setHover([f]));
-    chip.addEventListener('mouseleave', () => setHover([]));
-    chip.addEventListener('click', () => {
-      dg.map?.easeTo({ center: f.__pt, zoom: Math.max(dg.map.getZoom(), 16), duration: 400 });
-    });
-    refsWrap.appendChild(chip);
-  }
-  if (sujet.refs.length > 12) {
-    const more = document.createElement('span');
-    more.className = 'dg-ref dg-ref--more';
-    more.textContent = `+${sujet.refs.length - 12}`;
-    more.title = 'Autres points de ce sujet';
-    refsWrap.appendChild(more);
-  }
-  if (feats.length) {
-    card.addEventListener('mouseenter', () => setHover(feats));
-    card.addEventListener('mouseleave', () => setHover([]));
-  }
-  return card;
+    <div class="dg-sel-status"><i class="fa-solid fa-vector-square"></i><span>Zone de <b>${_fmtKm2(selection.areaKm2)} km²</b></span><button type="button" class="dg-sel-clear" id="dg-sel-clear" aria-label="Effacer la sélection"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="dg-dossier-intro"><h3>Le dossier de cette zone</h3><p>${!all.length ? 'Aucune donnée visible dans ce périmètre. Vous pourrez documenter ce qui manque et ajouter vos observations.' : `${_fmt(selection.features.length)} observation${selection.features.length > 1 ? 's' : ''} et ${rows.length} source${rows.length > 1 ? 's' : ''} pour comprendre ce secteur.`}</p>
+    ${hasTestimonies ? `<p>Les témoignages seront analysés automatiquement avant la préparation du rapport.</p>${costNote}<label class="adm-label" for="dg-study-objective">Objet de l’étude (facultatif)</label><input class="adm-input" id="dg-study-objective" maxlength="500" placeholder="Par exemple : préparer une visite avec une poussette.">` : ''}
+    <button type="button" class="dg-analyze-btn" id="dg-analyze" ${tooLarge ? 'disabled' : ''}><i class="fa-solid fa-file-lines"></i> ${hasTestimonies ? 'Analyser la zone' : 'Ouvrir le dossier de zone'}</button>
+    ${rows.length ? `<details class="dg-selection-sources"><summary>Voir les sources retenues</summary><dl>${rows.map(({ layer, count }) => `<div><dt>${esc(layer.label)}</dt><dd>${_fmt(count)}</dd></div>`).join('')}</dl></details>` : ''}</div>`;
+  panel.querySelector('#dg-sel-clear').addEventListener('click', clearSelection);
+  panel.querySelector('#dg-analyze').addEventListener('click', (event) => openReport(event.currentTarget));
 }

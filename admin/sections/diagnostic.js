@@ -17,6 +17,7 @@ import { loadAllLayers, fitToData } from './diagnostic/layers.js';
 import { renderDock, updateLayerRow, renderLayersPanel, syncMapPanel } from './diagnostic/panel.js';
 import { handleSelection, refreshSelection, renderAnalysisPanel } from './diagnostic/analysis.js';
 import { openReportsHistory } from './diagnostic/report.js';
+import { renderDossierPage, destroyDossierPage } from './diagnostic/dossier/page.js';
 
 // Jeton de génération : le routeur ré-utilise toujours le même conteneur
 // #adm-content, donc comparer les conteneurs ne détecte pas un re-render
@@ -24,7 +25,7 @@ import { openReportsHistory } from './diagnostic/report.js';
 // les continuations async de l'ancien rendu s'interrompent.
 let _epoch = 0;
 
-export async function renderDiagnostic(container) {
+export async function renderDiagnostic(container, params = {}) {
   destroyDiagnostic();
   resetState();
   const epoch = ++_epoch;
@@ -40,6 +41,16 @@ export async function renderDiagnostic(container) {
         <div class="adm-empty__text">Le diagnostic terrain est réservé aux administrateurs de la structure.</div>
       </div>`;
     return;
+  }
+
+  if (params.id) {
+    await renderDossierPage(container, params.id, alive);
+    return;
+  }
+  // Un changement de collectivité revient à sa carte, sans conserver l'adresse
+  // d'un dossier appartenant à la collectivité précédente.
+  if (/^\/admin\/diagnostic\/[^/]+\/?$/.test(location.pathname)) {
+    history.replaceState({}, '', '/admin/diagnostic/');
   }
 
   container.innerHTML = `
@@ -162,6 +173,7 @@ function _wireFullscreen(mapWrap) {
 /** Détruit la carte et les listeners globaux de la section. */
 export function destroyDiagnostic() {
   _epoch++; // interrompt les continuations async du rendu en cours
+  destroyDossierPage();
   dg.abortCtrl?.abort();
   for (const fn of dg.cleanupFns) {
     try { fn(); } catch { /* listener déjà retiré */ }
