@@ -4,7 +4,7 @@
  * Socle commun aux fonctions qui relaient OpenAI en SSE (ai-generate, ai-diagnostic).
  *
  * Les deux fichiers partageaient 88 lignes significatives strictement identiques :
- * constantes Supabase et passerelle, CORS, `errResp`, `friendlyAIError`, la
+ * constantes Supabase et accès OpenAI, CORS, `errResp`, `friendlyAIError`, la
  * vérification du JWT, et surtout la boucle de relais SSE (~90 lignes) recopiée
  * mot pour mot. Seuls diffèrent les événements écoutés et les messages.
  */
@@ -16,14 +16,16 @@
 import { getCorsHeaders, errResp, preflightResp, getAuthedUser, isAdminForVille } from './http.mjs';
 export { getCorsHeaders, errResp, preflightResp, getAuthedUser, isAdminForVille };
 
-// Passerelle IA Netlify : quand elle est active, OPENAI_API_KEY est un jeton
-// de passerelle valable uniquement sur OPENAI_BASE_URL (jamais api.openai.com).
-export const OPENAI_RESPONSES_URL =
-  (process.env.OPENAI_BASE_URL?.replace(/\/$/, '') || 'https://api.openai.com') + '/v1/responses';
+// Nous parlons toujours à OpenAI directement, jamais à un intermédiaire.
+// OPENAI_DIRECT_KEY passe avant OPENAI_API_KEY parce que `netlify dev` remplace
+// cette dernière par un jeton à lui, qui expire sans prévenir et qu'aucun réglage
+// local ne peut écarter. Le nom dédié est le seul qu'il ne réécrit pas.
+export const OPENAI_KEY = process.env.OPENAI_DIRECT_KEY || process.env.OPENAI_API_KEY || '';
+export const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 
 /**
  * Message utilisateur (français) pour une erreur du service IA.
- * @param {number} status - Statut HTTP OpenAI/passerelle (0 si inconnu)
+ * @param {number} status - Statut HTTP renvoyé par OpenAI (0 si inconnu)
  * @param {string} raw - Corps d'erreur brut (JSON OpenAI ou texte)
  * @param {string} [conseil400] - Complément propre à l'appelant pour le cas 400
  */
@@ -37,15 +39,15 @@ export function friendlyAIError(status, raw, conseil400 = '') {
   } catch { msg = String(raw || ''); }
   const s = Number(status) || 0;
   if (code === 'insufficient_quota' || /quota|billing|credit/i.test(`${code} ${msg}`)) {
-    return 'Crédits du service IA épuisés - vérifiez la facturation OpenAI ou les crédits de la passerelle IA Netlify.';
+    return 'Nous n’avons plus accès au service d’intelligence artificielle. Ce qui est déjà fait est conservé. Écrivez-nous pour que nous rétablissions l’accès.';
   }
-  if (s === 429 || code === 'rate_limit_exceeded') return 'Service IA saturé (limite de débit atteinte) - réessayez dans quelques instants.';
-  if (s === 401 || s === 403) return 'Authentification au service IA refusée - clé API ou jeton de passerelle IA Netlify invalide ou expiré.';
-  if (s === 402) return 'Crédits du service IA épuisés - vérifiez la facturation.';
-  if (s === 404 || code === 'model_not_found') return 'Modèle IA indisponible - vérifiez la configuration.';
-  if (s === 400) return `Requête refusée par le service IA - réessayez${conseil400 ? ` ; ${conseil400}` : ''}.`;
-  if (s >= 500) return 'Service IA temporairement indisponible - réessayez dans quelques instants.';
-  return `Service IA indisponible${s ? ` (HTTP ${s})` : ''} - réessayez.`;
+  if (s === 429 || code === 'rate_limit_exceeded') return 'Trop de demandes arrivent en même temps. Réessayez dans quelques instants.';
+  if (s === 401 || s === 403) return 'Nous n’avons pas pu nous connecter au service d’intelligence artificielle. Ce qui est déjà fait est conservé. Réessayez dans quelques minutes, puis écrivez-nous si le message revient.';
+  if (s === 402) return 'Nous n’avons plus accès au service d’intelligence artificielle. Ce qui est déjà fait est conservé. Écrivez-nous pour que nous rétablissions l’accès.';
+  if (s === 404 || code === 'model_not_found') return 'Le service d’intelligence artificielle ne répond pas comme attendu. Ce qui est déjà fait est conservé. Écrivez-nous si le message revient.';
+  if (s === 400) return `La demande a été refusée. Réessayez${conseil400 ? ` ; ${conseil400}` : ''}.`;
+  if (s >= 500) return 'Le service d’intelligence artificielle est momentanément indisponible. Réessayez dans quelques instants.';
+  return 'Le service d’intelligence artificielle est indisponible. Réessayez dans quelques instants.';
 }
 
 /**

@@ -172,7 +172,7 @@ test.describe('0.30 - Relais SSE partagé des fonctions IA', () => {
     const evts = await lireSSE(relaisDiagnostic(relay, flux));
 
     expect(evts[0]).toEqual({ content: 'debut' });
-    expect(evts[1].error).toContain('Crédits du service IA épuisés');
+    expect(evts[1].error).toContain('Nous n’avons plus accès au service d’intelligence artificielle.');
     expect(evts[2]).toBe('[DONE]');
     expect(JSON.stringify(evts)).not.toContain('JAMAIS');
   });
@@ -195,14 +195,19 @@ test.describe('0.30 - Relais SSE partagé des fonctions IA', () => {
   });
 
   test('0.30.7 - friendlyAIError couvre les cas des deux appelants', async () => {
-    expect(friendlyAIError(429, '{}')).toContain('saturé');
-    expect(friendlyAIError(401, '{}')).toContain('Authentification');
-    expect(friendlyAIError(404, '{}')).toContain('indisponible');
-    expect(friendlyAIError(503, '{}')).toContain('temporairement indisponible');
-    expect(friendlyAIError(0, JSON.stringify({ error: { code: 'insufficient_quota' } }))).toContain('Crédits');
+    expect(friendlyAIError(429, '{}')).toContain('Trop de demandes');
+    expect(friendlyAIError(401, '{}')).toContain('nous connecter');
+    expect(friendlyAIError(404, '{}')).toContain('ne répond pas comme attendu');
+    expect(friendlyAIError(503, '{}')).toContain('momentanément indisponible');
+    expect(friendlyAIError(0, JSON.stringify({ error: { code: 'insufficient_quota' } }))).toContain('plus accès');
+    // Aucun message affiché ne nomme notre outillage ni ne demande une action impossible à l'agent.
+    const interne = /passerelle|clé API|Netlify|OpenAI|facturation|HTTP |limite de débit|modèle/i;
+    for (const statut of [0, 400, 401, 402, 403, 404, 429, 500, 503]) {
+      expect(friendlyAIError(statut, '{}')).not.toMatch(interne);
+    }
     // Le conseil du cas 400 est propre à l'appelant : ai-diagnostic le fournit
-    expect(friendlyAIError(400, '{}')).toBe('Requête refusée par le service IA - réessayez.');
+    expect(friendlyAIError(400, '{}')).toBe('La demande a été refusée. Réessayez.');
     expect(friendlyAIError(400, '{}', 'si le problème persiste, réduisez la zone'))
-      .toBe('Requête refusée par le service IA - réessayez ; si le problème persiste, réduisez la zone.');
+      .toBe('La demande a été refusée. Réessayez ; si le problème persiste, réduisez la zone.');
   });
 });

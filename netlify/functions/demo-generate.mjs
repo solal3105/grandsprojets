@@ -36,17 +36,13 @@ import {
 } from './lib/demo-exploration.mjs';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
-// `netlify dev` injecte dans les fonctions la passerelle IA de Netlify
-// (OPENAI_BASE_URL = <site>/.netlify/ai + un jeton de passerelle a la place de
-// la cle du compte). Si cette passerelle n'est pas provisionnee, TOUS les
-// appels echouent en local alors que la production fonctionne. DEMO_OPENAI_KEY
-// permet de viser l'API OpenAI directe pour developper et auditer.
+// La demo a sa propre cle pour que son budget reste separe de celui du reste.
+// A defaut, elle suit la cle commune. Dans tous les cas l'appel part chez OpenAI
+// directement : `netlify dev` remplace OPENAI_API_KEY par un jeton a lui, et
+// OPENAI_DIRECT_KEY est le nom qu'il ne reecrit pas.
 const DEMO_OPENAI_KEY = process.env.DEMO_OPENAI_KEY || null;
-const OPENAI_BASE_URL = (DEMO_OPENAI_KEY
-  ? (process.env.DEMO_OPENAI_BASE_URL || 'https://api.openai.com')
-  : (process.env.OPENAI_BASE_URL || 'https://api.openai.com')).replace(/\/$/, '');
-const OPENAI_RESPONSES_URL = `${OPENAI_BASE_URL}/v1/responses`;
-const openaiKey = () => DEMO_OPENAI_KEY || process.env.OPENAI_API_KEY;
+const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
+const openaiKey = () => DEMO_OPENAI_KEY || process.env.OPENAI_DIRECT_KEY || process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.DEMO_OPENAI_MODEL || 'gpt-4o';
 /* Modele des taches de vision. Contre-intuitivement, il ne faut PAS y mettre
    un modele leger : mesure faite, le juge d'image passe de 953 a 13 565 tokens

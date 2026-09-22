@@ -5,7 +5,7 @@
  * Supporte le streaming SSE.
  *
  * Variables d'environnement requises :
- *   OPENAI_API_KEY - clé API OpenAI
+ *   OPENAI_DIRECT_KEY, sinon OPENAI_API_KEY - clé du compte OpenAI
  *
  * Événements SSE émis vers le client :
  *   { status: 'searching' }         - recherche web en cours
@@ -42,6 +42,7 @@ IMPORTANT : N'inclus AUCUN lien hypertexte inline [texte](url) dans le corps du 
 // et le relais SSE. Voir netlify/functions/lib/ai-common.mjs.
 import {
   OPENAI_RESPONSES_URL,
+  OPENAI_KEY,
   getCorsHeaders,
   errResp,
   preflightResp,
@@ -59,7 +60,7 @@ export default async function handler(req) {
   const authed = await getAuthedUser(req);
   if (!authed) return errResp(401, 'Unauthorized', corsHeaders);
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = OPENAI_KEY;
   if (!apiKey) return errResp(500, 'OPENAI_API_KEY not configured', corsHeaders);
 
   let body;
