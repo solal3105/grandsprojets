@@ -1,5 +1,7 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../netlify/functions/lib/http.mjs';
 
 /**
  * Navigates to admin and waits for the boot sequence to complete.
@@ -693,4 +695,37 @@ test.describe('2.x - CRUD complet contributions', () => {
     await expect(page.locator('.adm-list-item', { hasText: UPDATED_NAME })).toHaveCount(0, { timeout: 5000 });
   });
 
+});
+
+// ─────────────────────────────────────────────────────────
+// 2.9 - Les fichiers d'une contribution partent avec elle
+// ─────────────────────────────────────────────────────────
+test.describe('2.9 - Fichiers d’une contribution supprimés avec elle', () => {
+  test('2.9.1 - L’administrateur supprime la contribution d’un contributeur, fichier compris', async ({ page }) => {
+    // Le contributeur dépose lui-même son tracé : le fichier lui appartient, pas à l'administrateur.
+    const contributor = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+    const { error: signInError } = await contributor.auth.signInWithPassword({ email: process.env.TEST_INVITED_EMAIL, password: process.env.TEST_INVITED_PASSWORD });
+    expect(signInError).toBeNull();
+    const name = `E2E-Stockage-${Date.now()}`;
+    const path = `geojson/projects/e2e-stockage/${name.toLowerCase()}.geojson`;
+    const { error: uploadError } = await contributor.storage.from('uploads').upload(path, new Blob([JSON.stringify({ type: 'FeatureCollection', features: [] })], { type: 'application/geo+json' }), { upsert: false, contentType: 'application/geo+json' });
+    expect(uploadError).toBeNull();
+    const url = contributor.storage.from('uploads').getPublicUrl(path).data.publicUrl;
+    const { error: insertError } = await contributor.from('contribution_uploads').insert({ project_name: name, category: 'Test', ville: 'test-e2e', geojson_url: url, approved: false });
+    expect(insertError).toBeNull();
+    try {
+      await goToContributions(page);
+      const item = page.locator('.adm-list-item', { hasText: name });
+      await expect(item).toBeVisible({ timeout: 15000 });
+      await item.locator('[data-action="delete"]').click();
+      await expect(page.locator('#adm-dialog[open]')).toBeVisible({ timeout: 5000 });
+      await page.click('#adm-dialog-confirm');
+      await expect(page.locator('.adm-list-item', { hasText: name })).toHaveCount(0, { timeout: 10000 });
+      await expect.poll(async () => (await fetch(`${url}?v=${Date.now()}`)).status, { timeout: 10000 }).not.toBe(200);
+    } finally {
+      // Sans déconnexion : elle révoquerait la session des essais du contributeur qui tournent en parallèle.
+      await contributor.from('contribution_uploads').delete().eq('project_name', name);
+      await contributor.storage.from('uploads').remove([path]);
+    }
+  });
 });

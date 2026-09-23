@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import { SUPABASE_URL } from '../netlify/functions/lib/http.mjs';
 
 /**
  * Navigates to admin and waits for the boot sequence to complete.
@@ -108,7 +109,10 @@ test.describe('2.8 - Contributions (rôle invited)', () => {
 
     const submitBtn = page.locator('#cw-submit');
     await submitBtn.scrollIntoViewIfNeeded();
+    // Le tracé déposé par le contributeur doit disparaître avec sa contribution.
+    const uploaded = page.waitForResponse((res) => res.request().method() === 'POST' && /\/storage\/v1\/object\/uploads\/geojson\/projects\//.test(res.url()));
     await submitBtn.click();
+    const geojsonPath = decodeURIComponent(new URL((await uploaded).url()).pathname.split('/object/uploads/')[1]);
     await expect(page.locator('.adm-toast--success')).toContainText('Contribution créée', { timeout: 15000 });
     await expect(page).toHaveURL(/\/admin\/contributions\//, { timeout: 10000 });
 
@@ -131,6 +135,8 @@ test.describe('2.8 - Contributions (rôle invited)', () => {
     await page.click('#adm-dialog-confirm');
     await expect(page.locator('.adm-toast--success')).toContainText('Contribution supprimée', { timeout: 10000 });
     await expect(page.locator('.adm-list-item', { hasText: TEST_NAME })).toHaveCount(0, { timeout: 5000 });
+    // Le fichier public n'existe plus (requête hors cache, directement au stockage).
+    await expect.poll(async () => (await fetch(`${SUPABASE_URL}/storage/v1/object/public/uploads/${geojsonPath}?v=${Date.now()}`)).status, { timeout: 10000 }).not.toBe(200);
   });
 
   test('2.8.8 - Section publication : notice "Soumise à validation" (pas de toggle)', async ({ page }) => {
