@@ -1,4 +1,5 @@
 /** Une même version de données, deux compositions : lecture web et édition papier. */
+import { NETWORK_MESSAGE } from './recovery.js';
 import { esc } from '../../../components/ui.js';
 import { coverage, dossierSummary, number, analysisRequired, overviewMissing, OBJECTIVE_EXAMPLE } from './model.js';
 import { safeColor } from '../state.js';
@@ -222,6 +223,7 @@ export function analysisStatus(dossier, progress) {
     const plan = analysisPlan(dossier, progress), percent = analysisProgress(dossier, progress);
     const phase = progress?.phase || 'read';
     const title = progress?.recovery === 'network' ? 'La connexion a été interrompue ; nous réessayons.'
+      : progress?.recovery === 'wait' ? 'Cette étape prend plus de temps que prévu ; nous attendons sa fin.'
       : progress?.recovery === 'quality' ? 'Nous corrigeons une formulation.'
       : progress?.recovery === 'split' ? 'Nous reprenons ces textes en deux fois.'
       : phase === 'review' ? 'Nous relisons les constats.'
@@ -244,6 +246,8 @@ export function analysisStatus(dossier, progress) {
   // Un refus de nos contrôles de fidélité s'explique à l'agent sans lui transmettre une consigne écrite pour le modèle.
   const reason = !dossier.analysis.error ? ''
     : dossier.analysis.lastError?.code === 'quality' ? 'Nous n’avons pas obtenu une rédaction assez fidèle aux textes pour terminer cette étape.'
+      // Un dossier enregistré avant la traduction des coupures garde le message brut du navigateur.
+      : /^(failed to fetch|networkerror|load failed)/i.test(dossier.analysis.error) ? NETWORK_MESSAGE
       : dossier.analysis.error;
   const missing = overviewMissing(dossier);
   return `<div class="dz-analysis-status" role="status"><div><b>${status === 'paused' ? 'L’analyse est en pause.' : missing ? 'La synthèse n’a pas pu être rédigée.' : 'L’analyse s’est arrêtée avant la fin.'}</b><p>${missing ? `${c.read > 1 ? `Les ${number(c.read, 0)} textes sont lus et leurs constats sont consultables` : 'Le texte est lu et ses constats sont consultables'}. Reprenez l’analyse pour rédiger la synthèse, ou écrivez la vôtre dans « Personnaliser » pour exporter le dossier.` : `Nous avons examiné ${number(c.read, 0)} texte${c.read > 1 ? 's' : ''} sur ${number(c.readable, 0)}. Reprenez l’analyse : les étapes terminées ne seront pas refaites.`}</p>${reason ? `<p>${esc(reason)}</p>` : ''}</div><button type="button" class="adm-btn adm-btn--primary" data-analyze>Reprendre l’analyse</button></div>`;

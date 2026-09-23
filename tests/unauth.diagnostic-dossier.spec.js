@@ -3,12 +3,12 @@ import { polygonAreaKm2, clipLines, intersectsRing, distanceToGeometryM } from '
 import { coverage, dossierSummary, dossierRow, analysisRequired, overviewMissing, accidentDetail, createDossier } from '../admin/sections/diagnostic/dossier/model.js';
 import { makeBatches, validateBatchResult, validateSynthesis, validateOverview, assertGroundedWording, assertClearWording, BATCH_POINTS, BATCH_CHARS, TEXT_PART_CHARS, forecastAnalysis, MAX_CALLS_PER_GENERATION, HARD_LIMIT_MICRO, REQUEST_MAX_CHARS } from '../admin/sections/diagnostic/dossier/contract.mjs';
 import { analyzeDossier, prepareWordingRefresh, prepareLayerRefresh, refreshOverview } from '../admin/sections/diagnostic/dossier/analyze.js';
-import { pageHtml, printHtml } from '../admin/sections/diagnostic/dossier/view.js';
+import { pageHtml, printHtml, analysisStatus } from '../admin/sections/diagnostic/dossier/view.js';
 import { validateDossierRequest, analyzeDossier as serveDossierImpl, buildDossierPayload, requestTimeoutMs } from '../netlify/functions/lib/diagnostic-dossier.mjs';
 import { dossierCase, reviewedCase, layeredCase } from './fixtures/diagnostic-dossiers.js';
 import { prepareFeatures } from '../admin/sections/diagnostic/data.js';
 import { layerAnalyses, sourceRegister, findingSheets, findingFigureKey, focusBounds, sourceLink } from '../admin/sections/diagnostic/dossier/presentation.js';
-import { recoverRequest, readAnalysisResponse, waitForRetry } from '../admin/sections/diagnostic/dossier/recovery.js';
+import { recoverRequest, readAnalysisResponse, waitForRetry, NETWORK_MESSAGE } from '../admin/sections/diagnostic/dossier/recovery.js';
 import { prepareFindingFigures } from '../admin/sections/diagnostic/dossier/figures.js';
 import { storeFigures, loadFigures, persistedFigures } from '../admin/sections/diagnostic/dossier/figure-store.js';
 
@@ -618,6 +618,36 @@ test.describe('0.73 - Rapprochement des constats, reprises et confidentialité',
     const refused = { city: 'test-e2e', figures: { cover: { url: jpeg } } };
     expect(await storeFigures(refused, async () => { throw new Error('refusé'); })).toEqual({ stored: 0, failed: 1 });
     expect(dossierRow({ ...reviewedCase(), city: 'test-e2e', figures: refused.figures }).analysis.dossier.figures.cover.url).toBe(jpeg);
+  });
+
+  test('0.73.16 - Une coupure de connexion s’explique en français, sans le message brut du navigateur', async () => {
+    let calls = 0;
+    const offline = recoverRequest({ phase: 'read' }, (r) => r, { request: async () => { calls++; throw new TypeError('Failed to fetch'); }, wait: async () => {} });
+    await expect(offline).rejects.toMatchObject({ message: NETWORK_MESSAGE, code: 'network' });
+    expect(calls).toBe(3);
+    // Un dossier enregistré avec l'ancien message brut affiche la même phrase.
+    const { dossier } = dossierCase('dense');
+    Object.assign(dossier.analysis, { status: 'partial', error: 'Failed to fetch', lastError: { code: 'unknown', phase: 'synthesize' } });
+    const html = analysisStatus(dossier);
+    expect(html).toContain('La connexion à Internet a été interrompue');
+    expect(html).not.toContain('Failed to fetch');
+  });
+
+  test('0.73.17 - Une étape encore en cours côté serveur est attendue jusqu’à sa fin, puis relue sans être repayée', async () => {
+    const busy = () => Object.assign(new Error('Cette étape est déjà en cours.'), { code: 'busy', retryable: true, retryAfter: 10000 });
+    let calls = 0; const waits = [], notes = [];
+    // La coupure de la plateforme, puis l'étape encore en cours, puis son résultat mis en mémoire.
+    const result = await recoverRequest({ phase: 'overview' }, (r) => r, {
+      request: async () => { calls++; if (calls === 1) throw Object.assign(new Error('Délai dépassé'), { retryable: true, code: 'service' }); if (calls < 6) throw busy(); return { text: 'ok' }; },
+      wait: async (ms) => { waits.push(ms); }, notify: (n) => notes.push(n.recovery),
+    });
+    expect(result).toEqual({ text: 'ok' });
+    expect(notes).toEqual(['network', 'wait', 'wait', 'wait', 'wait']);
+    expect(waits.slice(1)).toEqual([10000, 10000, 10000, 10000]);
+    // Au-delà d'une minute d'attente, l'étape est rendue à l'agent.
+    let tries = 0;
+    await expect(recoverRequest({ phase: 'overview' }, (r) => r, { request: async () => { tries++; throw busy(); }, wait: async () => {} })).rejects.toMatchObject({ code: 'busy' });
+    expect(tries).toBe(9);
   });
 
   test('0.73.14 - Un mot d’une autre écriture n’entre dans un constat que si un texte d’origine en contient', () => {

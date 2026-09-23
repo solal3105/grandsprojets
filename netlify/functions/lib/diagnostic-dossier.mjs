@@ -82,8 +82,11 @@ export function buildDossierPayload(body) {
 
 /** Délai d'attente du service. En production, une fonction dispose de 60 secondes :
  * la synthèse et le rapprochement, plus longs à rédiger, attendent jusqu'à 48 secondes,
- * ce qui laisse le temps de compter les jetons et de régler le budget. Le serveur
- * local de Netlify coupe à 30 secondes, d'où 24 secondes pour toutes les étapes. */
+ * ce qui laisse le temps de compter les jetons et de régler le budget. La connexion du
+ * navigateur est pourtant coupée vers 30 secondes (mesuré le 23/09/2026) : la fonction
+ * continue, enregistre son résultat, et le navigateur l'attend en redemandant l'étape,
+ * que la base dit « en cours » puis sert de sa mémoire (recovery.js). Le serveur local
+ * de Netlify coupe la fonction elle-même à 30 secondes, d'où 24 secondes en local. */
 export function requestTimeoutMs(phase, local = false) {
   if (local) return 24000;
   return ['overview', 'synthesize'].includes(phase) ? 48000 : 30000;

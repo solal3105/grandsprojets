@@ -143,7 +143,7 @@ La prévision garde désormais 55 % des groupes après rapprochement, comme mesu
 
 Restent ouverts :
 
-- aucune analyse complète n'a encore été relancée avec la nouvelle consigne de rapprochement ; l'étape seule a été vérifiée sur les groupes réels ;
+- une analyse complète a été relancée en production avec la nouvelle consigne : 124 textes, 22 constats, dossier complet et enregistré. Une coupure de la connexion du poste de test l'avait interrompue ; la reprise est repartie des étapes terminées, dont le rapprochement fini côté serveur pendant la coupure, servi de mémoire. Elle a montré que la connexion du navigateur est coupée vers 30 secondes en production : le navigateur attend désormais la fin d'une étape encore en cours au lieu d'abandonner ;
 - en local, le serveur de Netlify coupe à 30 secondes : la synthèse finale a été coupée deux fois à 25 secondes et chaque coupure est comptée au montant réservé (environ 0,13 $), ce qui gonfle le coût des essais locaux. En production, le délai est de 48 secondes ; une synthèse réelle a pris jusqu'à 21 secondes pour 43 constats, mais aucune mesure n'existe pour une zone proche de la limite ;
 - chaque version enregistrée recopiait ses figures en base : 13 Mo pour ce dossier, et 85 Mo sur les 157 de la base pour `diagnostic_reports`. Les images sont désormais rangées dans le compartiment privé `diagnostic`, et les versions existantes y ont été transférées (voir `docs/diagnostic-dossiers.md`) ;
 - les captures de la page publique montrent encore l'ancien rapport, avec le nom d'une ville et des tirets longs dans l'image.

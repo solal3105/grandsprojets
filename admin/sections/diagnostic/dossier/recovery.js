@@ -15,6 +15,11 @@ const TECHNICAL = {
   'Invalid JSON': 'La demande n’a pas pu être envoyée. Rechargez la page, puis reprenez l’analyse.',
   'OPENAI_API_KEY not configured': 'Nous n’avons pas pu nous connecter au service d’analyse. Ce qui est déjà fait est conservé. Si le message revient, écrivez-nous depuis openprojets.com/contact.',
 };
+/** Attentes d'une étape encore en cours côté serveur, dix secondes chacune au plus. */
+const BUSY_WAITS = 6;
+
+export const NETWORK_MESSAGE = 'La connexion à Internet a été interrompue. Vérifiez votre connexion avant de reprendre l’analyse : les étapes terminées ne seront pas refaites.';
+
 export async function readAnalysisResponse(response) {
   const data = await response.json().catch(() => null);
   if (response.ok && data) return data;
@@ -29,7 +34,7 @@ export async function readAnalysisResponse(response) {
 /** Le numéro d'essai ne sert qu'à distinguer deux demandes identiques : une réponse
  * refusée ne doit jamais revenir telle quelle de la mémoire du service. */
 export async function recoverRequest(payload, validate, { request, signal, notify = () => {}, wait = waitForRetry, splittable = false, attempt = 0, onReject = () => {}, repairs = 1 }) {
-  let issue = '', details = {}, repaired = 0, failures = 0, tries = attempt;
+  let issue = '', details = {}, repaired = 0, failures = 0, waits = 0, tries = attempt;
   for (;;) {
     if (signal?.aborted) throw new DOMException('Analyse interrompue', 'AbortError');
     let result;
@@ -38,7 +43,22 @@ export async function recoverRequest(payload, validate, { request, signal, notif
     } catch (error) {
       if (signal?.aborted || error.name === 'AbortError') throw error;
       if (splittable && ['timeout', 'incomplete'].includes(error.code)) throw error;
-      if (!(error.retryable || error instanceof TypeError) || failures >= 2) throw error;
+      /* En production, la connexion du navigateur est coupée vers 30 secondes alors que
+         le relais peut travailler jusqu'à 60 (mesuré le 23/09/2026 : synthèse terminée
+         en 29,9 s, réponse coupée à 30,7 s). Tant que le serveur dit l'étape en cours,
+         nous attendons sa fin : son résultat revient ensuite de la mémoire des appels. */
+      if (error.code === 'busy' && waits < BUSY_WAITS) {
+        waits++;
+        notify({ recovery: 'wait', attempt: waits, attempts: BUSY_WAITS });
+        await wait(Math.max(error.retryAfter || 0, 5000), signal);
+        continue;
+      }
+      const offline = error instanceof TypeError;
+      if (!(error.retryable || offline) || failures >= 2) {
+        // Le navigateur signale une coupure par un message technique (« Failed to fetch ») : l'agent lit une phrase qui dit quoi faire.
+        if (offline) throw Object.assign(new Error(NETWORK_MESSAGE), { code: 'network', retryable: true });
+        throw error;
+      }
       failures++;
       notify({ recovery: 'network', attempt: failures, attempts: 2 });
       await wait(Math.max(error.retryAfter || 0, failures === 1 ? 1000 : 3000), signal);
