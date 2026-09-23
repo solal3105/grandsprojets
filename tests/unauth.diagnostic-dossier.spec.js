@@ -610,7 +610,13 @@ test.describe('0.73 - Rapprochement des constats, reprises et confidentialité',
     expect(persistedFigures({ ailleurs: { path: `grenoble/figures/${'a'.repeat(64)}.jpg`, url: jpeg } }, 'test-e2e').ailleurs.url).toBe(jpeg);
     const reopened = { city: 'test-e2e', figures: structuredClone(saved) };
     reopened.figures.perdue = { path: `test-e2e/figures/${'b'.repeat(64)}.jpg` };
-    const loading = await loadFigures(reopened, async (path) => { if (!bucket.has(path)) throw new Error('introuvable'); return new Blob([bucket.get(path)]); });
+    // Une lecture qui échoue une fois est retentée ; une image absente reste absente.
+    const failedOnce = new Set();
+    const loading = await loadFigures(reopened, async (path) => {
+      if (!bucket.has(path)) throw new Error('introuvable');
+      if (!failedOnce.has(path)) { failedOnce.add(path); throw new Error('erreur passagère'); }
+      return new Blob([bucket.get(path)]);
+    }, { retryDelay: 0 });
     expect(loading).toEqual({ loaded: 3, failed: 1 });
     expect(reopened.figures.cover.url).toBe(jpeg); expect(reopened.figures.source.url).toBe(png);
     expect(reopened.figures.perdue.url).toBeUndefined();

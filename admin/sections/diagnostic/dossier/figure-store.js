@@ -86,12 +86,13 @@ export function persistedFigures(figures, city) {
  * @param {(path: string) => Promise<Blob>} download
  * @returns {Promise<{loaded: number, failed: number}>}
  */
-export async function loadFigures(dossier, download, { concurrency = 6 } = {}) {
+export async function loadFigures(dossier, download, { concurrency = 6, retryDelay = 1000 } = {}) {
   let loaded = 0, failed = 0;
   const pending = Object.values(dossier?.figures || {}).filter((figure) => figurePath(figure, dossier.city) && !DATA_URL.test(figure.url || ''));
   await pool(pending.map((figure) => async () => {
     try {
-      const blob = await download(figure.path);
+      // Une seconde tentative : le 23/09/2026, une ouverture a reçu des erreurs 544 passagères du stockage.
+      const blob = await download(figure.path).catch(async () => { await new Promise((resolve) => setTimeout(resolve, retryDelay)); return download(figure.path); });
       const bytes = new Uint8Array(await blob.arrayBuffer());
       figure.url = `data:${TYPES[figure.path.split('.').pop()]};base64,${encode(bytes)}`;
       loaded++;
