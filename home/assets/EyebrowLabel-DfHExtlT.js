@@ -1,1 +1,0 @@
-import{_ as t,a as r,b as a,p as n,o}from"./index-DTcw4byt.js";const c={},l={class:"inline-flex items-center gap-2 text-[11px] font-semibold text-gray-muted uppercase tracking-[0.18em] mb-8"};function p(s,e){return o(),r("span",l,[e[0]||(e[0]=a("span",{class:"w-5 h-px bg-gray-border"},null,-1)),n(s.$slots,"default")])}const i=t(c,[["render",p]]);export{i as E};

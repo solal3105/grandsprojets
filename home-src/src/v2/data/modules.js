@@ -528,7 +528,7 @@ export const modules = [
       src: 'img/modules/diagnostic.jpg',
       largeur: 1800,
       hauteur: 899,
-      alt: "Une zone entourée à main levée sur la carte, et la synthèse qui en sort : 182 points lus, 5 sources, 12 sujets, chaque sujet cité.",
+      alt: "La synthèse d'un dossier de zone : ce qui ressort des témoignages du secteur, à côté du périmètre étudié et de ses observations regroupées sur la carte.",
     },
     live: null,
     showcase: 'diagnostic',
@@ -540,8 +540,9 @@ export const modules = [
     /* Les fonctions du module, une par planche. Chaque phrase se verifie dans
      * admin/sections/diagnostic/ : sources.js et catalog.js pour le catalogue,
      * analysis.js pour le panneau de la zone, dossier/ pour le dossier, ses
-     * versions et son PDF. Les captures et leurs textes alternatifs montrent
-     * encore l'ancien rapport : ils sont a refaire sur le dossier actuel. */
+     * versions et son PDF. Les captures ont ete prises le 23/09/2026 sur l'espace
+     * d'essai, avec des donnees publiques du centre de Lyon, un dossier analyse en
+     * production et le nom « Collectivite de demonstration » a l'affichage. */
     features: [
       {
         titre: 'Vous ajoutez vos données depuis un catalogue de sources',
@@ -554,7 +555,7 @@ export const modules = [
         ],
         capture: {
           src: 'img/modules/diagnostic/couches.jpg', largeur: 1800, hauteur: 1125,
-          alt: "Le panneau des couches : les sources rangées par famille avec leur nombre de points, et leurs points sur la carte.",
+          alt: "Le panneau des couches : les sources connectées rangées par famille, avec leur nombre de points, et leurs données sur la carte.",
         },
       },
       {
@@ -567,7 +568,7 @@ export const modules = [
         ],
         capture: {
           src: 'img/modules/diagnostic/zone.jpg', largeur: 1800, hauteur: 1125,
-          alt: "Une zone entourée à main levée : 282 points retenus, leur répartition par source, et le bouton pour lancer l'analyse.",
+          alt: "Une zone entourée à main levée et le panneau qui annonce ses sources, ses observations et ses textes à lire, avec l'objet de l'étude et le bouton Analyser la zone.",
         },
       },
       {
@@ -580,7 +581,7 @@ export const modules = [
         ],
         capture: {
           src: 'img/modules/diagnostic/rapport.jpg', largeur: 1800, hauteur: 1125,
-          alt: "Un rapport de diagnostic : ses quatre indicateurs, la composition de la zone, la vue d'ensemble et la restitution source par source.",
+          alt: "Un constat du dossier ouvert : ce que décrivent les témoignages, leur carte, deux citations mot pour mot et ce qu'il reste à vérifier sur le terrain.",
         },
       },
       {
@@ -593,7 +594,7 @@ export const modules = [
         ],
         capture: {
           src: 'img/modules/diagnostic/historique.jpg', largeur: 1800, hauteur: 1125,
-          alt: "L'historique des diagnostics : chaque analyse avec sa date, son nombre de points et ses sujets.",
+          alt: "La liste des dossiers enregistrés, avec la date, le numéro de version et le nombre de sources de chacun.",
         },
       },
     ],
