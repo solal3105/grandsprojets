@@ -6,8 +6,8 @@ updated: 2026-08-20
 tag: Diagnostic
 readingTime: 12
 solutionHeading: Ce que le module Diagnostic terrain fait, et rien de plus
-solutionIntro: Le Diagnostic terrain d'Open Projets ne remplace ni un SIG ni un géomaticien : il ne fait ni jointure, ni tampon, ni croisement de couches. Il lit les points contenus dans une zone que vous entourez à main levée et rend une synthèse sourcée, réservée à l'équipe. Ce qu'il produit est une restitution vérifiable, pas un avis.
-solutionPoints: Réservé à l'équipe, derrière authentification : aucune page publique n'est créée | La zone entourée à main levée est lue en entier, avec un plafond de 300 points, jamais un échantillon | Chaque ligne de la synthèse cite les points dont elle provient et reproduit les verbatims mot pour mot | Les décomptes sont calculés à partir des données ; l'outil ne note pas, ne hiérarchise pas et ne recommande rien
+solutionIntro: Le Diagnostic terrain d'Open Projets ne remplace ni un SIG ni un géomaticien : il ne fait ni tampon ni croisement de couches. Il lit tous les textes d'une zone que vous entourez à main levée et en tire un dossier sourcé, réservé à l'équipe. Ce qu'il produit est une restitution vérifiable, pas un avis.
+solutionPoints: Réservé à l'équipe, derrière authentification : aucune page publique n'est créée | Tous les textes de la zone entourée à main levée sont lus, jamais un échantillon, et une zone trop grande est signalée avant l'analyse | Chaque constat renvoie aux observations dont il vient et en cite des extraits mot pour mot | Les décomptes sont calculés à partir des données ; l'outil ne note pas, ne hiérarchise pas et ne recommande rien
 ---
 
 Un carrefour de centre-bourg, dix-huit mois de signalements d'habitants, deux comptes rendus de réunion de quartier, et une commission voirie dans quinze jours. L'élu pose une question simple : qu'est-ce que les gens nous disent, à cet endroit ? La réponse existe, répartie entre une boîte mail, un tableur, deux classeurs et la mémoire d'un agent qui part à la retraite en juin.

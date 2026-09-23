@@ -34,7 +34,7 @@ const MODULE_PAGES = {
   },
   diagnostic: {
     title: "Le diagnostic de terrain assisté par l'IA | Open Projets",
-    description: "Tracez une zone : l'IA lit chaque point qu'elle contient et vous rend une synthèse sourcée, des signalements aux comptages et aux aménagements cyclables.",
+    description: "Tracez une zone : l'IA lit tous ses textes et en tire des constats illustrés de citations exactes, à côté des chiffres calculés sur vos données.",
   },
 }
 

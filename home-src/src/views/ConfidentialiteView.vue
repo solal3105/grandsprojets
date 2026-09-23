@@ -100,7 +100,7 @@
       <div class="max-w-container mx-auto px-6">
         <div class="max-w-[768px]">
         <h2 class="font-heading font-bold text-3xl sm:text-4xl leading-tight tracking-tight text-dark">
-          Le cadre technique tient en quatre points
+          Le cadre technique tient en cinq points
         </h2>
 
         <dl class="mt-10 space-y-8">
@@ -256,7 +256,11 @@ const participer = [
   },
   {
     term: 'La collectivité est responsable de ce traitement',
-    desc: 'Le signalement citoyen relève de la mission d\'intérêt public de la collectivité qui a activé le module ; Open Projets héberge et traite ces données pour son compte, dans l\'Union européenne. Pour exercer vos droits, adressez-vous à la collectivité concernée ou écrivez-nous depuis la page contact.',
+    desc: 'Le signalement citoyen relève de la mission d\'intérêt public de la collectivité qui a activé le module. Open Projets traite ces données pour son compte et les héberge dans l\'Union européenne. Pour exercer vos droits, adressez-vous à la collectivité concernée ou écrivez-nous depuis la page contact.',
+  },
+  {
+    term: 'Le texte d\'un signalement peut être transmis à OpenAI, aux États-Unis',
+    desc: 'Quand la collectivité étudie un secteur avec le module Diagnostic terrain, nous transmettons le texte des signalements publiés de ce secteur à OpenAI, aux États-Unis, pour qu\'un modèle d\'IA les lise et les regroupe en constats. Ce texte part avec d\'autres informations du signalement, comme sa catégorie et l\'adresse du lieu signalé, mais jamais avec votre adresse email. Les adresses email et les numéros de téléphone français écrits dans le texte sont masqués avant cet envoi.',
   },
   {
     term: 'Chacun peut demander le retrait d\'un contenu publié',

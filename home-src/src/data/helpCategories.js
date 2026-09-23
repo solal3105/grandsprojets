@@ -35,7 +35,7 @@ export const adminCategories = [
     icon: markRaw(Radar),
     color: 'purple',
     title: 'Diagnostic terrain',
-    desc: 'Agréger vos données, analyser une zone, exporter un rapport',
+    desc: 'Ajouter vos données, analyser une zone, exporter le dossier',
     badge: 'Nouveau',
     component: markRaw(Details.AdminDiagnostic),
     printable: true,

@@ -398,102 +398,91 @@ export const AdminTravaux = D(() => [
 export const AdminDiagnostic = D(() => [
 
   h('h2', {}, [h('span', { class: 'text-2xl' }, '🗺️'), ' Diagnostic terrain']),
-  h('p', { class: 'text-sm text-gray-text mb-6' }, 'Agrégez les données de votre territoire, sélectionnez une zone et obtenez un diagnostic sourcé, exportable en rapport.'),
+  h('p', { class: 'text-sm text-gray-text mb-6' }, 'Vous ajoutez les données de votre territoire, vous entourez une zone, et nous en préparons un dossier sourcé que vous pouvez retoucher puis exporter en PDF.'),
 
   h('div', { class: 'info mb-5' }, [
-    h('p', {}, ['🔒 ', h('strong', {}, 'Réservé aux administrateurs'), ' de la structure. La carte nécessite un navigateur compatible WebGL ; si elle est indisponible, la gestion des couches reste accessible.']),
+    h('p', {}, ['Le Diagnostic terrain est ', h('strong', {}, 'réservé aux administrateurs'), ' de la structure. La carte demande un navigateur compatible WebGL ; sans lui, vous gérez quand même vos couches de données.']),
   ]),
 
   collapse('🧭 Vue d\'ensemble', [
-    h('p', { class: 'text-sm text-gray-text mb-3' }, 'La section ouvre une carte plein écran de votre territoire, surmontée d\'un dock flottant et d\'une barre d\'outils.'),
+    h('p', { class: 'text-sm text-gray-text mb-3' }, 'La section ouvre une carte plein écran de votre territoire. Un panneau flottant porte trois onglets, et deux boutons en haut à droite de la carte servent au plein écran et au tracé d\'une zone.'),
     h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-2' }, [
-      h('li', {}, [h('strong', {}, 'Dock'), ' - Deux onglets : ', h('strong', {}, 'Couches'), ' (vos sources de données) et ', h('strong', {}, 'Analyse'), ' (sélection de zone + diagnostic IA)']),
-      h('li', {}, [h('strong', {}, 'Barre d\'outils'), ' - Bouton ', h('strong', {}, 'plein écran'), ' et bouton ', h('strong', {}, '"Sélectionner une zone"'), ' (lasso)']),
-      h('li', {}, [h('strong', {}, 'Historique'), ' - En haut à droite, rouvre les diagnostics déjà enregistrés']),
+      h('li', {}, ['L\'onglet ', h('strong', {}, 'Couches'), ' liste vos données et permet d\'en ajouter.']),
+      h('li', {}, ['L\'onglet ', h('strong', {}, 'Carte'), ' règle le fond de carte, le fond sombre, le relief des bâtiments et la carte de chaleur des témoignages.']),
+      h('li', {}, ['L\'onglet ', h('strong', {}, 'Analyse'), ' présente la zone que vous avez entourée et lance son dossier.']),
+      h('li', {}, ['Le bouton ', h('strong', {}, '"Dossiers enregistrés"'), ', en haut de la page, rouvre vos dossiers.']),
     ]),
   ], true),
 
-  collapse('🗂️ Ajouter une couche de données', [
-    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Dans l\'onglet ', h('strong', {}, 'Couches'), ', cliquez sur ', h('strong', {}, '"Ajouter une couche"'), '. Un assistant en 4 étapes s\'ouvre :']),
-    h('ol', { class: 'steps' }, [
-      h('li', {}, [
-        h('strong', {}, '1. Source des données'), h('br'),
-        'Trois origines possibles :', h('br'),
-        '• ', h('strong', {}, 'Fichier'), ' - Glissez-déposez un .geojson, .json ou .csv', h('br'),
-        '• ', h('strong', {}, 'Lien'), ' - Une URL vers un flux GeoJSON ou CSV (open data)', h('br'),
-        '• ', h('strong', {}, 'Données Open Projets'), ' - ', h('strong', {}, 'Projets publiés'), ' (vos contributions approuvées) ou ', h('strong', {}, 'Travaux en cours'), ' (vos chantiers)',
-      ]),
-      h('li', {}, [
-        h('strong', {}, '2. Identité'), h('br'),
-        h('strong', {}, 'Nom'), ' de la couche (ex. "Comptages vélo 2026") et ', h('strong', {}, 'groupe'), ' facultatif pour organiser le dock (ex. "Contributions citoyennes").',
-      ]),
-      h('li', {}, [
-        h('strong', {}, '3. Style'), h('br'),
-        'Couleur des points - en aplat unique ou ', h('strong', {}, 'par catégorie'), ' (une couleur par valeur d\'un champ) - et taille des marqueurs.',
-      ]),
-      h('li', {}, [
-        h('strong', {}, '4. Popup & analyse IA'), h('br'),
-        'Champs affichés au clic sur un point, et surtout le ', h('strong', {}, 'contexte pour l\'IA'), ' - une phrase décrivant ce que représente la couche (ex. "Signalements citoyens de dangers cyclables"). Ce contexte aide l\'analyse à situer les points.',
-      ]),
+  collapse('🗂️ Ajouter des données', [
+    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Dans l\'onglet Couches, cliquez sur ', h('strong', {}, '"Ajouter des données"'), '. Le catalogue range les sources en trois familles, et chaque source indique ce qu\'elle vous demande.']),
+    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-2 mb-3' }, [
+      h('li', {}, 'Les données de vos modules Open Projets se chargent d\'un clic : les signalements publiés des habitants, les projets publiés sur votre carte et les chantiers déclarés dans le module Travaux. Ces couches se mettent à jour d\'elles-mêmes.'),
+      h('li', {}, 'Les données publiques sur votre territoire se chargent aussi d\'un clic : le Baromètre vélo de la FUB, les aménagements cyclables d\'OpenStreetMap, les accidents corporels du fichier national et les compteurs vélo publics. Vous choisissez la commune ou l\'intercommunalité et, selon la source, l\'édition ou la période.'),
+      h('li', {}, 'Les données qui demandent un compte s\'ajoutent en suivant les étapes affichées : vous déposez un export Strava Metro tel que vous l\'avez téléchargé, ou vous collez le lien du flux Waze for Cities de votre collectivité.'),
     ]),
+    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Vos propres fichiers se déposent en bas du catalogue : un GeoJSON, un tableau CSV avec des coordonnées, un shapefile, une archive zip ou un dossier entier. Un export que nous connaissons est reconnu et réglé tout seul ; un autre fichier ouvre un assistant. Pour une adresse en ligne, le lien ', h('strong', {}, '"ajoutez une couche à la main"'), ' ouvre ce même assistant : vous y donnez le nom de la couche, sa nature, sa couleur, les champs affichés au clic et une phrase qui dit à l\'IA ce que représentent ces données.']),
     h('div', { class: 'tip mt-3' }, [
-      h('p', {}, ['💡 Empilez autant de couches que nécessaire : signalements citoyens, comptages, open data, plus vos propres projets et chantiers Open Projets.']),
+      h('p', {}, 'La nature d\'une couche décide de ce que devient chaque point dans l\'analyse. Des témoignages, comme des signalements ou des avis, sont lus un par un par l\'IA. Des données de référence, comme des comptages ou des mesures, s\'affichent sur la carte et donnent les chiffres de la zone, que nous calculons.'),
     ]),
   ]),
 
   collapse('👁️ Gérer les couches', [
-    h('p', { class: 'text-sm text-gray-text mb-3' }, 'Chaque couche affiche sa pastille de couleur, son nom et son nombre de points.'),
-    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
-      h('li', {}, [h('strong', {}, 'Interrupteur'), ' - Affiche ou masque la couche sur la carte']),
-      h('li', {}, [h('strong', {}, 'Crayon'), ' - Modifie la couche (rouvre l\'assistant)']),
-      h('li', {}, [h('strong', {}, 'Corbeille'), ' - Retire la couche du diagnostic (les données sources ne sont pas affectées)']),
+    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Les couches se rangent en deux sections : ', h('strong', {}, 'Sources connectées'), ' pour celles qui viennent du catalogue, ', h('strong', {}, 'Mes fichiers'), ' pour celles que vous avez décrites vous-même. Chaque ligne donne le nombre d\'éléments de la couche et sa provenance.']),
+    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-2' }, [
+      h('li', {}, 'L\'interrupteur affiche ou masque la couche. Une couche masquée ne compte plus dans la zone sélectionnée.'),
+      h('li', {}, 'Le bouton de réglages rouvre l\'assistant pour changer le nom, la nature, la couleur ou les champs de la couche.'),
+      h('li', {}, 'La corbeille retire la couche du diagnostic, sans toucher aux données d\'origine.'),
+      h('li', {}, 'Pour changer l\'ordre d\'affichage, faites glisser une ligne par sa poignée : la première couche de la liste est dessinée au-dessus des autres.'),
     ]),
-    h('p', { class: 'text-sm text-gray-text font-semibold mt-3 mb-2' }, 'Outils d\'affichage (bas du dock)'),
-    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1' }, [
-      h('li', {}, [h('strong', {}, 'Heatmap de densité'), ' - Carte de chaleur pour repérer les concentrations de points']),
-      h('li', {}, [h('strong', {}, 'Bâtiments en relief'), ' - Volumes 3D du bâti, visibles à partir du zoom 15']),
-    ]),
+    h('p', { class: 'text-sm text-gray-text mt-3' }, 'L\'onglet Carte règle l\'affichage. Le fond de carte passe du plan OpenStreetMap aux photographies aériennes de l\'IGN, le fond sombre fait ressortir les cartes de flux et s\'active tout seul quand l\'une d\'elles est affichée, les bâtiments sortent en relief à partir du zoom 15, et la carte de chaleur montre la densité des points des couches visibles.'),
   ]),
 
   collapse('✏️ Sélectionner une zone', [
     h('ol', { class: 'steps' }, [
-      h('li', {}, ['Cliquez sur ', h('strong', {}, '"Sélectionner une zone"'), ' (ou maintenez la touche ', h('strong', {}, 'Maj'), ')']),
-      h('li', {}, ['Dessinez à main levée un contour ', h('strong', {}, 'autour des points'), ' à analyser (une intersection, un carrefour, un tronçon)']),
-      h('li', {}, ['Relâchez pour fermer la zone - appuyez sur ', h('strong', {}, 'Échap'), ' pour annuler']),
+      h('li', {}, ['Cliquez sur ', h('strong', {}, '"Sélectionner une zone"'), ', ou maintenez la touche Maj enfoncée.']),
+      h('li', {}, 'Dessinez à main levée le contour du secteur à étudier, par exemple un carrefour, une rue ou les abords d\'une école.'),
+      h('li', {}, 'Relâchez pour fermer la zone. La touche Échap annule le tracé.'),
     ]),
     h('div', { class: 'info mt-3' }, [
-      h('p', {}, ['ℹ️ L\'analyse lit ', h('strong', {}, 'l\'intégralité'), ' des points de la zone, dans la limite de ', h('strong', {}, '300 points'), '. Le diagnostic vise donc une zone précise (carrefour, tronçon), pas une ville entière.']),
+      h('p', {}, 'L\'onglet Analyse affiche alors la surface de la zone, le nombre de sources, d\'observations et de textes à lire qu\'elle réunit, et la liste des sources retenues. Seules les couches affichées comptent. Si la zone contient trop de textes pour un seul dossier, un message le dit avant l\'analyse : choisissez une zone plus petite ou masquez des couches.'),
     ]),
   ]),
 
-  collapse('🪄 Lancer et lire le diagnostic', [
-    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Zone tracée, l\'onglet ', h('strong', {}, 'Analyse'), ' indique le nombre de points retenus. Cliquez sur ', h('strong', {}, '"Analyser la zone"'), '.']),
-    h('p', { class: 'text-sm text-gray-text font-semibold mt-3 mb-2' }, 'Ce que produit l\'IA'),
-    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
-      h('li', {}, ['Une restitution ', h('strong', {}, 'source par source'), ' : pour chaque couche, une synthèse de ce que contiennent ses points']),
-      h('li', {}, ['Des ', h('strong', {}, 'sujets récurrents'), ' regroupant les points qui en parlent, avec citations exactes (verbatims)']),
-      h('li', {}, ['Chaque constat ', h('strong', {}, 'renvoie aux points'), ' qui le justifient']),
-    ]),
+  collapse('🪄 Lancer l\'analyse', [
+    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Dans l\'onglet Analyse, vous pouvez préciser l\'objet de votre étude, par exemple la préparation d\'une visite du quartier. Ce champ est facultatif : la synthèse s\'organise autour de cet objet, sans écarter les autres sujets. Cliquez ensuite sur ', h('strong', {}, '"Analyser la zone"'), '.']),
+    h('p', { class: 'text-sm text-gray-text mb-3' }, 'Le dossier s\'ouvre dans sa propre page. L\'IA y lit tous les textes de la zone, regroupe en constats ceux qui décrivent une même situation et relit chaque constat au regard des textes d\'origine, avant de rédiger la synthèse. Une barre montre l\'avancement, et vous pouvez mettre l\'analyse en pause pour la reprendre plus tard : les étapes terminées ne sont pas refaites.'),
+    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Si la zone ne contient aucun texte, le bouton devient ', h('strong', {}, '"Ouvrir le dossier de zone"'), ', et le dossier présente seulement les chiffres et les données disponibles.']),
     h('div', { class: 'info mt-3' }, [
-      h('p', {}, ['🛈 L\'IA ', h('strong', {}, 'restitue et cite'), ', elle ne juge pas : aucune note, aucune hiérarchie, aucune recommandation. Les chiffres sont recalculés à partir des points, jamais inventés. Le bouton ', h('strong', {}, 'Relancer'), ' regénère l\'analyse.']),
+      h('p', {}, 'L\'IA lit et regroupe, elle ne juge pas : le dossier ne note rien, ne classe rien et ne recommande aucun aménagement. Les chiffres de la zone, comme le nombre d\'accidents ou la longueur des aménagements cyclables, sont calculés par nous sur vos données.'),
     ]),
   ]),
 
-  collapse('📄 Générer et exporter le rapport', [
-    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Sous le diagnostic, cliquez sur ', h('strong', {}, '"Générer le rapport de zone"'), '. Le rapport reprend :']),
-    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-1 mb-3' }, [
-      h('li', {}, ['Une ', h('strong', {}, 'capture de la carte'), ' de la zone analysée']),
-      h('li', {}, ['La ', h('strong', {}, 'répartition'), ' des points par source et par sujet']),
-      h('li', {}, ['Les ', h('strong', {}, 'points référencés'), ', tels qu\'ils figurent dans les données sources']),
+  collapse('📄 Lire le dossier', [
+    h('p', { class: 'text-sm text-gray-text mb-3' }, 'Le dossier se lit en trois onglets.'),
+    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-2' }, [
+      h('li', {}, ['L\'onglet ', h('strong', {}, 'Synthèse'), ' dit ce qu\'il faut retenir du secteur et montre le périmètre étudié sur une carte, avec vos propres observations si vous en avez écrit.']),
+      h('li', {}, ['L\'onglet ', h('strong', {}, 'Analyses'), ' consacre une fiche à chaque jeu de données. Chaque constat s\'y déplie : il situe ses observations sur une carte, en cite des extraits mot pour mot et signale, le cas échéant, une limite de lecture ou une question à vérifier sur le terrain. Un bouton ouvre toutes les observations du constat, avec une recherche. Pour des données de référence, la fiche donne les chiffres de la zone et leur carte.']),
+      h('li', {}, ['L\'onglet ', h('strong', {}, 'Sources'), ' donne pour chaque source sa provenance, la période de ses données et le nombre d\'éléments retenus dans la zone, puis la méthode et les limites de la lecture.']),
     ]),
-    h('p', { class: 'text-sm text-gray-text' }, ['Cliquez sur ', h('strong', {}, '"Exporter en PDF"'), ' pour l\'imprimer ou l\'enregistrer via la boîte d\'impression du navigateur. Le rapport est aussi ', h('strong', {}, 'sauvegardé automatiquement'), ' dans l\'historique.']),
   ]),
 
-  collapse('🕘 Retrouver mes diagnostics', [
-    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Le bouton ', h('strong', {}, '"Historique"'), ' (en haut à droite) liste tous les diagnostics enregistrés pour la structure.']),
-    h('ol', { class: 'steps' }, [
-      h('li', {}, ['Cliquez sur ', h('strong', {}, 'l\'œil'), ' pour rouvrir un rapport']),
-      h('li', {}, ['Cliquez sur la ', h('strong', {}, 'corbeille'), ' pour le supprimer de l\'historique']),
+  collapse('✍️ Retoucher, enregistrer et exporter', [
+    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-2 mb-3' }, [
+      h('li', {}, 'Sous chaque constat, un menu permet de le retirer du PDF, de changer son ordre de lecture ou de le reformuler. Une reformulation est attribuée à la collectivité ; les références, les citations et les chiffres gardent leurs données d\'origine.'),
+      h('li', {}, ['Le bouton ', h('strong', {}, '"Personnaliser"'), ' permet de nommer le secteur, de préciser l\'objet de l\'étude, d\'écrire votre propre synthèse, qui remplace celle proposée, et d\'ajouter vos observations et les suites à examiner. Après un changement d\'objet, un bouton actualise la synthèse sans relire les textes.']),
+      h('li', {}, ['Vos modifications sont d\'abord gardées sur cet appareil. Le bouton ', h('strong', {}, '"Enregistrer"'), ' en fait une nouvelle version, que vous retrouvez depuis n\'importe quel poste.']),
+      h('li', {}, ['Le bouton ', h('strong', {}, '"Exporter en PDF"'), ' ouvre l\'impression du navigateur : choisissez "Enregistrer au format PDF", sans en-têtes ni pieds de page. Le document est au format A4 et se termine par les textes d\'origine des observations citées. Dans "Personnaliser", une case permet d\'y joindre toutes les observations.']),
+    ]),
+    h('p', { class: 'text-sm text-gray-text' }, 'Le PDF s\'exporte une fois l\'analyse terminée. Si la synthèse n\'a pas pu être rédigée, écrivez la vôtre dans "Personnaliser" : l\'export devient possible.'),
+  ]),
+
+  collapse('🕘 Retrouver un dossier', [
+    h('p', { class: 'text-sm text-gray-text mb-3' }, ['Le bouton ', h('strong', {}, '"Dossiers enregistrés"'), ', en haut de la page du diagnostic, liste les dossiers de la structure, avec leur date, leur numéro de version et leur nombre de sources.']),
+    h('ul', { class: 'text-sm text-gray-text list-disc pl-5 space-y-2' }, [
+      h('li', {}, 'Le bouton "Ouvrir" rouvre une version telle qu\'elle a été enregistrée.'),
+      h('li', {}, 'La corbeille supprime définitivement une version ; les autres versions du dossier restent disponibles.'),
+      h('li', {}, 'Un rapport produit avec l\'ancienne version du diagnostic se rouvre dans sa présentation d\'origine, en lecture seule.'),
     ]),
   ]),
 ])

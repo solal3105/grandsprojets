@@ -191,11 +191,11 @@ export const modules = [
       "Le mode relief sort les bâtiments à leur hauteur réelle, et le mode sombre suit le réglage de son téléphone.",
       "Il cherche une adresse dans la Base Adresse Nationale, et sa géolocalisation affiche son cercle de précision réel.",
     ],
-    linkedTo: "Vos projets ne vivent pas seuls : ils partagent la carte avec les autres modules, et le Diagnostic sait les relire.",
+    linkedTo: "Vos projets ne vivent pas seuls : ils partagent la carte avec les autres modules, et le Diagnostic les charge d'un clic.",
     synergies: [
       { vers: 'participer', texte: "Les signalements de vos habitants s'affichent par-dessus vos projets, sur la même carte. Les deux couches coexistent, aucune ne remplace l'autre." },
       { vers: 'travaux', texte: "Les chantiers ont volontairement leur propre vue : un projet à dix ans et une rue barrée trois semaines ne se lisent pas de la même façon." },
-      { vers: 'diagnostic', texte: "Vos projets publiés font partie des deux sources que le Diagnostic sait charger d'un clic, sans rien configurer." },
+      { vers: 'diagnostic', texte: "Vos projets publiés se chargent d'un clic dans le Diagnostic, sans rien configurer : vous étudiez un secteur en voyant ce que vous y préparez." },
       { vers: 'chantiers', texte: "Une permission de voirie n'a rien à faire dans la carte des projets : elle s'instruit en amont, dans Chantiers, avec vos communes et les entreprises." },
     ],
   },
@@ -308,7 +308,7 @@ export const modules = [
     linkedTo: "Le module fonctionne seul, et se complète avec les autres.",
     synergies: [
       { vers: 'carte', texte: "La vue des chantiers est séparée de celle des projets, et c'est délibéré : entrer dans Travaux nettoie la carte pour ne laisser que ce qui gêne aujourd'hui." },
-      { vers: 'diagnostic', texte: "Vos chantiers sont l'une des deux sources que le Diagnostic charge d'un clic : vous pouvez analyser un secteur en tenant compte de ce qui y est ouvert." },
+      { vers: 'diagnostic', texte: "Les chantiers que vous publiez dans Travaux se chargent d'un clic dans le Diagnostic : vous étudiez un secteur en voyant les chantiers qui s'y trouvent." },
       { vers: 'participer', texte: "Un habitant qui signale un problème sur un chantier dépose au même endroit, sur la même carte." },
       { vers: 'chantiers', texte: "En amont, le module Chantiers instruit les permissions et les arrêtés. Travaux sait afficher un flux de chantiers extérieur : c'est le point de raccordement prévu entre les deux." },
     ],
@@ -411,7 +411,7 @@ export const modules = [
       { vers: 'travaux', texte: "Travaux montre aux riverains ce que Chantiers a autorisé. Le module sait afficher un flux de chantiers extérieur : c'est le point de raccordement prévu entre les deux." },
       { vers: 'carte', texte: "Une rue barrée trois semaines et un projet d'aménagement à dix ans ne se lisent pas de la même façon. Ils gardent donc deux vues distinctes." },
       { vers: 'participer', texte: "Un riverain gêné par un chantier vous le signale au même endroit que le reste, sur la carte publique." },
-      { vers: 'diagnostic', texte: "Le Diagnostic ne lit pas les dossiers de voirie. Il analyse les chantiers une fois qu'ils sont publiés par le module Travaux." },
+      { vers: 'diagnostic', texte: "Le Diagnostic ne lit pas les dossiers de voirie : il lit les chantiers déclarés dans le module Travaux." },
     ],
   },
   {
@@ -510,7 +510,7 @@ export const modules = [
     linkedTo: "Ce que vos habitants remontent rejoint les autres modules, au lieu de rester dans une boîte à part.",
     synergies: [
       { vers: 'carte', texte: "Les signalements se superposent à vos projets sur la même carte : un habitant voit du même coup ce qu'il signale et ce que vous préparez." },
-      { vers: 'diagnostic', texte: "Le Diagnostic ne charge pas les signalements d'un clic comme les projets et les chantiers, mais ceux qui sont publiés s'exposent en données ouvertes : on les lui ajoute comme n'importe quelle autre couche." },
+      { vers: 'diagnostic', texte: "Les signalements que vous avez rendus publics se chargent d'un clic dans le Diagnostic, où l'IA les lit avec les autres textes du secteur étudié." },
       { vers: 'travaux', texte: "Un signalement qui concerne un chantier en cours se dépose sur la même carte que lui." },
       { vers: 'chantiers', texte: "Ce que vos habitants signalent sur un chantier vous parvient ici. L'autorisation de ce chantier, elle, se traite dans Chantiers." },
     ],
@@ -532,21 +532,25 @@ export const modules = [
     },
     live: null,
     showcase: 'diagnostic',
-    h1: "Vous entourez une zone, et vous savez ce que disent tous ses relevés",
-    tagline: "L'IA lit chaque point de la zone et vous en rend une synthèse sourcée, source par source.",
+    h1: "Vous entourez un secteur, et l'IA lit tous les textes qu'il contient",
+    tagline: "Vous obtenez un dossier de constats : ceux tirés des textes citent mot pour mot les observations qui les étayent, et les chiffres de la zone sont calculés à part.",
     titres: { combine: "Ce module travaille avec les autres" },
-    problem: "Un secteur porte des centaines de points, et personne n'a le temps de tout lire avant l'arbitrage.",
-    produces: "Le rapport résume la zone source par source, et chaque ligne cite les points dont elle vient. Il ne note rien, ne classe rien et ne recommande rien.",
-    /* Les fonctions du module, une par planche, montrees sur un espace qui
-     * s'en sert vraiment : neuf couches branchees et dix-huit rapports deja
-     * produits. */
+    problem: "Sur un même secteur, les signalements, les données publiques et vos propres fichiers s'accumulent chacun de leur côté, et personne n'a le temps de tout relire avant de décider.",
+    produces: "Le dossier du secteur réunit une synthèse, une analyse par source et la provenance des données, et il s'exporte en PDF. Il ne note rien, ne classe rien et ne recommande aucun aménagement.",
+    /* Les fonctions du module, une par planche. Chaque phrase se verifie dans
+     * admin/sections/diagnostic/ : sources.js et catalog.js pour le catalogue,
+     * analysis.js pour le panneau de la zone, dossier/ pour le dossier, ses
+     * versions et son PDF. Les captures et leurs textes alternatifs montrent
+     * encore l'ancien rapport : ils sont a refaire sur le dossier actuel. */
     features: [
       {
-        titre: 'Vous branchez toutes vos sources sur le même fond',
-        texte: "Vous branchez les remontées de vos agents, vos données ouvertes, les fichiers que vous déposez et les flux de services tiers. Chaque couche s'allume et s'éteint d'un interrupteur.",
+        titre: 'Vous ajoutez vos données depuis un catalogue de sources',
+        texte: "Chaque source du catalogue annonce ce qu'elle vous demande. La plupart ne demandent rien ; pour les autres, nous expliquons comment obtenir le fichier à déposer ou le lien à coller. Une fois ajoutée, une source s'affiche sur la carte, et vous la masquez ou la réaffichez d'un interrupteur.",
         points: [
-          "Les couches se rangent par famille, et chacune annonce son nombre de points.",
-          "Une carte de densité s'active par-dessus, quand les points se chevauchent.",
+          "Vos projets publiés, vos chantiers déclarés et les signalements que vous avez rendus publics se chargent d'un clic.",
+          "Le Baromètre vélo de la FUB, les aménagements cyclables d'OpenStreetMap, les accidents corporels du fichier national et les compteurs vélo publics se chargent aussi d'un clic : nous allons chercher ce qui existe sur votre territoire.",
+          "Si votre collectivité a accès à Strava Metro, vous déposez son export tel quel, et nous le reconnaissons et le réglons tout seuls. Si elle participe à Waze for Cities, vous collez le lien de son flux.",
+          "Tout autre fichier s'importe aussi, qu'il s'agisse d'un tableau avec des coordonnées, d'un fichier cartographique ou d'une archive.",
         ],
         capture: {
           src: 'img/modules/diagnostic/couches.jpg', largeur: 1800, hauteur: 1125,
@@ -554,10 +558,11 @@ export const modules = [
         },
       },
       {
-        titre: "Vous entourez, et vous savez ce qu'il y a dedans",
-        texte: "Le tracé se fait à main levée. Le compteur donne aussitôt le nombre de points retenus et leur répartition par source, avant même de lancer l'analyse.",
+        titre: "Vous tracez la zone à main levée et voyez ce qu'elle contient avant l'analyse",
+        texte: "Le tracé se fait directement sur la carte. Le panneau donne aussitôt la surface de la zone, et combien de sources, d'observations et de textes à lire elle réunit.",
         points: [
-          "L'analyse lit tous les points de la zone, dans la limite de trois cents.",
+          "Si la zone contient trop de textes pour un seul dossier, le panneau vous le dit avant l'analyse et vous propose de la réduire ou de masquer des sources.",
+          "Vous pouvez préciser l'objet de votre étude, par exemple la préparation d'une visite, pour orienter la synthèse.",
           "Masquer une couche recalcule la sélection sur-le-champ.",
         ],
         capture: {
@@ -566,12 +571,12 @@ export const modules = [
         },
       },
       {
-        titre: 'Le rapport résume chaque source et cite les points qui le justifient',
-        texte: "Le rapport donne quatre indicateurs calculés sur vos données, la composition de la zone, une vue d'ensemble rédigée, puis ce que dit chaque source avec les citations qui le justifient.",
+        titre: 'Chaque constat renvoie aux observations dont il vient',
+        texte: "L'IA lit les textes de la zone jusqu'au dernier et regroupe en constats ceux qui décrivent une même situation. Elle rédige ensuite une synthèse qui tient compte de l'objet de votre étude.",
         points: [
-          "La tête du rapport donne les points lus, les sources, les sujets relevés et l'emprise.",
-          "Le rapport ne note rien, ne classe rien et ne recommande rien.",
-          "Le document s'exporte en PDF.",
+          "Chaque constat situe ses observations sur une carte et en cite des extraits mot pour mot ; tous les textes d'origine restent consultables.",
+          "Les chiffres de la zone, comme le nombre d'accidents, la fréquentation Strava, la longueur des aménagements cyclables ou les passages aux compteurs, sont calculés par nous, pas par l'IA.",
+          "Le dossier se lit dans une page à part, en trois onglets : la synthèse, les analyses par source, et les sources avec leur provenance, leur période et leurs limites.",
         ],
         capture: {
           src: 'img/modules/diagnostic/rapport.jpg', largeur: 1800, hauteur: 1125,
@@ -579,11 +584,12 @@ export const modules = [
         },
       },
       {
-        titre: 'Chaque diagnostic est conservé et se rouvre',
-        texte: "Les analyses produites restent disponibles pour la collectivité, avec leur date, le nombre de points lus et le nombre de sujets relevés.",
+        titre: "Vous retouchez le dossier avant de l'exporter en PDF",
+        texte: "Vous pouvez reformuler un constat, et la reformulation est alors attribuée à la collectivité. Vous choisissez les constats qui entrent dans le PDF, et vous écrivez si vous le souhaitez votre propre synthèse et vos observations de terrain.",
         points: [
-          "Un diagnostic se rouvre tel qu'il a été produit.",
-          "Il se supprime quand il ne sert plus.",
+          "Chaque version enregistrée se rouvre telle qu'elle a été enregistrée, et se supprime quand elle ne sert plus.",
+          "Le PDF sort au format A4, avec en annexe les textes d'origine des observations citées.",
+          "Le dossier ne note rien, ne classe rien et ne recommande aucun aménagement.",
         ],
         capture: {
           src: 'img/modules/diagnostic/historique.jpg', largeur: 1800, hauteur: 1125,
@@ -592,18 +598,18 @@ export const modules = [
       },
     ],
     habitant: [
-      "La composition de la zone dit combien de points elle contient, de quelles sources, et dans quelles proportions.",
-      "Une synthèse reprend chaque source, et liste sous elle les sujets qui y reviennent.",
-      "Chaque sujet renvoie aux points qui le justifient et cite leur texte mot pour mot.",
-      "Une annexe reprend chaque point cité, tel qu'il figure dans vos données.",
-      "Le rapport s'exporte en PDF, avec le plan de la zone en couverture.",
+      "Chaque constat renvoie aux observations qui l'étayent, et ses citations reprennent leurs textes mot pour mot.",
+      "Les chiffres de la zone, comme les accidents ou la longueur des aménagements cyclables, sont calculés par nous sur vos données, pas par l'IA.",
+      "Vous reformulez un constat, choisissez ceux qui entrent dans le PDF et écrivez votre propre synthèse.",
+      "Chaque version enregistrée se rouvre telle qu'elle a été enregistrée.",
+      "Le PDF sort au format A4, avec en annexe les textes d'origine des observations citées.",
     ],
-    linkedTo: "Le Diagnostic ne produit rien tout seul, il relit ce que les autres modules ont déjà recueilli.",
+    linkedTo: "Le Diagnostic charge d'un clic ce que les autres modules ont déjà recueilli, et l'étudie avec vos autres sources.",
     synergies: [
-      { vers: 'carte', texte: "Vos projets publiés se chargent d'un clic, sous le nom « Projets publiés ». Aucune configuration, aucun lien à copier." },
-      { vers: 'travaux', texte: "Vos chantiers aussi, sous le nom « Travaux en cours », avec leur nature et leur état." },
-      { vers: 'participer', texte: "Les signalements publiés ne sont pas dans ce raccourci, mais ils s'exposent en données ouvertes : on les ajoute par lien, comme une source externe." },
-      { vers: 'chantiers', texte: "Les dossiers de voirie ne sont pas une source du Diagnostic : ce sont les chantiers publiés par le module Travaux qu'il charge d'un clic." },
+      { vers: 'carte', texte: "Vos projets publiés se chargent d'un clic, sans configuration ni lien à copier." },
+      { vers: 'travaux', texte: "Les chantiers déclarés dans Travaux se chargent aussi d'un clic, avec leur nature, leur état et leur description." },
+      { vers: 'participer', texte: "Les signalements que vous avez rendus publics se chargent d'un clic, et l'IA lit leur description avec les autres textes de la zone." },
+      { vers: 'chantiers', texte: "Les dossiers de voirie ne sont pas une source du Diagnostic : il charge les chantiers déclarés dans le module Travaux." },
     ],
   },
 ]
