@@ -9,7 +9,8 @@ import * as api from '../../api.js';
 import { DEFAULT_STYLE } from './state.js';
 import {
   toFeatureCollection, prepareFeatures, detectFields, restrictProps,
-  parseCsv, guessColumn, csvToFeatures, readShapefileParts,
+  parseCsv, guessLatLng, csvToFeatures, readShapefileParts, readTextFile,
+  projectionProblem, csvProjectionProblem, projectionMessage,
   csvHead, csvDistinct, buildJoinIndex, applyJoin, guessJoinColumns,
   expandFiles, classifyFiles, latestValue,
 } from './data.js';
@@ -32,36 +33,49 @@ export async function readDrop(rawFiles) {
   return { files, geo, tables, name };
 }
 
+/** Un fichier GeoJSON lu : ses positions doivent être en degrés. */
+export function parseGeoJSONText(text) {
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error('Ce fichier est illisible : il est peut-être incomplet ou endommagé. Exportez-le de nouveau, puis déposez-le.');
+  }
+  const fc = toFeatureCollection(json);
+  if (!fc) throw new Error('Ce fichier ne contient pas de données cartographiques lisibles. Vérifiez qu\'il s\'agit bien d\'un export cartographique (.geojson), puis déposez-le de nouveau.');
+  if (projectionProblem(fc)) throw new Error(projectionMessage({ kind: 'geojson' }));
+  return fc;
+}
+
 /** Lit la source géographique d'un dépôt en FeatureCollection. */
 export async function loadGeo(geo) {
-  if (!geo) throw new Error('Aucun fichier géographique reconnu : GeoJSON, shapefile (.shp avec .dbf et .prj) ou CSV avec latitude et longitude.');
+  if (!geo) throw new Error('Nous ne trouvons aucun fichier cartographique dans ce dépôt. Déposez un tableau avec des colonnes de latitude et de longitude, un fichier .geojson, ou un fichier .shp accompagné de ses fichiers .dbf, .shx et .prj.');
   if (geo.kind === 'shapefile') return readShapefileParts(geo);
-  const text = await geo.file.text();
+  const text = await readTextFile(geo.file);
   if (geo.kind === 'csv') {
     const { headers, records } = parseCsv(text);
-    if (!records.length) throw new Error('CSV vide ou illisible');
-    const lat = guessColumn(headers, ['lat', 'latitude', 'y']);
-    const lng = guessColumn(headers, ['lon', 'lng', 'long', 'longitude', 'x']);
+    if (!records.length) throw new Error('Ce tableau est vide ou illisible. Vérifiez qu\'il contient une ligne d\'en-têtes et au moins une ligne de données.');
+    const { lat, lng } = guessLatLng(headers);
+    if (!lat || !lng) throw new Error('Nous ne trouvons pas de colonnes de latitude et de longitude dans ce tableau. Pour les indiquer vous-même, choisissez « Décrire ce fichier moi-même ».');
+    if (csvProjectionProblem(records, lat, lng)) throw new Error(projectionMessage({ kind: 'csv', lat, lng }));
     const features = csvToFeatures(records, lat, lng);
-    if (!features.length) throw new Error('Aucun point géolocalisé : le CSV doit porter des colonnes latitude et longitude.');
+    if (!features.length) throw new Error(`Aucune ligne de ce tableau ne porte de position lisible dans les colonnes « ${lat} » et « ${lng} ». Pour choisir d'autres colonnes, choisissez « Décrire ce fichier moi-même ».`);
     return { type: 'FeatureCollection', features, csv: { headers, records, lat, lng } };
   }
-  const fc = toFeatureCollection(JSON.parse(text));
-  if (!fc) throw new Error('GeoJSON non reconnu (FeatureCollection ou Feature attendu)');
-  return fc;
+  return parseGeoJSONText(text);
 }
 
 /** Entités préparées et liste des champs d'une FeatureCollection. */
 export function prepareDraft(fc) {
   const features = prepareFeatures(fc);
-  if (!features.length) throw new Error('Aucune géométrie valide trouvée');
+  if (!features.length) throw new Error('Ce fichier ne contient aucun point, tracé ni zone que nous sachions lire. Vérifiez qu’il s’agit bien d’un fichier cartographique, ou déposez un tableau avec des colonnes de latitude et de longitude.');
   return { features, fields: detectFields(features) };
 }
 
 /** En-têtes et échantillon d'un tableau CSV. */
 export async function inspectTable(file) {
   const { headers, sample } = await csvHead(file, 50);
-  if (!headers.length) throw new Error('Tableau vide ou illisible');
+  if (!headers.length) throw new Error('Ce tableau est vide ou illisible. Vérifiez qu\'il contient une ligne d\'en-têtes.');
   return { file, headers, sample };
 }
 
@@ -101,12 +115,12 @@ export function joinColumnsFor(fields, table, recipe) {
  */
 export async function runRecipe({ features, fields, table, recipe, filterColumn = '', filterValue = '' }) {
   const { layerKey, tableKey } = joinColumnsFor(fields, table, recipe);
-  if (!layerKey || !tableKey) throw new Error('Colonne commune introuvable entre la couche et le tableau.');
+  if (!layerKey || !tableKey) throw new Error('Nous ne trouvons pas de colonne commune entre le fichier cartographique et le tableau.');
   const columns = recipe.join.columns.map((c) => resolveColumn(table.headers, c)).filter(Boolean);
   const { index, rows, kept } = await buildJoinIndex(table.file, { keyColumn: tableKey, keepColumns: columns, filterColumn, filterValue });
-  if (!index.size) throw new Error(`Aucune ligne exploitable dans le tableau (${rows} lue(s)).`);
+  if (!index.size) throw new Error(`Aucune ligne du tableau n'a pu être retenue (${rows.toLocaleString('fr-FR')} ${rows >= 2 ? 'lignes lues' : 'ligne lue'}). Vérifiez que le tableau vient du même export que le fichier cartographique.`);
   const joined = applyJoin(features, index, layerKey, { keepUnmatched: false });
-  if (!joined.features.length) throw new Error('Aucune entité de la couche ne correspond au tableau.');
+  if (!joined.features.length) throw new Error('Aucun élément du fichier cartographique ne correspond aux lignes du tableau. Vérifiez que les deux fichiers viennent du même export.');
   const newFields = detectFields(joined.features);
   const keepGeo = (recipe.keepGeoFields || []).map((f) => newFields.find((x) => norm(x) === norm(f))).filter(Boolean);
   const keep = new Set(newFields.filter((f) => keepGeo.includes(f) || columns.includes(f)));
@@ -136,8 +150,8 @@ export function cfgFromRecipe(recipe, filterValue = '') {
 }
 
 /**
- * Enregistre une couche à partir d'entités : dépôt dans Storage (champs
- * conservés seulement) puis ligne dans diagnostic_layers.
+ * Enregistre une couche à partir d'entités : dépôt dans le compartiment privé
+ * (champs conservés seulement) puis ligne dans diagnostic_layers.
  * @param {Object} p
  * @param {Array} p.features - entités préparées (__pt, __bbox retirés à l'envoi)
  * @param {Set<string>|null} p.keep - champs conservés (null = tous)
@@ -145,11 +159,12 @@ export function cfgFromRecipe(recipe, filterValue = '') {
  * @param {string} [p.source] - identifiant de la source du catalogue
  * @param {string} [p.dataset] - identifiant du jeu de données (mise à jour, doublons)
  * @param {number} [p.sort_order]
+ * @param {string} [p.city] - collectivité fixée au début de l'import
  */
-export async function persistStorageLayer({ features, keep, cfg, source = '', dataset = '', sort_order = 0 }) {
+export async function persistStorageLayer({ features, keep, cfg, source = '', dataset = '', sort_order = 0, city = null }) {
   const kept = keep ? restrictProps(features, [...keep]) : features;
   const fc = { type: 'FeatureCollection', features: kept.map(({ __pt, __bbox, ...f }) => f) };
-  const source_ref = await api.uploadDiagnosticGeoJSON(fc);
+  const source_ref = await api.uploadDiagnosticGeoJSON(fc, city);
   const { data, error } = await api.upsertDiagnosticLayer({
     label: cfg.label,
     group_label: cfg.group_label || '',
@@ -160,7 +175,7 @@ export async function persistStorageLayer({ features, keep, cfg, source = '', da
     ai_context: cfg.ai_context || '',
     default_on: cfg.default_on !== false,
     sort_order,
-  });
+  }, city);
   if (error) throw error;
   return data;
 }

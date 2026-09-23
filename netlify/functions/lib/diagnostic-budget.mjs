@@ -5,10 +5,11 @@ import { SUPABASE_URL } from './http.mjs';
 // Le budget prévu (0,24 $, annoncé à la sélection de la zone) et le plafond
 // d'arrêt (1 $, valeur par défaut de `diagnostic_ai_runs.limit_micro`) sont
 // définis dans le contrat partagé `dossier/contract.mjs`.
-export const PRICES = { 'gpt-5.4-mini': { input: .75, cached: .075, output: 4.5 }, 'gpt-5.4': { input: 2.5, cached: .25, output: 15 } };
-// Part du plafond gardée pour la synthèse finale (gpt-5.4, 6 000 jetons de
-// sortie) : une lecture ne doit jamais consommer ce qui permet de conclure.
-export const FINAL_RESERVE_MICRO = 120000;
+// Tarifs et part gardée pour la synthèse finale : définis dans le contrat partagé,
+// pour que le panneau du navigateur prévoie exactement ce que le relais réserve.
+import { AI_PRICES, FINAL_RESERVE_MICRO } from '../../../admin/sections/diagnostic/dossier/contract.mjs';
+export const PRICES = AI_PRICES;
+export { FINAL_RESERVE_MICRO };
 export const requestHash = (payload) => createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 export function usageCost(model, usage) {
   const price = PRICES[model];

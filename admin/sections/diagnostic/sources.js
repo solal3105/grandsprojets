@@ -8,7 +8,10 @@
  *  - internal : données de l'espace, chargées par une fonction interne
  *  - auto     : données publiques que nous allons chercher (FUB, OpenStreetMap)
  *  - file     : un export à déposer, reconnu par une recette (Strava Metro)
+ *  - link     : un lien à coller, relu à chaque ouverture (Waze for Cities)
  *  - soon     : annoncée, pas encore disponible
+ * Les phrases « what » ne promettent que ce que le dossier calcule vraiment
+ * (dossier/model.js) : les rédiger à partir du code, pas de la source.
  * Le wizard complet (décrire soi-même un fichier) s'ouvre depuis la zone de
  * dépôt du catalogue, il n'est pas une source.
  * Le catalogue est technique (détection, recettes) ; il n'est propre à aucun
@@ -56,16 +59,16 @@ export const SOURCES = [
   {
     id: 'travaux',
     family: 'habitants',
-    name: 'Travaux en cours',
-    description: 'Module Travaux : les chantiers que vous avez déclarés.',
+    name: 'Chantiers publiés',
+    description: 'Module Travaux : tous vos chantiers publiés, terminés, en cours ou à venir.',
     icon: 'fa-solid fa-helmet-safety',
     tint: '#F59E0B',
     mode: 'internal',
     internalKey: 'travaux',
-    sentence: 'Nous chargeons les chantiers de votre module Travaux. La couche reste synchronisée avec vos déclarations.',
+    sentence: 'Nous chargeons tous les chantiers publiés dans votre module Travaux, qu\'ils soient terminés, en cours ou à venir. La couche reste synchronisée avec vos déclarations.',
     what: [
-      ['Pour chaque chantier', 'son nom, sa nature, son état et sa description'],
-      ['Dans l\'analyse', 'les chantiers présents dans la zone sont lus avec les autres témoignages'],
+      ['Pour chaque chantier', 'son nom, sa nature, son état, ses dates et sa description'],
+      ['Dans l\'analyse', 'les chantiers présents dans la zone sont lus avec les autres témoignages, avec leur état et leurs dates'],
     ],
   },
   {
@@ -76,11 +79,11 @@ export const SOURCES = [
     icon: 'fa-solid fa-bicycle',
     tint: '#DC2626',
     mode: 'auto',
-    sentence: 'Nous récupérons sur la plateforme open data de la FUB les contributions cartographiques du Baromètre vélo pour votre territoire : chaque point porte le commentaire laissé par le cycliste.',
+    sentence: 'Nous récupérons sur la plateforme open data de la FUB les contributions cartographiques du Baromètre vélo pour votre territoire. Chaque point marque un lieu désigné par un cycliste, avec son commentaire quand il en a laissé un.',
     what: [
-      ['Trois couches', 'points à améliorer en priorité, améliorations constatées, souhaits de stationnement'],
-      ['Pour chaque point', 'le commentaire du cycliste, mot pour mot'],
-      ['Dans l\'analyse', 'ces commentaires sont lus comme des témoignages et regroupés par sujet'],
+      ['Jusqu\'à trois ensembles de points', 'les points à améliorer en priorité, les améliorations constatées et les souhaits de stationnement, selon ce que le Baromètre publie pour votre territoire'],
+      ['Pour chaque point', 'le commentaire du cycliste, mot pour mot, quand il en a laissé un'],
+      ['Dans l\'analyse', 'les commentaires sont lus comme des témoignages et regroupés par sujet'],
       ['Licence', 'Open Database Licence (ODbL), FUB'],
     ],
     credit: 'Baromètre vélo, FUB, licence ODbL',
@@ -97,7 +100,7 @@ export const SOURCES = [
     sentence: 'Nous interrogeons OpenStreetMap pour les communes de votre territoire et gardons les voies qui portent un aménagement cyclable.',
     what: [
       ['Pour chaque tronçon', 'son type d\'aménagement, la rue, le sens et le revêtement'],
-      ['Dans l\'analyse', 'le nombre de tronçons aménagés dans la zone, comme donnée de référence'],
+      ['Dans l\'analyse', 'la longueur aménagée dans la zone tracée, en kilomètres, au total et par type d\'aménagement'],
       ['Licence', 'ODbL, contributeurs OpenStreetMap'],
     ],
     credit: 'OpenStreetMap, licence ODbL',
@@ -113,9 +116,9 @@ export const SOURCES = [
     mode: 'auto',
     sentence: 'Nous lisons le fichier national des accidents corporels (Observatoire de la sécurité routière, data.gouv.fr) et ne gardons que les accidents survenus sur les communes de votre territoire, avec leurs victimes et les véhicules impliqués.',
     what: [
-      ['Pour chaque accident', 'date, heure, gravité la plus élevée, nombre de victimes, présence d\'un vélo, d\'un piéton, d\'un deux-roues motorisé'],
+      ['Pour chaque accident', 'sa date, son heure, sa gravité la plus élevée, le nombre de victimes et la présence d\'un vélo, d\'un piéton ou d\'un deux-roues motorisé'],
       ['Sur la carte', 'un point par accident, coloré selon la gravité'],
-      ['Dans l\'analyse', 'le nombre d\'accidents, de tués et de blessés dans chaque zone tracée, comme données de référence'],
+      ['Dans l\'analyse', 'Nous comptons les accidents de la zone tracée. À partir de cinq, nous donnons aussi les personnes tuées, les blessés hospitalisés et les accidents impliquant un vélo ou un piéton ; en dessous, nous décrivons chaque accident.'],
       ['Licence', 'Licence ouverte, Observatoire national interministériel de la sécurité routière'],
     ],
     credit: 'Fichier BAAC, ONISR, licence ouverte',
@@ -128,12 +131,12 @@ export const SOURCES = [
     icon: 'fa-solid fa-hashtag',
     tint: '#0F766E',
     mode: 'auto',
-    sentence: 'Nous lisons les pages publiques Eco-Compteur qui couvrent votre territoire, celle de la plateforme nationale des fréquentations et celles des observatoires locaux, et gardons les compteurs situés dans vos communes, avec leurs derniers chiffres.',
+    sentence: 'Nous lisons les pages publiques Eco-Compteur qui couvrent votre territoire, celle de la plateforme nationale des fréquentations et celles des observatoires locaux, et gardons les compteurs situés dans vos communes, avec les chiffres publiés le jour de l\'ajout.',
     what: [
-      ['Pour chaque compteur', 'sa moyenne journalière de passages, le passage de la veille, le total depuis sa pose et sa date d\'installation'],
-      ['Sur la carte', 'un point par compteur, d\'autant plus gros et chaud qu\'il voit passer de monde'],
-      ['Dans l\'analyse', 'les passages journaliers cumulés des compteurs de la zone tracée, comme données de référence'],
-      ['Source', 'pages publiques Eco-Visio des gestionnaires de compteurs ; les chiffres sont ceux affichés publiquement'],
+      ['Pour chaque compteur', 'ce qu\'il compte (vélos, piétons ou les deux), sa moyenne journalière de passages, les passages de la veille du relevé, le total depuis sa pose et sa date d\'installation'],
+      ['Sur la carte', 'un point par compteur, plus gros et plus rouge quand sa moyenne journalière est élevée'],
+      ['Dans l\'analyse', 'Nous donnons la moyenne journalière de chaque compteur de la zone tracée, compteur par compteur : les passages de plusieurs compteurs ne sont jamais additionnés.'],
+      ['Source', 'Les chiffres viennent des pages publiques Eco-Compteur des gestionnaires de compteurs, tels qu\'ils sont publiés le jour où vous ajoutez la source.'],
     ],
     credit: 'Compteurs publics Eco-Compteur, plateforme nationale des fréquentations',
   },
@@ -154,8 +157,8 @@ export const SOURCES = [
     ],
     what: [
       ['Sur la carte', 'une carte de chaleur des passages, du bleu au rouge'],
-      ['Dans chaque zone', 'le total des passages, la part de vélos électriques et la vitesse moyenne'],
-      ['Licence', 'données réservées à votre collectivité (conditions Strava Metro)'],
+      ['Dans chaque zone', 'Nous donnons le tronçon le plus emprunté, sa moyenne de passages par jour et le nombre de tronçons. Les passages de plusieurs tronçons ne sont jamais additionnés.'],
+      ['Licence', 'Ces données sont réservées à votre collectivité (conditions Strava Metro). Le fichier enregistré reste privé : seuls les administrateurs de votre espace et l\'équipe Open Projets peuvent le lire.'],
     ],
     dropHint: 'Déposez l\'archive téléchargée depuis Metroview, ou son dossier décompressé.',
   },
@@ -175,9 +178,9 @@ export const SOURCES = [
     ],
     what: [
       ['Alertes', 'accidents, dangers, routes fermées, embouteillages signalés par les conducteurs, avec la rue et le nombre de confirmations'],
-      ['Ralentissements', 'tronçons ralentis avec vitesse, retard et longueur, en carte de chaleur'],
-      ['Dans l\'analyse', 'le nombre d\'alertes et le retard moyen dans chaque zone tracée, comme données de référence'],
-      ['Licence', 'données réservées à votre collectivité (accord Waze for Cities) ; le lien n\'est jamais partagé'],
+      ['Ralentissements', 'Les tronçons ralentis s\'affichent avec leur vitesse, leur retard et leur longueur, colorés du bleu au rouge selon le retard. Une circulation bloquée est signalée comme telle.'],
+      ['Dans l\'analyse', 'Nous donnons le total des confirmations des alertes, ainsi que le retard moyen et la vitesse moyenne des ralentissements de la zone tracée, tels qu\'au moment où vous ouvrez le diagnostic.'],
+      ['Licence', 'Ces données sont réservées à votre collectivité (accord Waze for Cities), et le lien n\'est jamais partagé.'],
     ],
     linkPlaceholder: 'https://www.waze.com/partnerhub-api/partners/…/waze-feeds/…?format=JSON',
   },

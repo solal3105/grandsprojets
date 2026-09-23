@@ -3,29 +3,38 @@
  * Le catalogue des sources et la page de chaque source : ce que c'est, ce
  * qu'il faut faire (rien, déposer un fichier, créer un compte) et un seul
  * bouton. Les mots techniques restent dans le wizard avancé (wizard.js),
- * accessible par « Un autre fichier » et par « Réglages avancés ».
+ * accessible par « Décrire ce fichier moi-même » et par les réglages avancés.
+ *
+ * Un import fixe sa collectivité à l'ouverture du catalogue (`ctx.city`) :
+ * changer d'espace pendant la lecture d'un fichier n'enregistre jamais la
+ * couche ailleurs. Chaque page du catalogue porte un jeton : la réponse
+ * tardive d'une source ne remplace jamais la page que l'on regarde.
  */
 
 import * as api from '../../api.js';
+import { store } from '../../store.js';
 import { esc, escAttr, toast } from '../../components/ui.js';
-import { dg, INTERNAL_SOURCES, DEFAULT_STYLE } from './state.js';
+import { dg, INTERNAL_SOURCES, DEFAULT_STYLE, onCleanup } from './state.js';
 import { FAMILIES, SOURCES, sourceOfLayer } from './sources.js';
 import {
   readDrop, loadGeo, prepareDraft, inspectTable, recipeFor, recipeFilterValues, runRecipe,
   persistStorageLayer, layerPopup,
 } from './engine.js';
-import { filesFromDataTransfer } from './data.js';
-import { resolveTerritory, scopeLabel } from './sources/territory.js';
+import { filesFromDataTransfer, readableError, countLabel } from './data.js';
+import { resolveTerritory, scopeLabel, resolveContours, communeCodesFor } from './sources/territory.js';
 import { listFubDatasets, fetchFubLayers, fubLayerCfg } from './sources/fub.js';
 import { fetchCycleways, cyclewaysLayerCfg } from './sources/osm.js';
-import { listBaacYears, fetchBaacYear, baacLayerCfg } from './sources/baac.js';
+import { listBaacYears, fetchBaacYear, baacLayerCfg, baacPeriods, yearsLabel } from './sources/baac.js';
 import { checkWazeFeed, wazeLayerCfgs } from './sources/waze.js';
 import { fetchCounters, countersLayerCfg } from './sources/counters.js';
-import { resolveContours, communeCodesFor } from './sources/territory.js';
 import { openLayerWizard } from './wizard.js';
 
 const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
 const familyLabel = (key) => FAMILIES.find((f) => f.key === key)?.label || '';
+const ADD_FAILED = 'L\'ajout n\'a pas abouti. Vérifiez votre connexion, puis réessayez.';
+
+/** Nom d'un périmètre pour une couche : « Lyon », « Métropole de Lyon ». */
+const _scopeName = (territory, scope) => scopeLabel(territory, scope).replace(/ \(.*\)$/, '');
 
 /**
  * Ouvre le catalogue.
@@ -54,17 +63,27 @@ export function openDataCatalog({ onAdded }) {
     overlay,
     body: overlay.querySelector('#dg-cat-body'),
     onAdded,
+    // Collectivité de l'import, fixée à l'ouverture.
+    city: store.city,
+    brand: dg.branding?.brand_name || store.city || '',
     territory: null,
     territoryError: null,
+    pageSeq: 0,
+    closed: false,
+    // La section a été quittée (ou l'espace changé) : la carte affichée
+    // n'est plus celle de cet import.
+    dead: false,
     close: null,
   };
 
   const onKeydown = (e) => { if (e.key === 'Escape') ctx.close(); };
   ctx.close = () => {
+    ctx.closed = true;
     document.removeEventListener('keydown', onKeydown);
     overlay.remove();
   };
   document.addEventListener('keydown', onKeydown);
+  onCleanup(() => { ctx.dead = true; ctx.close(); });
   overlay.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', ctx.close));
   overlay.addEventListener('click', (e) => { if (e.target === overlay) ctx.close(); });
   overlay.querySelector('#dg-cat-back').addEventListener('click', () => _renderHome(ctx));
@@ -72,9 +91,15 @@ export function openDataCatalog({ onAdded }) {
   // Le territoire sert aux sources publiques : résolu en fond dès l'ouverture.
   resolveTerritory()
     .then((t) => { ctx.territory = t; _updateSubtitle(ctx); })
-    .catch((e) => { ctx.territoryError = e.message; _updateSubtitle(ctx); });
+    .catch((e) => { ctx.territoryError = readableError(e, 'Votre territoire n\'a pas pu être retrouvé. Réessayez dans quelques minutes.'); _updateSubtitle(ctx); });
 
   _renderHome(ctx);
+}
+
+/** Entre dans une page ; la fonction rendue dit si cette page est toujours celle affichée. */
+function _enterPage(ctx) {
+  const token = ++ctx.pageSeq;
+  return () => !ctx.closed && ctx.pageSeq === token;
 }
 
 function _updateSubtitle(ctx) {
@@ -104,16 +129,18 @@ function _stateOf(source) {
   const mine = _layersOf(source);
   if (source.mode === 'soon') return { cls: 'soon', text: 'Bientôt disponible' };
   if (mine.length) {
+    const rt = dg.runtime.get(mine[0].id);
     const n = mine.reduce((acc, l) => acc + (dg.runtime.get(l.id)?.count || 0), 0);
-    const detail = mine.length > 1 ? `${mine.length} couches` : (n ? `${_fmt(n)} entité${n > 1 ? 's' : ''}` : '1 couche');
+    const detail = mine.length > 1 ? `${mine.length} couches` : (n ? countLabel(n, rt?.features) : '1 couche');
     return { cls: 'done', text: `Déjà ajouté · ${detail}` };
   }
   if (source.mode === 'file') return { cls: 'file', text: 'Un fichier à déposer · nous expliquons' };
   if (source.mode === 'link') return { cls: 'file', text: 'Un lien à coller · nous expliquons' };
-  return { cls: 'auto', text: 'Nous récupérons tout' };
+  return { cls: 'auto', text: 'Aucun fichier à fournir' };
 }
 
 function _renderHome(ctx) {
+  const current = _enterPage(ctx);
   _setHead(ctx, 'Ajouter des données', false);
   const groups = FAMILIES.map((f) => ({ f, sources: SOURCES.filter((s) => s.family === f.key) })).filter((g) => g.sources.length);
   ctx.body.innerHTML = `
@@ -139,10 +166,11 @@ function _renderHome(ctx) {
       <input type="file" id="dg-cat-file" multiple accept=".geojson,.json,.csv,.zip,.shp,.dbf,.shx,.prj,.cpg" hidden>
       <span class="dg-cat__drop-ico"><i class="fa-solid fa-arrow-up-from-bracket"></i></span>
       <span class="dg-cat__drop-txt">
-        <b>Déposez un fichier ici : GeoJSON, CSV, shapefile, export d'un outil.</b>
-        <span>Un export connu est reconnu et réglé tout seul. Pour un autre fichier ou un lien vers une API, <button type="button" class="dg-cat__link" id="dg-cat-advanced">décrivez-le vous-même</button>.</span>
+        <b>Déposez ici un fichier de votre territoire : un tableau avec des coordonnées, un fichier cartographique ou l'archive d'un export.</b>
+        <span>Nous réglons nous-mêmes les exports que nous connaissons, et un assistant s'ouvre pour tout autre fichier. Pour une adresse en ligne, <button type="button" class="dg-cat__link" id="dg-cat-advanced">ajoutez une couche à la main</button>.</span>
       </span>
     </label>
+    <div id="dg-cat-drop-error"></div>
   `;
   ctx.body.querySelector('#dg-cat-advanced').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); _openAdvanced(ctx); });
 
@@ -158,13 +186,13 @@ function _renderHome(ctx) {
   input.addEventListener('change', (e) => {
     const files = [...e.target.files];
     e.target.value = '';
-    if (files.length) _handleAnyDrop(ctx, files);
+    if (files.length) _handleAnyDrop(ctx, files, current);
   });
   ['dragover', 'dragenter'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('is-over'); }));
   ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('is-over'); }));
   drop.addEventListener('drop', async (e) => {
     const files = await filesFromDataTransfer(e.dataTransfer).catch(() => [...e.dataTransfer.files]);
-    if (files.length) _handleAnyDrop(ctx, files);
+    if (files.length) _handleAnyDrop(ctx, files, current);
   });
 }
 
@@ -173,19 +201,23 @@ function _renderHome(ctx) {
  * export connu, sa page s'ouvre déjà remplie ; sinon, le wizard avancé
  * prend le relais avec le fichier chargé.
  */
-async function _handleAnyDrop(ctx, files) {
+async function _handleAnyDrop(ctx, files, current) {
   const drop = ctx.body.querySelector('#dg-cat-drop');
+  const errorBox = ctx.body.querySelector('#dg-cat-drop-error');
+  if (errorBox) errorBox.innerHTML = '';
   if (drop) drop.classList.add('is-busy');
   try {
     const dropped = await _recognize(files);
+    if (!current()) return;
     if (dropped.recipe) {
       const source = SOURCES.find((s) => s.recipeId === dropped.recipe.id);
       if (source) { _openSource(ctx, source, dropped); return; }
     }
     _openAdvanced(ctx, { files });
   } catch (e) {
-    toast(e.message || 'Fichier illisible', 'error');
+    if (!current()) return;
     if (drop) drop.classList.remove('is-busy');
+    if (errorBox) errorBox.innerHTML = `<div class="dg-cat__error"><i class="fa-solid fa-triangle-exclamation"></i><div>${esc(readableError(e, 'Ce fichier n\'a pas pu être lu. Vérifiez qu\'il s\'ouvre sur votre ordinateur, puis déposez-le de nouveau.'))}</div></div>`;
   }
 }
 
@@ -206,12 +238,13 @@ async function _recognize(files) {
 function _openAdvanced(ctx, opts = {}) {
   const onAdded = ctx.onAdded;
   ctx.close();
-  openLayerWizard({ ...opts, onSaved: (row) => onAdded?.([row]) });
+  openLayerWizard({ ...opts, city: ctx.city, onSaved: (row) => onAdded?.([row]) });
 }
 
 /* ── Page d'une source ──────────────────────────────────────────── */
 
 function _openSource(ctx, source, dropped = null) {
+  const current = _enterPage(ctx);
   _setHead(ctx, source.name, true);
   ctx.body.scrollTop = 0;
   const autos = { fub: _renderFub, 'osm-cycleways': _renderOsm, accidents: _renderBaac, comptages: _renderCounters };
@@ -222,7 +255,7 @@ function _openSource(ctx, source, dropped = null) {
     link: _renderLink,
     soon: _renderSoon,
   }[source.mode];
-  render?.(ctx, source, dropped);
+  render?.(ctx, source, dropped, current);
 }
 
 function _whatHtml(source) {
@@ -240,6 +273,11 @@ function _existingHtml(source) {
   const mine = _layersOf(source);
   if (!mine.length) return '';
   return `<div class="dg-cat__note"><i class="fa-solid fa-circle-check"></i> Déjà dans votre diagnostic : ${mine.map((l) => esc(l.label)).join(', ')}.</div>`;
+}
+
+/** Page d'erreur d'une source : la phrase d'accroche, puis ce qui a manqué. */
+function _pageError(ctx, source, message) {
+  ctx.body.innerHTML = `<div class="dg-page"><p class="dg-page__lead">${esc(source.sentence)}</p><div class="dg-cat__error"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(message)}</div></div>`;
 }
 
 /** Zone de progression : une ligne par étape, la dernière en cours. */
@@ -270,15 +308,25 @@ function _progress(container) {
   };
 }
 
-/** Termine un ajout : couches chargées, catalogue fermé, message. */
-async function _finish(ctx, rows) {
-  ctx.close();
-  toast(rows.length > 1 ? `${rows.length} couches ajoutées au diagnostic` : 'Couche ajoutée au diagnostic', 'success');
+/**
+ * Termine un ajout : message, puis couches montrées sur la carte. Le
+ * catalogue ne se ferme que si l'on regarde encore la page de cet ajout.
+ */
+async function _finish(ctx, rows, current) {
+  const message = rows.length > 1 ? `${rows.length} couches ajoutées au diagnostic` : 'Couche ajoutée au diagnostic';
+  if (ctx.dead) {
+    // Section quittée ou espace changé pendant l'import : la couche est bien
+    // enregistrée chez la collectivité de départ, qui n'est plus affichée.
+    toast(ctx.brand ? `${message} de ${ctx.brand}` : message, 'success');
+    return;
+  }
+  if (current()) ctx.close();
+  toast(message, 'success');
   await ctx.onAdded?.(rows);
 }
 
-/* Interne : signalements, projets, travaux */
-function _renderInternal(ctx, source) {
+/* Interne : signalements, projets, chantiers */
+function _renderInternal(ctx, source, _dropped, current) {
   const src = INTERNAL_SOURCES[source.internalKey];
   const exists = _layersOf(source).length > 0;
   ctx.body.innerHTML = `
@@ -309,12 +357,13 @@ function _renderInternal(ctx, source) {
         ai_context: src.defaults.ai_context,
         default_on: true,
         sort_order: dg.layers.length,
-      });
+      }, ctx.city);
       if (error) throw error;
       p.done();
-      await _finish(ctx, [data]);
+      await _finish(ctx, [data], current);
     } catch (err) {
-      p.fail(err.message || String(err));
+      console.warn('[admin/diagnostic] Ajout interne:', err);
+      p.fail(readableError(err, ADD_FAILED));
       btn.disabled = false;
     }
   });
@@ -335,17 +384,23 @@ function _scopeHtml(territory, scope, { onlyIf = () => true } = {}) {
   </div>`;
 }
 
+/** « le périmètre « Grenoble-Alpes-Métropole » » quand le périmètre peut s'élargir à l'intercommunalité. */
+function _widerScope(territory, scope) {
+  return scope === 'commune' && territory.epci ? `le périmètre « ${territory.epci.nom} »` : '';
+}
+
 /* Baromètre vélo FUB */
-async function _renderFub(ctx, source) {
+async function _renderFub(ctx, source, _dropped, current) {
   ctx.body.innerHTML = `<div class="dg-page"><p class="dg-page__lead">${esc(source.sentence)}</p><div class="dg-page__loading"><i class="fa-solid fa-spinner fa-spin"></i> Recherche des données de votre territoire…</div></div>`;
   let territory, datasets;
   try {
     territory = await _territoryOrError(ctx);
-    datasets = await listFubDatasets({ communeCode: territory.commune.code, epciCode: territory.epci?.code });
+    datasets = await listFubDatasets({ communeCode: territory.commune.code, epciCode: territory.epci?.code, city: ctx.city });
   } catch (e) {
-    ctx.body.innerHTML = `<div class="dg-page"><p class="dg-page__lead">${esc(source.sentence)}</p><div class="dg-cat__error"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(e.message)}</div></div>`;
+    if (current()) _pageError(ctx, source, readableError(e, 'La plateforme de la FUB n\'a pas pu être consultée. Réessayez dans quelques minutes.'));
     return;
   }
+  if (!current()) return;
   const has = (scope) => datasets.some((d) => d.scope === scope);
   let scope = has('epci') && territory.epci ? 'epci' : 'commune';
   if (!has(scope)) scope = has('commune') ? 'commune' : (has('epci') ? 'epci' : scope);
@@ -389,22 +444,24 @@ async function _renderFub(ctx, source) {
       const btn = e.currentTarget;
       btn.disabled = true;
       const p = _progress(ctx.body.querySelector('#dg-src-progress'));
+      const order = dg.layers.length;
       try {
-        const layers = await fetchFubLayers(d.uid, (msg) => p.step(msg));
+        const layers = await fetchFubLayers(d.uid, (msg) => p.step(msg), ctx.city);
         const rows = [];
-        const group = `Baromètre vélo ${y} · ${scopeLabel(territory, scope).replace(/ \(.*\)$/, '')}`;
+        const group = `Baromètre vélo ${y} · ${_scopeName(territory, scope)}`;
         for (const { def, fc } of layers) {
-          p.step(`Enregistrement : ${def.label} (${_fmt(fc.features.length)} points)…`);
+          p.step(`Enregistrement : ${def.label} (${countLabel(fc.features.length, fc.features)})…`);
           const { features } = prepareDraft(fc);
           rows.push(await persistStorageLayer({
             features, keep: null, cfg: fubLayerCfg(def, y, group),
-            source: source.id, dataset: d.id, sort_order: dg.layers.length + rows.length,
+            source: source.id, dataset: d.id, sort_order: order + rows.length, city: ctx.city,
           }));
         }
         p.done();
-        await _finish(ctx, rows);
+        await _finish(ctx, rows, current);
       } catch (err) {
-        p.fail(err.message || String(err));
+        console.warn('[admin/diagnostic] Baromètre vélo:', err);
+        p.fail(readableError(err, ADD_FAILED));
         btn.disabled = false;
       }
     });
@@ -413,13 +470,14 @@ async function _renderFub(ctx, source) {
 }
 
 /* Aménagements cyclables OpenStreetMap */
-async function _renderOsm(ctx, source) {
+async function _renderOsm(ctx, source, _dropped, current) {
   ctx.body.innerHTML = `<div class="dg-page"><p class="dg-page__lead">${esc(source.sentence)}</p><div class="dg-page__loading"><i class="fa-solid fa-spinner fa-spin"></i> Recherche de votre territoire…</div></div>`;
   let territory;
   try { territory = await _territoryOrError(ctx); } catch (e) {
-    ctx.body.innerHTML = `<div class="dg-page"><p class="dg-page__lead">${esc(source.sentence)}</p><div class="dg-cat__error"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(e.message)}</div></div>`;
+    if (current()) _pageError(ctx, source, readableError(e, 'Votre territoire n\'a pas pu être retrouvé. Réessayez dans quelques minutes.'));
     return;
   }
+  if (!current()) return;
   let scope = 'commune';
   const draw = () => {
     const exists = _layersOf(source).length > 0;
@@ -440,23 +498,28 @@ async function _renderOsm(ctx, source) {
       const btn = e.currentTarget;
       btn.disabled = true;
       const p = _progress(ctx.body.querySelector('#dg-src-progress'));
+      const order = dg.layers.length;
       try {
         const codes = scope === 'epci' && territory.epci?.communes?.length
           ? territory.epci.communes.map((c) => c.code)
           : [territory.commune.code];
         const fc = await fetchCycleways(codes, { onProgress: (msg) => p.step(msg) });
-        if (!fc.features.length) throw new Error('Aucun aménagement cyclable n\'est cartographié dans OpenStreetMap sur ce territoire.');
-        p.step(`Enregistrement de ${_fmt(fc.features.length)} tronçons…`);
+        if (!fc.features.length) {
+          const wider = _widerScope(territory, scope);
+          throw new Error(`Aucun aménagement cyclable n'est cartographié dans OpenStreetMap sur ce territoire.${wider ? ` Choisissez ${wider} pour chercher plus largement.` : ''}`);
+        }
+        p.step(`Enregistrement de ${countLabel(fc.features.length, fc.features)}…`);
         const { features } = prepareDraft(fc);
         const row = await persistStorageLayer({
-          features, keep: null, cfg: cyclewaysLayerCfg(scopeLabel(territory, scope).replace(/ \(.*\)$/, '')),
+          features, keep: null, cfg: cyclewaysLayerCfg(_scopeName(territory, scope)),
           source: source.id, dataset: `osm-cycleways-${scope}-${scope === 'epci' ? territory.epci.code : territory.commune.code}`,
-          sort_order: dg.layers.length,
+          sort_order: order, city: ctx.city,
         });
         p.done();
-        await _finish(ctx, [row]);
+        await _finish(ctx, [row], current);
       } catch (err) {
-        p.fail(err.message || String(err));
+        console.warn('[admin/diagnostic] OpenStreetMap:', err);
+        p.fail(readableError(err, ADD_FAILED));
         btn.disabled = false;
       }
     });
@@ -465,34 +528,26 @@ async function _renderOsm(ctx, source) {
 }
 
 /* Accidents corporels (fichier national BAAC) */
-async function _renderBaac(ctx, source) {
+async function _renderBaac(ctx, source, _dropped, current) {
   ctx.body.innerHTML = `<div class="dg-page"><p class="dg-page__lead">${esc(source.sentence)}</p><div class="dg-page__loading"><i class="fa-solid fa-spinner fa-spin"></i> Recherche des fichiers nationaux et de votre territoire…</div></div>`;
   let territory, years;
   try {
     [territory, years] = await Promise.all([_territoryOrError(ctx), listBaacYears()]);
   } catch (e) {
-    ctx.body.innerHTML = `<div class="dg-page"><p class="dg-page__lead">${esc(source.sentence)}</p><div class="dg-cat__error"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(e.message)}</div></div>`;
+    if (current()) _pageError(ctx, source, readableError(e, 'Le fichier national n\'a pas pu être consulté. Réessayez dans quelques minutes.'));
     return;
   }
-  const available = [...years.keys()].sort((a, b) => a - b);
+  if (!current()) return;
+  const available = [...years.keys()];
   if (!available.length) {
-    ctx.body.innerHTML = `<div class="dg-page"><p class="dg-page__lead">${esc(source.sentence)}</p><div class="dg-cat__error"><i class="fa-solid fa-circle-info"></i> Aucun fichier annuel n'est disponible pour le moment sur data.gouv.fr.</div></div>`;
+    ctx.body.innerHTML = `<div class="dg-page"><p class="dg-page__lead">${esc(source.sentence)}</p><div class="dg-cat__error"><i class="fa-solid fa-circle-info"></i> Nous ne trouvons aucun fichier annuel complet sur data.gouv.fr. Réessayez plus tard ; si ce message revient, écrivez-nous depuis openprojets.com/contact.</div></div>`;
     return;
   }
-  const last = available[available.length - 1];
-  // Périodes proposées : la dernière année, puis 3, 5 ans, puis tout.
-  const periods = [];
-  const push = (n, label) => {
-    const from = Math.max(available[0], last - n + 1);
-    const key = `${from}-${last}`;
-    if (!periods.some((p) => p.key === key)) periods.push({ key, from, to: last, label: label.replace('{span}', from === last ? String(last) : `${from} à ${last}`) });
-  };
-  push(1, 'Dernière année ({span})');
-  push(3, 'Trois ans ({span})');
-  push(5, 'Cinq ans ({span})');
-  push(available.length, 'Tout ({span})');
+  // Périodes tirées des années réellement publiées : une année absente n'est
+  // jamais annoncée ni comptée.
+  const { periods, defaultKey } = baacPeriods(available);
   let scope = 'commune';
-  let period = periods.find((p) => p.to - p.from === 4) || periods[periods.length - 1];
+  let period = periods.find((p) => p.key === defaultKey) || periods[periods.length - 1];
 
   const draw = () => {
     const exists = _layersOf(source).length > 0;
@@ -518,24 +573,32 @@ async function _renderBaac(ctx, source) {
       const btn = e.currentTarget;
       btn.disabled = true;
       const p = _progress(ctx.body.querySelector('#dg-src-progress'));
+      const order = dg.layers.length;
+      const chosen = period;
       try {
         p.step('Communes du territoire…');
         const codes = await communeCodesFor(territory, scope);
-        const chosen = available.filter((y) => y >= period.from && y <= period.to);
         const features = [];
-        for (const y of chosen) features.push(...await fetchBaacYear(y, years.get(y), codes, (msg) => p.step(msg)));
-        if (!features.length) throw new Error('Aucun accident corporel géolocalisé sur ce territoire pour cette période.');
-        p.step(`Enregistrement de ${_fmt(features.length)} accidents…`);
+        const loaded = [];
+        for (const y of chosen.years) {
+          // Jamais push(...liste) : une intercommunalité peut compter des
+          // dizaines de milliers d'accidents sur plusieurs années.
+          for (const f of await fetchBaacYear(y, years.get(y), codes, (msg) => p.step(msg))) features.push(f);
+          loaded.push(y);
+        }
+        if (!features.length) throw new Error(_noAccidentMessage(territory, scope, loaded, periods, chosen));
+        p.step(`Enregistrement de ${_fmt(features.length)} accident${features.length > 1 ? 's' : ''}…`);
         const { features: prepared } = prepareDraft({ type: 'FeatureCollection', features });
         const code = scope === 'epci' ? territory.epci.code : territory.commune.code;
         const row = await persistStorageLayer({
-          features: prepared, keep: null, cfg: baacLayerCfg(chosen, scopeLabel(territory, scope).replace(/ \(.*\)$/, '')),
-          source: source.id, dataset: `baac-${scope}-${code}-${period.key}`, sort_order: dg.layers.length,
+          features: prepared, keep: null, cfg: baacLayerCfg(loaded, _scopeName(territory, scope)),
+          source: source.id, dataset: `baac-${scope}-${code}-${loaded.join('-')}`, sort_order: order, city: ctx.city,
         });
         p.done();
-        await _finish(ctx, [row]);
+        await _finish(ctx, [row], current);
       } catch (err) {
-        p.fail(err.message || String(err));
+        console.warn('[admin/diagnostic] Accidents corporels:', err);
+        p.fail(readableError(err, ADD_FAILED));
         btn.disabled = false;
       }
     });
@@ -543,14 +606,25 @@ async function _renderBaac(ctx, source) {
   draw();
 }
 
+/** Aucun accident sur la période : dire ce qui a été lu, et ce qui reste possible. */
+function _noAccidentMessage(territory, scope, loaded, periods, chosen) {
+  const when = loaded.length > 1 ? `sur les années ${yearsLabel(loaded)}` : `en ${loaded[0]}`;
+  const options = [];
+  if (periods.some((p) => p.years.length > chosen.years.length)) options.push('une période plus longue');
+  const wider = _widerScope(territory, scope);
+  if (wider) options.push(wider);
+  return `Le fichier national ne compte aucun accident corporel localisé sur ce territoire ${when}.${options.length ? ` Choisissez ${options.join(' ou ')}.` : ''}`;
+}
+
 /* Compteurs vélo (pages publiques Eco-Compteur) */
-async function _renderCounters(ctx, source) {
+async function _renderCounters(ctx, source, _dropped, current) {
   ctx.body.innerHTML = `<div class="dg-page"><p class="dg-page__lead">${esc(source.sentence)}</p><div class="dg-page__loading"><i class="fa-solid fa-spinner fa-spin"></i> Recherche de votre territoire…</div></div>`;
   let territory;
   try { territory = await _territoryOrError(ctx); } catch (e) {
-    ctx.body.innerHTML = `<div class="dg-page"><p class="dg-page__lead">${esc(source.sentence)}</p><div class="dg-cat__error"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(e.message)}</div></div>`;
+    if (current()) _pageError(ctx, source, readableError(e, 'Votre territoire n\'a pas pu être retrouvé. Réessayez dans quelques minutes.'));
     return;
   }
+  if (!current()) return;
   let scope = territory.epci ? 'epci' : 'commune';
   const draw = () => {
     const exists = _layersOf(source).length > 0;
@@ -571,22 +645,24 @@ async function _renderCounters(ctx, source) {
       const btn = e.currentTarget;
       btn.disabled = true;
       const p = _progress(ctx.body.querySelector('#dg-src-progress'));
+      const order = dg.layers.length;
       try {
         p.step('Contours du territoire…');
         const contours = await resolveContours(territory, scope);
         const fc = await fetchCounters(contours, (msg) => p.step(msg));
         if (!fc.features.length) throw new Error('Aucun compteur public n\'est recensé sur ce territoire. Si votre collectivité en possède, demandez à son gestionnaire de les publier sur la plateforme nationale des fréquentations.');
-        p.step(`Enregistrement de ${_fmt(fc.features.length)} compteurs…`);
+        p.step(`Enregistrement de ${_fmt(fc.features.length)} compteur${fc.features.length > 1 ? 's' : ''}…`);
         const { features } = prepareDraft(fc);
         const code = scope === 'epci' ? territory.epci.code : territory.commune.code;
         const row = await persistStorageLayer({
-          features, keep: null, cfg: countersLayerCfg(scopeLabel(territory, scope).replace(/ \(.*\)$/, '')),
-          source: source.id, dataset: `counters-${scope}-${code}`, sort_order: dg.layers.length,
+          features, keep: null, cfg: countersLayerCfg(_scopeName(territory, scope)),
+          source: source.id, dataset: `counters-${scope}-${code}`, sort_order: order, city: ctx.city,
         });
         p.done();
-        await _finish(ctx, [row]);
+        await _finish(ctx, [row], current);
       } catch (err) {
-        p.fail(err.message || String(err));
+        console.warn('[admin/diagnostic] Compteurs:', err);
+        p.fail(readableError(err, ADD_FAILED));
         btn.disabled = false;
       }
     });
@@ -595,7 +671,7 @@ async function _renderCounters(ctx, source) {
 }
 
 /* Un lien à coller (Waze for Cities) */
-function _renderLink(ctx, source) {
+function _renderLink(ctx, source, _dropped, current) {
   ctx.body.innerHTML = `
     <div class="dg-page">
       <p class="dg-page__lead">${esc(source.sentence)}</p>
@@ -604,7 +680,7 @@ function _renderLink(ctx, source) {
         <label class="adm-label" for="dg-src-link">Lien du flux</label>
         <div class="dg-url-row">
           <input type="url" class="adm-input" id="dg-src-link" placeholder="${escAttr(source.linkPlaceholder || 'https://…')}" autocomplete="off" spellcheck="false">
-          <button type="button" class="adm-btn adm-btn--secondary" id="dg-src-check">Vérifier</button>
+          <button type="button" class="adm-btn adm-btn--secondary" id="dg-src-check">Vérifier le lien</button>
         </div>
       </div>
       ${_existingHtml(source)}
@@ -621,11 +697,12 @@ function _renderLink(ctx, source) {
     const p = _progress(result);
     p.step('Lecture du flux…');
     try {
-      const counts = await checkWazeFeed(feed);
+      const counts = await checkWazeFeed(feed, ctx.city);
+      if (!current()) return;
       p.remove();
       result.innerHTML = `
         <div class="dg-reco">
-          <div class="dg-reco__head"><span class="dg-reco__ok"><i class="fa-solid fa-check"></i></span> Flux Waze valide</div>
+          <div class="dg-reco__head"><span class="dg-reco__ok"><i class="fa-solid fa-check"></i></span> Le lien de votre flux Waze fonctionne.</div>
           <dl class="dg-reco__facts">
             <div><dt>En ce moment</dt><dd>${_fmt(counts.alerts)} alerte${counts.alerts > 1 ? 's' : ''} et ${_fmt(counts.jams)} ralentissement${counts.jams > 1 ? 's' : ''}</dd></div>
           </dl>
@@ -636,12 +713,13 @@ function _renderLink(ctx, source) {
         </div>
         <div id="dg-src-progress"></div>`;
       result.querySelector('#dg-src-add').addEventListener('click', async (e) => {
-        const btn = e.currentTarget;
-        btn.disabled = true;
+        const addBtn = e.currentTarget;
+        addBtn.disabled = true;
         const pp = _progress(result.querySelector('#dg-src-progress'));
+        const order = dg.layers.length;
         try {
           const rows = [];
-          for (const { cfg, source_ref } of wazeLayerCfgs(feed)) {
+          for (const { cfg, source_ref } of wazeLayerCfgs(feed, ctx.city)) {
             pp.step(`Enregistrement : ${cfg.label}…`);
             const { data, error } = await api.upsertDiagnosticLayer({
               label: cfg.label,
@@ -652,20 +730,21 @@ function _renderLink(ctx, source) {
               popup: layerPopup(cfg, source.id, 'waze-feed'),
               ai_context: cfg.ai_context,
               default_on: cfg.default_on,
-              sort_order: dg.layers.length + rows.length,
-            });
+              sort_order: order + rows.length,
+            }, ctx.city);
             if (error) throw error;
             rows.push(data);
           }
           pp.done();
-          await _finish(ctx, rows);
+          await _finish(ctx, rows, current);
         } catch (err) {
-          pp.fail(err.message || String(err));
-          btn.disabled = false;
+          console.warn('[admin/diagnostic] Waze:', err);
+          pp.fail(readableError(err, ADD_FAILED));
+          addBtn.disabled = false;
         }
       });
     } catch (err) {
-      p.fail(err.message || String(err));
+      p.fail(readableError(err, 'Le lien n\'a pas pu être vérifié. Vérifiez votre connexion, puis réessayez.'));
     } finally {
       btn.disabled = false;
     }
@@ -675,7 +754,7 @@ function _renderLink(ctx, source) {
 }
 
 /* Un export à déposer (Strava Metro…) */
-function _renderFile(ctx, source, dropped = null) {
+function _renderFile(ctx, source, dropped = null, current = () => true) {
   ctx.body.innerHTML = `
     <div class="dg-page">
       <p class="dg-page__lead">${esc(source.sentence)}</p>
@@ -693,24 +772,25 @@ function _renderFile(ctx, source, dropped = null) {
   input.addEventListener('change', (e) => {
     const files = [...e.target.files];
     e.target.value = '';
-    if (files.length) _fileDropped(ctx, source, files);
+    if (files.length) _fileDropped(ctx, source, files, current);
   });
   ['dragover', 'dragenter'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('is-over'); }));
   ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('is-over'); }));
   drop.addEventListener('drop', async (e) => {
     const files = await filesFromDataTransfer(e.dataTransfer).catch(() => [...e.dataTransfer.files]);
-    if (files.length) _fileDropped(ctx, source, files);
+    if (files.length) _fileDropped(ctx, source, files, current);
   });
-  if (dropped) _showRecognized(ctx, source, dropped);
+  if (dropped) _showRecognized(ctx, source, dropped, current);
 }
 
-async function _fileDropped(ctx, source, files) {
+async function _fileDropped(ctx, source, files, current) {
   const result = ctx.body.querySelector('#dg-src-result');
   result.innerHTML = '';
   const p = _progress(result);
   p.step('Lecture des fichiers…');
   try {
     const dropped = await _recognize(files);
+    if (!current()) return;
     p.remove();
     if (!dropped.recipe || dropped.recipe.id !== source.recipeId) {
       const other = dropped.recipe ? SOURCES.find((s) => s.recipeId === dropped.recipe.id) : null;
@@ -724,42 +804,55 @@ async function _fileDropped(ctx, source, files) {
         </div>
         <div class="dg-page__actions">
           ${other ? `<button type="button" class="adm-btn adm-btn--primary" id="dg-src-switch">Ouvrir « ${esc(other.name)} »</button>` : ''}
-          <button type="button" class="adm-btn adm-btn--secondary" id="dg-src-adv">Décrire moi-même ces données</button>
+          <button type="button" class="adm-btn adm-btn--secondary" id="dg-src-adv">Décrire ce fichier moi-même</button>
         </div>`;
       result.querySelector('#dg-src-switch')?.addEventListener('click', () => _openSource(ctx, other, dropped));
       result.querySelector('#dg-src-adv')?.addEventListener('click', () => _openAdvanced(ctx, { files }));
       return;
     }
-    _showRecognized(ctx, source, dropped);
+    _showRecognized(ctx, source, dropped, current);
   } catch (e) {
-    p.fail(e.message || String(e));
+    if (!current()) return;
+    p.fail(readableError(e, 'Ces fichiers n\'ont pas pu être lus. Vérifiez qu\'il s\'agit bien de l\'archive téléchargée, puis déposez-la de nouveau.'));
   }
 }
 
-async function _showRecognized(ctx, source, dropped) {
+/** « Tronçons », « Points » : le nom des éléments d'un export, pour une ligne de faits. */
+function _nounTitle(features) {
+  const label = countLabel(2, features).replace(/^\d+\s/, '');
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+async function _showRecognized(ctx, source, dropped, current) {
   const result = ctx.body.querySelector('#dg-src-result');
   const drop = ctx.body.querySelector('#dg-src-drop');
   if (drop) drop.hidden = true;
   result.innerHTML = `<div class="dg-page__loading"><i class="fa-solid fa-spinner fa-spin"></i> Lecture du tableau…</div>`;
   const { recipe, table, features } = dropped;
   let filter = null;
-  try { filter = await recipeFilterValues(table, recipe); } catch (e) { result.innerHTML = `<div class="dg-cat__error"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(e.message)}</div>`; return; }
+  try {
+    filter = await recipeFilterValues(table, recipe);
+  } catch (e) {
+    if (current()) result.innerHTML = `<div class="dg-cat__error"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(readableError(e, 'Le tableau de cet export n\'a pas pu être lu. Déposez de nouveau l\'archive téléchargée.'))}</div>`;
+    return;
+  }
+  if (!current()) return;
   const sortedValues = filter ? filter.values.map(([v]) => v).sort() : [];
   result.innerHTML = `
     <div class="dg-reco">
-      <div class="dg-reco__head"><span class="dg-reco__ok"><i class="fa-solid fa-check"></i></span> ${esc(recipe.name)} reconnu</div>
+      <div class="dg-reco__head"><span class="dg-reco__ok"><i class="fa-solid fa-check"></i></span> Nous avons reconnu un export ${esc(recipe.name)}.</div>
       <dl class="dg-reco__facts">
-        <div><dt>Entités</dt><dd>${_fmt(features.length)}</dd></div>
+        <div><dt>${esc(_nounTitle(features))}</dt><dd>${_fmt(features.length)}</dd></div>
         ${filter ? `<div><dt>${esc(recipe.join.filterLabel || filter.column)}</dt><dd>${sortedValues.length > 1 ? `de ${esc(sortedValues[0])} à ${esc(sortedValues[sortedValues.length - 1])}` : esc(sortedValues[0] || '')}</dd></div>
-        <div><dt>Retenu</dt><dd><select class="adm-select adm-select--inline" id="dg-src-filter">${filter.values.map(([v, n]) => `<option value="${escAttr(v)}" ${v === filter.chosen ? 'selected' : ''}>${esc(v)} (${_fmt(n)})</option>`).join('')}</select></dd></div>` : ''}
+        <div><dt>${esc(recipe.join.filterChosenLabel || 'Valeur retenue')}</dt><dd><select class="adm-select adm-select--inline" id="dg-src-filter" aria-label="${escAttr(recipe.join.filterChosenLabel || 'Valeur retenue')}">${filter.values.map(([v, n]) => `<option value="${escAttr(v)}" ${v === filter.chosen ? 'selected' : ''}>${esc(v)} (${_fmt(n)})</option>`).join('')}</select></dd></div>` : ''}
       </dl>
       ${_whatHtml(source)}
     </div>
     <div class="dg-page__actions">
       <button type="button" class="adm-btn adm-btn--primary dg-page__cta" id="dg-src-add"><i class="fa-solid fa-plus"></i> Ajouter au diagnostic</button>
-      <button type="button" class="adm-btn adm-btn--secondary" id="dg-src-other">Autre fichier</button>
+      <button type="button" class="adm-btn adm-btn--secondary" id="dg-src-other">Déposer un autre fichier</button>
     </div>
-    <button type="button" class="dg-cat__advlink" id="dg-src-adv"><i class="fa-solid fa-sliders"></i> Réglages avancés <span>nom, colonnes reprises, couleur, champs de la fenêtre au clic</span></button>
+    <button type="button" class="dg-cat__advlink" id="dg-src-adv"><i class="fa-solid fa-sliders"></i> Ouvrir les réglages avancés <span>nom, colonnes conservées, couleurs, ce qui s'affiche au clic</span></button>
     <div id="dg-src-progress"></div>`;
 
   const run = async (p) => {
@@ -768,22 +861,24 @@ async function _showRecognized(ctx, source, dropped) {
     const out = await runRecipe({ features, fields: dropped.fields, table, recipe, filterColumn: filter?.column || '', filterValue });
     return { out, filterValue };
   };
-  result.querySelector('#dg-src-other').addEventListener('click', () => _renderFile(ctx, source));
+  result.querySelector('#dg-src-other').addEventListener('click', () => _renderFile(ctx, source, null, current));
   result.querySelector('#dg-src-add').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     btn.disabled = true;
     const p = _progress(result.querySelector('#dg-src-progress'));
+    const order = dg.layers.length;
     try {
       const { out, filterValue } = await run(p);
-      p.step(`Enregistrement de ${_fmt(out.features.length)} entités…`);
+      p.step(`Enregistrement de ${countLabel(out.features.length, out.features)}…`);
       const row = await persistStorageLayer({
         features: out.features, keep: out.keep, cfg: out.cfg,
-        source: source.id, dataset: `${recipe.id}-${filterValue || 'all'}`, sort_order: dg.layers.length,
+        source: source.id, dataset: `${recipe.id}-${filterValue || 'all'}`, sort_order: order, city: ctx.city,
       });
       p.done();
-      await _finish(ctx, [row]);
+      await _finish(ctx, [row], current);
     } catch (err) {
-      p.fail(err.message || String(err));
+      console.warn('[admin/diagnostic] Export reconnu:', err);
+      p.fail(readableError(err, ADD_FAILED));
       btn.disabled = false;
     }
   });
@@ -793,15 +888,17 @@ async function _showRecognized(ctx, source, dropped) {
     const p = _progress(result.querySelector('#dg-src-progress'));
     try {
       const { out } = await run(p);
+      if (!current()) return;
       p.remove();
       const onAdded = ctx.onAdded;
       ctx.close();
       openLayerWizard({
         prefill: { name: dropped.name, features: out.features, fields: out.fields, keep: out.keep, cfg: out.cfg, source: source.id },
+        city: ctx.city,
         onSaved: (row) => onAdded?.([row]),
       });
     } catch (err) {
-      p.fail(err.message || String(err));
+      p.fail(readableError(err, 'Les réglages avancés n\'ont pas pu s\'ouvrir. Réessayez.'));
       btn.disabled = false;
     }
   });

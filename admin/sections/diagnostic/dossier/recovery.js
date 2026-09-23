@@ -8,23 +8,33 @@ export function waitForRetry(ms, signal) {
   });
 }
 
+/* Réponses techniques du relais, écrites pour les développeurs : l'agent lit une
+   phrase qui dit quoi faire. Les autres messages du relais lui sont déjà destinés. */
+const TECHNICAL = {
+  'Method not allowed': 'La demande n’a pas pu être envoyée. Rechargez la page, puis reprenez l’analyse.',
+  'Invalid JSON': 'La demande n’a pas pu être envoyée. Rechargez la page, puis reprenez l’analyse.',
+  'OPENAI_API_KEY not configured': 'Nous n’avons pas pu nous connecter au service d’analyse. Ce qui est déjà fait est conservé. Si le message revient, écrivez-nous depuis openprojets.com/contact.',
+};
 export async function readAnalysisResponse(response) {
   const data = await response.json().catch(() => null);
   if (response.ok && data) return data;
   const retryable = data?.retryable ?? (response.ok || [408, 429, 500, 502, 503, 504].includes(response.status));
-  const message = data?.error || (response.status === 401 ? 'Votre session a expiré. Reconnectez-vous pour reprendre l’analyse.' : 'Le service d’analyse est momentanément indisponible.');
+  const message = response.status === 401 ? 'Votre session a expiré. Reconnectez-vous, puis reprenez l’analyse : ce qui est fait est conservé.'
+    : TECHNICAL[data?.error] || data?.error || 'Le service d’analyse est momentanément indisponible. Ce qui est fait est conservé ; reprenez l’analyse dans quelques minutes.';
   const retryHeader = response.headers.get('Retry-After');
   const delay = Number(retryHeader) * 1000 || Date.parse(retryHeader) - Date.now() || 0;
   throw Object.assign(new Error(message), { retryable, code: data?.code || 'service', status: response.status, usage: data?._usage, retryAfter: Math.min(30000, Math.max(0, delay)) });
 }
 
-export async function recoverRequest(payload, validate, { request, signal, notify = () => {}, wait = waitForRetry, splittable = false }) {
-  let issue = '', details = {}, repairs = 0, failures = 0;
+/** Le numéro d'essai ne sert qu'à distinguer deux demandes identiques : une réponse
+ * refusée ne doit jamais revenir telle quelle de la mémoire du service. */
+export async function recoverRequest(payload, validate, { request, signal, notify = () => {}, wait = waitForRetry, splittable = false, attempt = 0, onReject = () => {}, repairs = 1 }) {
+  let issue = '', details = {}, repaired = 0, failures = 0, tries = attempt;
   for (;;) {
     if (signal?.aborted) throw new DOMException('Analyse interrompue', 'AbortError');
     let result;
     try {
-      result = await request({ ...payload, ...(issue ? { retryReason: 'quality', qualityIssue: issue, qualityDetails: details } : {}) }, signal);
+      result = await request({ ...payload, ...(tries ? { attempt: tries } : {}), ...(issue ? { retryReason: 'quality', qualityIssue: issue, qualityDetails: details } : {}) }, signal);
     } catch (error) {
       if (signal?.aborted || error.name === 'AbortError') throw error;
       if (splittable && ['timeout', 'incomplete'].includes(error.code)) throw error;
@@ -38,9 +48,10 @@ export async function recoverRequest(payload, validate, { request, signal, notif
     try { return validate(result); }
     catch (error) {
       error.code = 'quality';
-      if (repairs >= 1) throw error;
-      repairs++; issue = error.issue || 'format'; details = error.details || {};
-      notify({ recovery: 'quality', attempt: repairs, attempts: 1 });
+      onReject(++tries);
+      if (repaired >= repairs) throw error;
+      repaired++; issue = error.issue || 'format'; details = error.details || {};
+      notify({ recovery: 'quality', attempt: repaired, attempts: repairs });
     }
   }
 }

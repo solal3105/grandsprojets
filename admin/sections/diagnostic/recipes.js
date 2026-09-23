@@ -16,7 +16,8 @@ const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 export const RECIPES = [
   {
     id: 'strava-metro-edges',
-    name: 'Strava Metro - flux par tronçon',
+    // Lu dans une phrase : « Nous avons reconnu un export Strava Metro par tronçon. »
+    name: 'Strava Metro par tronçon',
     // Signature : champs du fichier géographique et colonnes du tableau.
     geoFields: ['edgeUID'],
     tableColumns: ['edge_uid', 'year', 'total_trip_count'],
@@ -25,6 +26,7 @@ export const RECIPES = [
       tableKey: 'edge_uid',
       filterColumn: 'year',
       filterLabel: 'Années',
+      filterChosenLabel: 'Année retenue',
       filterRule: 'latest', // la dernière année disponible
       columns: [
         'total_trip_count', 'forward_trip_count', 'reverse_trip_count',
@@ -41,9 +43,9 @@ export const RECIPES = [
       style: { mode: 'graduated', value_field: 'total_trip_count', color: '#DC2626', radius: 3 },
       popup: { title_field: '', fields: ['total_trip_count', 'forward_trip_count', 'reverse_trip_count', 'ebike_ride_count'] },
       metrics: [
-        { field: 'total_trip_count', agg: 'max' },
-        { field: 'ebike_ride_count', agg: 'max' },
-        { field: 'forward_average_speed_meters_per_second', agg: 'mean' },
+        { field: 'total_trip_count', agg: 'max', label: 'Passages sur le tronçon le plus emprunté', unit: 'passages' },
+        { field: 'ebike_ride_count', agg: 'max', label: 'Passages en vélo électrique sur le tronçon qui en compte le plus', unit: 'passages' },
+        { field: 'forward_average_speed_meters_per_second', agg: 'mean', label: 'Vitesse moyenne dans un sens', unit: 'mètres par seconde' },
       ],
       ai_context: 'Passages par tronçon de rue sur une année, comptés par Strava Metro à partir des déplacements enregistrés par les utilisateurs de l\'application (échantillon de pratiquants, pas un comptage exhaustif)',
     },

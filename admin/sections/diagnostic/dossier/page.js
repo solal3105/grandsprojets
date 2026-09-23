@@ -3,11 +3,12 @@ import { store } from '../../../store.js';
 import { router } from '../../../router.js';
 import { esc, toast } from '../../../components/ui.js';
 import { showLegacyReport } from '../legacy-report.js';
-import { dossierRow, dossierSummary, analysisRequired } from './model.js';
-import { pageHtml, printHtml, layerHtml, analysisStatus, editorHtml } from './view.js';
+import { dossierRow, dossierSummary, analysisRequired, overviewMissing } from './model.js';
+import { pageHtml, printHtml, layerHtml, analysisStatus, editorHtml, saveStateText } from './view.js';
 import { analyzeDossier, prepareWordingRefresh, prepareLayerRefresh, refreshOverview } from './analyze.js';
 import { draftKey, readDraft, writeDraft, removeDraft } from './drafts.js';
 import { prepareFindingFigures } from './figures.js';
+import { storeFigures, loadFigures } from './figure-store.js';
 import { readAnalysisResponse } from './recovery.js';
 import { layerAnalyses, findingLayerId } from './presentation.js';
 
@@ -24,7 +25,12 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
   let activeView = 'overview', activeLayerId = null, appendix = false;
   const layerSelection = new Map();
   let dossier, dirty = false, key = draftKey(userId, city, reportId), saving = false;
+  // Dernier résultat de l'écriture du brouillon local : l'état affiché survit à un nouvel affichage.
+  let localSaved = true;
   let figuresJob = null;
+  // Version enregistrée à l'ouverture du dossier, avant la fin de son analyse :
+  // elle reçoit l'analyse terminée pour qu'un collègue ou un autre appareil ne la repaie pas.
+  let provisional = null;
   const isDraft = () => reportId === 'draft' || reportId.startsWith('draft-');
   const alive = () => !disposed && isAlive() && city === store.city;
   const dialog = document.createElement('dialog');
@@ -55,10 +61,10 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
 
   const checkpoint = async () => {
     dirty = true;
-    const local = await writeDraft(key, dossier);
+    localSaved = Boolean(await writeDraft(key, dossier));
     if (!alive()) return;
     const status = container.querySelector('[data-save-state]');
-    if (status) status.textContent = local ? 'Brouillon conservé sur cet appareil' : 'Modifications à enregistrer avant de quitter';
+    if (status) status.textContent = saveStateText(dossier, { saved: false, local: localSaved });
   };
 
   function ensureFigures() {
@@ -80,11 +86,11 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
 
   function render() {
     if (!alive()) return;
-    document.title = `${dossier.title || 'Dossier de zone'} - Diagnostic terrain`;
+    document.title = `${dossier.title || 'Dossier de zone'} · Diagnostic terrain`;
     const layers = layerAnalyses(dossier);
     activeLayerId ||= layers.find((l) => l.status !== 'empty')?.source.id;
     activeId = layerSelection.get(activeLayerId) ?? layers.find((l) => l.source.id === activeLayerId)?.findings[0]?.id;
-    container.innerHTML = pageHtml(dossier, { activeId, activeLayerId, activeView, saved: !dirty && !isDraft(), progress });
+    container.innerHTML = pageHtml(dossier, { activeId, activeLayerId, activeView, saved: !dirty && !isDraft(), local: localSaved, progress });
 
     container.querySelectorAll('[data-view], [data-open-view]').forEach((button) => button.addEventListener('click', () => selectView(button.dataset.view || button.dataset.openView)));
     container.querySelector('.dz-tabs').addEventListener('keydown', (event) => {
@@ -128,10 +134,11 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
     const editor = dialog.querySelector('[data-editor]');
     const objectiveBefore = dossier.objective || '';
     dossier.analysis.overviewObjective ??= objectiveBefore;
+    // Sans texte à lire, aucune synthèse n'est rédigée : le bouton d'actualisation n'existe pas.
     const refresh = editor.querySelector('[data-refresh-overview]');
-    refresh.hidden = Boolean(controller) || dossier.objective === dossier.analysis.overviewObjective;
+    if (refresh) refresh.hidden = Boolean(controller) || dossier.objective === dossier.analysis.overviewObjective;
     editor.querySelector('[name="objective"]').disabled = Boolean(controller);
-    refresh.addEventListener('click', async () => {
+    refresh?.addEventListener('click', async () => {
       if (controller) return;
       refreshOverview(dossier); dialog.close(); await checkpoint(); void run();
     });
@@ -147,14 +154,16 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
       clearTimeout(draftTimer); draftTimer = setTimeout(checkpoint, 250);
       if (field === 'title') {
         container.querySelector('.dz-header h1').textContent = dossier.title || 'Dossier de zone';
-        document.title = `${dossier.title || 'Dossier de zone'} - Diagnostic terrain`;
+        document.title = `${dossier.title || 'Dossier de zone'} · Diagnostic terrain`;
       }
       if (field === 'objective') {
         const objective = container.querySelector('.dz-objective');
-        refresh.hidden = dossier.objective === (dossier.analysis.overviewObjective ?? objectiveBefore);
+        if (refresh) refresh.hidden = dossier.objective === (dossier.analysis.overviewObjective ?? objectiveBefore);
         objective.textContent = dossier.objective; objective.hidden = !dossier.objective.trim();
       }
       if (field === 'editorialSummary') {
+        // Quand la synthèse proposée manque, celle de la collectivité débloque l'export : la page se recompose.
+        if (overviewMissing(dossier) && !controller) { render(); return; }
         container.querySelector('.dz-overview .dz-lead').textContent = dossierSummary(dossier);
         container.querySelector('[data-summary-credit]').hidden = !dossier.editorialSummary.trim();
       }
@@ -162,7 +171,7 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
         container.querySelector('[data-field-note]').hidden = !dossier.notes.trim();
         container.querySelector('[data-notes-preview]').textContent = dossier.notes;
       }
-      container.querySelector('[data-save-state]').textContent = 'Modifications sur cet appareil';
+      // L'état n'annonce « gardées » qu'une fois le brouillon réellement écrit (checkpoint).
     });
   }
 
@@ -238,7 +247,7 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
   function editFinding(id) {
     const finding = dossier.findings.find((f) => f.id === id);
     if (!finding || analysisRequired(dossier) || saving) return;
-    openDialog('Ajuster la lecture du constat', `<p>Votre reformulation sera attribuée à la collectivité. Les références, les citations et les chiffres conserveront leurs données d’origine.</p><form class="dz-editor" data-finding-editor><label>Titre du constat<input class="adm-input" name="title" maxlength="180" required value="${esc(finding.title)}"></label><label>Votre lecture<textarea class="adm-input" name="reading" rows="5" maxlength="3000" required>${esc(finding.reading)}</textarea></label><label>Nuance ou limite <span>Facultatif</span><textarea class="adm-input" name="caveat" rows="3" maxlength="1200">${esc(finding.caveat)}</textarea></label><label>Question à vérifier sur le terrain <span>Facultatif</span><textarea class="adm-input" name="question" rows="3" maxlength="800">${esc(finding.question)}</textarea></label><button class="adm-btn adm-btn--primary" type="submit">Appliquer ma reformulation</button></form>`);
+    openDialog('Reformuler le constat', `<p>Votre reformulation sera attribuée à la collectivité. Les références, les citations et les chiffres conserveront leurs données d’origine.</p><form class="dz-editor" data-finding-editor><label>Titre du constat<input class="adm-input" name="title" maxlength="180" required value="${esc(finding.title)}"></label><label>Votre lecture<textarea class="adm-input" name="reading" rows="5" maxlength="3000" required>${esc(finding.reading)}</textarea></label><label>Nuance ou limite <span>Facultatif</span><textarea class="adm-input" name="caveat" rows="3" maxlength="1200">${esc(finding.caveat)}</textarea></label><label>Question à vérifier sur le terrain <span>Facultatif</span><textarea class="adm-input" name="question" rows="3" maxlength="800">${esc(finding.question)}</textarea></label><button class="adm-btn adm-btn--primary" type="submit">Valider la reformulation</button></form>`);
     dialog.querySelector('form').addEventListener('submit', async (event) => {
       event.preventDefault();
       const fields = new FormData(event.currentTarget);
@@ -271,7 +280,35 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
       status.innerHTML = analysisStatus(dossier, progress); wireAnalysis();
     } });
     controller = null; progress = null;
-    if (alive()) { removePrint(); render(); void ensureFigures(); }
+    if (!alive()) return;
+    removePrint(); render();
+    if (dossier.analysis.refreshError) {
+      toast('La synthèse n’a pas pu être actualisée. La précédente est conservée ; vous pouvez réessayer depuis « Personnaliser ».', 'warning');
+      dossier.analysis.refreshError = '';
+    }
+    await ensureFigures();
+    await completeProvisionalVersion();
+  }
+
+  /* La version enregistrée à l'ouverture reçoit son analyse terminée, sans devenir
+     une nouvelle version : ce n'est pas une modification de la collectivité. Les
+     champs saisis entre-temps (nom, observations, synthèse) restent à enregistrer. */
+  async function completeProvisionalVersion() {
+    if (!provisional || isDraft() || analysisRequired(dossier) || dossier.analysis.status !== 'complete' || saving || !alive()) return;
+    await storeFigures(dossier, api.uploadDiagnosticFigure);
+    if (!alive()) return;
+    const snapshot = structuredClone(dossier);
+    for (const field of ['title', 'objective', 'notes', 'editorialSummary']) snapshot[field] = provisional[field];
+    const { data, error } = await api.updateDiagnosticReport(reportId, dossierRow(snapshot));
+    if (error || !data?.id || !alive()) return;
+    const pending = ['title', 'objective', 'notes', 'editorialSummary'].some((field) => (dossier[field] || '') !== (provisional[field] || ''))
+      || dossier.findings.some((f) => f.edited || f.included === false);
+    provisional = null;
+    if (pending) return;
+    await removeDraft(key);
+    dirty = false;
+    const state = container.querySelector('[data-save-state]');
+    if (state) state.textContent = `Version ${Number(dossier.revision) || 1} enregistrée`;
   }
 
   function openDialog(title, content, editor = false) {
@@ -286,7 +323,7 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
     const finding = dossier.findings.find((f) => f.id === findingId);
     const selected = finding ? new Set(finding.observationIds) : null;
     const observations = dossier.observations.filter((o) => (!selected || selected.has(o.id)) && (!layerId || o.sourceId === layerId));
-    openDialog(finding ? 'Les observations de ce constat' : layerId ? 'Les observations de cette couche' : 'Les observations du dossier', `<p>Les textes sont conservés tels qu’ils figurent dans les données. Un point ne correspond pas nécessairement à une personne distincte.</p><label class="dz-search">Rechercher dans les observations<input type="search" class="adm-input" data-search placeholder="Un lieu, un mot, une référence…"></label><p data-evidence-count role="status"></p><div data-evidence-list></div><button type="button" class="adm-btn adm-btn--secondary" data-more>Afficher la suite</button>`);
+    openDialog(finding ? 'Les observations de ce constat' : layerId ? 'Les observations de ce jeu de données' : 'Les observations du dossier', `<p>Les textes sont conservés tels qu’ils figurent dans les données. Un point ne correspond pas nécessairement à une personne distincte.</p><label class="dz-search">Rechercher dans les observations<input type="search" class="adm-input" data-search placeholder="Un lieu, un mot, une référence…"></label><p data-evidence-count role="status"></p><div data-evidence-list></div><button type="button" class="adm-btn adm-btn--secondary" data-more>Afficher la suite</button>`);
     let count = 20;
     const draw = () => {
       const query = dialog.querySelector('[data-search]').value.toLocaleLowerCase('fr');
@@ -328,6 +365,8 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
     button.disabled = true; button.textContent = 'Enregistrement…';
     await ensureFigures();
     if (!alive()) return;
+    await storeFigures(dossier, api.uploadDiagnosticFigure);
+    if (!alive()) return;
     const snapshot = structuredClone(dossier);
     snapshot.revision = (Number(snapshot.revision) || 1) + (isDraft() ? 0 : 1);
     try {
@@ -335,7 +374,8 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
       if (error || !data?.id) throw error || new Error('Version non enregistrée');
       if (!alive()) return;
       await removeDraft(key);
-      dossier = snapshot; dirty = false; reportId = data.id; key = draftKey(userId, city, reportId);
+      // Une version enregistrée par l'agent n'est plus la version provisoire à compléter.
+      dossier = snapshot; dirty = false; reportId = data.id; key = draftKey(userId, city, reportId); provisional = null;
       router.navigate(`/admin/diagnostic/${reportId}/`, { replace: true, skipRender: true });
       render(); toast('La version et ses cartes sont enregistrées.', 'success');
     } catch (error) {
@@ -362,17 +402,22 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
         return;
       }
       dossier = row.analysis.dossier;
+      if (analysisRequired(dossier)) provisional = { title: dossier.title, objective: dossier.objective, notes: dossier.notes, editorialSummary: dossier.editorialSummary };
       const draft = await readDraft(key);
       if (draft?.familyId === dossier.familyId && draft.city === city) { dossier = draft; dirty = true; }
     }
     if (!alive()) return;
     if (!dossier || dossier.schemaVersion !== 2 || dossier.city !== city) throw new Error('Ce dossier n’est pas disponible. Revenez à la carte pour en préparer un nouveau.');
+    // Les images rangées dans le compartiment privé reviennent en mémoire, comme dans une ancienne version.
+    await loadFigures(dossier, api.downloadDiagnosticFigure);
+    if (!alive()) return;
     prepareLayerRefresh(dossier);
     prepareWordingRefresh(dossier);
-    // Une ouverture reprend les étapes manquantes une seule fois. Une panne
-    // attend ensuite une reprise explicite, sans boucler sur le service IA.
-    if (analysisRequired(dossier) && dossier.analysis.lastError?.code !== 'budget') void run();
-    else render();
+    // Une ouverture reprend seulement une analyse interrompue (page fermée, pause).
+    // Après une panne ou un refus, la reprise attend le clic de l'agent : rouvrir un
+    // dossier ne déclenche jamais de dépense qu'il n'a pas demandée.
+    if (analysisRequired(dossier) && !dossier.analysis.lastError) void run();
+    else { render(); void completeProvisionalVersion(); }
   } catch (error) {
     if (!alive()) return;
     container.innerHTML = `<div class="dz-empty"><h1>Le dossier n’a pas pu être ouvert.</h1><p>${esc(error.message)}</p><a class="adm-btn adm-btn--primary" href="/admin/diagnostic/">Revenir au diagnostic</a></div>`;

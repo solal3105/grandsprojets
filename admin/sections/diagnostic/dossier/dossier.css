@@ -91,6 +91,8 @@ body.is-dossier-open .adm-main__inner { padding: 0; max-width: none; }
 .dz-run__lot.is-current { border-color: color-mix(in srgb, var(--dz-accent) 55%, var(--dz-line)); box-shadow: 0 1px 3px color-mix(in srgb, var(--dz-accent) 20%, transparent); }
 .dz-run__lot.is-current::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--dz-accent) 42%, transparent), transparent); transform: translateX(-100%); animation: dz-sweep 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
 @keyframes dz-sweep { to { transform: translateX(100%); } }
+/* Le rapprochement d'une source suit ses lots : une case courte, décalée, qui ne compte pas comme un lot. */
+.dz-run__merge { flex: none; width: 18px; margin-left: 5px; border-style: dashed; }
 .dz-run__final { flex: none; max-width: 76px; margin-left: 4px; padding-left: 16px; border-left: 1px solid var(--border-medium); }
 .dz-run__final .dz-run__lot { width: 34px; flex: none; }
 .dz-run-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
@@ -249,6 +251,8 @@ body.is-dossier-open .adm-main__inner { padding: 0; max-width: none; }
 .dg-dossier-intro dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border-light); font-size: 12px; }
 .dg-dossier-intro dd { font-weight: 600; }
 .dg-dossier-intro .adm-form-hint { font-size: 12px; margin-top: 12px; }
+/* L'aide de l'objet colle à son champ ; le bouton d'analyse garde son écart habituel. */
+.dg-dossier-intro .dg-dossier-help { font-size: 12px; margin: 6px 0 16px; }
 .dz-date { flex: none; color: var(--dz-muted); font-size: 11px; padding-bottom: 4px; }
 .dz-area { color: var(--dz-muted); font-size: 11px; margin-top: 12px; }
 .dz-workspace .dz-map svg { max-height: 380px; }

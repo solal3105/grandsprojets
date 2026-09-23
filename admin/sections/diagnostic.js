@@ -58,11 +58,11 @@ export async function renderDiagnostic(container, params = {}) {
       <div class="adm-page-header dg-header">
         <div>
           <h1 class="adm-page-title"><i class="fa-solid fa-map-location-dot"></i> Diagnostic terrain</h1>
-          <p class="adm-page-subtitle">Agrégez les données de votre territoire, sélectionnez une zone et obtenez un diagnostic sourcé.</p>
+          <p class="adm-page-subtitle">Ajoutez les données de votre territoire, tracez une zone, puis ouvrez son dossier.</p>
         </div>
         <div class="dg-header__actions">
           <button type="button" class="adm-btn adm-btn--secondary" id="dg-history-btn">
-            <i class="fa-solid fa-clock-rotate-left"></i> Historique
+            <i class="fa-solid fa-clock-rotate-left"></i> Dossiers enregistrés
           </button>
         </div>
       </div>
@@ -77,7 +77,7 @@ export async function renderDiagnostic(container, params = {}) {
           </button>
         </div>
         <div class="dg-lasso-hint" id="dg-lasso-hint" hidden>
-          <i class="fa-solid fa-hand-pointer"></i> Entourez les points à analyser - <b>Échap</b> pour annuler
+          <i class="fa-solid fa-hand-pointer"></i> Entourez la zone à étudier. Appuyez sur <b>Échap</b> pour annuler.
         </div>
       </div>
     </div>
@@ -115,9 +115,6 @@ export async function renderDiagnostic(container, params = {}) {
       await createMap(container.querySelector('#dg-map'));
       if (!alive()) return;
       wireLasso(mapWrap, handleSelection);
-      // Synchroniser les couches déjà chargées pendant l'init de la carte.
-      for (const layer of dg.layers) syncLayerRender(layer);
-      fitToData();
     } catch (err) {
       console.warn('[admin/diagnostic] Carte indisponible:', err);
       // Rendu obsolète : destroyDiagnostic a déjà retiré la carte de CE rendu,
@@ -129,9 +126,17 @@ export async function renderDiagnostic(container, params = {}) {
       mapWrap.querySelector('#dg-maptools')?.setAttribute('hidden', '');
       const notice = document.createElement('div');
       notice.className = 'dg-map-error';
-      notice.innerHTML = `<i class="fa-solid fa-map"></i> ${esc('Carte non disponible - la gestion des couches reste accessible.')}`;
+      notice.innerHTML = `<i class="fa-solid fa-map"></i> ${esc('La carte n\'a pas pu s\'afficher. Vous pouvez tout de même gérer vos couches ; rechargez la page pour réessayer.')}`;
       mapWrap.appendChild(notice);
+      return;
     }
+    // Couches déjà chargées pendant l'initialisation de la carte, puis
+    // cadrage. Une couche mal formée ou un cadrage impossible ne touchent
+    // qu'elle-même : jamais toute la carte.
+    for (const layer of dg.layers) {
+      try { syncLayerRender(layer); } catch (e) { console.warn('[admin/diagnostic] Couche non affichée:', layer.label, e); }
+    }
+    try { fitToData(); } catch (e) { console.warn('[admin/diagnostic] Cadrage ignoré:', e); }
   }, 200);
 }
 
@@ -174,7 +179,8 @@ function _wireFullscreen(mapWrap) {
 export function destroyDiagnostic() {
   _epoch++; // interrompt les continuations async du rendu en cours
   destroyDossierPage();
-  dg.abortCtrl?.abort();
+  // Le catalogue et l'assistant d'ajout s'y sont inscrits : ils se ferment
+  // avec la section (un changement d'espace ne doit pas les laisser ouverts).
   for (const fn of dg.cleanupFns) {
     try { fn(); } catch { /* listener déjà retiré */ }
   }
@@ -183,5 +189,5 @@ export function destroyDiagnostic() {
   dg.map = null;
   dg.mapReady = false;
   dg.container = null;
-  document.querySelectorAll('.dg-report-doc, .dg-modal-overlay').forEach((el) => el.remove());
+  document.querySelectorAll('.dg-report-doc, .dg-modal-overlay, .dg-cat-overlay').forEach((el) => el.remove());
 }

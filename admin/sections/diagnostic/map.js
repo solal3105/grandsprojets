@@ -499,13 +499,18 @@ const MIN_SPAN_DEG = 0.0009; // ≈ 100 m
  */
 export function zoneBounds(ring, features) {
   const bounds = new maplibregl.LngLatBounds();
-  for (const c of ring || []) bounds.extend(c);
+  // Une position hors des degrés (couche enregistrée en Lambert 93) ferait
+  // lever une erreur à MapLibre : elle est ignorée, jamais cadrée.
+  const add = (lng, lat) => {
+    if (Number.isFinite(lng) && Number.isFinite(lat) && Math.abs(lng) <= 180 && Math.abs(lat) <= 90) bounds.extend([lng, lat]);
+  };
+  for (const c of ring || []) add(c?.[0], c?.[1]);
   for (const f of features || []) {
     if (f.__bbox) {
-      bounds.extend([f.__bbox[0], f.__bbox[1]]);
-      bounds.extend([f.__bbox[2], f.__bbox[3]]);
+      add(f.__bbox[0], f.__bbox[1]);
+      add(f.__bbox[2], f.__bbox[3]);
     } else if (f.__pt) {
-      bounds.extend(f.__pt);
+      add(f.__pt[0], f.__pt[1]);
     }
   }
   if (bounds.isEmpty()) return null;
@@ -562,18 +567,23 @@ function _framePadding(map, base = 48) {
  */
 export function fitBoundsSafely(bounds, { maxZoom = 17.5, duration = 550, base = 48, allowZoomOut = false } = {}) {
   const map = dg.map;
-  if (!map || !bounds || bounds.isEmpty?.()) return;
-  const padding = _framePadding(map, base);
-  // cameraForBounds force bearing 0 si on ne le lui passe pas : la carte
-  // reviendrait au nord à chaque sélection alors que l'utilisateur l'a tournée.
-  const cam = map.cameraForBounds(bounds, { padding, maxZoom, bearing: map.getBearing() });
-  if (!cam) return; // emprise incadrable dans ce canvas
-  map.easeTo({
-    center: cam.center,
-    zoom: allowZoomOut ? cam.zoom : Math.max(cam.zoom, map.getZoom()),
-    bearing: map.getBearing(),
-    duration,
-  });
+  if (!map || !dg.mapReady || !bounds || bounds.isEmpty?.()) return;
+  try {
+    const padding = _framePadding(map, base);
+    // cameraForBounds force bearing 0 si on ne le lui passe pas : la carte
+    // reviendrait au nord à chaque sélection alors que l'utilisateur l'a tournée.
+    const cam = map.cameraForBounds(bounds, { padding, maxZoom, bearing: map.getBearing() });
+    if (!cam) return; // emprise incadrable dans ce canvas
+    map.easeTo({
+      center: cam.center,
+      zoom: allowZoomOut ? cam.zoom : Math.max(cam.zoom, map.getZoom()),
+      bearing: map.getBearing(),
+      duration,
+    });
+  } catch (e) {
+    // Un cadrage impossible ne doit jamais rendre la carte indisponible.
+    console.warn('[admin/diagnostic] Cadrage ignoré:', e);
+  }
 }
 
 /**

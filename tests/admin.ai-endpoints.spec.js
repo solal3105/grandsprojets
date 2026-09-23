@@ -89,24 +89,17 @@ test.describe('14.1 - Validation du corps avec un JWT valide', () => {
     expect((await res.json()).error).toBe('Paramètre ville invalide');
   });
 
-  test('14.1.7 - ai-diagnostic : aucun point → 400', async ({ request }) => {
-    const res = await post(request, '/api/ai-diagnostic', { ville: 'test-e2e', sample: [] });
-    expect(res.status()).toBe(400);
-    expect((await res.json()).error).toBe('Aucun point à analyser');
-  });
-
-  test('14.1.8 - ai-diagnostic : points orphelins de toute source → 400', async ({ request }) => {
-    // Ville autorisée, points présents, mais leurs codes ne correspondent à
-    // aucune source décrite : le prompt mentirait sur son propre contenu.
-    // Ce cas passe APRÈS le contrôle d'autorisation, donc il prouve aussi que
-    // l'admin de test est bien reconnu sur sa structure.
+  test('14.1.7 - ai-diagnostic : une demande hors dossier est refusée, après le contrôle d’accès', async ({ request }) => {
+    // L'ancienne analyse de zone en un seul appel échappait au plafond de dépense :
+    // elle est retirée. Le refus arrive APRÈS le contrôle d'autorisation, donc il
+    // prouve aussi que l'admin de test est bien reconnu sur sa structure.
     const res = await post(request, '/api/ai-diagnostic', {
       ville: 'test-e2e',
-      layers: [],
+      layers: [{ code: 'S1', label: 'Signalements' }],
       sample: [{ i: 1, code: 'S1', text: 'nid-de-poule' }],
     });
     expect(res.status()).toBe(400);
-    expect((await res.json()).error).toBe('Aucun point à analyser');
+    expect((await res.json()).error).toBe('Seule l’analyse du dossier d’une zone est proposée');
   });
 
 });

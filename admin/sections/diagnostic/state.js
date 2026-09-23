@@ -35,15 +35,18 @@ export const INTERNAL_SOURCES = {
       ai_context: 'Projets urbains publiés sur la carte Open Projets de la structure',
     },
   },
+  // Le module Travaux sert tous les chantiers publiés, à venir, en cours et
+  // terminés (geojson-aggregate.mjs) : le nom et le contexte le disent. Les
+  // couches déjà enregistrées gardent leur nom en base.
   travaux: {
-    label: 'Travaux en cours',
-    description: 'Les chantiers du module Travaux de la structure',
+    label: 'Chantiers publiés',
+    description: 'Les chantiers publiés dans le module Travaux, passés, en cours et à venir',
     icon: 'fa-solid fa-helmet-safety',
     endpoint: '/.netlify/functions/travaux-geojson',
     defaults: {
       style: { mode: 'single', color: '#F59E0B', radius: 5 },
-      popup: { title_field: 'project_name', fields: ['nature_travaux', 'etat', 'description'] },
-      ai_context: 'Chantiers et travaux de voirie en cours déclarés par la structure',
+      popup: { title_field: 'project_name', fields: ['nature_travaux', 'etat', 'date_debut', 'date_fin', 'description'] },
+      ai_context: 'Chantiers publiés par la structure dans son module Travaux, qu\'ils soient terminés, en cours ou à venir ; l\'état et les dates de chaque chantier sont indiqués',
     },
   },
 };
@@ -77,17 +80,15 @@ export function layerKind(layer) {
   return layer?.popup?.kind === 'reference' ? 'reference' : 'temoignages';
 }
 
-/** Chiffres de zone configurés d'une couche : [{ field, agg }]. */
+/**
+ * Chiffres de zone configurés d'une couche : [{ field, agg, label?, unit?, min? }].
+ * `label` et `unit` sont ceux que le dossier affiche ; `min` écarte les
+ * valeurs qui ne sont pas des mesures (le -1 d'une circulation bloquée).
+ */
 export function layerMetrics(layer) {
   const list = layer?.popup?.metrics;
   return Array.isArray(list) ? list.filter((m) => m && typeof m.field === 'string' && m.field) : [];
 }
-
-/**
- * Plafond du format historique, conservé pour la compatibilité de ses helpers.
- * Le dossier web utilise les lots définis dans dossier/contract.mjs.
- */
-export const MAX_ANALYSIS_POINTS = 300;
 
 // Les couleurs de couches viennent de la config en base : ne jamais les
 // injecter telles quelles dans un attribut style sans validation.
@@ -114,18 +115,15 @@ function _blankState() {
     // Hooks posés par diagnostic.js (évitent un import circulaire) : la
     // sélection doit être recalculée quand les couches visibles changent.
     onSelectionStale: null,
-    // Territoire de l'espace (commune, intercommunalité), résolu à la demande.
+    // Territoire de l'espace (commune, intercommunalité), résolu à la demande,
+    // et contours déjà téléchargés par périmètre.
     territory: null,
+    contours: null,
     // Sélection lasso.
     lasso: { armed: false, drawing: false, points: [] },
-    // features = témoignages retenus (comptés dans le plafond), context =
+    // features = témoignages retenus (lus par le dossier), context =
     // entités des couches de référence retenues (chiffres de zone).
     selection: null, // { features, context, polygon, bbox, areaKm2 }
-    // Analyse IA.
-    analysis: null, // { resume, insights, level, statsTxt, corrTxt }
-    aiSample: null,
-    abortCtrl: null,
-    insightFilter: 'all',
     // Divers UI.
     cleanupFns: [],
   };

@@ -11,8 +11,13 @@ import { dg } from '../state.js';
 const GEO_API = 'https://geo.api.gouv.fr';
 
 async function _json(url) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
-  if (!res.ok) throw new Error(`Découpage administratif indisponible (HTTP ${res.status})`);
+  let res;
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+  } catch {
+    throw new Error('Le service du découpage administratif (geo.api.gouv.fr) ne répond pas pour le moment. Réessayez dans quelques minutes.');
+  }
+  if (!res.ok) throw new Error(`Le service du découpage administratif (geo.api.gouv.fr) ne répond pas pour le moment (erreur ${res.status}). Réessayez dans quelques minutes.`);
   return res.json();
 }
 
@@ -28,7 +33,7 @@ export async function resolveTerritory() {
   if (!isFinite(lat) || !isFinite(lng)) throw new Error('Le centre de la carte de votre espace n\'est pas défini : renseignez-le dans Structure.');
   const found = await _json(`${GEO_API}/communes?lat=${lat}&lon=${lng}&fields=nom,code,codeEpci,epci,population`);
   const c = Array.isArray(found) ? found[0] : null;
-  if (!c) throw new Error('Aucune commune trouvée au centre de votre carte.');
+  if (!c) throw new Error('Aucune commune ne se trouve au centre de votre carte. Vérifiez le centre de la carte de votre espace dans Structure.');
   const commune = { code: c.code, nom: c.nom, population: c.population || 0 };
   let epci = null;
   if (c.epci?.code) {
@@ -75,7 +80,7 @@ export async function resolveContours(territory, scope) {
     if (g.type === 'Polygon') rings.push(g.coordinates[0]);
     else if (g.type === 'MultiPolygon') for (const poly of g.coordinates) rings.push(poly[0]);
   }
-  if (!rings.length) throw new Error('Contour du territoire indisponible.');
+  if (!rings.length) throw new Error('Nous n\'avons pas pu obtenir le contour de votre territoire. Réessayez dans quelques minutes.');
   const bbox = [Infinity, Infinity, -Infinity, -Infinity];
   for (const ring of rings) for (const [x, y] of ring) {
     if (x < bbox[0]) bbox[0] = x; if (y < bbox[1]) bbox[1] = y;
@@ -103,19 +108,4 @@ export async function communeCodesFor(territory, scope) {
     } catch { /* sans arrondissements, la commune seule */ }
   }
   return [...codes];
-}
-
-/**
- * Nom d'un lieu depuis une position (Base adresse nationale) : « Rue
- * Garibaldi, Lyon 3e ». Chaîne vide si le service ne répond pas.
- */
-export async function reverseGeocode(lng, lat, { precise = false } = {}) {
-  try {
-    const res = await fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${lng}&lat=${lat}${precise ? '' : '&type=street'}`, { signal: AbortSignal.timeout(6000) });
-    if (!res.ok) return '';
-    const data = await res.json();
-    const p = data?.features?.[0]?.properties;
-    if (!p) return '';
-    return [p.name || p.street, p.city].filter(Boolean).join(', ');
-  } catch { return ''; }
 }

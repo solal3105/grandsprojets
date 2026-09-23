@@ -4736,6 +4736,17 @@ body.dg-fs-lock { overflow: hidden; }
 .dg-row:hover { background: var(--black-alpha-04); }
 .dg-row--layer.is-off .dg-swatch, .dg-row--layer.is-off .dg-row__label { opacity: 0.55; }
 .dg-row--error .dg-row__sub { color: var(--color-danger); }
+/* Couche qui ne se charge plus : la raison se lit sans survol, avec de quoi réessayer.
+   Texte en gris foncé (contraste suffisant dans les deux thèmes), le rouge reste sur l'icône. */
+.dg-row__err { margin-top: 3px; font-size: 11px; line-height: 1.4; color: var(--gray-700); white-space: normal; overflow-wrap: anywhere; }
+.dg-row__err > i { color: var(--color-danger); margin-right: 4px; }
+.dg-row__retry {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: 4px;
+  border: none; background: none; padding: 0;
+  font: inherit; font-weight: 700; color: var(--gray-800);
+  cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+}
+.dg-row__retry i { font-size: 10px; }
 .dg-row__grip { width: 8px; flex: none; margin-right: -3px; color: var(--gray-300); font-size: 10px; cursor: grab; opacity: 0; transition: opacity var(--adm-transition); }
 .dg-row--layer:hover .dg-row__grip { opacity: 1; }
 .dg-row--layer.is-dragging { opacity: 0.45; }
@@ -5119,16 +5130,23 @@ html[data-theme='dark'] .dg-seg button.is-active { background: rgba(255, 255, 25
 .dg-join__error { color: var(--color-danger); font-weight: 600; }
 
 /* Chiffres de zone (couche de référence) */
-.dg-metrics { display: flex; flex-direction: column; gap: 6px; max-height: 190px; overflow-y: auto; }
+.dg-metrics { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; }
 .dg-metric {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px;
   padding: 7px 10px; border-radius: 10px;
   border: 1px solid var(--black-alpha-08); background: var(--surface-raised, #fff);
-  font-size: 12px; cursor: pointer;
+  font-size: 12px;
 }
 .dg-metric.is-active { border-color: rgba(var(--adm-primary-rgb), 0.4); background: rgba(var(--adm-primary-rgb), 0.05); }
+.dg-metric__head { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
 .dg-metric__name { flex: 1; min-width: 0; font-weight: 600; color: var(--gray-800); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dg-metric .adm-select { width: 120px; flex: none; padding: 4px 8px; font-size: 11.5px; }
+/* Nom et unité du chiffre, tels que le dossier de zone les affiche */
+.dg-metric__words { display: flex; gap: 8px; width: 100%; }
+.dg-metric__words[hidden] { display: none; }
+.dg-metric__word { display: flex; flex-direction: column; gap: 3px; flex: 1 1 60%; min-width: 0; font-size: 11px; font-weight: 600; color: var(--gray-600); }
+.dg-metric__word + .dg-metric__word { flex: 1 1 40%; }
+.dg-metric__word .adm-input { padding: 5px 8px; font-size: 12px; font-weight: 400; }
 #dg-wz-metrics-wrap[hidden], #dg-wz-grad-wrap[hidden] { display: none; }
 
 /* Couche de référence dans la liste */

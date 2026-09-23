@@ -21,7 +21,8 @@ export async function fingerprint(value) {
 
 export function originalsFor(groups, observations) {
   const ids = new Set(groups.flatMap((g) => g.observationIds || []));
-  return observations.filter((o) => ids.has(o.id)).map(({ id, sourceId, text, fields }) => ({ id, sourceId, text, fields }));
+  // Le champ qui porte déjà le texte n'est pas envoyé deux fois : il doublait la taille de la synthèse.
+  return observations.filter((o) => ids.has(o.id)).map(({ id, sourceId, text, fields }) => ({ id, sourceId, text, fields: (fields || []).filter((f) => f.value !== text) }));
 }
 
 /** Chaque texte possède une clé obligatoire : une omission devient impossible dans le JSON contraint. */

@@ -1,6 +1,6 @@
 /** Une même version de données, deux compositions : lecture web et édition papier. */
 import { esc } from '../../../components/ui.js';
-import { coverage, dossierSummary, number, analysisRequired } from './model.js';
+import { coverage, dossierSummary, number, analysisRequired, overviewMissing, OBJECTIVE_EXAMPLE } from './model.js';
 import { safeColor } from '../state.js';
 import { sourceById } from '../sources.js';
 import { makeBatches } from './contract.mjs';
@@ -10,6 +10,7 @@ export const dateText = (value) => new Date(value).toLocaleDateString('fr-FR', {
 const icon = (name) => `<i class="fa-solid fa-${name}" aria-hidden="true"></i>`;
 const paras = (text) => String(text || '').split(/\n+/).filter(Boolean).map((p) => `<p>${esc(p)}</p>`).join('');
 const sourceNames = (d, ids) => d.sources.filter((s) => ids.includes(s.id)).map((s) => s.label);
+const budgetStopped = (dossier) => dossier.analysis?.lastError?.code === 'budget';
 const safeImage = (url) => /^data:image\/(?:jpeg|png);base64,[a-z0-9+/=]+$/i.test(url || '') ? url : '';
 const mercator = (lat) => Math.log(Math.tan(Math.PI / 4 + Math.max(-85, Math.min(85, lat)) * Math.PI / 360));
 // Les exemples ne répètent pas un même texte, sans retirer les observations
@@ -96,10 +97,10 @@ function findingWeb(dossier, finding) {
       ${quotes.map((o, i) => `<blockquote><p>«&nbsp;${esc(o.text.length > 220 ? `${o.text.slice(0, 220).replace(/\s+\S*$/, '')}…` : o.text)}&nbsp;»</p><cite>${o.point ? `${String.fromCharCode(65 + i)} · ` : ''}${esc(dossier.sources.find((source) => source.id === o.sourceId)?.label)} · ${esc(o.id.toUpperCase())}</cite></blockquote>`).join('')}
       <button type="button" class="dz-text-button" data-evidence="${esc(finding.id)}">Consulter ${observations.length === 1 ? "l’observation" : `les ${number(observations.length, 0)} observations`} ${icon('arrow-right')}</button>
     </div></div>
-    ${finding.caveat || finding.question ? `<div class="dz-finding-context">${finding.caveat ? `<p class="dz-caveat">${esc(finding.caveat)}</p>` : ''}${finding.question ? `<p><b>À vérifier sur place</b> ${esc(finding.question)}</p>` : ''}</div>` : ''}
-    <details class="dz-finding-options"><summary>Ajuster ce constat ${icon('sliders')}</summary><div>
+    ${finding.caveat || finding.question ? `<div class="dz-finding-context">${finding.caveat ? `<p class="dz-caveat">${esc(finding.caveat)}</p>` : ''}${finding.question ? `<p><b>À vérifier sur le terrain</b> ${esc(finding.question)}</p>` : ''}</div>` : ''}
+    <details class="dz-finding-options"><summary>Modifier ce constat ${icon('sliders')}</summary><div>
       <label class="dz-check"><input type="checkbox" data-include="${esc(finding.id)}" ${finding.included !== false ? 'checked' : ''}>Inclure ce constat dans le PDF</label>
-      <button type="button" class="dz-text-button" data-edit-finding="${esc(finding.id)}">${icon('pen')} Modifier le texte</button>
+      <button type="button" class="dz-text-button" data-edit-finding="${esc(finding.id)}">${icon('pen')} Reformuler le constat</button>
       ${peers.length > 1 ? `<div class="dz-finding-order"><span>Ordre de lecture</span><button type="button" class="dz-text-button" data-move-finding="${esc(finding.id)}" data-direction="-1" ${index === 0 ? 'disabled' : ''}>Monter</button><button type="button" class="dz-text-button" data-move-finding="${esc(finding.id)}" data-direction="1" ${index === peers.length - 1 ? 'disabled' : ''}>Descendre</button></div>` : ''}
     </div></details>
   </article>`;
@@ -118,7 +119,7 @@ export function findingArticle(dossier, finding, { print = false, number: printe
   const excerptLimit = compact ? 140 : 260;
   const peers = dossier.findings.filter((f) => f.kind === finding.kind), position = peers.indexOf(finding);
   return `<article class="dz-finding${print ? ` dz-print-finding${compact ? ' is-compact' : ''}` : ''}"${print ? ` id="${esc(findingAnchor(finding.id))}"` : ''} data-finding="${esc(finding.id)}">
-    <header>${print ? `<span class="dz-finding-number">${esc(index)}</span>` : ''}<div><h3>${esc(finding.title)}</h3><div class="dz-finding-meta">${finding.edited ? 'Lecture ajustée par la collectivité' : finding.kind === 'testimony' ? 'Lecture des observations' : 'Données de référence'}${sources.length ? ` · ${sources.map((s) => esc(s.period.label)).filter((v, i, a) => a.indexOf(v) === i).join(' / ')}` : ''}</div></div></header>
+    <header>${print ? `<span class="dz-finding-number">${esc(index)}</span>` : ''}<div><h3>${esc(finding.title)}</h3><div class="dz-finding-meta">${finding.edited ? 'Reformulé par la collectivité' : finding.kind === 'testimony' ? 'Lecture des observations' : 'Données de référence'}${sources.length ? ` · ${sources.map((s) => esc(s.period.label)).filter((v, i, a) => a.indexOf(v) === i).join(' / ')}` : ''}</div></div></header>
     ${finding.kind === 'testimony' && !simple && !compact ? `<div class="dz-finding-reading">${paras(finding.reading)}</div>` : ''}
     <div class="dz-finding-layout"><div>${mapFigure(dossier, finding, { compact: true })}</div><div>${compact && finding.edited ? `<div class="dz-finding-reading">${paras(finding.reading)}</div>` : ''}
       ${metricList(dossier, finding, print ? Infinity : 6)}
@@ -167,8 +168,12 @@ export function analysisPlan(dossier, progress) {
     if (last && last.sourceId === lot.sourceId) { last.lots.push(lot); last.texts += lot.texts; }
     else groups.push({ sourceId: lot.sourceId, label: dossier.sources.find((s) => s.id === lot.sourceId)?.label || 'Témoignages', lots: [lot], texts: lot.texts });
   }
+  // Une source lue en plusieurs lots est ensuite rapprochée : ses constats voisins sont réunis.
+  for (const group of groups) {
+    group.merge = group.lots.length > 1 ? { done: Boolean(state.synthesis?.[group.sourceId]?.signature || state.mergeFailures?.[group.sourceId]), current: live && phase === 'synthesize' && group.lots.every((l) => l.checked) && !state.synthesis?.[group.sourceId]?.signature } : null;
+  }
   const synthesis = { done: Boolean(dossier.overview), current: live && phase === 'overview' && !dossier.overview };
-  return { groups, lots, synthesis, left: lots.filter((l) => !l.checked).length };
+  return { groups, lots, synthesis, left: lots.filter((l) => !l.checked).length, merges: groups.filter((g) => g.merge && !g.merge.done).length };
 }
 
 /* La barre suit les unités réellement terminées : deux par lot, deux pour la
@@ -176,21 +181,28 @@ export function analysisPlan(dossier, progress) {
    seconde près et ne recule jamais. */
 export function analysisProgress(dossier, progress) {
   const plan = analysisPlan(dossier, progress);
-  const total = plan.lots.length * 2 + 2;
+  const merges = plan.groups.filter((g) => g.merge);
+  const total = plan.lots.length * 2 + merges.length + 2;
   const done = plan.lots.reduce((n, l) => n + (l.checked ? 2 : l.read ? 1 : 0), 0)
+    + merges.filter((g) => g.merge.done).length
     + (plan.synthesis.done ? 2 : plan.synthesis.current ? 1 : 0);
   return Math.max(2, Math.min(100, Math.round((100 * done) / Math.max(1, total))));
 }
 
 const lotStyle = (lot) => `--dz-read:${lot.read ? 1 : 0};--dz-check:${lot.checked ? 1 : 0};flex-grow:${Math.max(1, lot.texts)}`;
-const lotTitle = (lot) => `${lot.texts} texte${lot.texts > 1 ? 's' : ''} ${lot.checked ? 'lus et vérifiés' : lot.read ? 'lus, vérification à venir' : 'à lire'}`;
+const lotTitle = (lot) => {
+  const s = lot.texts > 1 ? 's' : '';
+  return `${lot.texts} texte${s} ${lot.checked ? `lu${s} et relu${s}` : lot.read ? `lu${s}, relecture à venir` : 'à lire'}`;
+};
 
 function analysisPlanHtml(plan) {
   const cell = (lot) => `<span class="dz-run__lot${lot.current ? ' is-current' : ''}" title="${esc(lotTitle(lot))}"`
     + ` style="${lotStyle(lot)}"><span></span></span>`;
-  const group = (g) => `<div class="dz-run__group${g.lots.some((l) => l.current) ? ' is-current' : ''}" style="flex-grow:${Math.max(1, g.texts)}">`
+  const merge = (g) => g.merge ? `<span class="dz-run__lot dz-run__merge${g.merge.current ? ' is-current' : ''}" title="${g.merge.done ? 'Constats rapprochés' : 'Rapprochement des constats à venir'}"`
+    + ` style="--dz-read:${g.merge.done || g.merge.current ? 1 : 0};--dz-check:${g.merge.done ? 1 : 0}"><span></span></span>` : '';
+  const group = (g) => `<div class="dz-run__group${g.lots.some((l) => l.current) || g.merge?.current ? ' is-current' : ''}" style="flex-grow:${Math.max(1, g.texts)}">`
     + `<span class="dz-run__label">${esc(g.label)}</span>`
-    + `<div class="dz-run__lots">${g.lots.map(cell).join('')}</div></div>`;
+    + `<div class="dz-run__lots">${g.lots.map(cell).join('')}${merge(g)}</div></div>`;
   const final = `<div class="dz-run__group dz-run__final${plan.synthesis.current ? ' is-current' : ''}">`
     + '<span class="dz-run__label">Synthèse</span>'
     + `<div class="dz-run__lots"><span class="dz-run__lot${plan.synthesis.current ? ' is-current' : ''}"`
@@ -202,29 +214,39 @@ export function analysisStatus(dossier, progress) {
   const c = coverage(dossier), status = dossier.analysis.status;
   if (!c.readable) return `<div class="dz-analysis-status is-quiet"><span>${icon('circle-info')}</span><p>Aucun témoignage textuel à analyser dans cette zone. Le dossier présente uniquement les données disponibles.</p></div>`;
   if (!analysisRequired(dossier)) return `<div class="dz-analysis-status is-quiet is-complete" role="status"><span>${icon('check')}</span><p>${number(c.read, 0)} textes examinés. ${number(c.cited, 0)} sont rattachés aux constats.</p></div>`;
-  if (dossier.analysis.lastError?.code === 'budget') return `<div class="dz-analysis-status" role="status"><div><b>Cette génération a atteint sa limite.</b><p>${esc(dossier.analysis.error)}</p><p>${number(c.read, 0)} textes examinés sur ${number(c.readable, 0)}. Ce qui est fait est conservé.</p></div><a class="adm-btn adm-btn--secondary" href="/admin/diagnostic/" data-back>Choisir une zone plus petite</a></div>`;
+  // Le plafond d'un dossier ne se dépasse pas : aucune reprise n'est proposée.
+  if (budgetStopped(dossier)) return `<div class="dz-analysis-status" role="status"><div><b>L’analyse s’est arrêtée à la limite prévue pour un dossier.</b><p>${c.read < c.readable
+    ? `Nous avons examiné ${number(c.read, 0)} texte${c.read > 1 ? 's' : ''} sur ${number(c.readable, 0)}. Ce dossier n’aura ni synthèse ni PDF : revenez à la carte et sélectionnez une zone plus petite, ou masquez les sources inutiles dans l’onglet Couches.`
+    : `${c.read > 1 ? `Les ${number(c.read, 0)} textes sont lus et leurs constats sont consultables` : 'Le texte est lu et ses constats sont consultables'}, mais la synthèse n’a pas pu être rédigée. Écrivez la vôtre dans « Personnaliser » pour exporter le dossier.`}</p></div><a class="adm-btn adm-btn--secondary" href="/admin/diagnostic/" data-back>Revenir à la carte</a></div>`;
   if (status === 'running' || status === 'pending') {
     const plan = analysisPlan(dossier, progress), percent = analysisProgress(dossier, progress);
     const phase = progress?.phase || 'read';
-    const title = progress?.recovery === 'network' ? 'Nous reprenons la connexion.'
+    const title = progress?.recovery === 'network' ? 'La connexion a été interrompue ; nous réessayons.'
       : progress?.recovery === 'quality' ? 'Nous corrigeons une formulation.'
-      : progress?.recovery === 'split' ? 'Nous reprenons ce lot en deux fois.'
-      : phase === 'review' ? 'Nous vérifions les constats.'
+      : progress?.recovery === 'split' ? 'Nous reprenons ces textes en deux fois.'
+      : phase === 'review' ? 'Nous relisons les constats.'
+      : phase === 'synthesize' ? 'Nous rapprochons les constats de chaque source.'
       : phase === 'overview' ? 'Nous rédigeons la synthèse.'
       : 'Nous lisons les témoignages.';
     const detail = progress?.recovery === 'network'
-      ? `Nouvelle tentative ${number(progress.attempt, 0)} sur ${number(progress.attempts, 0)}.`
+      ? `Nouvel essai ${number(progress.attempt, 0)} sur ${number(progress.attempts, 0)}.`
       : `Nous avons examiné ${number(c.read, 0)} textes sur ${number(c.readable, 0)}.`;
-    const left = plan.left > 1 ? `Il reste ${number(plan.left, 0)} lots, puis la synthèse.`
-      : plan.left === 1 ? 'Il reste un lot, puis la synthèse.'
-      : plan.synthesis.done ? 'Nous terminons.' : 'Il ne reste que la synthèse.';
+    const next = plan.merges ? 'puis le rapprochement des constats et la synthèse' : 'puis la synthèse';
+    const left = plan.left > 1 ? `Il reste ${number(plan.left, 0)} groupes de textes à lire ou à relire, ${next}.`
+      : plan.left === 1 ? `Il reste un groupe de textes à lire ou à relire, ${next}.`
+      : plan.synthesis.done ? 'Nous terminons.' : plan.merges ? 'Il reste le rapprochement des constats et la synthèse.' : 'Il ne reste que la synthèse.';
     return `<div class="dz-analysis-status is-running" role="status">
       <div class="dz-run-head"><div><b>${title}</b><p>${detail}</p></div>${status === 'running' ? '<button type="button" class="dz-text-button" data-pause>Mettre en pause</button>' : ''}</div>
       <div role="progressbar" aria-label="Avancement de l’analyse" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}">${analysisPlanHtml(plan)}</div>
-      <div class="dz-run-foot"><p>Chaque lot est lu, puis vérifié contre ses textes.</p><p>${left}</p></div>
+      <div class="dz-run-foot"><p>Chaque groupe de textes est lu, puis relu au regard des textes d’origine.</p><p>${left}</p></div>
     </div>`;
   }
-  return `<div class="dz-analysis-status" role="status"><div><b>${status === 'paused' ? 'L’analyse est en pause.' : 'L’analyse doit être terminée.'}</b><p>${number(c.read, 0)} textes examinés sur ${number(c.readable, 0)}. Reprenez l’analyse pour obtenir la synthèse et le PDF, sans relire les étapes terminées.</p>${dossier.analysis.error ? `<p>${esc(dossier.analysis.error)}</p>` : ''}</div><button type="button" class="adm-btn adm-btn--primary" data-analyze>Reprendre l’analyse</button></div>`;
+  // Un refus de nos contrôles de fidélité s'explique à l'agent sans lui transmettre une consigne écrite pour le modèle.
+  const reason = !dossier.analysis.error ? ''
+    : dossier.analysis.lastError?.code === 'quality' ? 'Nous n’avons pas obtenu une rédaction assez fidèle aux textes pour terminer cette étape.'
+      : dossier.analysis.error;
+  const missing = overviewMissing(dossier);
+  return `<div class="dz-analysis-status" role="status"><div><b>${status === 'paused' ? 'L’analyse est en pause.' : missing ? 'La synthèse n’a pas pu être rédigée.' : 'L’analyse s’est arrêtée avant la fin.'}</b><p>${missing ? `${c.read > 1 ? `Les ${number(c.read, 0)} textes sont lus et leurs constats sont consultables` : 'Le texte est lu et ses constats sont consultables'}. Reprenez l’analyse pour rédiger la synthèse, ou écrivez la vôtre dans « Personnaliser » pour exporter le dossier.` : `Nous avons examiné ${number(c.read, 0)} texte${c.read > 1 ? 's' : ''} sur ${number(c.readable, 0)}. Reprenez l’analyse : les étapes terminées ne seront pas refaites.`}</p>${reason ? `<p>${esc(reason)}</p>` : ''}</div><button type="button" class="adm-btn adm-btn--primary" data-analyze>Reprendre l’analyse</button></div>`;
 }
 
 export function sourcesTable(dossier) {
@@ -240,7 +262,9 @@ function limitations(dossier) {
   if (c.unknownPeriods.length) notes.push(`${c.unknownPeriods.length} source${c.unknownPeriods.length > 1 ? 's ont une période incomplète ou inconnue' : ' a une période incomplète ou inconnue'} : ${c.unknownPeriods.map((s) => s.label).join(', ')}. Les comparaisons dans le temps ne sont pas établies.`);
   if (c.failed.length) notes.push(`Sources non chargées lors de la sélection : ${c.failed.map((s) => s.label).join(', ')}. Le dossier ne couvre pas leur contenu.`);
   if (c.read < c.readable) notes.push(`La lecture des témoignages est incomplète : ${number(c.read, 0)} textes traités sur ${number(c.readable, 0)}.`);
-  if (Object.keys(dossier.analysis.synthesis || {}).length > 1) notes.push('Les rapprochements ont été réalisés par ensembles de sujets. Des sujets voisins peuvent subsister dans plusieurs constats.');
+  if (Object.values(dossier.analysis.synthesis || {}).some((entry) => entry?.chunks > 1)) notes.push('Une source très volumineuse a été rapprochée par ensembles de constats successifs. Des constats voisins peuvent subsister d’un ensemble à l’autre.');
+  const unmerged = Object.keys(dossier.analysis.mergeFailures || {}).map((id) => dossier.sources.find((s) => s.id === id)?.label).filter(Boolean);
+  if (unmerged.length) notes.push(`Les constats de ${unmerged.join(', ')} n’ont pas pu être rapprochés : des constats voisins peuvent s’y répéter.`);
   if (dossier.facts.length > 60) notes.push('Les rapprochements automatiques utilisent une partie des indicateurs de contexte. Tous les indicateurs restent disponibles dans les données de référence du dossier.');
   return `<ul class="dz-limits">${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`;
 }
@@ -248,12 +272,12 @@ function limitations(dossier) {
 export function editorHtml(dossier, { appendix = false } = {}) {
   return `<form class="dz-editor" data-editor>
     <label>Nom du secteur<input class="adm-input" name="title" maxlength="180" value="${esc(dossier.title)}" required></label>
-    <label>Objet de l’étude <span>Facultatif</span><input class="adm-input" name="objective" maxlength="500" value="${esc(dossier.objective)}" placeholder="Par exemple : préparer une visite du quartier."></label><p data-objective-help>Actualisez la synthèse après un changement d’objet. Les observations déjà analysées sont conservées.</p><button type="button" class="adm-btn adm-btn--secondary" data-refresh-overview hidden>Actualiser la synthèse selon cet objet</button>
-    <label>Synthèse de la collectivité <span>Facultatif. Remplace la synthèse proposée.</span><textarea class="adm-input" name="editorialSummary" rows="5" maxlength="8000" placeholder="Ce que vous retenez du secteur.">${esc(dossier.editorialSummary)}</textarea></label>
+    <label>Objet de l’étude <span>Facultatif</span><input class="adm-input" name="objective" maxlength="500" value="${esc(dossier.objective)}" placeholder="${esc(OBJECTIVE_EXAMPLE)}"></label>${coverage(dossier).readable ? '<p data-objective-help>Après un changement d’objet, actualisez la synthèse. Les textes déjà lus ne sont pas relus.</p><button type="button" class="adm-btn adm-btn--secondary" data-refresh-overview hidden>Actualiser la synthèse selon cet objet</button>' : ''}
+    <label>Synthèse de la collectivité <span>Facultatif. Remplace la synthèse proposée${overviewMissing(dossier) ? ' et permet d’exporter le dossier si celle-ci n’a pas pu être rédigée' : ''}.</span><textarea class="adm-input" name="editorialSummary" rows="5" maxlength="8000" placeholder="Ce que vous retenez du secteur.">${esc(dossier.editorialSummary)}</textarea></label>
     <label>Vos observations et les suites à examiner <span>Facultatif</span><textarea class="adm-input" name="notes" rows="5" maxlength="12000" placeholder="Votre connaissance du terrain et les points à vérifier.">${esc(dossier.notes)}</textarea></label>
     <details class="dz-editor-export"><summary>Contenu du PDF</summary><label class="dz-check"><input type="checkbox" data-appendix ${appendix ? 'checked' : ''}>Joindre toutes les observations (${dossier.observations.length})</label><p>Les observations citées sont toujours jointes en entier. L’export utilise l’impression du navigateur : choisissez « Enregistrer au format PDF » sans en-têtes ni pieds de page.</p></details>
     <p>Ces ajouts sont conservés sur cet appareil. Enregistrez une version pour les retrouver ailleurs.</p>
-    <button type="button" class="adm-btn adm-btn--primary" data-editor-done>Terminer</button>
+    <button type="button" class="adm-btn adm-btn--primary" data-editor-done>Fermer</button>
   </form>`;
 }
 
@@ -270,21 +294,21 @@ function overviewHtml(dossier, pending) {
   const layers = layerAnalyses(dossier), available = layers.filter((l) => l.source.status === 'ready' && l.source.count).length;
   const failed = layers.filter((l) => l.status === 'error').length;
   return `<div class="dz-surface dz-overview">
-    <section class="dz-overview-text"><span class="dz-eyebrow">${pending ? 'Analyse en cours' : 'Lecture du secteur'}</span><h2>${pending ? 'La synthèse se prépare.' : 'Ce qu’il faut retenir'}</h2>${analysisRecap(dossier, pending)}<p class="dz-summary-credit" data-summary-credit ${!pending && dossier.editorialSummary?.trim() ? '' : 'hidden'}>Synthèse de la collectivité</p><p class="dz-lead">${esc(dossierSummary(dossier))}</p><p class="dz-overview-scope">${available > 1 ? `${available} couches documentent ce secteur.` : available === 1 ? "Une seule couche documente ce secteur." : "Aucune donnée exploitable dans ce périmètre."}${failed ? ` ${failed} couche${failed > 1 ? "s n’ont" : " n’a"} pas pu être chargée${failed > 1 ? "s" : ""}.` : ""}</p><button type="button" class="dz-text-button dz-overview-action" data-open-view="findings">Explorer les analyses ${icon("arrow-right")}</button></section>
+    <section class="dz-overview-text"><span class="dz-eyebrow">${!pending ? 'Lecture du secteur' : dossier.analysis.status === 'running' ? 'Analyse en cours' : budgetStopped(dossier) ? 'Analyse arrêtée' : 'Analyse à reprendre'}</span><h2>${!pending ? 'Ce qu’il faut retenir' : dossier.analysis.status === 'running' ? 'La synthèse se prépare.' : budgetStopped(dossier) ? (overviewMissing(dossier) ? 'La synthèse n’a pas pu être rédigée.' : 'Ce dossier n’aura pas de synthèse.') : 'La synthèse sera rédigée à la reprise de l’analyse.'}</h2>${analysisRecap(dossier, pending)}<p class="dz-summary-credit" data-summary-credit ${!pending && dossier.editorialSummary?.trim() ? '' : 'hidden'}>Synthèse de la collectivité</p><p class="dz-lead">${esc(dossierSummary(dossier))}</p><p class="dz-overview-scope">${available > 1 ? `${available} jeux de données documentent ce secteur.` : available === 1 ? 'Un seul jeu de données documente ce secteur.' : 'Aucune donnée exploitable dans ce périmètre.'}${failed ? ` ${failed} jeu${failed > 1 ? 'x' : ''} de données n’${failed > 1 ? 'ont' : 'a'} pas pu être chargé${failed > 1 ? 's' : ''}.` : ''}</p><button type="button" class="dz-text-button dz-overview-action" data-open-view="findings">Explorer les analyses ${icon("arrow-right")}</button></section>
     <section class="dz-overview-map" aria-label="Périmètre étudié">${mapFigure(dossier, null, { web: true })}<p class="dz-area">Périmètre étudié : ${number(dossier.zone.areaKm2, 3)} km²</p></section>
     <section class="dz-field-note" ${dossier.notes?.trim() ? '' : 'hidden'} data-field-note><h2>Les observations de la collectivité</h2><div data-notes-preview>${paras(dossier.notes)}</div></section>
   </div>`;
 }
 
 const layerIcon = (source) => `<i class="${esc(sourceById(source.catalogId)?.icon || (source.kind === 'temoignages' ? 'fa-solid fa-comment-dots' : 'fa-solid fa-chart-simple'))}" aria-hidden="true"></i>`;
-const layerState = (layer) => layer.status === 'error' ? 'Échec du chargement' : layer.status === 'empty' ? 'Aucune donnée dans cette zone' : layer.status === 'pending' ? 'Analyse à terminer' : layer.findings.length ? `${layer.findings.length} constat${layer.findings.length > 1 ? 's' : ''}` : 'Données sans constat';
+const layerState = (layer, stopped = false) => layer.status === 'error' ? 'Échec du chargement' : layer.status === 'empty' ? 'Aucune donnée dans cette zone' : layer.status === 'pending' ? (stopped ? 'Analyse arrêtée' : 'Analyse à terminer') : layer.findings.length ? `${layer.findings.length} constat${layer.findings.length > 1 ? 's' : ''}` : 'Données sans constat';
 
 function measureWeb(dossier, finding) {
   const source = dossier.sources.find((s) => s.id === finding.sourceIds[0]);
   return `<article class="dz-finding dz-reference" data-finding="${esc(finding.id)}" data-measure="${esc(finding.id)}">
     <div class="dz-finding-layout"><div>${metricList(dossier, finding)}${(source.records || []).map((r) => `<p class="dz-source-record"><b>${esc(r.title)}</b><br>${esc(r.detail)}</p>`).join('')}</div><div>${mapFigure(dossier, finding, { web: true })}</div></div>
     ${finding.caveat ? `<p class="dz-caveat dz-finding-context">${esc(finding.caveat)}</p>` : ''}
-    <details class="dz-finding-options"><summary>Ajuster le PDF ${icon('sliders')}</summary><div><label class="dz-check"><input type="checkbox" data-include="${esc(finding.id)}" ${finding.included !== false ? 'checked' : ''}>Inclure ce constat dans le PDF</label></div></details>
+    <details class="dz-finding-options"><summary>Options du PDF ${icon('sliders')}</summary><div><label class="dz-check"><input type="checkbox" data-include="${esc(finding.id)}" ${finding.included !== false ? 'checked' : ''}>Inclure ce constat dans le PDF</label></div></details>
   </article>`;
 }
 
@@ -294,23 +318,23 @@ export function layerHtml(dossier, layer, activeId) {
   const active = activeId === false ? null : findings.find((f) => f.id === activeId) || findings[0];
   const meta = [source.period.label, source.status === 'ready' ? `${number(source.count, 0)} ${source.kind === 'temoignages' ? 'observation' : 'élément'}${source.count > 1 ? 's' : ''} dans la zone` : 'Données indisponibles'];
   return `<header class="dz-layer-heading"><div><span class="dz-eyebrow">${source.kind === 'temoignages' ? 'Lecture des témoignages' : 'Lecture des mesures'}</span><h2>${esc(source.label)}</h2><p>${meta.map(esc).join(' · ')}</p></div><button type="button" class="dz-text-button" data-source-link="${esc(source.id)}">Voir la source ${icon('arrow-up-right-from-square')}</button></header>
-    ${status === 'error' ? `<div class="dz-layer-empty">${icon('triangle-exclamation')}<h3>Cette couche n’a pas pu être chargée.</h3><p>Son contenu dans la zone est inconnu. Revenez à la carte pour rétablir le chargement, puis créez un nouveau dossier.</p><a class="dz-text-button" href="/admin/diagnostic/" data-back>Revenir à la carte ${icon('arrow-right')}</a></div>`
-      : status === 'empty' ? '<div class="dz-layer-empty"><h3>Aucune donnée dans cette zone.</h3><p>Cette couche a été chargée, mais aucun élément ne se trouve dans le périmètre retenu.</p></div>'
-      : `${status === 'pending' ? `<p class="dz-layer-notice" role="status">${layer.read} textes examinés sur ${layer.readable}. Les constats seront disponibles à la fin de l’analyse.</p>` : ''}
-        ${status !== 'pending' && findings.length ? `<div class="dz-constats">${findings.map((f, i) => `<section class="dz-constat${f.id === active?.id ? ' is-open' : ''}"><h3><button type="button" id="tab-${esc(f.id)}" data-finding-tab="${esc(f.id)}" aria-expanded="${f.id === active?.id}" aria-controls="finding-${esc(f.id)}"><span class="dz-index">${findingNumber(i)}</span><span>${esc(f.title)}<small ${f.included === false ? '' : 'hidden'}>Hors PDF</small></span>${icon('chevron-down')}</button></h3><div id="finding-${esc(f.id)}" ${f.id === active?.id ? '' : 'hidden'}>${f.id === active?.id ? `<div id="dz-active-finding">${f.kind === 'testimony' ? findingArticle(dossier, f) : measureWeb(dossier, f)}</div>` : ''}</div></section>`).join('')}</div>` : status !== 'pending' ? `<div class="dz-layer-empty">${layerIcon(source)}<h3>${source.kind === 'temoignages' ? 'Aucun constat ne peut être établi à partir de ces textes.' : 'Cette couche ne comporte pas d’indicateur calculable.'}</h3><p>${source.kind === 'temoignages' ? (layer.readable ? 'Les textes ont été examinés, mais ne décrivent pas de situation exploitable. Les observations d’origine restent consultables.' : 'Les éléments de cette couche n’ont pas de texte descriptif à analyser.') : 'Les éléments sont présents dans la zone. Pour obtenir une analyse chiffrée, configurez les indicateurs de la couche depuis la carte puis créez un nouveau dossier.'}</p></div>` : ''}
-        ${layer.observations.length ? `<footer class="dz-layer-footer"><span>${status === 'pending' ? 'Les textes d’origine restent accessibles.' : 'Chaque constat conserve ses preuves.'}</span><button type="button" class="dz-text-button" data-layer-evidence="${esc(source.id)}">Toutes les observations de cette couche ${icon('arrow-right')}</button></footer>` : ''}`}`;
+    ${status === 'error' ? `<div class="dz-layer-empty">${icon('triangle-exclamation')}<h3>Ce jeu de données n’a pas pu être chargé.</h3><p>Son contenu dans la zone est inconnu. Revenez à la carte pour rétablir son chargement, puis créez un nouveau dossier.</p><a class="dz-text-button" href="/admin/diagnostic/" data-back>Revenir à la carte ${icon('arrow-right')}</a></div>`
+      : status === 'empty' ? '<div class="dz-layer-empty"><h3>Aucune donnée dans cette zone.</h3><p>Ce jeu de données a été chargé, mais aucun de ses éléments ne se trouve dans le périmètre retenu.</p></div>'
+      : `${status === 'pending' ? `<p class="dz-layer-notice" role="status">Nous avons examiné ${layer.read} texte${layer.read > 1 ? 's' : ''} sur ${layer.readable}. ${budgetStopped(dossier) ? 'L’analyse s’est arrêtée à la limite prévue pour un dossier ; les textes d’origine restent consultables.' : 'Les constats seront disponibles à la fin de l’analyse.'}</p>` : ''}
+        ${status !== 'pending' && findings.length ? `<div class="dz-constats">${findings.map((f, i) => `<section class="dz-constat${f.id === active?.id ? ' is-open' : ''}"><h3><button type="button" id="tab-${esc(f.id)}" data-finding-tab="${esc(f.id)}" aria-expanded="${f.id === active?.id}" aria-controls="finding-${esc(f.id)}"><span class="dz-index">${findingNumber(i)}</span><span>${esc(f.title)}<small ${f.included === false ? '' : 'hidden'}>Hors PDF</small></span>${icon('chevron-down')}</button></h3><div id="finding-${esc(f.id)}" ${f.id === active?.id ? '' : 'hidden'}>${f.id === active?.id ? `<div id="dz-active-finding">${f.kind === 'testimony' ? findingArticle(dossier, f) : measureWeb(dossier, f)}</div>` : ''}</div></section>`).join('')}</div>` : status !== 'pending' ? `<div class="dz-layer-empty">${layerIcon(source)}<h3>${source.kind === 'temoignages' ? 'Aucun constat ne peut être établi à partir de ces textes.' : 'Ce jeu de données ne comporte pas d’indicateur calculable.'}</h3><p>${source.kind === 'temoignages' ? (layer.readable ? 'Les textes ont été examinés, mais ne décrivent pas de situation exploitable. Les observations d’origine restent consultables.' : 'Les éléments de ce jeu de données n’ont pas de texte descriptif à analyser.') : `Les éléments sont présents dans la zone. Pour obtenir des chiffres, revenez à la carte, ouvrez les réglages de la couche « ${esc(source.label)} », choisissez ses « Chiffres de zone », puis créez un nouveau dossier.`}</p></div>` : ''}
+        ${layer.observations.length ? `<footer class="dz-layer-footer"><span>${status === 'pending' ? 'Les textes d’origine restent accessibles.' : 'Chaque constat conserve ses preuves.'}</span><button type="button" class="dz-text-button" data-layer-evidence="${esc(source.id)}">Toutes les observations de ce jeu de données ${icon('arrow-right')}</button></footer>` : ''}`}`;
 }
 
 function findingsHtml(dossier, activeLayerId, activeId) {
   const layers = layerAnalyses(dossier);
   const active = layers.find((l) => l.source.id === activeLayerId && l.status !== 'empty') || layers.find((l) => l.status !== 'empty');
-  return `<div class="dz-reader"><aside class="dz-layer-nav" aria-label="Couches du dossier"><p class="dz-nav-label">Couches de données <span>${layers.length}</span></p><label class="dz-layer-picker">Choisir une couche<select class="adm-input" data-layer-picker>${!active ? '<option>Aucune couche disponible</option>' : ''}${layers.map((l) => `<option value="${esc(l.source.id)}" ${l.status === 'empty' ? 'disabled' : ''} ${l === active ? 'selected' : ''}>${esc(l.source.label)} · ${layerState(l)}</option>`).join('')}</select></label><div class="dz-layer-list">${layers.map((l) => `<button type="button" data-layer-tab="${esc(l.source.id)}" aria-controls="dz-active-layer" ${l === active ? 'aria-current="true"' : ''} ${l.status === 'empty' ? 'disabled' : ''} class="${l.status === 'error' ? 'is-error' : ''}"><span class="dz-layer-icon">${layerIcon(l.source)}</span><span class="dz-layer-label">${esc(l.source.label)}<small>${layerState(l)}</small></span>${l.status === 'error' ? icon('triangle-exclamation') : '<i class="fa-solid fa-chevron-right dz-layer-arrow" aria-hidden="true"></i>'}</button>`).join('')}</div></aside><div class="dz-surface dz-layer-sheet" id="dz-active-layer">${layerHtml(dossier, active, activeId)}</div></div>`;
+  return `<div class="dz-reader"><aside class="dz-layer-nav" aria-label="Données du dossier"><p class="dz-nav-label">Jeux de données <span>${layers.length}</span></p><label class="dz-layer-picker">Jeu de données à afficher<select class="adm-input" data-layer-picker>${!active ? '<option>Aucune donnée disponible</option>' : ''}${layers.map((l) => `<option value="${esc(l.source.id)}" ${l.status === 'empty' ? 'disabled' : ''} ${l === active ? 'selected' : ''}>${esc(l.source.label)} · ${layerState(l, budgetStopped(dossier))}</option>`).join('')}</select></label><div class="dz-layer-list">${layers.map((l) => `<button type="button" data-layer-tab="${esc(l.source.id)}" aria-controls="dz-active-layer" ${l === active ? 'aria-current="true"' : ''} ${l.status === 'empty' ? 'disabled' : ''} class="${l.status === 'error' ? 'is-error' : ''}"><span class="dz-layer-icon">${layerIcon(l.source)}</span><span class="dz-layer-label">${esc(l.source.label)}<small>${layerState(l, budgetStopped(dossier))}</small></span>${l.status === 'error' ? icon('triangle-exclamation') : '<i class="fa-solid fa-chevron-right dz-layer-arrow" aria-hidden="true"></i>'}</button>`).join('')}</div></aside><div class="dz-surface dz-layer-sheet" id="dz-active-layer">${layerHtml(dossier, active, activeId)}</div></div>`;
 }
 
 function sourceDetails(dossier, sources) {
   const source = sources[0], url = sourceLink(source.url);
   const label = sources.length > 1 ? sourceById(source.catalogId)?.name || source.provider : source.label;
-  return `<details class="dz-source" data-source="${esc(source.id)}"><summary><span class="dz-source-name">${layerIcon(source)}<span>${esc(label)}${source.provider !== label ? `<small>${esc(source.provider)}</small>` : ''}</span></span><span class="dz-source-period">${esc(source.period.label)}</span><span class="dz-source-count">${sources.every((s) => s.status !== 'ready') ? 'Chargement échoué' : `${sources.length} couche${sources.length > 1 ? 's' : ''}`}</span>${icon('chevron-down')}</summary><div class="dz-source-body">
+  return `<details class="dz-source" data-source="${esc(source.id)}"><summary><span class="dz-source-name">${layerIcon(source)}<span>${esc(label)}${source.provider !== label ? `<small>${esc(source.provider)}</small>` : ''}</span></span><span class="dz-source-period">${esc(source.period.label)}</span><span class="dz-source-count">${sources.every((s) => s.status !== 'ready') ? 'Chargement échoué' : `${sources.length} jeu${sources.length > 1 ? 'x' : ''} de données`}</span>${icon('chevron-down')}</summary><div class="dz-source-body">
     <div class="dz-source-provenance"><p>${esc(source.credit || source.provider)}${source.dataset && source.dataset !== label ? ` · ${esc(source.dataset)}` : ''}</p>${url ? `<a class="dz-text-button" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Ouvrir le site de la source ${icon('arrow-up-right-from-square')}</a>` : ''}</div>
     ${source.description ? `<p>${esc(source.description)}</p>` : ''}
     <p class="dz-source-capture">Données conservées le ${esc(dateText(source.capturedAt || dossier.capturedAt))}. ${source.period.known ? '' : 'La période des données n’est pas renseignée.'}</p>
@@ -321,17 +345,23 @@ function sourceDetails(dossier, sources) {
 function sourcesHtml(dossier) {
   const c = coverage(dossier);
   return `<section class="dz-surface dz-source-register"><header class="dz-register-heading"><div><h2>Les sources du diagnostic</h2><p>La provenance, les périodes et les limites des données utilisées.</p></div></header>
-    <div class="dz-source-columns" aria-hidden="true"><span>Source et provenance</span><span>Période des données</span><span>Utilisation</span></div>
+    <div class="dz-source-columns" aria-hidden="true"><span>Source et provenance</span><span>Période des données</span><span>Contenu</span></div>
     ${sourceRegister(dossier).map((sources) => sourceDetails(dossier, sources)).join('') || '<p class="dz-source-empty">Aucune source n’a été retenue. Revenez à la carte pour ajouter des données.</p>'}
-    <details class="dz-method"><summary>Méthode et limites de lecture</summary><p>${c.readable ? `${number(c.read, 0)} textes examinés sur ${number(c.readable, 0)} ; ${number(c.cited, 0)} rattachés aux constats.` : 'Aucun témoignage textuel à analyser dans cette zone.'}</p>${limitations(dossier)}<p>Les constats sont établis par couche. La synthèse rapproche les éclairages disponibles sans établir de causalité entre eux.</p><p>Sur les cartes, les nombres comptent les observations regroupées à l’échelle d’affichage. Les lettres situent les citations. Ces regroupements ne mesurent pas une concentration statistique.</p><p>Les lectures sont proposées par l’IA ; les citations reproduisent les textes d’origine. Une version conserve les données et les cartes du relevé.</p></details>
+    <details class="dz-method"><summary>Méthode et limites de lecture</summary><p>${c.readable ? `${number(c.read, 0)} textes examinés sur ${number(c.readable, 0)} ; ${number(c.cited, 0)} rattachés aux constats.` : 'Aucun témoignage textuel à analyser dans cette zone.'}</p>${limitations(dossier)}<p>Les constats sont établis pour chaque jeu de données, puis rapprochés quand plusieurs lectures décrivent la même situation. La synthèse croise les éclairages disponibles sans établir de causalité entre eux.</p><p>Sur les cartes, les nombres comptent les observations regroupées à l’échelle d’affichage. Les lettres situent les citations. Ces regroupements ne mesurent pas une concentration statistique.</p><p>Les lectures sont proposées par l’IA ; les citations reproduisent les textes d’origine. Une version conserve les données et les cartes du relevé.</p></details>
   </section>`;
 }
 
-export function pageHtml(dossier, { activeId, activeLayerId, activeView = 'overview', saved = true, progress } = {}) {
+/** Un seul libellé par état d'enregistrement, au premier affichage comme après une modification. */
+export function saveStateText(dossier, { saved = true, local = true } = {}) {
+  if (saved) return `Version ${Number(dossier.revision) || 1} enregistrée`;
+  return local ? 'Vos modifications sont gardées sur cet appareil.' : 'Vos modifications ne sont pas gardées sur cet appareil : enregistrez une version.';
+}
+
+export function pageHtml(dossier, { activeId, activeLayerId, activeView = 'overview', saved = true, local = true, progress } = {}) {
   const pending = analysisRequired(dossier);
   const tabs = [['overview', 'Synthèse'], ['findings', 'Analyses'], ['sources', 'Sources']];
   return `<div class="dz-workspace">
-    <div class="dz-toolbar"><a href="/admin/diagnostic/" data-back>${icon('arrow-left')} Carte du diagnostic</a><div class="dz-toolbar-actions"><span class="dz-save-state" role="status" data-save-state>${saved ? `Version ${Number(dossier.revision) || 1} enregistrée` : 'Brouillon sur cet appareil'}</span><button type="button" class="adm-btn adm-btn--secondary dz-tool-button" data-edit>${icon('sliders')} <span>Personnaliser</span></button><button type="button" class="adm-btn adm-btn--secondary dz-tool-button" data-save ${dossier.analysis.status === 'running' ? 'disabled' : ''} aria-label="Enregistrer une version" title="Enregistrer une nouvelle version">${icon('floppy-disk')} <span>Enregistrer</span></button><button type="button" class="adm-btn adm-btn--primary" data-export data-print aria-label="Exporter en PDF" ${pending ? 'disabled aria-describedby="dz-analysis-status"' : ''}>${icon('file-arrow-down')} <span class="dz-wide-label">Exporter en PDF</span><span class="dz-short-label" aria-hidden="true">Exporter</span></button></div></div>
+    <div class="dz-toolbar"><a href="/admin/diagnostic/" data-back>${icon('arrow-left')} Carte du diagnostic</a><div class="dz-toolbar-actions"><span class="dz-save-state" role="status" data-save-state>${saveStateText(dossier, { saved, local })}</span><button type="button" class="adm-btn adm-btn--secondary dz-tool-button" data-edit>${icon('sliders')} <span>Personnaliser</span></button><button type="button" class="adm-btn adm-btn--secondary dz-tool-button" data-save ${dossier.analysis.status === 'running' ? 'disabled' : ''} aria-label="Enregistrer une version" title="Enregistrer une nouvelle version">${icon('floppy-disk')} <span>Enregistrer</span></button><button type="button" class="adm-btn adm-btn--primary" data-export data-print aria-label="Exporter en PDF" ${pending ? 'disabled aria-describedby="dz-analysis-status"' : ''}>${icon('file-arrow-down')} <span class="dz-wide-label">Exporter en PDF</span><span class="dz-short-label" aria-hidden="true">Exporter</span></button></div></div>
     <div class="dz-document"><header class="dz-header"><div><span class="dz-eyebrow">${esc(dossier.brand)} · Diagnostic terrain</span><h1>${esc(dossier.title)}</h1><p class="dz-objective" ${dossier.objective ? '' : 'hidden'}>${esc(dossier.objective)}</p></div><p class="dz-date">Constitué le ${esc(dateText(dossier.capturedAt))}</p></header>
     <div id="dz-analysis-status" data-analysis-status ${pending ? '' : 'hidden'}>${pending ? analysisStatus(dossier, progress) : ''}</div>
     <nav class="dz-tabs" role="tablist" aria-label="Dossier de zone">${tabs.map(([id, label]) => `<button type="button" role="tab" id="dz-tab-${id}" data-view="${id}" aria-controls="dz-${id}" aria-selected="${activeView === id}" tabindex="${activeView === id ? 0 : -1}">${label}</button>`).join('')}</nav>
@@ -364,7 +394,7 @@ export function printHtml(dossier, { appendix = false, draft = false, reportUrl 
       <div class="dz-cover-heading"><span class="dz-eyebrow">${draft ? 'Brouillon' : `Version ${Number(dossier.revision) || 1}`} · ${esc(dateText(dossier.capturedAt))}</span><h1>${esc(dossier.title)}</h1>${dossier.objective ? `<p class="dz-print-objective">${esc(dossier.objective)}</p>` : ''}</div>
       ${dossier.editorialSummary?.trim() ? '<p class="dz-summary-credit">Synthèse de la collectivité</p>' : ''}<p class="dz-lead">${esc(dossierSummary(dossier))}</p>
       ${extendedOpening ? `</section><section class="dz-print-cover">${sectionHeading('Périmètre du dossier', 'La zone et les données retenues')}` : ''}<div class="dz-cover-map">${mapFigure(dossier)}</div>
-      <dl class="dz-cover-facts"><div><dt>Périmètre étudié</dt><dd>${number(dossier.zone.areaKm2, 2)} <span>km²</span></dd></div><div><dt>Observations disponibles</dt><dd>${number(c.observations, 0)}</dd></div><div><dt>Sources retenues</dt><dd>${dossier.sources.length}</dd></div></dl>
+      <dl class="dz-cover-facts"><div><dt>Périmètre étudié</dt><dd>${number(dossier.zone.areaKm2, 2)} <span>km²</span></dd></div><div><dt>Observations disponibles</dt><dd>${number(c.observations, 0)}</dd></div><div><dt>Jeux de données retenus</dt><dd>${dossier.sources.length}</dd></div></dl>
       <p class="dz-periods">${periods.length ? `Périodes documentées : ${esc(periods.join(' / '))}.` : 'Les périodes des sources ne sont pas renseignées.'}${c.unknownPeriods.length && periods.length ? ` ${c.unknownPeriods.length} source${c.unknownPeriods.length > 1 ? 's ont une période à préciser' : ' a une période à préciser'}.` : ''} La date du dossier indique sa constitution.</p>
       ${c.read < c.readable ? `<p class="dz-print-status">Lecture à compléter : ${number(c.read, 0)} textes examinés sur ${number(c.readable, 0)}.</p>` : ''}${c.failed.length ? '<p class="dz-print-status">Certaines sources n’ont pas été chargées. Leurs limites sont précisées en fin de dossier.</p>' : ''}
       <nav class="dz-print-navigation" aria-label="Parcourir le PDF">${readings.length ? `<a href="#dz-report-findings">${readings.length === 1 ? 'Lire le constat' : `Lire les ${readings.length} constats`} <span aria-hidden="true">→</span></a>` : ''}${measures.length ? `<a href="#dz-report-measures">Consulter les mesures <span aria-hidden="true">→</span></a>` : ''}<a href="#dz-report-sources">${evidence.length ? 'Retrouver les sources et les preuves' : 'Vérifier les sources'} <span aria-hidden="true">→</span></a></nav>

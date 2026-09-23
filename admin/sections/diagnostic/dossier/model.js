@@ -1,12 +1,16 @@
 /** Document de zone versionné, indépendant du DOM et de l'analyse IA. */
+import { persistedFigures } from './figure-store.js';
 import { layerKind, layerMetrics, safeColor } from '../state.js';
 import { sourceOfLayer } from '../sources.js';
 import { aggregateMetrics, geometryBbox, toNumber } from '../data.js';
 import { polygonAreaKm2 } from '../geometry.js';
 import { sourceLink } from './presentation.js';
 import { lengthKm, accidentsInsights, stravaInsights, cyclewaysInsights } from '../insights.js';
+import { makeBatches } from './contract.mjs';
 
 export const DOSSIER_VERSION = 2;
+/** Exemple d'objet d'étude, le même dans le panneau Analyse et dans la personnalisation du dossier. */
+export const OBJECTIVE_EXAMPLE = 'Par exemple : préparer une visite du quartier avec le service voirie.';
 export const number = (value, digits = 1) => Number(value || 0).toLocaleString('fr-FR', { maximumFractionDigits: digits });
 const clean = (value) => String(value ?? '').trim();
 const nonempty = (value) => value !== null && value !== undefined && value !== '';
@@ -37,6 +41,37 @@ function periodOf(layer, features) {
   return { label: sorted.length ? sorted.join(', ') : 'Période non renseignée', known: Boolean(sorted.length), years: sorted };
 }
 
+/* Le fichier national code chaque usager par « oui » ou « non » : seul « oui »
+   désigne un usager impliqué. La phrase ne dit que ce que la ligne établit. */
+const involved = (value) => value === true || /^(oui|1|true)$/i.test(String(value ?? '').trim());
+const GRAVITY = {
+  'blesse hospitalise': 'La personne la plus gravement atteinte a été hospitalisée.',
+  'blesse leger': 'La personne la plus gravement atteinte a été légèrement blessée.',
+};
+const plain = (value) => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+// La gravité ne donne que l'état le plus grave : le nombre de morts vient de la colonne des tués.
+const killed = (count) => {
+  const n = Number(count);
+  return n > 1 ? `${n} personnes ont été tuées.` : n === 1 ? 'Une personne a été tuée.' : 'Au moins une personne a été tuée.';
+};
+export function accidentDetail(p = {}) {
+  const cyclist = involved(p.velo), pedestrian = involved(p.pieton);
+  return [
+    clean(p.adresse) ? `Le fichier national situe l’accident à cette adresse : ${clean(p.adresse)}.` : '',
+    plain(p.gravite) === 'tue' ? killed(p.tues) : GRAVITY[plain(p.gravite)] || (clean(p.gravite) ? `Gravité relevée : ${clean(p.gravite).toLocaleLowerCase('fr-FR')}.` : ''),
+    cyclist && pedestrian ? 'Un cycliste et un piéton étaient impliqués.' : cyclist ? 'Un cycliste était impliqué.' : pedestrian ? 'Un piéton était impliqué.' : '',
+  ].filter(Boolean).join(' ');
+}
+
+/* Libellés des informations connues des sources du catalogue. Une colonne d'un
+   fichier importé garde le nom que la collectivité lui a donné. */
+const FIELD_LABELS = {
+  reference: 'Référence', category_label: 'Catégorie', statut_label: 'Statut', adresse: 'Adresse', rue: 'Rue', commune: 'Commune',
+  created_at: 'Date de dépôt', updated_at: 'Dernière mise à jour', description: 'Description', project_name: 'Nom', category: 'Catégorie',
+  nature_travaux: 'Nature des travaux', etat: 'État', date_debut: 'Début', date_fin: 'Fin', nom: 'Nom', type: 'Type',
+};
+export const fieldLabel = (key) => FIELD_LABELS[key] || key;
+
 function sourceRecord(layer, features, runtime, capturedAt) {
   const src = sourceOfLayer(layer);
   const rt = runtime.get(layer.id);
@@ -56,7 +91,7 @@ function sourceRecord(layer, features, runtime, capturedAt) {
     legend, legendField: ramp?.stops?.length ? (src?.id === 'strava' ? 'Passages enregistrés' : src?.id === 'comptages' ? 'Passages par jour' : layerMetrics(layer).find((m) => m.field === layer.style.value_field)?.label || 'Valeur représentée') : '',
     records: src?.id === 'accidents' && features.length < 5 ? features.map((f) => ({
       title: clean(f.properties.date) || 'Date non renseignée',
-      detail: [f.properties.adresse, f.properties.gravite, f.properties.velo ? 'Vélo impliqué' : '', f.properties.pieton ? 'Piéton impliqué' : ''].filter(Boolean).join(' · '),
+      detail: accidentDetail(f.properties),
     })) : [],
   };
 }
@@ -65,7 +100,7 @@ function buildFacts(source, features, layer) {
   const facts = [];
   const add = (label, value, unit, note = '') => {
     if (!Number.isFinite(Number(value))) return;
-    facts.push({ id: `m-${source.id}-${facts.length + 1}`, sourceId: source.id, label, value: Number(value), unit, note, period: source.period.label });
+    facts.push({ id: `m-${source.id}-${facts.length + 1}`, sourceId: source.id, label, value: Number(value), unit, note, period: source.period.label, periodKnown: source.period.known });
   };
   if (!features.length) return facts;
   if (source.catalogId === 'strava') {
@@ -77,7 +112,7 @@ function buildFacts(source, features, layer) {
       const days = new Date(Date.UTC(year + 1, 0, 1)) - new Date(Date.UTC(year, 0, 1));
       add('Moyenne sur ce tronçon', maximum / (days / 86400000), 'passages / jour', 'Moyenne calculée sur l’année entière, parmi les utilisateurs de Strava.');
     }
-    add('Tronçons intersectant la zone', s.segments, 'tronçons', 'Un passage enregistré ne désigne pas une personne distincte.');
+    add('Tronçons dans la zone', s.segments, 'tronçons', 'Un passage enregistré ne désigne pas une personne distincte.');
   } else if (source.catalogId === 'accidents') {
     const a = accidentsInsights(features);
     add('Accidents corporels recensés', a.count, 'accidents', 'Accidents enregistrés dans le BAAC ; aucun taux de risque ne peut être déduit sans mesure de l’exposition.');
@@ -88,7 +123,7 @@ function buildFacts(source, features, layer) {
     add('Accidents impliquant un piéton', a.pieton, 'accidents', 'Les catégories peuvent concerner un même accident et ne s’additionnent pas.');
   } else if (source.catalogId === 'osm-cycleways') {
     const c = cyclewaysInsights(features);
-    add('Aménagements dans le périmètre', features.reduce((s, f) => s + lengthKm(f.geometry), 0), 'km', 'Longueur des géométries découpées à la limite de la zone, selon OpenStreetMap.');
+    add('Aménagements dans le périmètre', features.reduce((s, f) => s + lengthKm(f.geometry), 0), 'km', 'Longueur mesurée à l’intérieur du périmètre, d’après OpenStreetMap.');
     for (const t of c.byType) add(t.type, t.km, 'km');
   } else if (source.catalogId === 'comptages') {
     for (const f of features) {
@@ -99,11 +134,14 @@ function buildFacts(source, features, layer) {
     const metrics = layerMetrics(layer);
     for (const m of aggregateMetrics(features, metrics)) {
       const config = metrics.find((x) => x.field === m.field && x.agg === m.agg);
-      const operation = { sum: 'Total', mean: 'Moyenne', max: 'Maximum' }[m.agg] || m.agg;
-      add(`${operation} : ${config?.label || m.field}`, m.value, config?.unit || 'unité non renseignée', `Calcul sur ${number(m.n, 0)} valeurs renseignées. La signification de cet indicateur vient du paramétrage de la couche.`);
+      const operation = { sum: 'Total', mean: 'Moyenne', max: 'Maximum', count: 'Nombre' }[m.agg] || m.agg;
+      // Le libellé d'une source est déjà une phrase complète (« Retard moyen », « Personnes tuées ») :
+      // il n'est pas préfixé. Un chiffre sans libellé garde le nom de sa colonne, sans unité inventée.
+      const label = config?.label || `${operation} de la colonne « ${m.field} »`;
+      add(label, m.value, config?.unit || '', `Calcul sur ${number(m.n, 0)} valeurs renseignées.${config?.unit ? '' : ' Les données ne précisent pas l’unité de cette valeur.'}`);
     }
   }
-  if (!facts.length && source.kind === 'reference') add('Éléments de cette source dans la zone', features.length, 'éléments', 'Décompte des entités qui intersectent le périmètre. Cette source ne fournit pas d’autre indicateur chiffré exploitable.');
+  if (!facts.length && source.kind === 'reference') add('Éléments de cette source dans la zone', features.length, 'éléments', 'Nombre d’éléments de cette source dans le périmètre. Elle ne fournit pas d’autre chiffre exploitable.');
   return facts;
 }
 
@@ -116,7 +154,7 @@ function measureFinding(source, facts) {
   };
   return {
     id: `measure-${source.id}`, kind: 'measure', title: titles[source.catalogId] || source.label,
-    reading: `${main.label} : ${number(main.value)} ${main.unit}.`,
+    reading: `${main.label} : ${number(main.value)}${main.unit ? ` ${main.unit}` : ''}.`,
     sourceIds: [source.id], factIds: facts.map((f) => f.id), observationIds: [],
     caveat: source.catalogId === 'strava' ? 'Ces données décrivent les utilisateurs de Strava et ne représentent pas tous les déplacements.'
       : source.catalogId === 'osm-cycleways' ? 'Un aménagement absent d’OpenStreetMap peut exister sur le terrain. La continuité et la qualité d’usage ne se déduisent pas de cette seule longueur.'
@@ -142,7 +180,7 @@ export function createDossier({ selection, layers, runtime, city, brand, capture
       id: `o${observations.length + 1}`, sourceId: source.id,
       title: clean(p[layer?.popup?.title_field]) || source.label,
       text: observationText(f, layer), point: f.__pt?.slice(0, 2) || null,
-      fields: (layer?.popup?.fields || []).filter((key) => nonempty(p[key])).map((key) => ({ label: key, value: clean(p[key]) })),
+      fields: (layer?.popup?.fields || []).filter((key) => nonempty(p[key])).map((key) => ({ label: fieldLabel(key), value: clean(p[key]) })),
     });
   }
   const facts = sources.flatMap((s) => buildFacts(s, byLayer.get(s.id) || [], layers.find((l) => l.id === s.id)));
@@ -170,14 +208,40 @@ export function coverage(dossier) {
   };
 }
 
-/** Un rapport avec des témoignages attend leur lecture et leur synthèse complètes. */
+/** Chaque lot a été lu puis relu : les constats sont établis, seule la synthèse peut manquer. */
+export function readingComplete(dossier) {
+  const state = dossier.analysis || {};
+  const leaves = (id, size) => (state.splits?.[id] && size > 1
+    ? [...leaves(`${id}.a`, Math.ceil(size / 2)), ...leaves(`${id}.b`, Math.floor(size / 2))]
+    : [id]);
+  return makeBatches(dossier.observations).every((batch) => leaves(batch.id, batch.observations.length).every((id) => state.batches?.[id] && state.reviews?.[id]));
+}
+
+/** Tous les textes sont lus et relus, mais la synthèse n'a pas pu être rédigée. */
+export function overviewMissing(dossier) {
+  const c = coverage(dossier);
+  return c.readable > 0 && c.read === c.readable && dossier.analysis.status !== 'complete' && dossier.analysis.status !== 'running' && readingComplete(dossier);
+}
+
+/** Un rapport avec des témoignages attend leur lecture et leur synthèse complètes.
+ * Quand tous les textes sont lus et relus mais que la synthèse n'a pas pu être
+ * rédigée, celle que la collectivité écrit elle-même suffit à publier le dossier :
+ * elle remplace la synthèse, jamais la lecture des témoignages. */
 export function analysisRequired(dossier) {
   const c = coverage(dossier);
-  return c.readable > 0 && (dossier.analysis.status !== 'complete' || c.read < c.readable);
+  if (!c.readable) return false;
+  if (c.read < c.readable) return true;
+  if (dossier.analysis.status === 'complete') return false;
+  return !(overviewMissing(dossier) && dossier.editorialSummary?.trim());
 }
 
 export function dossierSummary(dossier) {
-  if (analysisRequired(dossier)) return 'La synthèse sera disponible après l’analyse de tous les témoignages. Les observations et les mesures restent consultables pendant sa préparation.';
+  // Arrêtée au plafond d'un dossier, l'analyse ne reprend pas : le résumé ne le propose pas.
+  const stopped = dossier.analysis.lastError?.code === 'budget';
+  if (analysisRequired(dossier)) return overviewMissing(dossier)
+    ? `Tous les textes sont lus, mais la synthèse n’a pas pu être rédigée. ${stopped ? 'Écrivez' : 'Reprenez l’analyse, ou écrivez'} votre propre synthèse dans « Personnaliser » pour exporter le dossier.`
+    : stopped ? 'L’analyse s’est arrêtée à la limite prévue pour un dossier : ce dossier n’aura pas de synthèse. Ses observations et ses mesures restent consultables.'
+    : 'La synthèse sera disponible après l’analyse de tous les témoignages. Les observations et les mesures restent consultables pendant sa préparation.';
   if (dossier.editorialSummary?.trim()) return dossier.editorialSummary.trim();
   const c = coverage(dossier);
   const overview = dossier.overview;
@@ -189,12 +253,13 @@ export function dossierSummary(dossier) {
     : 'Les textes ont été examinés, sans constat suffisamment étayé à regrouper. Les observations restent consultables dans leur intégralité.';
 }
 
-/** Le JSONB existant garde aussi les figures, sous la même protection RLS. */
+/** Ligne de `diagnostic_reports` : le document entier, ses images réduites à leur emplacement quand elles sont rangées dans le compartiment privé (figure-store.js). */
 export function dossierRow(dossier) {
   return {
     title: dossier.title, zone: { polygon: dossier.zone.polygon, bbox: dossier.zone.bbox, area_km2: dossier.zone.areaKm2 },
     point_count: dossier.observations.length,
     stats: { schemaVersion: DOSSIER_VERSION, familyId: dossier.familyId, revision: dossier.revision, findings: dossier.findings.filter((f) => f.included !== false).length, sourceCount: dossier.sources.length },
-    analysis: { dossier },
+    // Les images déposées dans le compartiment privé ne sont enregistrées que par leur emplacement.
+    analysis: { dossier: { ...dossier, figures: persistedFigures(dossier.figures, dossier.city) } },
   };
 }

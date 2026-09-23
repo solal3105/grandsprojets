@@ -2693,12 +2693,6 @@
     },
 
     /**
-     * Supprime une couche de diagnostic
-     * @param {string} ville
-     * @param {string} id - UUID de la couche
-     * @returns {Promise<{success: boolean, error: Error|null}>}
-     */
-    /**
      * Enregistre l'ordre des couches du diagnostic d'une ville.
      * @param {string} ville
      * @param {Array<{id: string, sort_order: number}>} order
@@ -2724,32 +2718,98 @@
       }
     },
 
+    /**
+     * Emplacement du fichier déposé par une couche de diagnostic, d'après sa
+     * référence : le compartiment privé (« storage:diagnostic/<ville>/<fichier> »)
+     * ou, pour une couche plus ancienne, l'adresse publique
+     * …/object/public/uploads/diagnostic/<ville>/<fichier>. null si la
+     * référence ne désigne pas un fichier déposé pour cette ville.
+     * @param {string} ville
+     * @param {string} ref - source_ref de la couche
+     * @returns {{bucket: string, path: string}|null}
+     */
+    diagnosticFileLocation: function(ville, ref) {
+      const s = String(ref || '');
+      let m = s.match(/^storage:diagnostic\/([a-z0-9-]+)\/([A-Za-z0-9._-]+)$/i);
+      if (m) return m[1] === ville ? { bucket: 'diagnostic', path: `${m[1]}/${m[2]}` } : null;
+      m = s.match(/^(.+)\/storage\/v1\/object\/public\/uploads\/diagnostic\/([a-z0-9-]+)\/([A-Za-z0-9._-]+)$/i);
+      if (m && m[1] === SUPABASE_URL) return m[2] === ville ? { bucket: 'uploads', path: `diagnostic/${m[2]}/${m[3]}` } : null;
+      return null;
+    },
+
+    /**
+     * Retire une couche de diagnostic, puis le fichier qu'elle avait déposé
+     * (compartiment privé, ou ancien chemin public uploads/diagnostic/<ville>/).
+     * Le retrait de la couche ne dépend pas de celui du fichier : un fichier
+     * resté en place est signalé dans la console et par `fileRemoved: false`.
+     * @param {string} ville
+     * @param {string} id - UUID de la couche
+     * @returns {Promise<{success: boolean, error: Error|null, fileRemoved: boolean|null}>}
+     */
     deleteDiagnosticLayer: async function(ville, id) {
       try {
-        if (!ville || !id) return { success: false, error: new Error('ville et id requis') };
-        const { error } = await supabaseClient
+        if (!ville || !id) return { success: false, error: new Error('ville et id requis'), fileRemoved: null };
+        const { data: rows, error } = await supabaseClient
           .from('diagnostic_layers')
           .delete()
           .eq('id', id)
-          .eq('ville', ville);
-        return { success: !error, error: error || null };
+          .eq('ville', ville)
+          .select('source_type, source_ref');
+        if (error) return { success: false, error, fileRemoved: null };
+        const row = Array.isArray(rows) ? rows[0] : null;
+        const file = row?.source_type === 'storage' ? this.diagnosticFileLocation(ville, row.source_ref) : null;
+        let fileRemoved = null;
+        if (file) {
+          try {
+            const { data: removed, error: removeError } = await supabaseClient.storage.from(file.bucket).remove([file.path]);
+            fileRemoved = !removeError && Array.isArray(removed) && removed.length > 0;
+            if (!fileRemoved) console.warn('[supabaseService] deleteDiagnosticLayer : fichier resté en place', file.bucket, file.path, removeError || '');
+          } catch (e) {
+            fileRemoved = false;
+            console.warn('[supabaseService] deleteDiagnosticLayer : fichier resté en place', file.bucket, file.path, e);
+          }
+        }
+        return { success: true, error: null, fileRemoved };
       } catch (e) {
         console.error('[supabaseService] deleteDiagnosticLayer exception:', e);
-        return { success: false, error: e };
+        return { success: false, error: e, fileRemoved: null };
       }
     },
 
     /**
-     * Upload d'un GeoJSON normalisé d'une couche de diagnostic dans Storage.
-     * NB : bucket public (même modèle que travaux-geojson) - chemin non
-     * devinable via UUID, mais ne pas y déposer de données nominatives.
+     * Télécharge, avec la session de l'administrateur, le fichier d'une
+     * couche déposée dans le compartiment privé « diagnostic ».
+     * @param {string} ref - « storage:diagnostic/<ville>/<fichier> »
+     * @returns {Promise<Blob>} octets tels que déposés (compressés en gzip, en général)
+     */
+    downloadDiagnosticFile: async function(ref) {
+      const m = String(ref || '').match(/^storage:diagnostic\/([a-z0-9-]+\/[A-Za-z0-9._-]+)$/i);
+      const fail = (status) => Object.assign(new Error('Le fichier de cette couche n\'a pas pu être téléchargé. Vérifiez votre connexion, puis réessayez.'), { status });
+      if (!m) throw fail(400);
+      const { data, error } = await supabaseClient.storage.from('diagnostic').download(m[1]);
+      if (error || !data) {
+        console.warn('[supabaseService] downloadDiagnosticFile error:', error);
+        const notFound = /not.?found/i.test(String(error?.message || '')) || Number(error?.statusCode) === 404 || Number(error?.status) === 404;
+        throw fail(notFound ? 404 : Number(error?.status) || 0);
+      }
+      return data;
+    },
+
+    /**
+     * Dépose le GeoJSON normalisé d'une couche de diagnostic dans le
+     * compartiment privé « diagnostic », rangé par ville. Seuls les
+     * administrateurs de la ville et les administrateurs globaux
+     * (is_admin_for_ville) peuvent le lire, le remplacer ou le supprimer
+     * (politiques de storage.objects) : un export sous licence ou un tableau
+     * de doléances n'est jamais accessible par une simple adresse.
      * @param {string} ville
      * @param {Object} geojson - FeatureCollection
-     * @returns {Promise<string>} URL publique du fichier
+     * @returns {Promise<string>} référence « storage:diagnostic/<ville>/<fichier> », à lire par downloadDiagnosticFile
      */
     uploadDiagnosticGeoJSON: async function(ville, geojson) {
       try {
         if (!ville || !geojson) throw new Error('Paramètres manquants');
+        if (!/^[a-z0-9-]+$/i.test(ville)) throw new Error('Code de ville invalide');
         // Compressé avant l'envoi (gzip natif du navigateur) : une couche de
         // 100 Mo pèse 10 à 15 Mo, sous le plafond par objet du stockage, et se
         // recharge d'autant plus vite. Le lecteur (diagnostic/data.js) décompresse.
@@ -2767,20 +2827,50 @@
         if (blob.size > MAX_BYTES) {
           throw new Error(`La couche reste trop volumineuse pour être enregistrée (${Math.round(blob.size / 1048576)} Mo compressés). Gardez moins de colonnes, une seule année ou un territoire plus petit.`);
         }
-        const path = `diagnostic/${ville}/${crypto.randomUUID()}.${ext}`;
+        const path = `${ville}/${crypto.randomUUID()}.${ext}`;
         const { error } = await supabaseClient.storage
-          .from('uploads')
+          .from('diagnostic')
           .upload(path, blob, { contentType, upsert: false });
         if (error) {
           console.error('[supabaseService] uploadDiagnosticGeoJSON error:', error);
           throw error;
         }
-        const { data } = supabaseClient.storage.from('uploads').getPublicUrl(path);
-        return data.publicUrl;
+        return `storage:diagnostic/${path}`;
       } catch (e) {
         console.error('[supabaseService] uploadDiagnosticGeoJSON exception:', e);
         throw e;
       }
+    },
+
+    /**
+     * Dépose une image de carte d'un dossier dans le compartiment privé
+     * « diagnostic », sous <ville>/figures/. Le nom est l'empreinte du contenu :
+     * un fichier déjà présent est le même, et compte comme déposé.
+     * @param {string} ville
+     * @param {string} path - « <ville>/figures/<empreinte>.jpg »
+     * @param {Blob} blob
+     */
+    uploadDiagnosticFigure: async function(ville, path, blob) {
+      if (!/^[a-z0-9-]+$/i.test(ville || '') || !String(path || '').startsWith(`${ville}/figures/`)) throw new Error('Emplacement d\'image invalide');
+      const { error } = await supabaseClient.storage
+        .from('diagnostic')
+        .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: false, cacheControl: '31536000' });
+      const duplicate = error && (Number(error.statusCode ?? error.status) === 409 || /already exists|duplicate/i.test(String(error.message || '')));
+      if (error && !duplicate) throw error;
+      return path;
+    },
+
+    /**
+     * Lit, avec la session de l'administrateur, une image de carte d'un dossier.
+     * @param {string} ville
+     * @param {string} path - « <ville>/figures/<empreinte>.jpg »
+     * @returns {Promise<Blob>}
+     */
+    downloadDiagnosticFigure: async function(ville, path) {
+      if (!/^[a-z0-9-]+$/i.test(ville || '') || !String(path || '').startsWith(`${ville}/figures/`)) throw new Error('Emplacement d\'image invalide');
+      const { data, error } = await supabaseClient.storage.from('diagnostic').download(path);
+      if (error || !data) throw error || new Error('Image introuvable');
+      return data;
     },
 
     /**
@@ -2809,6 +2899,31 @@
         return { data, error };
       } catch (e) {
         console.error('[supabaseService] insertDiagnosticReport exception:', e);
+        return { data: null, error: e };
+      }
+    },
+
+    /**
+     * Complète une version de dossier déjà enregistrée (analyse terminée).
+     * Sans droit de mise à jour, aucune ligne ne change et `data` vaut null :
+     * l'appelant garde alors le brouillon local, rien n'est perdu.
+     * @param {string} ville
+     * @param {string} id
+     * @param {Object} report - { title, zone, stats, analysis, point_count }
+     * @returns {Promise<{data: {id: string}|null, error: Error|null}>}
+     */
+    updateDiagnosticReport: async function(ville, id, report) {
+      try {
+        if (!ville || !id || !report) return { data: null, error: new Error('ville, id et report requis') };
+        const { data, error } = await supabaseClient
+          .from('diagnostic_reports')
+          .update({ title: report.title || '', stats: report.stats || {}, analysis: report.analysis || {}, point_count: report.point_count ?? 0 })
+          .eq('id', id)
+          .eq('ville', ville)
+          .select('id');
+        return { data: data?.[0] || null, error };
+      } catch (e) {
+        console.error('[supabaseService] updateDiagnosticReport exception:', e);
         return { data: null, error: e };
       }
     },

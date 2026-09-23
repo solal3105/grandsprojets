@@ -231,8 +231,13 @@ export async function getDiagnosticLayers() {
   return svc().fetchDiagnosticLayers(requireCity());
 }
 
-export async function upsertDiagnosticLayer(layer) {
-  return svc().upsertDiagnosticLayer(requireCity(), layer);
+/**
+ * Un import fixe sa collectivité au moment où il commence (`city`) : si
+ * l'administrateur change d'espace pendant la lecture d'un fichier, la couche
+ * est tout de même enregistrée là où il l'a demandée.
+ */
+export async function upsertDiagnosticLayer(layer, city = null) {
+  return svc().upsertDiagnosticLayer(city || requireCity(), layer);
 }
 
 export async function updateDiagnosticLayersOrder(order) {
@@ -255,12 +260,32 @@ function compactGeoJSON(geojson) {
   };
 }
 
-export async function uploadDiagnosticGeoJSON(geojson) {
-  return svc().uploadDiagnosticGeoJSON(requireCity(), compactGeoJSON(geojson));
+/** Dépose une couche dans le compartiment privé ; renvoie sa référence « storage:diagnostic/<ville>/<fichier> ». */
+export async function uploadDiagnosticGeoJSON(geojson, city = null) {
+  return svc().uploadDiagnosticGeoJSON(city || requireCity(), compactGeoJSON(geojson));
+}
+
+/** Télécharge avec la session le fichier d'une couche déposée (Blob, compressé ou non). */
+export async function downloadDiagnosticFile(ref) {
+  return svc().downloadDiagnosticFile(ref);
+}
+
+/** Dépose une image de carte d'un dossier dans le compartiment privé (figure-store.js). */
+export async function uploadDiagnosticFigure(path, blob) {
+  return svc().uploadDiagnosticFigure(requireCity(), path, blob);
+}
+
+/** Lit une image de carte d'un dossier depuis le compartiment privé. */
+export async function downloadDiagnosticFigure(path) {
+  return svc().downloadDiagnosticFigure(requireCity(), path);
 }
 
 export async function saveDiagnosticReport(report) {
   return svc().insertDiagnosticReport(requireCity(), report);
+}
+
+export async function updateDiagnosticReport(id, report) {
+  return svc().updateDiagnosticReport(requireCity(), id, report);
 }
 
 export async function getDiagnosticReports(limit) {

@@ -12,6 +12,7 @@ import { esc, escAttr, sanitizeUrl } from '../../components/ui.js';
 import { safeColor, layerKind } from './state.js';
 import { sourceOfLayer } from './sources.js';
 import { GRAVITE_COLORS } from './sources/baac.js';
+import { wazePart } from './sources/waze.js';
 
 const _fmt = (n, d = 0) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: d });
 const _has = (v) => v !== null && v !== undefined && v !== '' && v !== 'null';
@@ -151,10 +152,12 @@ const RENDERERS = {
   },
 
   comptages(p, layer, source) {
+    // Chiffres figés le jour de l'ajout de la couche : « hier » désignerait un
+    // autre jour à chaque ouverture, d'où « la veille du relevé ».
     return _head({ eyebrow: `Compteur${_has(p.type) ? ` · ${esc(p.type)}` : ''}`, title: esc(p.nom || 'Compteur'), icon: source.icon, tint: source.tint })
       + _bigs([
         _big(_fmt(p.moyenne_journaliere), 'passages par jour en moyenne'),
-        _big(_fmt(p.hier), 'hier', { muted: !p.hier }),
+        _big(_fmt(p.hier), 'passages la veille du relevé', { muted: !Number(p.hier) }),
       ])
       + _facts([
         ['Depuis la pose', _has(p.total_depuis_la_pose) ? `${_fmt(p.total_depuis_la_pose)} passages` : ''],
@@ -198,14 +201,19 @@ const RENDERERS = {
   },
 
   'waze-jams'(p) {
-    const delay = Number(p.retard_s) || 0;
-    const mins = Math.floor(delay / 60);
-    const secs = delay % 60;
-    const delayTxt = delay >= 60 ? `${mins} min${secs ? ` ${String(secs).padStart(2, '0')}` : ''}` : `${delay} s`;
+    // Waze note -1 le retard d'une circulation bloquée (spécification du flux) :
+    // ce n'est pas un retard, on l'écrit en toutes lettres.
+    const raw = _has(p.retard_s) ? Number(p.retard_s) : NaN;
+    const blocked = Number.isFinite(raw) && raw < 0;
+    const delay = Number.isFinite(raw) && raw >= 0 ? Math.round(raw) : null;
+    const mins = Math.floor((delay || 0) / 60);
+    const secs = (delay || 0) % 60;
+    const delayTxt = delay === null ? '' : delay >= 60 ? `${mins} min${secs ? ` ${String(secs).padStart(2, '0')}` : ''}` : `${delay} s`;
     const level = Math.max(0, Math.min(5, Number(p.niveau) || 0));
     return _head({ eyebrow: `Ralentissement Waze · ${esc(_ago(p.signale_le) || '')}`, title: esc(p.rue || 'Ralentissement'), icon: 'fa-solid fa-car-burst', tint: '#DC2626', sub: esc(p.commune) })
+      + _pills([blocked ? _pill('Circulation bloquée', '#DC2626', { solid: true }) : ''])
       + _bigs([
-        _big(delayTxt, 'de retard'),
+        delayTxt ? _big(delayTxt, 'de retard') : '',
         _big(_fmt(p.vitesse_kmh, 0), 'de vitesse', { unit: ' km/h' }),
         _big(_fmt(p.longueur_m), 'de bouchon', { unit: ' m' }),
       ])
@@ -231,12 +239,14 @@ function _generic(p, layer) {
 function _rendererKey(layer) {
   const source = sourceOfLayer(layer);
   if (!source) return null;
-  if (source.id === 'waze') return /part=jams/.test(String(layer.source_ref)) ? 'waze-jams' : 'waze-alerts';
+  if (source.id === 'waze') return wazePart(layer) === 'jams' ? 'waze-jams' : 'waze-alerts';
   return source.id;
 }
 
 /**
- * HTML de la fenêtre au clic d'une entité.
+ * HTML de la fenêtre au clic d'une entité. `data-op-mask` masque son texte
+ * dans les enregistrements de session (modules/analytics.js) : un
+ * signalement ou un commentaire d'habitant n'y apparaît jamais en clair.
  * @param {Object} layer - config de la couche
  * @param {Object} props - propriétés de l'entité (MapLibre les rend toutes en chaînes)
  */
@@ -245,5 +255,5 @@ export function renderPopup(layer, props) {
   const key = _rendererKey(layer);
   const source = sourceOfLayer(layer);
   const inner = key && RENDERERS[key] ? RENDERERS[key](p, layer, source) : _generic(p, layer);
-  return `<div class="dgp" data-source="${escAttr(key || 'generic')}">${inner}</div>`;
+  return `<div class="dgp" data-op-mask data-source="${escAttr(key || 'generic')}">${inner}</div>`;
 }

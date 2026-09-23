@@ -2,7 +2,9 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Contrat du relais SSE partagé par /api/ai-generate et /api/ai-diagnostic.
+ * Contrat du relais SSE partagé des fonctions IA. Depuis le 23/09/2026, seul
+ * /api/ai-generate diffuse en flux : /api/ai-diagnostic répond étape par étape
+ * (dossier de zone) et n'emploie plus que friendlyAIError.
  *
  * Contexte : audit DRY (2026-07). Les deux fonctions partageaient 88 lignes
  * significatives identiques, dont la boucle de relais SSE (~90 lignes) recopiée
@@ -79,7 +81,7 @@ function relaisGeneration(relay, flux) {
   };
 }
 
-/** Reproduit le câblage de ai-diagnostic.mjs autour du relais partagé. */
+/** Câblage d'une sortie JSON stricte autour du relais partagé : le relais s'arrête à la première réponse tronquée. */
 function relaisDiagnostic(relay, flux, { timedOut = false } = {}) {
   return relay(flux, {
     tag: 'test-diagnostic',
@@ -129,7 +131,7 @@ test.describe('0.30 - Relais SSE partagé des fonctions IA', () => {
     ]);
   });
 
-  test('0.30.2 - ai-diagnostic : chunks JSON puis fin', async () => {
+  test('0.30.2 - Sortie JSON : morceaux puis fin', async () => {
     const flux = fauxFluxOpenAI([
       { type: 'response.output_text.delta', delta: '{"resume":' },
       { type: 'response.output_text.delta', delta: '"ok"}' },
@@ -139,12 +141,12 @@ test.describe('0.30 - Relais SSE partagé des fonctions IA', () => {
     const evts = await lireSSE(relaisDiagnostic(relay, flux));
 
     expect(evts).toEqual([{ content: '{"resume":' }, { content: '"ok"}' }, '[DONE]']);
-    // Le JSON reconstitué doit être parsable : c'est ce qu'attend analysis.js
+    // Le JSON reconstitué doit être lisible d'un seul tenant.
     const json = evts.filter(e => e.content).map(e => e.content).join('');
     expect(JSON.parse(json)).toEqual({ resume: 'ok' });
   });
 
-  test('0.30.3 - ai-diagnostic : réponse tronquée arrête le relais', async () => {
+  test('0.30.3 - Sortie JSON : une réponse tronquée arrête le relais', async () => {
     const flux = fauxFluxOpenAI([
       { type: 'response.output_text.delta', delta: '{"resume":' },
       { type: 'response.incomplete' },
@@ -205,7 +207,7 @@ test.describe('0.30 - Relais SSE partagé des fonctions IA', () => {
     for (const statut of [0, 400, 401, 402, 403, 404, 429, 500, 503]) {
       expect(friendlyAIError(statut, '{}')).not.toMatch(interne);
     }
-    // Le conseil du cas 400 est propre à l'appelant : ai-diagnostic le fournit
+    // Le conseil du cas 400 est propre à l'appelant, qui peut le fournir.
     expect(friendlyAIError(400, '{}')).toBe('La demande a été refusée. Réessayez.');
     expect(friendlyAIError(400, '{}', 'si le problème persiste, réduisez la zone'))
       .toBe('La demande a été refusée. Réessayez ; si le problème persiste, réduisez la zone.');

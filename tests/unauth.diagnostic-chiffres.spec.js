@@ -1,7 +1,7 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { _internals } from '../admin/sections/diagnostic/analysis.js';
-import { dg, MAX_ANALYSIS_POINTS } from '../admin/sections/diagnostic/state.js';
+import { dg } from '../admin/sections/diagnostic/state.js';
 
 /**
  * Diagnostic terrain : les chiffres du rapport.
@@ -10,10 +10,13 @@ import { dg, MAX_ANALYSIS_POINTS } from '../admin/sections/diagnostic/state.js';
  * que restituer ». C'est le module vendu en supplément, et il était couvert à
  * 8 %. Un décompte faux ne se voit pas : le rapport reste beau et plausible.
  *
- * Tout ce fichier est du calcul pur, sans carte ni WebGL ni appel IA.
+ * Tout ce fichier est du calcul pur, sans carte ni WebGL ni appel IA. Les
+ * fixtures reprennent les données réelles (titres du catalogue data.gouv,
+ * en-têtes des fichiers nationaux, tableaux Windows-1252, fichiers en
+ * Lambert 93) : des données idéales ne montrent pas les défauts.
  */
 
-const { textOf, titleOf, extraOf, breakdown, zoneStats, orderedPoints, mergeCouches } = _internals;
+const { breakdown } = _internals;
 
 /** Deux couches typées comme en production (config popup + champ catégorie). */
 const COUCHES = [
@@ -37,67 +40,6 @@ test.beforeEach(() => {
   dg.layers = JSON.parse(JSON.stringify(COUCHES));
 });
 
-test.describe('0.50 - Diagnostic : lecture d\'un point', () => {
-
-  test('0.50.1 - Le titre suit le champ configuré, sinon le libellé de la couche', () => {
-    expect(titleOf(pt('L1', { titre: 'Nid-de-poule' }))).toBe('Nid-de-poule');
-    expect(titleOf(pt('L1', { titre: '' }))).toBe('Signalements voirie');
-    expect(titleOf(pt('L1', {}))).toBe('Signalements voirie');
-    // Couche inconnue : jamais « undefined » dans un rapport
-    expect(titleOf(pt('LX', { titre: 'x' }))).toBe('Point');
-  });
-
-  test('0.50.2 - Le texte descriptif est le PLUS LONG des champs, pas le premier', () => {
-    // Un intitulé court passerait pour la description et le vrai texte finirait
-    // tronqué dans le contexte, puis cité tronqué.
-    const f = pt('L1', {
-      titre: 'Signalement 12',
-      rue: 'Rue Garibaldi',
-      description: 'La chaussee est fortement degradee sur cinquante metres',
-    });
-    expect(textOf(f)).toBe('La chaussee est fortement degradee sur cinquante metres');
-  });
-
-  test('0.50.3 - Le champ titre ne peut jamais servir de texte descriptif', () => {
-    const f = pt('L1', { titre: 'Un titre tres long qui depasse douze caracteres' });
-    expect(textOf(f)).toBe('');
-  });
-
-  test('0.50.4 - Un texte de 12 caractères ou moins ne compte pas comme descriptif', () => {
-    expect(textOf(pt('L1', { titre: 'T', description: 'douze cars.' }))).toBe('');
-    expect(textOf(pt('L1', { titre: 'T', description: 'treize cars..' }))).toBe('treize cars..');
-  });
-
-  test('0.50.5 - Une valeur non textuelle ne devient jamais une description', () => {
-    for (const v of [42, true, null, undefined, { a: 1 }, ['x']]) {
-      expect(textOf(pt('L1', { titre: 'T', description: v })), String(v)).toBe('');
-    }
-  });
-
-  test('0.50.6 - Le contexte reprend la catégorie puis des repères courts', () => {
-    const f = pt('L1', {
-      titre: 'Signalement 12',
-      type: 'Chaussee',
-      rue: 'Rue Garibaldi',
-      commune: 'Lyon',
-      description: 'La chaussee est fortement degradee sur cinquante metres',
-    });
-    const extra = extraOf(f);
-    expect(extra).toContain('Chaussee');
-    expect(extra).toContain('Rue Garibaldi');
-    // Le texte descriptif est fourni entier ailleurs : il ne se répète pas ici
-    expect(extra).not.toContain('fortement degradee');
-    expect(extra.split(' · ').length).toBeLessThanOrEqual(3);
-  });
-
-  test('0.50.7 - Une valeur de plus de 40 caractères ne devient pas un repère', () => {
-    const f = pt('L1', { titre: 'T', type: 'Chaussee', rue: 'R'.repeat(41), commune: 'Lyon' });
-    expect(extraOf(f)).not.toContain('RRRR');
-    expect(extraOf(f)).toContain('Lyon');
-  });
-
-});
-
 test.describe('0.51 - Diagnostic : décomptes de zone', () => {
 
   test('0.51.1 - breakdown compte par couche et classe du plus fourni au moins fourni', () => {
@@ -116,217 +58,6 @@ test.describe('0.51 - Diagnostic : décomptes de zone', () => {
     expect(breakdown([])).toEqual([]);
   });
 
-  test('0.51.4 - zoneStats annonce le total et le détail par couche', () => {
-    const { text, rows } = zoneStats([pt('L1', { type: 'Chaussee' }), pt('L1', { type: 'Chaussee' }), pt('L2', {})]);
-    expect(text).toContain('Signalements voirie : 2');
-    expect(text).toContain('Comptages vélo : 1');
-    expect(text).toContain('Total : 3 points.');
-    expect(rows).toHaveLength(2);
-  });
-
-  test('0.51.5 - zoneStats relève les valeurs fréquentes du champ de catégorie', () => {
-    const { text } = zoneStats([
-      pt('L1', { type: 'Chaussee' }), pt('L1', { type: 'Chaussee' }),
-      pt('L1', { type: 'Trottoir' }), pt('L1', { type: '' }), pt('L1', {}),
-    ]);
-    expect(text).toContain('Chaussee (2)');
-    expect(text).toContain('Trottoir (1)');
-    // Les valeurs vides ne deviennent pas une catégorie fantôme
-    expect(text).not.toMatch(/ {2}\(\d+\)|«  »/);
-  });
-
-  test('0.51.6 - Une couche sans champ de catégorie ne produit aucune ligne de valeurs', () => {
-    const { text } = zoneStats([pt('L2', { nom: 'Compteur A' }), pt('L2', { nom: 'Compteur B' })]);
-    expect(text).toContain('Comptages vélo : 2');
-    expect(text).not.toContain('Valeurs fréquentes');
-  });
-
-});
-
-test.describe('0.52 - Diagnostic : sélection des points envoyés', () => {
-
-  test('0.52.1 - Les points sont pris à la ronde entre couches', () => {
-    const features = [
-      ...Array.from({ length: 5 }, (_, i) => pt('L1', { titre: `A${i}` })),
-      ...Array.from({ length: 5 }, (_, i) => pt('L2', { nom: `B${i}` })),
-    ];
-    const out = orderedPoints(features, 6);
-    expect(out).toHaveLength(6);
-    // Alternance : aucune couche n'est reléguée en fin de liste
-    const couches = out.map((f) => f.__layerId);
-    expect(new Set(couches).size).toBe(2);
-    expect(couches.filter((c) => c === 'L1')).toHaveLength(3);
-    expect(couches.filter((c) => c === 'L2')).toHaveLength(3);
-  });
-
-  test('0.52.2 - Les points porteurs de texte passent devant', () => {
-    const features = [
-      pt('L1', { titre: 'sans texte' }),
-      pt('L1', { titre: 'T', description: 'Une description bien assez longue pour compter' }),
-    ];
-    const out = orderedPoints(features, 2);
-    expect(textOf(out[0])).not.toBe('');
-  });
-
-  test('0.52.3 - Une couche épuisée ne bloque pas les autres', () => {
-    const features = [pt('L1', {}), ...Array.from({ length: 4 }, () => pt('L2', {}))];
-    const out = orderedPoints(features, 10);
-    // Le plafond n'est pas atteint : tous les points sortent, sans boucle infinie
-    expect(out).toHaveLength(5);
-  });
-
-  test('0.52.4 - Le plafond est respecté et vaut celui de la configuration', () => {
-    expect(MAX_ANALYSIS_POINTS).toBeGreaterThan(0);
-    const features = Array.from({ length: MAX_ANALYSIS_POINTS + 50 }, () => pt('L1', {}));
-    expect(orderedPoints(features, MAX_ANALYSIS_POINTS)).toHaveLength(MAX_ANALYSIS_POINTS);
-  });
-
-  test('0.52.5 - Une zone vide ne renvoie rien', () => {
-    expect(orderedPoints([], 10)).toEqual([]);
-  });
-
-});
-
-test.describe('0.53 - Diagnostic : recalage du résultat IA sur les données', () => {
-
-  /** Trois points L1 puis deux points L2, indices IA 1..5. */
-  const echantillon = [
-    pt('L1', { titre: 'S1', description: 'La chaussee est degradee sur cinquante metres' }),
-    pt('L1', { titre: 'S2', description: 'Le trottoir est affaisse devant le numero 12' }),
-    pt('L1', { titre: 'S3' }),
-    pt('L2', { nom: 'C1', commentaire: 'Comptage en hausse continue sur ce point' }),
-    pt('L2', { nom: 'C2' }),
-  ];
-  const codeOf = new Map([['L1', 'S1'], ['L2', 'S2']]);
-  const lignes = () => breakdown(echantillon);
-
-  test('0.53.1 - Toute couche présente figure au rapport, même ignorée par l\'IA', () => {
-    // L'IA ne parle que de S1 : S2 doit quand même apparaître avec son compte.
-    const out = mergeCouches(
-      { couches: [{ couche: 'S1', synthese: 'Des degradations de voirie.', sujets: [] }] },
-      lignes(), echantillon, codeOf,
-    );
-    expect(out.map((c) => c.id)).toEqual(['L1', 'L2']);
-    expect(out.find((c) => c.id === 'L2').count).toBe(2);
-    expect(out.find((c) => c.id === 'L2').synthese).toBe('');
-  });
-
-  test('0.53.2 - Un sujet est rattaché à la couche qui possède la majorité des points cités', () => {
-    // Le modèle déclare le sujet sous S2, mais 2 de ses 3 points sont à L1.
-    const out = mergeCouches(
-      { couches: [{ couche: 'S2', synthese: '', sujets: [{ sujet: 'Voirie', refs: [1, 2, 4], verbatims: [] }] }] },
-      lignes(), echantillon, codeOf,
-    );
-    const l1 = out.find((c) => c.id === 'L1');
-    expect(l1.sujets.map((s) => s.sujet)).toEqual(['Voirie']);
-    // Et le sujet ne garde que SES points, pas celui de l'autre couche
-    expect(l1.sujets[0].refs).toEqual([1, 2]);
-    expect(out.find((c) => c.id === 'L2').sujets).toEqual([]);
-  });
-
-  test('0.53.3 - Les références inexistantes sont écartées', () => {
-    const out = mergeCouches(
-      { couches: [{ couche: 'S1', sujets: [{ sujet: 'Voirie', refs: [1, 99, 1000, -3], verbatims: [] }] }] },
-      lignes(), echantillon, codeOf,
-    );
-    expect(out.find((c) => c.id === 'L1').sujets[0].refs).toEqual([1]);
-  });
-
-  test('0.53.4 - Un sujet sans aucune référence valable est supprimé', () => {
-    const out = mergeCouches(
-      { couches: [{ couche: 'S1', sujets: [{ sujet: 'Invente', refs: [42, 77], verbatims: ['x'] }] }] },
-      lignes(), echantillon, codeOf,
-    );
-    for (const c of out) expect(c.sujets).toEqual([]);
-  });
-
-  test('0.53.5 - Les références en double ne gonflent pas le décompte', () => {
-    const out = mergeCouches(
-      { couches: [{ couche: 'S1', sujets: [{ sujet: 'Voirie', refs: [1, 1, 1, 2], verbatims: [] }] }] },
-      lignes(), echantillon, codeOf,
-    );
-    expect(out.find((c) => c.id === 'L1').sujets[0].refs).toEqual([1, 2]);
-  });
-
-  test('0.53.6 - Deux synthèses pour une même source sont cumulées, pas perdues', () => {
-    const out = mergeCouches(
-      {
-        couches: [
-          { couche: 'S1', synthese: 'Premier constat.', sujets: [] },
-          { couche: 'S1', synthese: 'Second constat.', sujets: [] },
-        ],
-      },
-      lignes(), echantillon, codeOf,
-    );
-    expect(out.find((c) => c.id === 'L1').synthese).toBe('Premier constat. Second constat.');
-  });
-
-  test('0.53.7 - hasText est calculé sur les données, jamais déduit des sujets', () => {
-    // C'est ce qui permet de dire la vérité sur une source laissée de côté.
-    const out = mergeCouches({ couches: [] }, lignes(), echantillon, codeOf);
-    expect(out.find((c) => c.id === 'L1').hasText).toBe(true);
-    expect(out.find((c) => c.id === 'L2').hasText).toBe(true);
-
-    const sansTexte = [pt('L1', { titre: 'S1' }), pt('L1', { titre: 'S2' })];
-    const out2 = mergeCouches({ couches: [] }, breakdown(sansTexte), sansTexte, codeOf);
-    expect(out2[0].hasText).toBe(false);
-    expect(out2[0].apercu).toEqual([]);
-  });
-
-  test('0.53.8 - Un aperçu déterministe existe même sans sujet, plafonné à 8', () => {
-    const beaucoup = Array.from({ length: 12 }, (_, i) =>
-      pt('L1', { titre: `S${i}`, description: `Une description numero ${i} bien assez longue` }));
-    const out = mergeCouches({ couches: [] }, breakdown(beaucoup), beaucoup, codeOf);
-    expect(out[0].apercu).toHaveLength(8);
-    expect(out[0].apercu[0]).toHaveProperty('label');
-    expect(out[0].apercu[0]).toHaveProperty('texte');
-  });
-
-  test('0.53.9 - Les verbatims sont nettoyés et plafonnés à trois', () => {
-    const out = mergeCouches(
-      {
-        couches: [{
-          couche: 'S1',
-          sujets: [{ sujet: 'Voirie', refs: [1], verbatims: ['  un  ', '', '   ', 'deux', 'trois', 'quatre'] }],
-        }],
-      },
-      lignes(), echantillon, codeOf,
-    );
-    expect(out.find((c) => c.id === 'L1').sujets[0].verbatims).toEqual(['un', 'deux', 'trois']);
-  });
-
-  test('0.53.10 - Une réponse IA absurde ne fait jamais planter la fusion', () => {
-    for (const absurde of [null, undefined, {}, { couches: null }, { couches: 'x' }, { couches: [null, 42, {}] }]) {
-      const out = mergeCouches(absurde, lignes(), echantillon, codeOf);
-      expect(out.map((c) => c.id), JSON.stringify(absurde)).toEqual(['L1', 'L2']);
-      for (const c of out) expect(c.sujets).toEqual([]);
-    }
-  });
-
-  test('0.53.11 - Les sujets sont classés du plus étayé au moins étayé', () => {
-    const out = mergeCouches(
-      {
-        couches: [{
-          couche: 'S1',
-          sujets: [
-            { sujet: 'Peu etaye', refs: [1], verbatims: [] },
-            { sujet: 'Bien etaye', refs: [1, 2, 3], verbatims: [] },
-          ],
-        }],
-      },
-      lignes(), echantillon, codeOf,
-    );
-    expect(out.find((c) => c.id === 'L1').sujets.map((s) => s.sujet)).toEqual(['Bien etaye', 'Peu etaye']);
-  });
-
-  test('0.53.12 - La couleur du rapport est toujours une couleur valide', () => {
-    dg.layers = [{ id: 'L1', label: 'X', style: { color: '#DC2626; background:url(x)' }, popup: {} }];
-    const pts = [pt('L1', {})];
-    const out = mergeCouches({ couches: [] }, breakdown(pts), pts, new Map([['L1', 'S1']]));
-    expect(out[0].color).not.toContain('url(');
-    expect(out[0].color === '' || /^#[0-9A-Fa-f]{3,8}$/.test(out[0].color)).toBe(true);
-  });
-
 });
 
 /* ── Données de référence, jointure, style gradué ─────────────── */
@@ -334,13 +65,27 @@ test.describe('0.53 - Diagnostic : recalage du résultat IA sur les données', (
 import {
   CsvParser, parseCsv, numericFields, guessKind, quantileStops, aggregateMetrics,
   joinKey, applyJoin, guessJoinColumns, restrictProps, typedValue,
+  maxOf, decodeText, readTextFile, streamCsv, streamCsvFromStream, guessLatLng,
+  projectionProblem, csvProjectionProblem, prepareFeatures, readableError, countLabel,
+  loadLayerData,
 } from '../admin/sections/diagnostic/data.js';
 import { colorExpression, lineWidthExpression, colorRamp } from '../admin/sections/diagnostic/map.js';
 import { layerKind, layerMetrics } from '../admin/sections/diagnostic/state.js';
 
-const { partitionSelection, contextStats } = _internals;
+const { partitionSelection } = _internals;
 
 const feat = (props, geometry = { type: 'Point', coordinates: [5.7, 45.2] }) => ({ type: 'Feature', geometry, properties: props, __pt: [5.7, 45.2] });
+
+/** Octets d'un texte écrit en Windows-1252, comme un CSV enregistré par Excel en France. */
+const cp1252 = (s) => Uint8Array.from([...s].map((c) => ({ 'é': 0xE9, 'è': 0xE8, 'ê': 0xEA, 'É': 0xC9, 'ç': 0xE7, 'à': 0xE0, '’': 0x92, 'œ': 0x9C })[c] ?? c.charCodeAt(0)));
+
+/** Un flux d'octets découpé en morceaux de `size` octets. */
+const chunked = (bytes, size) => new ReadableStream({
+  start(controller) {
+    for (let i = 0; i < bytes.length; i += size) controller.enqueue(bytes.slice(i, i + size));
+    controller.close();
+  },
+});
 
 test.describe('0.54 - Diagnostic : lecture des données (CSV en flux, jointure, champs)', () => {
 
@@ -462,6 +207,87 @@ test.describe('0.54 - Diagnostic : lecture des données (CSV en flux, jointure, 
     expect(lineWidthExpression(style, null)).toBe(2.5);
     expect(lineWidthExpression({ mode: 'single' }, ramp)).toBe(2.5);
   });
+
+  test('0.54.12 - Un maximum sur 200 000 valeurs se calcule, et une valeur sous le minimum configuré est écartée', () => {
+    // Math.max(...valeurs) levait une erreur au-delà d'environ 65 000 valeurs
+    // (une zone qui couvre une grande partie d'un export Strava).
+    const many = Array.from({ length: 200000 }, (_, i) => feat({ v: i }));
+    expect(maxOf(many.map((f) => f.properties.v))).toBe(199999);
+    expect(aggregateMetrics(many, [{ field: 'v', agg: 'max' }])).toEqual([{ field: 'v', agg: 'max', value: 199999, n: 200000 }]);
+    // Waze note -1 le retard d'une circulation bloquée : ce n'est pas un retard.
+    const jams = [feat({ retard_s: -1 }), feat({ retard_s: 120 }), feat({ retard_s: 60 })];
+    expect(aggregateMetrics(jams, [{ field: 'retard_s', agg: 'mean', min: 0 }])).toEqual([{ field: 'retard_s', agg: 'mean', value: 90, n: 2 }]);
+    // Une agrégation au nom d'une propriété de l'objet n'est pas une agrégation.
+    expect(aggregateMetrics(jams, [{ field: 'retard_s', agg: 'toString' }])[0].agg).toBe('sum');
+  });
+
+  test('0.54.13 - Un tableau enregistré par Excel en Windows-1252 garde ses accents', async () => {
+    const bytes = cp1252('nom;catégorie\nRue de l’Église;Stationnement gênant\n');
+    expect(decodeText(bytes)).toContain('Rue de l’Église');
+    expect(await readTextFile(new File([bytes], 'doleances.csv'))).toContain('Stationnement gênant');
+    // Lecture en flux d'un fichier (tableau rattaché, aperçu)
+    const rows = [];
+    const headers = await streamCsv(new File([bytes], 'doleances.csv'), (cells) => { rows.push(cells); });
+    expect(headers).toEqual(['nom', 'catégorie']);
+    expect(rows[0]).toEqual(['Rue de l’Église', 'Stationnement gênant']);
+    // Des milliers de lignes ASCII puis le premier accent, en morceaux de 7 octets :
+    // le texte déjà lu ne change pas, la suite est relue en Windows-1252.
+    const long = cp1252(`nom;valeur\n${'a;1\n'.repeat(5000)}Élévation;2\n`);
+    const tail = [];
+    await streamCsvFromStream(chunked(long, 7), (cells) => { tail.push(cells); });
+    expect(tail).toHaveLength(5001);
+    expect(tail[5000]).toEqual(['Élévation', '2']);
+    // Un vrai UTF-8, coupé au milieu de ses caractères, reste de l'UTF-8.
+    const utf8 = [];
+    await streamCsvFromStream(chunked(new TextEncoder().encode('nom;v\nÉté;1\nçà;2\n'), 1), (cells) => { utf8.push(cells); });
+    expect(utf8).toEqual([['Été', '1'], ['çà', '2']]);
+  });
+
+  test('0.54.14 - La latitude et la longitude ne sont jamais la même colonne', () => {
+    expect(guessLatLng(['nom', 'latitude', 'longitude'])).toEqual({ lat: 'latitude', lng: 'longitude' });
+    expect(guessLatLng(['nom', 'x', 'y'])).toEqual({ lat: 'y', lng: 'x' });
+    // Rien de convaincant : aucune colonne, l'administrateur choisit (avant : la première colonne pour les deux).
+    expect(guessLatLng(['nom', 'lieu', 'commentaire'])).toEqual({ lat: '', lng: '' });
+    const { lat, lng } = guessLatLng(['coord_lat', 'nom']);
+    expect(lat).toBe('coord_lat');
+    expect(lng).not.toBe(lat);
+  });
+
+  test('0.54.15 - Un fichier en Lambert 93 est reconnu, et une couche déjà enregistrée ainsi n\'a plus de position hors des degrés', () => {
+    const lambert = { type: 'FeatureCollection', features: [feat({ nom: 'A' }, { type: 'Point', coordinates: [842000, 6519000] })] };
+    expect(projectionProblem(lambert)).toBe(true);
+    const declared = { type: 'FeatureCollection', crs: { type: 'name', properties: { name: 'urn:ogc:def:crs:EPSG::2154' } }, features: [] };
+    expect(projectionProblem(declared)).toBe(true);
+    const wgs84 = { type: 'FeatureCollection', crs: { type: 'name', properties: { name: 'urn:ogc:def:crs:OGC:1.3:CRS84' } }, features: [feat({}, { type: 'Point', coordinates: [4.83, 45.76] })] };
+    expect(projectionProblem(wgs84)).toBe(false);
+    // Un CSV en X / Y Lambert 93
+    expect(csvProjectionProblem([{ X: '842000', Y: '6519000' }, { X: '843000,5', Y: '6520000' }], 'Y', 'X')).toBe(true);
+    expect(csvProjectionProblem([{ lat: '45,76', lng: '4,83' }], 'lat', 'lng')).toBe(false);
+    // Chargement d'une couche mêlant les deux : seule la position en degrés reste.
+    const mixed = prepareFeatures({ features: [feat({ id: 1 }, { type: 'Point', coordinates: [4.83, 45.76] }), feat({ id: 2 }, { type: 'Point', coordinates: [842000, 6519000] })] });
+    expect(mixed.map((f) => f.properties.id)).toEqual([1]);
+  });
+
+  test('0.54.17 - Une couche enregistrée entièrement en Lambert 93 dit pourquoi elle ne s\'affiche pas', async () => {
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify({ type: 'FeatureCollection', features: [feat({ nom: 'A' }, { type: 'Point', coordinates: [842000, 6519000] })] }), { status: 200 });
+    try {
+      await expect(loadLayerData({ source_type: 'url', source_ref: 'https://opendata.example/pistes-l93.geojson' })).rejects.toThrow(/Lambert 93.*Retirez-la/);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
+  test('0.54.16 - Une erreur technique ne s\'affiche jamais telle quelle, un message écrit pour l\'écran si', () => {
+    expect(readableError(new Error('Ce tableau est vide ou illisible.'), 'repli')).toBe('Ce tableau est vide ou illisible.');
+    expect(readableError(new TypeError('Failed to fetch'), 'repli')).toBe('La connexion a échoué. Vérifiez votre réseau, puis réessayez.');
+    expect(readableError(Object.assign(new Error('new row violates row-level security policy'), { code: '42501' }), 'repli')).toBe('repli');
+    expect(readableError({ message: 'JWT expired', details: '' }, 'repli')).toBe('repli');
+    expect(readableError(new SyntaxError('Unexpected token < in JSON'), 'repli')).toBe('repli');
+    expect(countLabel(1, [feat({})])).toBe('1 point');
+    expect(countLabel(12, [{ geometry: { type: 'LineString' } }])).toBe('12 tronçons');
+    expect(countLabel(3, [])).toBe('3 éléments');
+  });
 });
 
 test.describe('0.55 - Diagnostic : les données de référence ne sont pas des points à lire', () => {
@@ -493,25 +319,6 @@ test.describe('0.55 - Diagnostic : les données de référence ne sont pas des p
     const { features, context } = partitionSelection(all);
     expect(features.map((f) => f.__layerId)).toEqual(['L1', 'LX']);
     expect(context.map((f) => f.__layerId)).toEqual(['R1', 'R1']);
-  });
-
-  test('0.55.3 - Les chiffres de zone sont calculés par couche de référence, du plus fourni au moins fourni', () => {
-    dg.layers.push({ id: 'R2', label: 'Accidents', style: { color: '#000' }, popup: { kind: 'reference' } });
-    const rows = contextStats([
-      pt('R2', { gravite: 2 }),
-      pt('R1', { total: 100, vitesse: 4 }),
-      pt('R1', { total: 300, vitesse: 6 }),
-      pt('R1', { total: 'x', vitesse: '' }),
-      pt('RX', { total: 5 }), // couche inconnue : ignorée
-    ]);
-    expect(rows.map((r) => r.id)).toEqual(['R1', 'R2']);
-    expect(rows[0]).toMatchObject({ label: 'Flux cyclistes 2025', count: 3, ai_context: 'Passages Strava' });
-    expect(rows[0].metrics).toEqual([
-      { field: 'total', agg: 'sum', value: 400, n: 2 },
-      { field: 'vitesse', agg: 'mean', value: 5, n: 2 },
-    ]);
-    expect(rows[1]).toMatchObject({ count: 1, metrics: [] });
-    expect(contextStats([])).toEqual([]);
   });
 });
 
@@ -580,17 +387,33 @@ test.describe('0.56 - Diagnostic : un export déposé tel quel', () => {
       for (const m of r.layer.metrics) expect(r.join.columns).toContain(m.field);
       expect(r.layer.label).toContain('{value}');
       expect(r.layer.ai_context.length).toBeGreaterThan(20);
+      // Le nom se lit dans une phrase : pas de trait d'union servant de tiret.
+      expect(r.name).not.toMatch(/ - /);
     }
+  });
+
+  test('0.56.7 - Un dépôt qui contient plusieurs fichiers cartographiques est refusé, jamais réduit en silence', async () => {
+    const mk = (n) => new File([''], n);
+    expect(() => classifyFiles([mk('a.shp'), mk('a.dbf'), mk('b.shp'), mk('b.dbf')])).toThrow(/2 fichiers cartographiques \(a\.shp, b\.shp\)/);
+    expect(() => classifyFiles([mk('pistes.geojson'), mk('bandes.geojson')])).toThrow(/2 fichiers cartographiques/);
+    expect(() => classifyFiles([mk('x.shp'), mk('x.dbf'), mk('autre.geojson')])).toThrow(/2 fichiers cartographiques/);
+    // Un shapefile accompagné d'un fichier .json de métadonnées reste un seul fichier cartographique.
+    expect(classifyFiles([mk('x.shp'), mk('x.dbf'), mk('metadonnees.json')]).geo).toMatchObject({ kind: 'shapefile', name: 'x' });
+    // Deux archives du même export : deux shapefiles, refusés.
+    const zip = readFileSync('tests/fixtures/diagnostic-troncons.zip');
+    const files = await expandFiles([new File([zip], 'a.zip'), new File([zip], 'b.zip')]);
+    expect(() => classifyFiles(files)).toThrow(/fichiers cartographiques/);
   });
 });
 
 /* ── Catalogue de sources et moteur d'import ─────────────────────── */
 
-import { SOURCES, FAMILIES, sourceOfLayer } from '../admin/sections/diagnostic/sources.js';
-import { cfgFromRecipe, joinColumnsFor } from '../admin/sections/diagnostic/engine.js';
+import { SOURCES, FAMILIES, sourceOfLayer, sourceById } from '../admin/sections/diagnostic/sources.js';
+import { cfgFromRecipe, joinColumnsFor, parseGeoJSONText } from '../admin/sections/diagnostic/engine.js';
 import { cyclewayType, waysToGeoJSON } from '../admin/sections/diagnostic/sources/osm.js';
 import { FUB_LAYERS, fubLayerCfg } from '../admin/sections/diagnostic/sources/fub.js';
 import { scopeLabel } from '../admin/sections/diagnostic/sources/territory.js';
+import { INTERNAL_SOURCES } from '../admin/sections/diagnostic/state.js';
 
 test.describe('0.57 - Diagnostic : catalogue de sources', () => {
 
@@ -612,8 +435,8 @@ test.describe('0.57 - Diagnostic : catalogue de sources', () => {
       if (s.mode === 'link') expect(s.tutorial.length).toBeGreaterThanOrEqual(2);
       if (s.mode === 'internal') expect(s.internalKey).toBeTruthy();
       // Le chemin principal ne parle jamais SIG
-      const txt = [s.name, s.description, s.sentence || ''].join(' ').toLowerCase();
-      for (const mot of ['geojson', 'jointure', 'popup', 'shapefile']) expect(txt).not.toContain(mot);
+      const txt = [s.name, s.description, s.sentence || '', ...(s.what || []).flat()].join(' ').toLowerCase();
+      for (const mot of ['geojson', 'jointure', 'popup', 'shapefile', 'entité']) expect(txt).not.toContain(mot);
     }
   });
 
@@ -667,6 +490,39 @@ test.describe('0.57 - Diagnostic : catalogue de sources', () => {
     expect(scopeLabel(t, 'epci')).toBe('Grenoble-Alpes-Métropole (49 communes)');
     expect(scopeLabel({ commune: { nom: 'X' }, epci: null }, 'epci')).toBe('X');
   });
+
+  test('0.57.7 - Le catalogue ne promet que ce que le dossier calcule', () => {
+    const what = (id) => (sourceById(id).what || []).flat().join(' ');
+    // Strava : le tronçon le plus emprunté, jamais une somme, ni vitesse ni vélo électrique.
+    expect(what('strava')).toContain('tronçon le plus emprunté');
+    expect(what('strava')).not.toMatch(/total des passages|électrique|vitesse/);
+    // Compteurs : un par un, jamais cumulés, et jamais « hier » pour un chiffre figé à l'ajout.
+    expect(what('comptages')).toContain('jamais additionnés');
+    expect(what('comptages')).not.toMatch(/cumul|\bhier\b|chaud|Eco-Visio/);
+    expect(what('comptages')).toContain('la veille du relevé');
+    // OpenStreetMap : des kilomètres, pas un nombre de tronçons.
+    expect(what('osm-cycleways')).toContain('kilomètres');
+    // Baromètre : tous les points n'ont pas de commentaire, et pas toujours trois couches.
+    expect(sourceById('fub').sentence).toContain('quand il en a laissé un');
+    expect(what('fub')).toContain('Jusqu\'à trois ensembles de points');
+    // Waze : les chiffres que le dossier donne vraiment.
+    expect(what('waze')).toContain('retard moyen');
+    expect(what('waze')).not.toContain('nombre d\'alertes');
+    // Le module Travaux sert aussi les chantiers à venir et terminés.
+    expect(sourceById('travaux').name).toBe('Chantiers publiés');
+    expect(INTERNAL_SOURCES.travaux.label).toBe('Chantiers publiés');
+    expect(INTERNAL_SOURCES.travaux.defaults.ai_context).toMatch(/terminés, en cours ou à venir/);
+    expect(INTERNAL_SOURCES.travaux.defaults.popup.fields).toEqual(expect.arrayContaining(['etat', 'date_debut', 'date_fin']));
+  });
+
+  test('0.57.8 - Un GeoJSON illisible ou en Lambert 93 est refusé en disant quoi faire', () => {
+    expect(() => parseGeoJSONText('{"type": "FeatureCol')).toThrow(/illisible/);
+    expect(() => parseGeoJSONText('{"type":"Topology"}')).toThrow(/données cartographiques/);
+    const lambert = JSON.stringify({ type: 'FeatureCollection', crs: { type: 'name', properties: { name: 'urn:ogc:def:crs:EPSG::2154' } }, features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [842000, 6519000] }, properties: {} }] });
+    expect(() => parseGeoJSONText(lambert)).toThrow(/Lambert 93/);
+    expect(() => parseGeoJSONText(lambert)).toThrow(/WGS 84/);
+    expect(parseGeoJSONText(JSON.stringify({ type: 'Feature', geometry: { type: 'Point', coordinates: [4.83, 45.76] }, properties: {} })).features).toHaveLength(1);
+  });
 });
 
 /* ── Ordre des couches ─────────────────────────────────────────── */
@@ -690,9 +546,18 @@ test.describe('0.58 - Diagnostic : réordonner les couches', () => {
 
 /* ── Accidents corporels (BAAC) et flux Waze ──────────────────── */
 
-import { fetchBaacYear, baacLayerCfg, GRAVITE_COLORS } from '../admin/sections/diagnostic/sources/baac.js';
+import { fetchBaacYear, baacLayerCfg, baacFilesByYear, baacPeriods, yearsLabel, GRAVITE_COLORS } from '../admin/sections/diagnostic/sources/baac.js';
 import { alertsToGeoJSON, jamsToGeoJSON, isAllowedFeedUrl } from '../netlify/functions/lib/waze-feed.mjs';
-import { wazeLayerCfgs } from '../admin/sections/diagnostic/sources/waze.js';
+import { wazeLayerCfgs, upgradeWazeMetrics, checkWazeFeed, WAZE_METRICS } from '../admin/sections/diagnostic/sources/waze.js';
+import { listFubDatasets } from '../admin/sections/diagnostic/sources/fub.js';
+import { renderPopup } from '../admin/sections/diagnostic/popups.js';
+
+/** Remplace fetch le temps d'un essai. */
+async function withFetch(impl, fn) {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = impl;
+  try { return await fn(); } finally { globalThis.fetch = realFetch; }
+}
 
 test.describe('0.59 - Diagnostic : accidents corporels', () => {
 
@@ -719,14 +584,96 @@ test.describe('0.59 - Diagnostic : accidents corporels', () => {
     }
   });
 
-  test('0.59.2 - La couche d\'accidents est une référence colorée par gravité, chiffrée en victimes', () => {
-    const cfg = baacLayerCfg([2020, 2024], 'Lyon');
+  test('0.59.2 - La couche d\'accidents est une référence colorée par gravité, nommée d\'après les années lues', () => {
+    const cfg = baacLayerCfg([2020, 2021, 2022, 2023, 2024], 'Lyon');
     expect(cfg.label).toBe('Accidents corporels 2020 à 2024 · Lyon');
     expect(cfg.kind).toBe('reference');
     expect(cfg.style.category_field).toBe('gravite');
     expect(cfg.style.cat_colors['Tué']).toBe(GRAVITE_COLORS['Tué']);
     expect(cfg.metrics.map((m) => m.field)).toEqual(['tues', 'blesses_hospitalises', 'blesses_legers', 'usagers']);
     expect(baacLayerCfg([2024], 'Lyon').label).toBe('Accidents corporels 2024 · Lyon');
+    // Des années qui manquent ne sont jamais couvertes par « à » : le nom dit ce qui a été lu.
+    const gap = baacLayerCfg([2020, 2023, 2024], 'Lyon');
+    expect(gap.label).toBe('Accidents corporels 2020, 2023 et 2024 · Lyon');
+    expect(gap.ai_context).toContain('années 2020, 2023 et 2024');
+    expect(baacLayerCfg([2024], 'Lyon').ai_context).toContain('année 2024');
+  });
+
+  test('0.59.3 - Les titres réels du catalogue data.gouv donnent toutes les années publiées', () => {
+    // Titres relevés le 23 septembre 2026 sur le jeu 53698f4ca3a729239d2036df.
+    const resources = [
+      { title: 'vehicules-immatricule-baac-2024.csv', url: 'immat-2024' },
+      { title: 'Caract_2024.csv', url: 'caract-2024' },
+      { title: 'Lieux_2024.csv', url: 'lieux-2024' },
+      { title: 'Vehicules_2024.csv', url: 'vehicules-2024' },
+      { title: 'Usagers_2024.csv', url: 'usagers-2024' },
+      { title: 'vehicules-immatricules-baac-2023.csv', url: 'immat-2023' },
+      { title: 'usagers-2023.csv', url: 'usagers-2023' },
+      { title: 'vehicules-2023.csv', url: 'vehicules-2023' },
+      { title: 'caract-2023.csv', url: 'caract-2023' },
+      { title: 'usagers-2022.csv', url: 'usagers-2022' },
+      { title: 'vehicules-2022.csv', url: 'vehicules-2022' },
+      { title: 'carcteristiques-2022.csv', url: 'caract-2022' },
+      { title: 'usagers-2021.csv', url: 'usagers-2021' },
+      { title: 'vehicules-2021.csv', url: 'vehicules-2021' },
+      { title: 'carcteristiques-2021.csv', url: 'caract-2021' },
+      { title: 'caracteristiques-2020.csv', url: 'caract-2020' },
+      { title: 'usagers-2020.csv', url: 'usagers-2020' },
+      { title: 'vehicules-2020.csv', url: 'vehicules-2020' },
+      { title: 'caracteristiques-2019.csv', url: 'caract-2019' },
+      { title: 'usagers-2019.csv', url: 'usagers-2019' },
+      { title: 'vehicules-2019.csv', url: 'vehicules-2019' },
+      { title: 'caracteristiques_2016.csv', url: 'caract-2016' },
+    ];
+    const years = baacFilesByYear(resources);
+    expect([...years.keys()].sort()).toEqual([2019, 2020, 2021, 2022, 2023, 2024]);
+    expect(years.get(2022)).toEqual({ caract: 'caract-2022', usagers: 'usagers-2022', vehicules: 'vehicules-2022' });
+    expect(years.get(2021).caract).toBe('caract-2021');
+    // La table des véhicules immatriculés n'est jamais prise pour celle des véhicules.
+    expect(years.get(2024).vehicules).toBe('vehicules-2024');
+    // Une année dont une table manque n'est pas proposée.
+    expect(baacFilesByYear([{ title: 'caracteristiques-2019.csv', url: 'x' }]).size).toBe(0);
+  });
+
+  test('0.59.4 - Le fichier 2022 nomme l\'identifiant « Accident_Id » : ses accidents sont lus et rattachés', async () => {
+    const fixtures = {
+      caract: readFileSync('tests/fixtures/baac-2022-caract.csv', 'utf8'),
+      usagers: readFileSync('tests/fixtures/baac-2022-usagers.csv', 'utf8'),
+      vehicules: readFileSync('tests/fixtures/baac-2022-vehicules.csv', 'utf8'),
+    };
+    expect(fixtures.caract.split('\n')[0]).toContain('"Accident_Id"');
+    const features = await withFetch(async (url) => new Response(fixtures[String(url).replace('mock://', '')], { status: 200 }),
+      () => fetchBaacYear(2022, { caract: 'mock://caract', usagers: 'mock://usagers', vehicules: 'mock://vehicules' }, ['69123']));
+    expect(features.map((f) => f.properties.numero).sort()).toEqual(['202200000011', '202200000012']);
+    const a = features.find((f) => f.properties.numero === '202200000011').properties;
+    expect(a).toMatchObject({ annee: 2022, date: '03/02/2022', gravite: 'Blessé hospitalisé', usagers: 2, blesses_hospitalises: 1, blesses_legers: 1, velo: 'oui', voiture: 'oui', adresse: 'Rue de la Guillotière' });
+    expect(features.find((f) => f.properties.numero === '202200000012').properties).toMatchObject({ gravite: 'Blessé léger', trottinette: 'oui', lumiere: 'Nuit avec éclairage' });
+    // Un fichier sans aucun des noms connus de l'identifiant est signalé, pas lu à vide.
+    const broken = { ...fixtures, caract: fixtures.caract.replace('"Accident_Id"', '"Identifiant"') };
+    await withFetch(async (url) => new Response(broken[String(url).replace('mock://', '')], { status: 200 }),
+      () => expect(fetchBaacYear(2022, { caract: 'mock://caract', usagers: 'mock://usagers', vehicules: 'mock://vehicules' }, ['69123'])).rejects.toThrow(/identifiant des accidents/));
+  });
+
+  test('0.59.5 - Les périodes proposées suivent les années réellement publiées', () => {
+    expect(yearsLabel([2024])).toBe('2024');
+    expect(yearsLabel([2024, 2023])).toBe('2023 et 2024');
+    expect(yearsLabel([2022, 2020, 2021])).toBe('2020 à 2022');
+    expect(yearsLabel([2019, 2020, 2023, 2024])).toBe('2019, 2020, 2023 et 2024');
+    // Les six années publiées
+    const full = baacPeriods([2019, 2020, 2021, 2022, 2023, 2024]);
+    expect(full.periods.map((p) => p.label)).toEqual([
+      'Dernière année disponible (2024)',
+      'Les trois dernières années disponibles (2022 à 2024)',
+      'Les cinq dernières années disponibles (2020 à 2024)',
+      'Toutes les années disponibles (2019 à 2024)',
+    ]);
+    expect(full.periods.find((p) => p.key === full.defaultKey).years).toEqual([2020, 2021, 2022, 2023, 2024]);
+    // Des années manquantes : « trois ans » prend les trois dernières publiées, pas 2022 à 2024.
+    const gaps = baacPeriods([2019, 2020, 2023, 2024]);
+    expect(gaps.periods.map((p) => p.years)).toEqual([[2024], [2020, 2023, 2024], [2019, 2020, 2023, 2024]]);
+    expect(gaps.periods[1].label).toBe('Les trois dernières années disponibles (2020, 2023 et 2024)');
+    expect(gaps.periods.find((p) => p.key === gaps.defaultKey).years).toEqual([2019, 2020, 2023, 2024]);
+    expect(baacPeriods([2024]).periods).toHaveLength(1);
   });
 });
 
@@ -767,6 +714,68 @@ test.describe('0.60 - Diagnostic : flux Waze', () => {
       expect(l.cfg.kind).toBe('reference');
     }
     expect(layers[1].cfg.style.mode).toBe('graduated');
+    // La ville est celle de l'import, pas celle affichée au moment de l'enregistrement.
+    expect(wazeLayerCfgs('https://www.waze.com/partnerhub-api/x', 'grenoble')[0].source_ref).toContain('ville=grenoble');
+  });
+
+  test('0.60.5 - Chaque chiffre de zone Waze a un libellé et une unité, et la longueur coupée à la zone n\'est plus additionnée', () => {
+    const [alerts, jams] = wazeLayerCfgs('https://www.waze.com/partnerhub-api/partners/1/waze-feeds/t?format=JSON');
+    for (const m of [...alerts.cfg.metrics, ...jams.cfg.metrics]) {
+      expect(m.label, m.field).toBeTruthy();
+      expect(m.unit, m.field).toBeTruthy();
+    }
+    expect(jams.cfg.metrics.map((m) => [m.field, m.label, m.unit])).toEqual([['retard_s', 'Retard moyen', 'secondes'], ['vitesse_kmh', 'Vitesse moyenne', 'km/h']]);
+    expect(jams.cfg.metrics.find((m) => m.field === 'retard_s').min).toBe(0);
+    expect(jams.cfg.metrics.some((m) => m.field === 'longueur_m')).toBe(false);
+    expect(WAZE_METRICS.alerts[0]).toMatchObject({ field: 'confirmations', label: 'Confirmations des conducteurs', unit: 'confirmations' });
+    // Une couche enregistrée avant la correction (base de Grenoble, 9 septembre 2026) est lue corrigée, sans migration.
+    const old = { source_ref: '/api/sources/waze?ville=grenoble&feed=x&part=jams', popup: { source: 'waze', metrics: [{ agg: 'mean', field: 'retard_s' }, { agg: 'mean', field: 'vitesse_kmh' }, { agg: 'sum', field: 'longueur_m' }] } };
+    expect(upgradeWazeMetrics(old)).toEqual([
+      { agg: 'mean', field: 'retard_s', label: 'Retard moyen', unit: 'secondes', min: 0 },
+      { agg: 'mean', field: 'vitesse_kmh', label: 'Vitesse moyenne', unit: 'km/h' },
+    ]);
+    // Un libellé saisi par l'administrateur est conservé.
+    const renamed = { source_ref: '/api/sources/waze?part=alerts', popup: { metrics: [{ agg: 'sum', field: 'confirmations', label: 'Votes' }] } };
+    expect(upgradeWazeMetrics(renamed)[0]).toMatchObject({ label: 'Votes', unit: 'confirmations' });
+  });
+
+  test('0.60.6 - La fenêtre d\'un bouchon bloqué dit « Circulation bloquée », jamais « -1 s de retard », et son texte est masqué des enregistrements', () => {
+    const layer = { label: 'Ralentissements Waze', source_type: 'url', source_ref: '/api/sources/waze?ville=x&feed=y&part=jams', popup: { source: 'waze', kind: 'reference' } };
+    const blocked = renderPopup(layer, { rue: 'Quai Perrache', retard_s: -1, vitesse_kmh: 0, longueur_m: 400, niveau: 5 });
+    expect(blocked).toContain('Circulation bloquée');
+    expect(blocked).not.toContain('-1');
+    expect(blocked).toMatch(/^<div class="dgp" data-op-mask/);
+    const slowed = renderPopup(layer, { rue: 'Quai Perrache', retard_s: '240', vitesse_kmh: 9.5, longueur_m: 820, niveau: 4 });
+    expect(slowed).toContain('4 min');
+    expect(slowed).not.toContain('Circulation bloquée');
+    // Compteur : le chiffre figé à l'ajout n'est pas « hier ».
+    const counter = renderPopup({ label: 'Compteurs vélo', source_type: 'storage', popup: { source: 'comptages' } }, { nom: 'Pont Raymond Barre', moyenne_journaliere: 3550, hier: 4120, releve_le: '2026-09-16' });
+    expect(counter).toContain('la veille du relevé');
+    expect(counter).not.toMatch(/>hier</);
+    // Une couche importée garde, elle aussi, son texte hors des enregistrements.
+    expect(renderPopup({ label: 'Doléances', popup: { title_field: 'titre', fields: ['texte'] } }, { titre: 'A', texte: 'Un habitant raconte' })).toContain('data-op-mask');
+  });
+
+  test('0.60.7 - Une session expirée se dit en français, et une couche qui ne charge plus donne le message du serveur', async () => {
+    const unauthorized = async () => new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    await withFetch(unauthorized, async () => {
+      await expect(checkWazeFeed('https://www.waze.com/partnerhub-api/x')).rejects.toThrow('Votre session a expiré. Reconnectez-vous, puis rouvrez cette source.');
+      await expect(listFubDatasets({ communeCode: '69123' })).rejects.toThrow('Votre session a expiré. Reconnectez-vous, puis rouvrez cette source.');
+      await expect(loadLayerData({ source_type: 'url', source_ref: '/api/sources/waze?part=alerts' })).rejects.toThrow(/Votre session a expiré/);
+    });
+    const relayError = async () => new Response(JSON.stringify({ error: 'Waze a répondu 403 : vérifiez que le lien est complet et toujours actif.' }), { status: 502, headers: { 'Content-Type': 'application/json' } });
+    await withFetch(relayError, () => expect(loadLayerData({ source_type: 'url', source_ref: '/api/sources/waze?part=jams' })).rejects.toThrow('Waze a répondu 403 : vérifiez que le lien est complet et toujours actif.'));
+    // Le message technique d'une autre adresse ne s'affiche pas tel quel.
+    const internal = async () => new Response(JSON.stringify({ error: 'Supabase 500: {"code":"XX000"}' }), { status: 502 });
+    await withFetch(internal, () => expect(loadLayerData({ source_type: 'url', source_ref: 'https://opendata.example/pistes.geojson' })).rejects.toThrow(/ne répond pas pour le moment \(erreur 502\)/));
+    const missing = async () => new Response('', { status: 404 });
+    await withFetch(missing, () => expect(loadLayerData({ source_type: 'storage', source_ref: 'https://wqqsuybmyqemhojsamgq.supabase.co/storage/v1/object/public/uploads/diagnostic/test-e2e/x.geojson.gz' })).rejects.toThrow(/introuvables/));
+    // Une ancienne couche déposée (adresse publique, fichier compressé) se relit comme avant.
+    const gz = new Response(new Blob([JSON.stringify({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [4.83, 45.76] }, properties: { n: 1 } }] })]).stream().pipeThrough(new CompressionStream('gzip')));
+    const bytes = new Uint8Array(await gz.arrayBuffer());
+    const old = await withFetch(async () => new Response(bytes, { status: 200, headers: { 'Content-Type': 'application/gzip' } }),
+      () => loadLayerData({ source_type: 'storage', source_ref: 'https://wqqsuybmyqemhojsamgq.supabase.co/storage/v1/object/public/uploads/diagnostic/test-e2e/x.geojson.gz' }));
+    expect(old.map((f) => f.properties.n)).toEqual([1]);
   });
 });
 
@@ -801,56 +810,30 @@ test.describe('0.61 - Diagnostic : compteurs vélo', () => {
     expect(insideTerritory(5.72, 45.19, contours)).toBe(false);
   });
 
-  test('0.61.3 - La couche de compteurs est graduée sur la moyenne journalière', () => {
+  test('0.61.3 - La couche de compteurs est graduée sur la moyenne journalière, jamais cumulée', () => {
     const cfg = countersLayerCfg('Lyon');
     expect(cfg.label).toBe('Compteurs vélo · Lyon');
     expect(cfg.kind).toBe('reference');
     expect(cfg.style).toMatchObject({ mode: 'graduated', value_field: 'moyenne_journaliere' });
-    expect(cfg.metrics[0]).toEqual({ field: 'moyenne_journaliere', agg: 'sum' });
+    // Les passages de plusieurs compteurs ne s'additionnent pas : aucun total.
+    expect(cfg.metrics.some((m) => m.agg === 'sum')).toBe(false);
+    expect(cfg.metrics[0]).toMatchObject({ field: 'moyenne_journaliere', agg: 'max', unit: 'passages par jour' });
+    expect(cfg.ai_context).toContain('la veille du relevé');
   });
 });
 
-/* ── Lecture chiffrée d'une zone (rapport) ───────────────────── */
+/* ── Lecture chiffrée d'une zone (dossier) ───────────────────── */
 
-import { lengthKm, median, quantile, benchmark, benchmarkText, clusterPoints, stravaInsights, accidentsInsights, cyclewaysInsights, attentionPoints, buildInsights } from '../admin/sections/diagnostic/insights.js';
+import { lengthKm, median, stravaInsights, accidentsInsights, cyclewaysInsights } from '../admin/sections/diagnostic/insights.js';
 
 test.describe('0.62 - Diagnostic : lecture chiffrée d\'une zone', () => {
   const P = (lng, lat, layerId, props = {}) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lng, lat] }, properties: props, __pt: [lng, lat], __layerId: layerId });
 
-  test('0.62.1 - Longueurs, médiane et quantiles', () => {
+  test('0.62.1 - Longueurs et médiane', () => {
     expect(lengthKm({ type: 'LineString', coordinates: [[4.83, 45.76], [4.84, 45.76]] })).toBeCloseTo(0.78, 1);
     expect(lengthKm(null)).toBe(0);
     expect(median([5, 1, 3])).toBe(3);
     expect(median([1, 2, 3, 4])).toBe(2.5);
-    expect(quantile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0.9)).toBe(9);
-  });
-
-  test('0.62.2 - La part de la zone et son rang parmi des secteurs comparables', () => {
-    // 100 points répartis, 10 dans la zone : 10 %, et la zone est dense
-    const all = [];
-    for (let i = 0; i < 100; i++) all.push(P(4.80 + (i % 10) * 0.01, 45.70 + Math.floor(i / 10) * 0.01, 'L'));
-    const inZone = all.filter((f) => f.__pt[0] < 4.815 && f.__pt[1] < 45.715);
-    const b = benchmark(inZone, all, [4.80, 45.70, 4.815, 45.715]);
-    expect(b.inZone).toBe(4);
-    expect(b.share).toBe(4);
-    expect(b.cells).toBeGreaterThan(5);
-    expect(benchmark([], all, [0, 0, 1, 1]).share).toBe(0);
-    expect(benchmarkText({ inZone: 12, total: 100, share: 12, percentile: 95 }, 'accidents', 'Lyon')).toBe('12 % des 100 accidents de Lyon, parmi les 5 % de secteurs les plus denses');
-    expect(benchmarkText({ inZone: 0 }, 'x', '')).toBe('');
-  });
-
-  test('0.62.3 - Les points proches se regroupent en lieux classés par sources puis par nombre', () => {
-    const pts = [
-      P(4.8400, 45.7600, 'A'), P(4.8401, 45.7601, 'B'), P(4.8402, 45.7600, 'A'), // trois points, deux sources
-      P(4.8600, 45.7600, 'A'), P(4.8601, 45.7600, 'A'), P(4.8602, 45.7600, 'A'), P(4.8603, 45.7600, 'A'), // quatre points, une source
-      P(4.9000, 45.8000, 'C'), // seul
-    ];
-    const clusters = clusterPoints(pts, 40);
-    expect(clusters).toHaveLength(3);
-    expect(clusters[0].sources.size).toBe(2);
-    expect(clusters[0].count).toBe(3);
-    expect(clusters[1].count).toBe(4);
-    expect(clusters[2].count).toBe(1);
   });
 
   test('0.62.4 - Strava : l\'axe le plus fréquenté par jour, la part pendulaire, jamais une somme de tronçons', () => {
@@ -885,40 +868,12 @@ test.describe('0.62 - Diagnostic : lecture chiffrée d\'une zone', () => {
     expect(c.byType[0].type).toBe('Piste cyclable');
   });
 
-  test('0.62.7 - Les points d\'attention suivent leurs règles écrites', () => {
-    const strava = [P(4.84, 45.76, 'S', { total_trip_count: 10000 }), P(4.85, 45.76, 'S', { total_trip_count: 100 })];
-    // 10 000 est au-dessus du 95e centile des 22 valeurs ; 100 en dessous
-    const stravaAll = [...strava, ...Array.from({ length: 20 }, (_, i) => P(4.9, 45.7, 'S', { total_trip_count: 100 + i }))];
-    const cycleways = [{ geometry: { type: 'LineString', coordinates: [[4.85, 45.76], [4.851, 45.76]] }, properties: {} }];
-    const accidents = [P(4.86, 45.77, 'A', { gravite: 'Blessé léger', date: '01/01/2024' })];
-    const fubRed = [P(4.8601, 45.77, 'F')];
-    const out = attentionPoints({ strava, stravaAll, cycleways, accidents, fubRed, hotspots: clusterPoints([...accidents, ...fubRed, P(4.8601, 45.7701, 'P')], 40) });
-    expect(out.map((o) => o.rule)).toEqual(['R1', 'R2', 'R3']);
-    expect(out[0].points).toHaveLength(1); // le tronçon à 10 000 loin de toute piste
-    expect(out[1].points).toHaveLength(1);
-    expect(attentionPoints({})).toEqual([]);
-  });
-
-  test('0.62.8 - La lecture complète assemble indicateurs, comparaisons, lieux et constats', () => {
-    dg.layers = [
-      { id: 'A', label: 'Accidents corporels 2024 · Lyon', style: { color: '#DC2626' }, popup: { kind: 'reference', source: 'accidents' } },
-      { id: 'F', label: 'Points à améliorer en priorité · Baromètre vélo 2025', style: { color: '#DC2626' }, popup: { kind: 'temoignages', source: 'fub' } },
-    ];
-    const acc = P(4.84, 45.76, 'A', { annee: 2024, gravite: 'Tué', tues: 1, velo: 'oui', lumiere: 'Plein jour', intersection: 'Giratoire' });
-    const fub = P(4.8401, 45.76, 'F', { description: 'Giratoire impossible à traverser à vélo sans se faire couper la route' });
-    const fub2 = P(4.8402, 45.7601, 'F', { description: 'Court' });
-    const runtime = new Map([['A', { features: [acc, ...Array.from({ length: 30 }, (_, i) => P(4.9 + i * 0.001, 45.7, 'A'))] }], ['F', { features: [fub, fub2] }]]);
-    const ins = buildInsights({ selection: { features: [fub, fub2], context: [acc], bbox: [4.83, 45.75, 4.85, 45.77], areaKm2: 1.5 }, layers: dg.layers, runtime, territoryLabel: 'Lyon' });
-    expect(ins.themes.securite.accidents.count).toBe(1);
-    expect(ins.themes.paroles.fub.red).toBe(2);
-    expect(ins.benchmarks.find((b) => b.layerId === 'A').total).toBe(31);
-    expect(ins.hotspots).toHaveLength(1);
-    expect(ins.hotspots[0].sources).toHaveLength(2);
-    expect(ins.hotspots[0].quotes[0].text).toContain('Giratoire');
-    expect(ins.attention.some((a) => a.rule === 'R2')).toBe(true);
-    expect(ins.kpis.map((k) => k.key)).toEqual(['accidents', 'fub']);
-    expect(ins.constats.length).toBeGreaterThan(0);
-    expect(ins.constats.join(' ')).not.toMatch(/undefined|NaN/);
+  test('0.62.9 - Strava : une zone de 100 000 tronçons se lit sans erreur', () => {
+    // Math.max(...totaux) levait « Maximum call stack size exceeded » au-delà d'environ 65 000 tronçons.
+    const many = Array.from({ length: 100000 }, (_, i) => P(0, 0, 'S', { total_trip_count: i }));
+    const s = stravaInsights(many);
+    expect(s.segments).toBe(100000);
+    expect(s.busiestPerDay).toBe(Math.round(99999 / 365));
+    expect(s.busiest.properties.total_trip_count).toBe(99999);
   });
 });
-

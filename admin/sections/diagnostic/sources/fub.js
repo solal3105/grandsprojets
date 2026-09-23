@@ -7,7 +7,7 @@
  * l'archive ; ici on la lit et on en fait des couches de témoignages.
  */
 
-import { readZipEntries, toFeatureCollection } from '../data.js';
+import { readZipEntries, toFeatureCollection, SESSION_EXPIRED } from '../data.js';
 import { store } from '../../../store.js';
 
 /** Les fichiers d'une archive du Baromètre qui deviennent des couches. */
@@ -17,33 +17,41 @@ export const FUB_LAYERS = [
     file: /points-rouges|points-noirs|points_noirs/i,
     label: 'Points à améliorer en priorité',
     color: '#DC2626',
-    ai_context: 'Lieux signalés par les cyclistes comme prioritaires à améliorer lors du Baromètre vélo de la FUB (enquête citoyenne nationale), avec leur commentaire',
+    ai_context: 'Lieux signalés par les cyclistes comme prioritaires à améliorer lors du Baromètre vélo de la FUB (enquête citoyenne nationale), avec le commentaire du cycliste quand il en a laissé un',
   },
   {
     key: 'points-verts',
     file: /points-verts/i,
     label: 'Améliorations constatées',
     color: '#16A34A',
-    ai_context: 'Lieux où les cyclistes constatent une amélioration récente, signalés lors du Baromètre vélo de la FUB, avec leur commentaire',
+    ai_context: 'Lieux où les cyclistes constatent une amélioration récente, signalés lors du Baromètre vélo de la FUB, avec le commentaire du cycliste quand il en a laissé un',
   },
   {
     key: 'stationnements',
     file: /^stationnements/i,
     label: 'Souhaits de stationnement vélo',
     color: '#2563EB',
-    ai_context: 'Lieux où les cyclistes souhaitent du stationnement vélo, signalés lors du Baromètre vélo de la FUB, avec leur commentaire',
+    ai_context: 'Lieux où les cyclistes souhaitent du stationnement vélo, signalés lors du Baromètre vélo de la FUB, avec le commentaire du cycliste quand il en a laissé un',
   },
 ];
 
-async function _call(params) {
-  const url = '/api/sources/fub?' + new URLSearchParams({ ville: store.city || '', ...params });
-  const res = await fetch(url, {
-    headers: store.session?.access_token ? { Authorization: `Bearer ${store.session.access_token}` } : {},
-    signal: AbortSignal.timeout(90000),
-  });
+async function _call(params, city = store.city) {
+  const url = '/api/sources/fub?' + new URLSearchParams({ ville: city || '', ...params });
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: store.session?.access_token ? { Authorization: `Bearer ${store.session.access_token}` } : {},
+      signal: AbortSignal.timeout(90000),
+    });
+  } catch (e) {
+    throw new Error(e?.name === 'TimeoutError'
+      ? 'La plateforme de la FUB a mis trop de temps à répondre. Réessayez dans quelques minutes.'
+      : 'La plateforme de la FUB n\'a pas pu être jointe. Vérifiez votre connexion, puis réessayez.');
+  }
   if (!res.ok) {
+    if (res.status === 401) throw new Error(SESSION_EXPIRED);
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `Plateforme FUB indisponible (HTTP ${res.status})`);
+    throw new Error(typeof err.error === 'string' && err.error ? err.error : `La plateforme de la FUB ne répond pas pour le moment (erreur ${res.status}). Réessayez dans quelques minutes.`);
   }
   return res;
 }
@@ -52,16 +60,16 @@ async function _call(params) {
  * Jeux du Baromètre disponibles pour un territoire.
  * @returns {Promise<Array<{uid, id, year, scope, title}>>}
  */
-export async function listFubDatasets({ communeCode, epciCode }) {
-  const res = await _call({ mode: 'list', commune: communeCode || '', epci: epciCode || '' });
+export async function listFubDatasets({ communeCode, epciCode, city }) {
+  const res = await _call({ mode: 'list', commune: communeCode || '', epci: epciCode || '' }, city);
   const data = await res.json();
   return Array.isArray(data.datasets) ? data.datasets : [];
 }
 
 /** Télécharge un jeu et le convertit en couches prêtes à enregistrer. */
-export async function fetchFubLayers(uid, onProgress) {
+export async function fetchFubLayers(uid, onProgress, city) {
   onProgress?.('Téléchargement du jeu de données…');
-  const res = await _call({ mode: 'download', uid });
+  const res = await _call({ mode: 'download', uid }, city);
   const zip = await res.arrayBuffer();
   onProgress?.('Lecture des contributions…');
   const files = await readZipEntries(zip);

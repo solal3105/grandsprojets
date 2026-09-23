@@ -4,6 +4,7 @@
  * tableau, détection de champs, agrégats de zone, géométrie.
  */
 
+import * as api from '../../api.js';
 import { store } from '../../store.js';
 import { INTERNAL_SOURCES } from './state.js';
 
@@ -13,6 +14,33 @@ export function toFeatureCollection(json) {
   if (json.type === 'FeatureCollection' && Array.isArray(json.features)) return json;
   if (json.type === 'Feature' && json.geometry) return { type: 'FeatureCollection', features: [json] };
   return null;
+}
+
+/** Session expirée sur la page d'une source du catalogue (relais Waze et Baromètre). */
+export const SESSION_EXPIRED = 'Votre session a expiré. Reconnectez-vous, puis rouvrez cette source.';
+
+/**
+ * Message lisible d'une erreur. Nos propres messages (Error simples, écrits
+ * pour l'écran) passent tels quels ; ceux de la base, du stockage ou du
+ * navigateur, écrits pour un développeur, sont remplacés par `fallback`.
+ */
+export function readableError(err, fallback) {
+  if (!err) return fallback;
+  if (err.name === 'TimeoutError') return 'Le service a mis trop de temps à répondre. Réessayez dans quelques minutes.';
+  if (err instanceof TypeError && /fetch|network|load failed/i.test(err.message || '')) return 'La connexion a échoué. Vérifiez votre réseau, puis réessayez.';
+  const ours = err instanceof Error && err.constructor === Error
+    && !('code' in err) && !('details' in err) && !('statusCode' in err) && !err.__isStorageError;
+  return ours && err.message ? err.message : fallback;
+}
+
+/** « 1 point », « 12 tronçons » : le nom concret des éléments d'une couche, selon leur forme. */
+export function countLabel(n, features) {
+  const type = features?.[0]?.geometry?.type || '';
+  const [one, many] = /Point/.test(type) ? ['point', 'points']
+    : /Line/.test(type) ? ['tronçon', 'tronçons']
+      : /Polygon/.test(type) ? ['zone', 'zones'] : ['élément', 'éléments'];
+  const count = Number(n) || 0;
+  return `${count.toLocaleString('fr-FR')} ${count >= 2 ? many : one}`;
 }
 
 /** Emprise [minX, minY, maxX, maxY] d'une géométrie (null si invalide). */
@@ -35,34 +63,75 @@ export function geometryBbox(geometry) {
   return isFinite(minX) ? [minX, minY, maxX, maxY] : null;
 }
 
-/** Applique `fn(lng, lat)` à chaque sommet de la géométrie ; s'arrête si fn retourne true. */
-export function someVertex(geometry, fn) {
-  const walk = (coords) => {
-    if (!Array.isArray(coords)) return false;
-    if (typeof coords[0] === 'number') return fn(coords[0], coords[1]);
-    for (const c of coords) if (walk(c)) return true;
-    return false;
-  };
-  return walk(geometry?.coordinates);
+/** Une emprise [minX, minY, maxX, maxY] tient-elle en longitudes et latitudes (degrés) ? */
+export function inDegrees(bbox) {
+  return Array.isArray(bbox) && bbox[0] >= -180 && bbox[2] <= 180 && bbox[1] >= -90 && bbox[3] <= 90;
 }
 
 /**
  * Prépare les features d'une couche : filtre les géométries invalides et
  * pré-calcule le point d'ancrage (`__pt`) et l'emprise (`__bbox`) utilisés
- * par le lasso et la heatmap.
+ * par le lasso et la heatmap. Une position hors des degrés (couche en Lambert 93
+ * enregistrée avant le contrôle d'import) est écartée : elle ne peut ni
+ * s'afficher ni cadrer la carte.
  */
 export function prepareFeatures(fc) {
   const out = [];
   for (const f of fc.features || []) {
     if (!f || !f.geometry) continue;
     const bbox = geometryBbox(f.geometry);
-    if (!bbox) continue;
+    if (!bbox || !inDegrees(bbox)) continue;
     const pt = f.geometry.type === 'Point'
       ? [f.geometry.coordinates[0], f.geometry.coordinates[1]]
       : [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
     out.push({ ...f, properties: f.properties || {}, __pt: pt, __bbox: bbox });
   }
   return out;
+}
+
+// Noms d'un système de coordonnées en degrés (WGS 84), tels que les écrivent les logiciels.
+const WGS84_NAMES = /crs84|epsg:{1,2}(4326|4979)\b|wgs[\s_-]?84/i;
+
+/**
+ * Le fichier est-il dans une autre projection que les degrés ? Soit il le
+ * déclare (membre `crs` d'un GeoJSON en Lambert 93), soit aucune de ses
+ * positions ne tient en longitudes et latitudes.
+ */
+export function projectionProblem(fc) {
+  const declared = fc?.crs?.properties?.name;
+  if (declared && !WGS84_NAMES.test(String(declared))) return true;
+  let valid = 0, outside = 0;
+  for (const f of fc?.features || []) {
+    const bbox = geometryBbox(f?.geometry);
+    if (!bbox) continue;
+    if (inDegrees(bbox)) valid++; else outside++;
+  }
+  return !valid && outside > 0;
+}
+
+/** Colonnes de coordonnées remplies de nombres qui ne sont pas des degrés (Lambert 93, par exemple). */
+export function csvProjectionProblem(records, latCol, lngCol) {
+  if (!latCol || !lngCol) return false;
+  let numeric = 0, degrees = 0;
+  for (const rec of records || []) {
+    const lat = parseFloat(String(rec?.[latCol] ?? '').replace(',', '.'));
+    const lng = parseFloat(String(rec?.[lngCol] ?? '').replace(',', '.'));
+    if (!isFinite(lat) || !isFinite(lng)) continue;
+    numeric++;
+    if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) degrees++;
+  }
+  return numeric > 0 && degrees === 0;
+}
+
+/** Ce qu'il faut faire d'un fichier dont les positions ne sont pas en degrés. */
+export function projectionMessage({ kind = 'geojson', lat = '', lng = '', hasPrj = true } = {}) {
+  if (kind === 'csv') {
+    return `Les colonnes « ${lat} » et « ${lng} » ne contiennent pas des latitudes et des longitudes en degrés : leurs valeurs sont sans doute exprimées dans une autre projection, comme le Lambert 93. Ajoutez à votre tableau des colonnes de latitude et de longitude en degrés (WGS 84), ou demandez cet export à votre service SIG.`;
+  }
+  if (kind === 'shapefile' && !hasPrj) {
+    return 'Ce shapefile est arrivé sans son fichier .prj, qui indique sa projection, et ses positions ne sont pas en latitude et longitude. Déposez-le de nouveau avec son fichier .prj (même nom, extension .prj) : nous le convertirons nous-mêmes.';
+  }
+  return 'Les positions de ce fichier ne sont pas en latitude et longitude : il utilise une autre projection, comme le Lambert 93. Demandez à votre service SIG un export en WGS 84 (EPSG:4326), ou déposez le shapefile d\'origine avec son fichier .prj : nous le convertirons nous-mêmes.';
 }
 
 /** Liste des champs présents dans les propriétés (échantillonné). */
@@ -158,29 +227,40 @@ export function quantileStops(features, field) {
   return stops.length >= 2 ? stops : [];
 }
 
+/** Plus grande valeur d'une liste, sans étaler la liste en arguments (au-delà de 65 000 valeurs, Math.max(...v) échoue). */
+export function maxOf(values) {
+  let max = -Infinity;
+  for (const v of values) if (v > max) max = v;
+  return max;
+}
+
 /** Agrégations disponibles pour un chiffre de zone. */
 export const METRIC_AGGS = {
   sum: { label: 'Total', apply: (values) => values.reduce((a, b) => a + b, 0) },
   mean: { label: 'Moyenne', apply: (values) => values.reduce((a, b) => a + b, 0) / values.length },
-  max: { label: 'Maximum', apply: (values) => Math.max(...values) },
+  max: { label: 'Maximum', apply: (values) => maxOf(values) },
 };
 
 /**
  * Chiffres de zone d'une couche de référence : pour chaque métrique
- * configurée ({ field, agg }), l'agrégat des entités fournies.
- * Une métrique sans aucune valeur numérique est omise (jamais un 0 inventé).
+ * configurée ({ field, agg, label?, unit?, min? }), l'agrégat des entités
+ * fournies. Une valeur sous `min` est écartée (Waze note -1 le retard d'une
+ * circulation bloquée : ce n'est pas un retard). Une métrique sans aucune
+ * valeur numérique est omise (jamais un 0 inventé).
  */
 export function aggregateMetrics(features, metrics) {
   const out = [];
   for (const m of Array.isArray(metrics) ? metrics : []) {
-    const agg = METRIC_AGGS[m?.agg] || METRIC_AGGS.sum;
+    if (!m || typeof m.field !== 'string') continue;
+    const agg = Object.hasOwn(METRIC_AGGS, m.agg) ? METRIC_AGGS[m.agg] : METRIC_AGGS.sum;
+    const min = Number.isFinite(m.min) ? m.min : -Infinity;
     const values = [];
     for (const f of features) {
       const n = toNumber(f.properties?.[m.field]);
-      if (isFinite(n)) values.push(n);
+      if (isFinite(n) && n >= min) values.push(n);
     }
     if (!values.length) continue;
-    out.push({ field: m.field, agg: m.agg in METRIC_AGGS ? m.agg : 'sum', value: agg.apply(values), n: values.length });
+    out.push({ field: m.field, agg: Object.hasOwn(METRIC_AGGS, m.agg) ? m.agg : 'sum', value: agg.apply(values), n: values.length });
   }
   return out;
 }
@@ -195,6 +275,9 @@ export function restrictProps(features, keep) {
   });
 }
 
+/** Référence d'un fichier déposé dans le compartiment privé : « storage:diagnostic/<ville>/<fichier> ». */
+export const isPrivateFileRef = (ref) => String(ref || '').startsWith('storage:diagnostic/');
+
 /** URL de chargement d'une couche selon son type de source. */
 function layerDataUrl(layer) {
   if (layer.source_type === 'internal') {
@@ -205,25 +288,83 @@ function layerDataUrl(layer) {
   return layer.source_ref || null;
 }
 
-/** Charge et prépare le GeoJSON d'une couche. Throw en cas d'échec. */
+/**
+ * Lit un GeoJSON depuis des octets, compressés (gzip) ou non. Le format se
+ * reconnaît à ses deux premiers octets, pas à l'adresse : un serveur peut
+ * aussi bien livrer le fichier tel quel que déjà décompressé.
+ */
+async function _geojsonFromBlob(blob) {
+  const head = new Uint8Array(await blob.slice(0, 2).arrayBuffer());
+  const gzipped = head[0] === 0x1f && head[1] === 0x8b;
+  if (gzipped && typeof DecompressionStream !== 'function') {
+    throw new Error('Ce navigateur ne sait pas ouvrir les couches compressées. Mettez-le à jour, puis rechargez la page.');
+  }
+  const stream = gzipped ? blob.stream().pipeThrough(new DecompressionStream('gzip')) : blob.stream();
+  try {
+    return await new Response(stream).json();
+  } catch {
+    throw new Error('Les données reçues sont illisibles. Si la source a changé, retirez la couche puis ajoutez-la de nouveau.');
+  }
+}
+
+/** Ce qu'il faut dire quand une adresse de données répond par une erreur. */
+async function _httpError(res, url) {
+  let server = '';
+  try {
+    const body = await res.json();
+    if (typeof body?.error === 'string') server = body.error.trim();
+  } catch { /* réponse sans message */ }
+  if (res.status === 401) return 'Votre session a expiré. Reconnectez-vous, puis réessayez.';
+  // Nos relais (Waze, Baromètre) rédigent un message utile : il passe tel quel.
+  if (server && url.startsWith('/api/sources/')) return server;
+  if (res.status === 404) return 'Les données de cette couche sont introuvables à leur adresse. Retirez la couche, puis ajoutez de nouveau vos données.';
+  if (res.status === 403) return 'Le service qui publie ces données en refuse l\'accès. Vérifiez que l\'adresse est toujours publique.';
+  if (res.status >= 500) return `Le service qui fournit ces données ne répond pas pour le moment (erreur ${res.status}). Réessayez dans quelques minutes.`;
+  return `Les données n'ont pas pu être chargées (erreur ${res.status}). Réessayez dans quelques minutes.`;
+}
+
+/** Charge et prépare le GeoJSON d'une couche. Throw en cas d'échec, avec un message à afficher. */
 export async function loadLayerData(layer) {
+  // Fichier déposé dans le compartiment privé : téléchargé avec la session.
+  if (isPrivateFileRef(layer.source_ref)) {
+    let blob;
+    try {
+      blob = await api.downloadDiagnosticFile(layer.source_ref);
+    } catch (e) {
+      throw new Error(e?.status === 404
+        ? 'Le fichier de cette couche est introuvable. Retirez la couche, puis ajoutez de nouveau vos données.'
+        : readableError(e, 'Le fichier de cette couche n\'a pas pu être téléchargé. Vérifiez votre connexion, puis réessayez.'));
+    }
+    return _featuresOf(await _geojsonFromBlob(blob));
+  }
   const url = layerDataUrl(layer);
-  if (!url) throw new Error('Source de données introuvable');
+  if (!url) throw new Error('La source de cette couche n\'existe plus. Retirez la couche, puis ajoutez de nouveau vos données.');
   // Une source relayée par nos fonctions (flux partenaire) exige la session.
   const headers = url.startsWith('/api/sources/') && store.session?.access_token
     ? { Authorization: `Bearer ${store.session.access_token}` }
     : {};
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  // Une couche déposée par le diagnostic est compressée (gzip) : la
-  // décompression est faite ici, le serveur la sert telle quelle.
-  const gzipped = /\.gz(\?|$)/i.test(url) || /gzip/i.test(res.headers.get('content-type') || '');
-  const json = gzipped && res.body && typeof DecompressionStream === 'function'
-    ? await new Response(res.body.pipeThrough(new DecompressionStream('gzip'))).json()
-    : await res.json();
+  let res;
+  try {
+    res = await fetch(url, { headers });
+  } catch {
+    throw new Error('Nous n\'avons pas pu joindre l\'adresse de ces données. Vérifiez votre connexion, puis réessayez.');
+  }
+  if (!res.ok) throw new Error(await _httpError(res, url));
+  // Anciennes couches déposées (adresse publique, fichier compressé) comme
+  // liens distants : même lecture.
+  return _featuresOf(await _geojsonFromBlob(await res.blob()));
+}
+
+function _featuresOf(json) {
   const fc = toFeatureCollection(json);
-  if (!fc) throw new Error('GeoJSON non reconnu');
-  return prepareFeatures(fc);
+  if (!fc) throw new Error('Les données reçues ne sont pas des données cartographiques. Si la source a changé, retirez la couche puis ajoutez-la de nouveau.');
+  const features = prepareFeatures(fc);
+  // Couche enregistrée en Lambert 93 avant le contrôle d'import : plutôt
+  // qu'une couche vide sans explication, la raison et la marche à suivre.
+  if (!features.length && fc.features.length && projectionProblem(fc)) {
+    throw new Error('Les positions de cette couche ne sont pas en latitude et longitude (Lambert 93 ou autre projection) : elle ne peut pas s\'afficher. Retirez-la, puis ajoutez de nouveau vos données en WGS 84.');
+  }
+  return features;
 }
 
 /* ── CSV ───────────────────────────────────────────────────────── */
@@ -333,6 +474,101 @@ export function parseCsv(text) {
   return { headers, records };
 }
 
+/* ── Encodage des fichiers texte ────────────────────────────────── */
+
+/**
+ * Décode un texte entier : UTF-8, sinon Windows-1252, l'encodage des tableaux
+ * enregistrés par Excel en France (sans quoi les accents deviennent « � »).
+ */
+export function decodeText(buffer) {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder('windows-1252').decode(bytes);
+  }
+}
+
+/** Texte d'un fichier déposé, dans son encodage réel. */
+export async function readTextFile(file) {
+  return decodeText(await file.arrayBuffer());
+}
+
+const _concatBytes = (a, b) => {
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out;
+};
+
+/** Le texte contient-il un caractère hors ASCII ? */
+function _hasNonAscii(text) {
+  for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) > 127) return true;
+  return false;
+}
+
+/**
+ * Octets d'une séquence UTF-8 commencée mais pas terminée à la fin d'un
+ * morceau (le décodeur les garde en attente du morceau suivant).
+ */
+function _pendingUtf8(previous, bytes) {
+  const last = bytes.length >= 3 ? bytes.subarray(bytes.length - 3) : _concatBytes(previous, bytes).slice(-3);
+  for (let i = last.length - 1; i >= 0; i--) {
+    const b = last[i];
+    if (b < 0x80) return new Uint8Array(0);
+    if (b >= 0xC0) {
+      const need = b >= 0xF0 ? 4 : b >= 0xE0 ? 3 : 2;
+      return last.length - i < need ? last.slice(i) : new Uint8Array(0);
+    }
+  }
+  return new Uint8Array(0);
+}
+
+/**
+ * Flux d'octets vers flux de texte. En mode « auto », le texte est lu en UTF-8
+ * tant qu'il est valide. Au premier octet invalide, un fichier resté ASCII
+ * jusque-là est relu en Windows-1252 (tableau d'Excel) ; un fichier qui
+ * contenait déjà de l'UTF-8 valide reste lu en UTF-8.
+ */
+export function textDecoderStream(encoding = 'auto') {
+  if (encoding !== 'auto') return new TextDecoderStream(encoding);
+  let decoder = new TextDecoder('utf-8', { fatal: true });
+  let strict = true; // encodage pas encore tranché
+  let sawNonAscii = false; // un caractère UTF-8 non ASCII a déjà été lu
+  let pending = new Uint8Array(0);
+  return new TransformStream({
+    transform(chunk, controller) {
+      const bytes = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+      let text;
+      if (strict) {
+        try {
+          text = decoder.decode(bytes, { stream: true });
+          if (!sawNonAscii && _hasNonAscii(text)) sawNonAscii = true;
+          pending = _pendingUtf8(pending, bytes);
+        } catch {
+          decoder = new TextDecoder(sawNonAscii ? 'utf-8' : 'windows-1252');
+          strict = false;
+          text = decoder.decode(_concatBytes(pending, bytes), { stream: true });
+          pending = new Uint8Array(0);
+        }
+      } else {
+        text = decoder.decode(bytes, { stream: true });
+      }
+      if (text) controller.enqueue(text);
+    },
+    flush(controller) {
+      let text;
+      try {
+        text = decoder.decode();
+      } catch {
+        // Le fichier s'achève sur un octet isolé : ce n'était pas de l'UTF-8.
+        text = new TextDecoder(sawNonAscii ? 'utf-8' : 'windows-1252').decode(pending);
+      }
+      if (text) controller.enqueue(text);
+    },
+  });
+}
+
 /**
  * Lit un fichier CSV en flux. `onRow(cells, headers)` est appelé pour chaque
  * ligne de données ; retourner `false` interrompt la lecture (utile pour un
@@ -345,9 +581,10 @@ export async function streamCsv(file, onRow) {
 /**
  * Même lecture en flux depuis un ReadableStream d'octets (réponse réseau,
  * fichier) : un CSV national de plusieurs dizaines de mégaoctets se filtre
- * sans jamais être chargé entier.
+ * sans jamais être chargé entier. L'encodage est reconnu tout seul (voir
+ * textDecoderStream), sauf s'il est imposé.
  */
-export async function streamCsvFromStream(stream, onRow, encoding = 'utf-8') {
+export async function streamCsvFromStream(stream, onRow, encoding = 'auto') {
   let headers = null;
   let stop = false;
   const parser = new CsvParser((row) => {
@@ -355,15 +592,20 @@ export async function streamCsvFromStream(stream, onRow, encoding = 'utf-8') {
     if (!headers) { headers = row; return; }
     if (onRow(row, headers) === false) stop = true;
   });
-  const reader = stream.pipeThrough(new TextDecoderStream(encoding)).getReader();
+  const reader = stream.pipeThrough(textDecoderStream(encoding)).getReader();
+  let failed = false;
   try {
     while (!stop) {
       const { done, value } = await reader.read();
       if (done) break;
       parser.push(value);
     }
+  } catch (e) {
+    failed = true;
+    throw e;
   } finally {
-    if (stop) await reader.cancel().catch(() => {});
+    // Lecture interrompue (aperçu, erreur) : le reste du flux n'est pas téléchargé.
+    if (stop || failed) await reader.cancel().catch(() => {});
   }
   if (!stop) parser.end();
   return headers || [];
@@ -457,19 +699,31 @@ export function applyJoin(features, index, layerKey, { keepUnmatched = false } =
   return { features: out, matched, unmatched };
 }
 
-/** Devine la colonne correspondant à l'un des mots-clés donnés. */
-export function guessColumn(headers, keys) {
-  const low = headers.map((h) => h.toLowerCase().trim());
+/**
+ * Devine la colonne correspondant à l'un des mots-clés donnés, hors des
+ * colonnes exclues. Rien de convaincant : '' (l'administrateur choisit).
+ */
+export function guessColumn(headers, keys, { exclude = [] } = {}) {
+  const avoid = new Set(exclude.filter(Boolean));
+  const low = headers.map((h) => String(h).toLowerCase().trim());
   for (const k of keys) {
-    const i = low.indexOf(k);
+    const i = low.findIndex((h, j) => h === k && !avoid.has(headers[j]));
     if (i >= 0) return headers[i];
   }
   // Repli par sous-chaîne - uniquement pour les clés non ambiguës (≥ 3 car.,
   // sinon « x »/« y » matchent n'importe quel en-tête).
   for (let i = 0; i < low.length; i++) {
+    if (avoid.has(headers[i])) continue;
     if (keys.some((k) => k.length >= 3 && low[i].includes(k))) return headers[i];
   }
-  return headers[0] || '';
+  return '';
+}
+
+/** Colonnes de latitude et de longitude d'un tableau : jamais la même pour les deux. */
+export function guessLatLng(headers) {
+  const lat = guessColumn(headers, ['lat', 'latitude', 'y']);
+  const lng = guessColumn(headers, ['lon', 'lng', 'long', 'longitude', 'x'], { exclude: [lat] });
+  return { lat, lng };
 }
 
 /**
@@ -528,7 +782,7 @@ export async function readZipEntries(source) {
   for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) {
     if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
   }
-  if (eocd < 0) throw new Error('Archive zip illisible');
+  if (eocd < 0) throw new Error('Cette archive zip est illisible : elle est peut-être incomplète. Téléchargez-la de nouveau, puis déposez-la.');
   const count = dv.getUint16(eocd + 10, true);
   let p = dv.getUint32(eocd + 16, true);
   const decoder = new TextDecoder();
@@ -552,7 +806,7 @@ export async function readZipEntries(source) {
     else if (method === 8) {
       const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
       bytes = new Uint8Array(await new Response(stream).arrayBuffer());
-    } else throw new Error(`Compression non prise en charge dans l'archive (${name})`);
+    } else throw new Error(`Nous ne savons pas ouvrir le fichier « ${name.split('/').pop()} » de cette archive. Décompressez-la sur votre ordinateur, puis déposez directement ses fichiers.`);
     out.push(new File([bytes], name.split('/').pop()));
   }
   return out;
@@ -562,7 +816,7 @@ export async function readZipEntries(source) {
 export async function expandFiles(files) {
   const out = [];
   for (const f of files) {
-    if (/\.zip$/i.test(f.name)) out.push(...await readZipEntries(f));
+    if (/\.zip$/i.test(f.name)) for (const entry of await readZipEntries(f)) out.push(entry);
     else if (!f.name.startsWith('.')) out.push(f);
   }
   return out;
@@ -600,16 +854,25 @@ const _stem = (f) => f.name.replace(/\.[^.]+$/, '');
  * Trie un lot de fichiers : la source géographique (shapefile avec ses
  * compagnons, sinon GeoJSON) et les tableaux (CSV) qui l'accompagnent.
  * Sans source géographique, un CSV unique est traité comme des points.
+ * Plusieurs sources géographiques dans un même dépôt (une archive qui
+ * contient deux shapefiles) sont refusées : en garder une seule sans le dire
+ * ferait disparaître les autres.
  */
 export function classifyFiles(files) {
   const byExt = (ext) => files.filter((f) => _ext(f) === ext);
-  const shp = byExt('shp')[0];
+  const shps = byExt('shp');
+  const candidates = shps.length ? [...shps, ...byExt('geojson')] : (byExt('geojson').length ? byExt('geojson') : byExt('json'));
+  if (candidates.length > 1) {
+    const names = candidates.slice(0, 4).map((f) => f.name).join(', ') + (candidates.length > 4 ? '…' : '');
+    throw new Error(`Ce dépôt contient ${candidates.length} fichiers cartographiques (${names}). Nous en ajoutons un à la fois : déposez-les un par un, chaque shapefile avec ses fichiers .dbf, .shx et .prj.`);
+  }
+  const shp = shps[0];
   let geo = null;
   if (shp) {
     const sibling = (ext) => byExt(ext).find((f) => _stem(f) === _stem(shp)) || byExt(ext)[0] || null;
     geo = { kind: 'shapefile', name: _stem(shp), shp, dbf: sibling('dbf'), shx: sibling('shx'), prj: sibling('prj'), cpg: sibling('cpg') };
   } else {
-    const gj = byExt('geojson')[0] || byExt('json')[0];
+    const gj = candidates[0];
     if (gj) geo = { kind: 'geojson', name: _stem(gj), file: gj };
   }
   const tables = byExt('csv');
@@ -641,7 +904,7 @@ function _loadScriptOnce(url) {
     s.src = url;
     s.async = true;
     s.onload = resolve;
-    s.onerror = () => reject(new Error('Lecteur de shapefile indisponible (vérifiez la connexion)'));
+    s.onerror = () => reject(new Error('Nous n\'avons pas pu charger l\'outil qui lit les shapefiles. Vérifiez votre connexion, puis réessayez.'));
     document.head.appendChild(s);
   });
 }
@@ -655,42 +918,26 @@ async function _ensureShpLib() {
 /**
  * Lit un shapefile à partir de ses fichiers séparés (.shp obligatoire, .dbf
  * pour les attributs, .prj pour la reprojection vers WGS84, .cpg pour
- * l'encodage) et retourne une FeatureCollection.
+ * l'encodage) et retourne une FeatureCollection. Un shapefile dont les
+ * positions ne sont pas en degrés (sans .prj, le plus souvent) est refusé.
  */
 export async function readShapefileParts({ shp, dbf, prj, cpg }) {
-  if (!shp) throw new Error('Fichier .shp manquant');
+  if (!shp) throw new Error('Le fichier .shp manque : déposez-le avec ses fichiers .dbf, .shx et .prj.');
   await _ensureShpLib();
+  let fc = null;
   try {
     const [shpBuf, dbfBuf, prjText, cpgText] = await Promise.all([
       shp.arrayBuffer(), dbf ? dbf.arrayBuffer() : null, prj ? prj.text() : null, cpg ? cpg.text() : null,
     ]);
     const geoms = window.shp.parseShp(shpBuf, prjText || undefined);
     const props = dbfBuf ? window.shp.parseDbf(dbfBuf, cpgText || undefined) : geoms.map(() => ({}));
-    const fc = toFeatureCollection(window.shp.combine([geoms, props]));
-    if (!fc) throw new Error('contenu non reconnu');
-    return fc;
+    fc = toFeatureCollection(window.shp.combine([geoms, props]));
   } catch (e) {
-    throw new Error(`Shapefile illisible (${e?.message || e}).`);
+    console.warn('[admin/diagnostic] Shapefile illisible:', e);
   }
-}
-
-/**
- * Lit une archive zip contenant un shapefile (.shp + .dbf + .shx, .prj
- * recommandé) et retourne une FeatureCollection en WGS84. Une archive
- * contenant plusieurs shapefiles est fusionnée en une seule couche.
- */
-export async function readShapefileZip(file) {
-  await _ensureShpLib();
-  const buf = await file.arrayBuffer();
-  let result;
-  try {
-    result = await window.shp(buf);
-  } catch (e) {
-    throw new Error(`Shapefile illisible (${e?.message || e}). L'archive doit contenir .shp, .dbf et .shx.`);
-  }
-  const collections = (Array.isArray(result) ? result : [result]).map(toFeatureCollection).filter(Boolean);
-  if (!collections.length) throw new Error('Aucun shapefile trouvé dans l\'archive');
-  return { type: 'FeatureCollection', features: collections.flatMap((fc) => fc.features) };
+  if (!fc) throw new Error('Ce shapefile est illisible. Vérifiez que ses fichiers .shp, .dbf et .shx viennent du même export, puis déposez-les de nouveau.');
+  if (projectionProblem(fc)) throw new Error(projectionMessage({ kind: 'shapefile', hasPrj: !!prj }));
+  return fc;
 }
 
 /* ── Géométrie ─────────────────────────────────────────────────── */
@@ -704,28 +951,6 @@ export function distanceM(a, b) {
   const s = Math.sin(dLat / 2) ** 2
     + Math.cos(a[1] * rad) * Math.cos(b[1] * rad) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
-}
-
-/** Emprise [minLng, minLat, maxLng, maxLat] d'une liste de features préparées. */
-export function featuresBbox(features) {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const f of features) {
-    const [x, y] = f.__pt;
-    if (x < minX) minX = x;
-    if (x > maxX) maxX = x;
-    if (y < minY) minY = y;
-    if (y > maxY) maxY = y;
-  }
-  return isFinite(minX) ? [minX, minY, maxX, maxY] : null;
-}
-
-/** Surface approximative (km²) de l'emprise d'une sélection. */
-export function bboxAreaKm2(bbox) {
-  if (!bbox) return 0;
-  const midLat = ((bbox[1] + bbox[3]) / 2) * Math.PI / 180;
-  const w = (bbox[2] - bbox[0]) * 111.32 * Math.cos(midLat);
-  const h = (bbox[3] - bbox[1]) * 110.574;
-  return Math.max(0.01, Math.abs(w * h));
 }
 
 /** Test point dans polygone (ray casting) - poly = [[x, y], …] en coordonnées écran. */

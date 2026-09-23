@@ -1,10 +1,12 @@
 /**
  * Diagnostic terrain - compteurs vélo (pages publiques Eco-Compteur).
  * La plateforme nationale des fréquentations et les observatoires locaux
- * publient leurs compteurs sur Eco-Visio, dont l'interface publique répond
- * au navigateur. Chaque compteur porte sa position, sa moyenne journalière,
- * le passage de la veille et le total depuis sa pose : on ne garde que ceux
- * situés dans les contours du territoire.
+ * publient leurs compteurs sur Eco-Visio (la plateforme d'Eco-Compteur, seul
+ * nom employé à l'écran), dont l'interface publique répond au navigateur.
+ * Chaque compteur porte sa position, sa moyenne journalière, les passages de
+ * la veille du relevé et le total depuis sa pose : on ne garde que ceux
+ * situés dans les contours du territoire. Ces chiffres sont figés le jour de
+ * l'ajout de la couche.
  */
 
 import { pointInPolygon } from '../data.js';
@@ -57,7 +59,7 @@ export function counterToFeature(c, contours, organismeNom) {
 
 async function _list(organismeId) {
   const res = await fetch(`${API}/${organismeId}`, { signal: AbortSignal.timeout(30000) });
-  if (!res.ok) throw new Error(`Eco-Visio a répondu ${res.status}`);
+  if (!res.ok) throw new Error(`La page publique Eco-Compteur a répondu par une erreur (${res.status}).`);
   const data = await res.json();
   return Array.isArray(data) ? data : [];
 }
@@ -96,11 +98,12 @@ export function countersLayerCfg(scopeLabel) {
     kind: 'reference',
     style: { mode: 'graduated', color: '#0F766E', value_field: 'moyenne_journaliere', radius: 6 },
     popup: { title_field: 'nom', fields: ['type', 'moyenne_journaliere', 'hier', 'total_depuis_la_pose', 'installe_le', 'organisme'] },
+    // Les passages de plusieurs compteurs ne s'additionnent pas : un même
+    // cycliste en franchit plusieurs. Le dossier les donne compteur par compteur.
     metrics: [
-      { field: 'moyenne_journaliere', agg: 'sum' },
-      { field: 'moyenne_journaliere', agg: 'max' },
+      { field: 'moyenne_journaliere', agg: 'max', label: 'Moyenne journalière du compteur le plus fréquenté', unit: 'passages par jour' },
     ],
-    ai_context: 'Compteurs automatiques de passages (vélos, parfois piétons) publiés par la plateforme nationale des fréquentations et les observatoires locaux, avec la moyenne journalière de passages, le passage de la veille et le total depuis la pose',
+    ai_context: 'Compteurs automatiques de passages (vélos, piétons, ou les deux selon le compteur) publiés par la plateforme nationale des fréquentations et les observatoires locaux, avec les chiffres publiés le jour de l\'ajout de la couche : moyenne journalière de passages, passages de la veille du relevé et total depuis la pose',
     default_on: true,
   };
 }

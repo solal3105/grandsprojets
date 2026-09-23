@@ -13,6 +13,7 @@ import { colorExpression, heatColors, updateHeatmap, setBuildings3D, setDarkBase
 import { openLayerWizard } from './wizard.js';
 import { openDataCatalog } from './catalog.js';
 import { sourceOfLayer } from './sources.js';
+import { readableError } from './data.js';
 
 const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
 
@@ -163,13 +164,14 @@ function _swatchStyle(layer) {
   return `background:${_swatchColor(layer)}`;
 }
 
-/** Mot pour compter les entités d'une couche selon leur géométrie. */
+/** Mot pour compter les éléments d'une couche selon leur forme, accordé au nombre. */
 function _unit(rt) {
   const type = rt?.features?.[0]?.geometry?.type || '';
-  if (/Point/.test(type)) return 'points';
-  if (/Line/.test(type)) return 'tronçons';
-  if (/Polygon/.test(type)) return 'zones';
-  return 'éléments';
+  const many = (rt?.count || 0) >= 2;
+  if (/Point/.test(type)) return many ? 'points' : 'point';
+  if (/Line/.test(type)) return many ? 'tronçons' : 'tronçon';
+  if (/Polygon/.test(type)) return many ? 'zones' : 'zone';
+  return many ? 'éléments' : 'élément';
 }
 
 /** Ligne de détail : décompte, provenance, synchronisation. */
@@ -178,7 +180,7 @@ function _metaHtml(layer) {
   const source = sourceOfLayer(layer);
   let count;
   if (!rt || rt.status === 'loading') count = '<span data-count><i class="fa-solid fa-spinner fa-spin"></i></span>';
-  else if (rt.status === 'error') count = `<span data-count title="${escAttr(rt.error || 'Chargement impossible')}"><i class="fa-solid fa-triangle-exclamation"></i></span>`;
+  else if (rt.status === 'error') count = '<span data-count><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>';
   else count = `<span data-count>${_fmt(rt.count)}</span> ${_unit(rt)}`;
   const parts = [count];
   if (source) parts.push(esc(source.name));
@@ -186,6 +188,19 @@ function _metaHtml(layer) {
   if (layer.source_type === 'internal' || layer.source_type === 'url') parts.push('synchronisée');
   if (layerKind(layer) === 'reference') parts.push('référence');
   return parts.join(' · ');
+}
+
+/**
+ * Pourquoi une couche ne se charge plus, en toutes lettres et sans survol,
+ * avec de quoi réessayer. Pour Waze, le lien lui-même peut être en cause.
+ */
+function _errorHtml(layer) {
+  const rt = dg.runtime.get(layer.id);
+  if (rt?.status !== 'error') return '';
+  const waze = sourceOfLayer(layer)?.id === 'waze'
+    ? ' Pour utiliser un autre lien, retirez les couches Waze puis ajoutez de nouveau la source.' : '';
+  return `<span class="dg-row__err" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>${esc((rt.error || 'Les données de cette couche n\'ont pas pu être chargées.') + waze)}
+    <button type="button" class="dg-row__retry" data-act="retry"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Recharger la couche</button></span>`;
 }
 
 function _layerRowHtml(layer) {
@@ -200,14 +215,24 @@ function _layerRowHtml(layer) {
       <span class="dg-row__txt">
         <span class="dg-row__label">${esc(layer.label)}</span>
         <span class="dg-row__sub">${_metaHtml(layer)}</span>
+        ${_errorHtml(layer)}
       </span>
       <span class="dg-row__acts">
-        <button type="button" class="dg-row__act" data-act="edit" title="Réglages de la couche"><i class="fa-solid fa-sliders"></i></button>
-        <button type="button" class="dg-row__act" data-act="delete" title="Retirer du diagnostic"><i class="fa-solid fa-trash-can"></i></button>
+        <button type="button" class="dg-row__act" data-act="edit" title="Réglages de la couche" aria-label="Réglages de la couche ${escAttr(layer.label)}"><i class="fa-solid fa-sliders"></i></button>
+        <button type="button" class="dg-row__act" data-act="delete" title="Retirer la couche" aria-label="Retirer la couche ${escAttr(layer.label)}"><i class="fa-solid fa-trash-can"></i></button>
       </span>
       <label class="adm-switch adm-switch--sm"><input type="checkbox" data-act="toggle" ${visible ? 'checked' : ''} aria-label="Afficher ${escAttr(layer.label)}"><span class="adm-switch__track"></span></label>
     </div>
   `;
+}
+
+/** Relance le chargement d'une couche en erreur. */
+async function _retry(id) {
+  const layer = dg.layers.find((l) => l.id === id);
+  if (!layer) return;
+  await loadLayer(layer, () => updateLayerRow(id));
+  autoDarkBase();
+  syncMapPanel();
 }
 
 function _bindLayerRow(row) {
@@ -218,6 +243,11 @@ function _bindLayerRow(row) {
     toggleLayer(id, e.target.checked);
     row.classList.toggle('is-off', !e.target.checked);
     _refreshSectionCounts();
+  });
+
+  // Délégation : le bouton « Réessayer » est recréé à chaque mise à jour de la ligne.
+  row.addEventListener('click', (e) => {
+    if (e.target.closest?.('[data-act="retry"]')) _retry(id);
   });
 
   row.querySelector('[data-act="edit"]')?.addEventListener('click', () => {
@@ -237,19 +267,29 @@ function _bindLayerRow(row) {
   row.querySelector('[data-act="delete"]')?.addEventListener('click', async () => {
     const l = layer();
     if (!l) return;
+    // Une couche déposée (fichier, source publique enregistrée) emporte son
+    // fichier ; une couche synchronisée n'a rien d'enregistré chez nous.
+    const stored = l.source_type === 'storage';
     const ok = await confirm({
       title: 'Retirer la couche',
-      message: `Retirer « ${l.label} » du diagnostic ? Les données d'origine ne sont pas touchées.`,
-      confirmLabel: 'Retirer',
+      message: stored
+        ? `La couche « ${l.label} » sera retirée du diagnostic, et le fichier enregistré pour elle sera supprimé. Vos fichiers d'origine ne sont pas touchés.`
+        : `La couche « ${l.label} » sera retirée du diagnostic. Les données d'origine ne sont pas touchées.`,
+      confirmLabel: 'Retirer la couche',
       danger: true,
     });
     if (!ok) return;
     try {
-      await deleteLayer(id);
-      toast('Couche supprimée', 'success');
+      const { fileRemoved } = await deleteLayer(id);
+      if (stored && fileRemoved === false) {
+        toast('La couche est retirée, mais son fichier n\'a pas pu être supprimé. Écrivez-nous depuis openprojets.com/contact en indiquant le nom de la couche, et nous le supprimerons.', 'warning');
+      } else {
+        toast('Couche retirée', 'success');
+      }
       renderLayersPanel();
     } catch (err) {
-      toast('Erreur : ' + (err.message || err), 'error');
+      console.warn('[admin/diagnostic] Retrait de couche:', err);
+      toast(readableError(err, 'La couche n\'a pas pu être retirée. Vérifiez votre connexion, puis réessayez.'), 'error');
     }
   });
 }
@@ -274,6 +314,9 @@ export function updateLayerRow(id) {
   if (!row || !rt || !layer) return;
   const sub = row.querySelector('.dg-row__sub');
   if (sub) sub.innerHTML = _metaHtml(layer);
+  row.querySelector('.dg-row__err')?.remove();
+  const error = _errorHtml(layer);
+  if (error) sub?.insertAdjacentHTML('afterend', error);
   row.classList.toggle('dg-row--error', rt.status === 'error');
 }
 

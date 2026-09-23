@@ -15,7 +15,7 @@ async function waitForBoot(page, path = '/admin/') {
 const clearToasts = (page) => page.evaluate(() => document.querySelectorAll('.adm-toast').forEach(t => t.remove()));
 async function mockReports(page, dossier) {
   const rows = new Map([[REPORT_ID, { ...dossierRow(dossier), id: REPORT_ID, ville: 'test-e2e', created_at: dossier.capturedAt }]]);
-  const writes = [];
+  const writes = [], updates = [];
   await page.route('**/rest/v1/diagnostic_reports**', async route => {
     const request = route.request(), url = new URL(request.url());
     if (request.method() === 'POST') {
@@ -23,12 +23,18 @@ async function mockReports(page, dossier) {
       const row = { ...payload, id: NEXT_ID, created_at: new Date().toISOString() };
       rows.set(NEXT_ID, row); writes.push(row);
       await route.fulfill({ json: row, status: 201 });
+    } else if (request.method() === 'PATCH') {
+      // Une version complétée garde son identifiant et sa date : seule son analyse change.
+      const id = url.searchParams.get('id')?.replace('eq.', '');
+      const payload = request.postDataJSON();
+      if (rows.has(id)) { rows.set(id, { ...rows.get(id), ...payload }); updates.push({ id, ...payload }); }
+      await route.fulfill({ json: rows.has(id) ? [{ id }] : [] });
     } else {
       const id = url.searchParams.get('id')?.replace('eq.', '');
       await route.fulfill({ json: id ? rows.get(id) || null : [...rows.values()] });
     }
   });
-  return { rows, writes };
+  return { rows, writes, updates };
 }
 async function open(page) { await waitForBoot(page, `/admin/diagnostic/${REPORT_ID}/`); await expect(page.locator('.dz-workspace')).toBeVisible(); }
 const reviewResult = (data) => ({checked_ids:[...data.groups.map(g=>g.id),...(data.exclusions||[]).map(e=>`excluded:${e.ref}`)],corrections:[],recovered:[]});
@@ -54,7 +60,7 @@ function analysisResponse(data) {
     await page.locator('[data-close]').click();
     await page.locator('[data-edit]').first().click();
     await page.locator('[name="notes"]').fill('Vérifier le passage avec le service voirie.');
-    await expect(page.locator('[data-save-state]')).toHaveText('Brouillon conservé sur cet appareil');
+    await expect(page.locator('[data-save-state]')).toHaveText('Vos modifications sont gardées sur cet appareil.');
     await page.reload();
     await page.locator('[data-edit]').first().click();
     await expect(page.locator('[name="notes"]')).toHaveValue('Vérifier le passage avec le service voirie.');
@@ -121,7 +127,12 @@ function analysisResponse(data) {
     await expect(page.locator('[data-export]')).toBeDisabled();
     await expect(page.locator('[data-analyze]')).toHaveText('Reprendre l’analyse');
     expect(readCalls).toBe(4);
+    // Rouvrir un dossier arrêté par une panne ne relance aucun appel : la reprise attend le clic de l'agent.
     fail = false; await page.reload();
+    await expect(page.locator('[data-analyze]')).toHaveText('Reprendre l’analyse');
+    await page.waitForTimeout(500);
+    expect(readCalls).toBe(4);
+    await page.locator('[data-analyze]').click();
     await expect(page.locator('#dz-sources .dz-method')).toContainText('410 textes examinés', {timeout:20000});
     expect(new Set(ids).size).toBe(410); expect(ids.length).toBe(410);
   });
@@ -209,6 +220,50 @@ function analysisResponse(data) {
       expect(other.data).toEqual([]);
     } finally { if(id) await client.from('diagnostic_reports').delete().eq('id',id).eq('ville','test-e2e'); }
   });
+  test('12.10.22 - Les images d’un dossier vont dans le compartiment privé de sa ville, et la version ne garde que leur emplacement', async ({ page }) => {
+    await waitForBoot(page, '/admin/diagnostic/');
+    const dossier = reviewedCase(); dossier.title = 'E2E - Images rangées';
+    const result = await page.evaluate(async (dossier) => {
+      const { storeFigures, loadFigures } = await import('/admin/sections/diagnostic/dossier/figure-store.js');
+      const { dossierRow } = await import('/admin/sections/diagnostic/dossier/model.js');
+      const svc = window.supabaseService, client = window.__supabaseClient;
+      // Contenu unique : l'essai ne réutilise jamais le fichier d'un passage précédent.
+      const url = `data:image/jpeg;base64,${btoa(`carte d'essai ${crypto.randomUUID()}`)}`;
+      dossier.figures = { cover: { url, width: 1000, height: 680 } };
+      const upload = (path, blob) => svc.uploadDiagnosticFigure('test-e2e', path, blob);
+      const out = { stored: await storeFigures(dossier, upload) };
+      const path = dossier.figures.cover.path;
+      out.path = path;
+      // Le même contenu déposé une seconde fois compte comme déposé.
+      out.again = await storeFigures({ city: 'test-e2e', figures: { cover: { url } } }, upload);
+      // Le compartiment refuse l'espace d'une autre ville, même avec le bon format de chemin.
+      const foreign = await client.storage.from('diagnostic').upload(path.replace(/^test-e2e\//, 'grenoble/'), new Blob(['x'], { type: 'image/jpeg' }));
+      out.foreignRefused = Boolean(foreign.error);
+      let id = null;
+      try {
+        const saved = await svc.insertDiagnosticReport('test-e2e', dossierRow(dossier));
+        id = saved.data?.id;
+        const row = await svc.fetchDiagnosticReport('test-e2e', id);
+        out.savedFigure = { ...row.analysis.dossier.figures.cover };
+        out.rowChars = JSON.stringify(row.analysis).length;
+        out.load = await loadFigures(row.analysis.dossier, (p) => svc.downloadDiagnosticFigure('test-e2e', p));
+        out.sameImage = row.analysis.dossier.figures.cover.url === url;
+      } finally {
+        if (id) await svc.deleteDiagnosticReport('test-e2e', id);
+        await client.storage.from('diagnostic').remove([path]);
+      }
+      return out;
+    }, dossier);
+    expect(result.stored).toEqual({ stored: 1, failed: 0 });
+    expect(result.path).toMatch(/^test-e2e\/figures\/[0-9a-f]{64}\.jpg$/);
+    expect(result.again).toEqual({ stored: 1, failed: 0 });
+    expect(result.foreignRefused).toBe(true);
+    expect(result.savedFigure.url).toBeUndefined();
+    expect(result.savedFigure.path).toBe(result.path);
+    expect(result.load).toEqual({ loaded: 1, failed: 0 });
+    expect(result.sameImage).toBe(true);
+  });
+
   test('12.10.11 - Les rapports historiques gardent leur lecture et leur export', async ({page})=>{
     const state=await mockReports(page,reviewedCase());
     state.rows.get(REPORT_ID).analysis={resume:'Lecture conservée du rapport historique.',couches:[]};
@@ -335,6 +390,25 @@ function analysisResponse(data) {
     await page.reload();await expect(page.locator('[data-export]')).toBeEnabled();
     expect(phases).toEqual(['read','review','overview']);
   });
+  test('12.10.21 - La version enregistrée à l’ouverture reçoit son analyse terminée, sans nouvelle version', async ({page})=>{
+    const state=await mockReports(page,dossierCase('rural').dossier);
+    let calls=0;
+    await page.route('**/api/ai-diagnostic',route=>{calls++;return route.fulfill({json:analysisResponse(route.request().postDataJSON())});});
+    await open(page);
+    await expect(page.locator('[data-export]')).toBeEnabled();
+    await expect.poll(()=>state.updates.length).toBe(1);
+    expect(state.updates[0].id).toBe(REPORT_ID);
+    expect(state.updates[0].analysis.dossier.analysis.status).toBe('complete');
+    expect(state.writes).toHaveLength(0);
+    await expect(page.locator('[data-save-state]')).toHaveText('Version 1 enregistrée');
+    // Un autre appareil ouvre la version complète : aucun appel supplémentaire.
+    const before=calls;
+    // Le brouillon local a été retiré : la réouverture lit la version complète en base.
+    await page.reload();
+    await expect(page.locator('[data-export]')).toBeEnabled();
+    await page.waitForTimeout(500);
+    expect(calls).toBe(before);
+  });
   test('12.10.16 - Une analyse mise en pause reste obligatoire et peut reprendre sans quitter le dossier', async ({page})=>{
     await mockReports(page,dossierCase('rural').dossier);
     let first=true,release;
@@ -365,7 +439,7 @@ function analysisResponse(data) {
       return route.fulfill({json:analysisResponse(data)});
     });
     await open(page);
-    await expect(page.locator('[data-analysis-status]')).toContainText('Nous reprenons la connexion.');
+    await expect(page.locator('[data-analysis-status]')).toContainText('La connexion a été interrompue ; nous réessayons.');
     await expect(page.locator('[data-export]')).toBeEnabled({timeout:15000});
     expect(reads).toBe(2);expect(overviews).toBe(1);expect(corrections[0]).toBeUndefined();
     await expect(page.locator('.dz-lead')).toHaveText('Une synthèse beaucoup trop longue. '.repeat(20).trim());
@@ -479,7 +553,7 @@ test('12.11.2 - Une erreur reste accessible et la notice renvoie vers la bonne a
   await page.setViewportSize({width:390,height:844});
   await expect(page.locator('[data-layer-picker] option[value="empty"]')).toHaveJSProperty('disabled', true);
   await page.locator('[data-layer-picker]').selectOption('missing');
-  await expect(page.locator('.dz-layer-empty')).toContainText('n’a pas pu être chargée');
+  await expect(page.locator('.dz-layer-empty')).toContainText('n’a pas pu être chargé');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
@@ -531,11 +605,14 @@ test('12.12.2 - Le budget atteint conserve les données sans relance automatique
   await mockReports(page,dossierCase('rural').dossier);let calls=0;
   await page.route('**/api/ai-diagnostic',route=>{calls++;return route.fulfill({status:409,json:{code:'budget',retryable:false,error:'Le budget ne permet pas de poursuivre. Choisissez une zone plus petite.',_usage:{spent_micro:170000,reserved_micro:0,limit_micro:240000}}});});
   await open(page);
-  await expect(page.locator('[data-analysis-status]')).toContainText('budget');
+  await expect(page.locator('[data-analysis-status]')).toContainText('limite prévue pour un dossier');
   await expect(page.locator('[data-analyze]')).toHaveCount(0);
-  await expect(page.getByRole('link',{name:'Choisir une zone plus petite'})).toBeVisible();
+  // Aucune reprise n'est promise sans bouton pour la lancer.
+  await expect(page.locator('.dz-overview-text')).toContainText('Analyse arrêtée');
+  await expect(page.locator('.dz-overview-text')).not.toContainText('Reprenez');
+  await expect(page.locator('[data-analysis-status]').getByRole('link',{name:'Revenir à la carte'})).toBeVisible();
   await expect(page.locator('[data-export]')).toBeDisabled();
-  await page.reload();await expect(page.locator('[data-analysis-status]')).toContainText('budget');
+  await page.reload();await expect(page.locator('[data-analysis-status]')).toContainText('limite prévue pour un dossier');
   expect(calls).toBe(1);
   await page.locator('[data-view="sources"]').click();
   await expect(page.locator('.dz-source-register')).toBeVisible();

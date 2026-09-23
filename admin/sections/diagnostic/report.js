@@ -8,6 +8,7 @@ import { renderZoneFigure } from './figure.js';
 import { createDossier, dossierRow, number } from './dossier/model.js';
 import { draftKey, writeDraft, removeDraft } from './dossier/drafts.js';
 import { focusBounds } from './dossier/presentation.js';
+import { storeFigures } from './dossier/figure-store.js';
 
 let preparing = false;
 
@@ -39,6 +40,8 @@ export async function openReport(button) {
     const durable = await writeDraft(key, dossier);
     let reportId = draftId;
     try {
+      // Les cartes vont dans le compartiment privé ; la version ne garde que leur emplacement.
+      await storeFigures(dossier, api.uploadDiagnosticFigure);
       const { data, error } = await api.saveDiagnosticReport(dossierRow(dossier));
       if (error || !data?.id) throw error || new Error('Enregistrement indisponible');
       reportId = data.id;
@@ -58,7 +61,7 @@ export async function openReport(button) {
 }
 
 export async function openReportsHistory() {
-  const panel = slidePanel.open({ title: 'Dossiers de zone', body: '<div class="adm-skeleton adm-skeleton--card"></div>' });
+  const panel = slidePanel.open({ title: 'Dossiers enregistrés', body: '<div class="adm-skeleton adm-skeleton--card"></div>' });
   const city = store.city;
   const reports = await api.getDiagnosticReports(60);
   if (city !== store.city || !panel.content?.isConnected) return;
@@ -71,16 +74,20 @@ export async function openReportsHistory() {
     <span class="dg-history__count">${number(r.stats?.sourceCount || 0, 0)}<small>sources</small></span>
     <span class="dg-history__txt"><span class="dg-history__title">${esc(r.title || 'Dossier de zone')}</span><span class="dg-history__meta">${esc(formatDate(r.created_at))}${r.stats?.revision ? ` · Version ${Number(r.stats.revision) || 1}` : ' · Ancien rapport'}</span></span>
     <button type="button" class="adm-btn adm-btn--secondary" data-open="${escAttr(r.id)}">Ouvrir</button>
-    <button type="button" class="dg-row__act" data-delete="${escAttr(r.id)}" aria-label="Supprimer cette version"><i class="fa-solid fa-trash-can"></i></button>
+    <button type="button" class="dg-row__act" data-delete="${escAttr(r.id)}" data-legacy="${r.stats?.revision ? '' : '1'}" aria-label="${r.stats?.revision ? 'Supprimer cette version' : 'Supprimer cet ancien rapport'}"><i class="fa-solid fa-trash-can"></i></button>
   </div>`).join('')}</div>`;
   body.querySelectorAll('[data-open]').forEach((button) => button.addEventListener('click', () => {
     panel.close(); router.navigate(`/admin/diagnostic/${button.dataset.open}/`);
   }));
   body.querySelectorAll('[data-delete]').forEach((button) => button.addEventListener('click', async () => {
-    if (!await confirm({ title: 'Supprimer cette version', message: 'Cette version du dossier sera supprimée. Les autres versions resteront disponibles.', confirmLabel: 'Supprimer la version', danger: true })) return;
+    const legacy = button.dataset.legacy === '1';
+    const confirmed = await confirm(legacy
+      ? { title: 'Supprimer cet ancien rapport', message: 'Cet ancien rapport sera supprimé définitivement.', confirmLabel: 'Supprimer le rapport', danger: true }
+      : { title: 'Supprimer cette version', message: 'Cette version du dossier sera supprimée définitivement. Les autres versions resteront disponibles.', confirmLabel: 'Supprimer la version', danger: true });
+    if (!confirmed) return;
     if (city !== store.city || !button.isConnected) return;
     const { success } = await api.deleteDiagnosticReport(button.dataset.delete);
     if (success) button.closest('.dg-history__row').remove();
-    else toast('La version n’a pas pu être supprimée. Réessayez.', 'error');
+    else toast(legacy ? 'Le rapport n’a pas pu être supprimé. Réessayez.' : 'La version n’a pas pu être supprimée. Réessayez.', 'error');
   }));
 }

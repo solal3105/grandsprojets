@@ -1,26 +1,43 @@
 /**
  * Diagnostic terrain - wizard d'ajout / édition d'une couche.
- * Modale en 5 étapes : source (GeoJSON, CSV géolocalisé, shapefile zippé,
+ * Modale en 6 étapes : source (GeoJSON, CSV géolocalisé, shapefile zippé,
  * lien, données Open Projets), complément (tableau à rattacher, champs
- * conservés), identité et nature, style, popup / chiffres de zone / contexte
- * IA. Tout est persisté dans diagnostic_layers ; les fichiers sont normalisés
- * en GeoJSON et déposés dans Storage.
+ * conservés), identité et nature, style, fenêtre au clic, puis chiffres de
+ * zone (avec le nom et l'unité affichés par le dossier) et contexte IA. Tout
+ * est persisté dans diagnostic_layers ; les fichiers sont normalisés en
+ * GeoJSON et déposés dans le compartiment privé « diagnostic ». Un fichier
+ * dont les positions ne sont pas en degrés est refusé avec la marche à suivre.
  */
 
 import * as api from '../../api.js';
+import { store } from '../../store.js';
 import { esc, escAttr, toast } from '../../components/ui.js';
-import { dg, PALETTE, INTERNAL_SOURCES, DEFAULT_STYLE, LAYER_KINDS, layerKind, layerMetrics } from './state.js';
+import { dg, PALETTE, INTERNAL_SOURCES, DEFAULT_STYLE, LAYER_KINDS, layerKind, layerMetrics, onCleanup } from './state.js';
 import {
-  toFeatureCollection, prepareFeatures, detectFields, numericFields, guessKind, restrictProps,
-  parseCsv, guessColumn, csvToFeatures, readShapefileParts, isIdLike,
+  prepareFeatures, detectFields, numericFields, guessKind, restrictProps,
+  parseCsv, guessLatLng, csvToFeatures, readShapefileParts, isIdLike, readTextFile, decodeText,
+  csvProjectionProblem, projectionProblem, projectionMessage, readableError, countLabel,
   csvHead, csvDistinct, buildJoinIndex, applyJoin, guessJoinColumns, METRIC_AGGS,
   expandFiles, filesFromDataTransfer, classifyFiles, latestValue,
 } from './data.js';
+import { parseGeoJSONText } from './engine.js';
 import { matchRecipe, resolveColumn } from './recipes.js';
 
 const _norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
 const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
+/** « 1 ligne », « 3 lignes » : le nombre et son nom accordé. */
+const _plural = (n, one, many) => `${_fmt(n)} ${Number(n) >= 2 ? many : one}`;
+/** Nombre d'éléments d'un brouillon, nommés d'après leur forme : « 3 tronçons ». */
+const _count = (features) => countLabel(features?.length || 0, features);
+/** « <b>3 tronçons</b> sont prêts », « <b>1 zone</b> est prête » (HTML). */
+const _countReady = (features) => {
+  const n = features?.length || 0;
+  const feminine = /Polygon/.test(features?.[0]?.geometry?.type || '');
+  return `<b>${esc(_count(features))}</b> ${n >= 2 ? 'sont' : 'est'} ${feminine ? 'prête' : 'prêt'}${n >= 2 ? 's' : ''}`;
+};
+
+const NO_FILE_FOUND = 'Nous ne trouvons aucun fichier cartographique dans ce dépôt. Déposez un tableau avec des colonnes de latitude et de longitude, un fichier .geojson, ou un fichier .shp accompagné de ses fichiers .dbf, .shx et .prj.';
 
 /**
  * Ouvre le wizard.
@@ -29,12 +46,16 @@ const _fmt = (n) => Number(n || 0).toLocaleString('fr-FR');
  * @param {File[]} [opts.files] - Fichiers déjà déposés (depuis le catalogue) : lus à l'ouverture
  * @param {Object} [opts.prefill] - Entités et réglages déjà préparés par le moteur
  *   ({ name, features, fields, keep, cfg, source }) : « Réglages avancés » d'un export reconnu
+ * @param {string} [opts.city] - collectivité de l'import (celle affichée à l'ouverture par défaut)
  * @param {Function} opts.onSaved - Callback (ligne sauvegardée) après succès
  */
-export function openLayerWizard({ layer = null, files = null, prefill = null, onSaved }) {
+export function openLayerWizard({ layer = null, files = null, prefill = null, city = null, onSaved }) {
   const isEdit = !!layer;
   const isPrefilled = !isEdit && !!prefill;
   const w = {
+    // Collectivité fixée à l'ouverture : un changement d'espace pendant la
+    // lecture d'un fichier n'enregistre jamais la couche ailleurs.
+    city: city || store.city,
     // draft : { kind, url, name, base, features, fields, csv, join, keep }
     //   base = entités avant jointure, features = entités courantes,
     //   keep = champs conservés (null = tous), join = tableau rattaché.
@@ -67,7 +88,7 @@ export function openLayerWizard({ layer = null, files = null, prefill = null, on
       <div class="dg-modal__head">
         <div>
           <div class="dg-modal__title"><i class="fa-solid ${isEdit ? 'fa-pen' : 'fa-database'}"></i> ${isEdit ? 'Éditer la couche' : 'Ajouter une couche'}</div>
-          <div class="dg-modal__sub">${isEdit ? esc(layer.label) : (isPrefilled ? 'Réglages avancés' : 'GeoJSON, CSV géolocalisé, shapefile zippé, lien open data ou données Open Projets')}</div>
+          <div class="dg-modal__sub">${isEdit ? esc(layer.label) : (isPrefilled ? 'Réglages avancés' : 'Un fichier cartographique, un tableau avec des coordonnées, une adresse en ligne ou vos données Open Projets')}</div>
         </div>
         <button type="button" class="dg-modal__close" data-close aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
       </div>
@@ -92,6 +113,8 @@ export function openLayerWizard({ layer = null, files = null, prefill = null, on
     overlay.remove();
   };
   document.addEventListener('keydown', onKeydown);
+  // Quitter la section (ou changer d'espace) ferme l'assistant.
+  onCleanup(close);
   overlay.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', close));
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   overlay.querySelector('#dg-wz-label')?.focus();
@@ -129,23 +152,24 @@ function _sourceStepHtml() {
     <div class="dg-step"><span class="dg-step__n">1</span><span class="dg-step__t">Source des données</span></div>
     <div class="dg-src-tabs" id="dg-src-tabs">
       <button type="button" class="dg-src-tab is-active" data-src="file"><i class="fa-solid fa-file-arrow-up"></i> Fichier</button>
-      <button type="button" class="dg-src-tab" data-src="url"><i class="fa-solid fa-link"></i> Lien / API</button>
+      <button type="button" class="dg-src-tab" data-src="url"><i class="fa-solid fa-link"></i> Adresse en ligne</button>
       ${internal.length ? '<button type="button" class="dg-src-tab" data-src="internal"><i class="fa-solid fa-location-dot"></i> Open Projets</button>' : ''}
     </div>
     <div data-srcpane="file">
       <label class="dg-drop" id="dg-wz-drop">
         <input type="file" id="dg-wz-file" multiple accept=".geojson,.json,.csv,.zip,.shp,.dbf,.shx,.prj,.cpg" hidden>
         <i class="fa-solid fa-cloud-arrow-up"></i>
-        <span class="dg-drop__t">Glissez un fichier, un dossier ou une archive, ou <u>parcourez</u></span>
-        <span class="dg-drop__s">GeoJSON · CSV (latitude / longitude) · shapefile (.shp, .dbf, .shx, .prj) avec son tableau · zip d'un export. Les exports connus sont reconnus et configurés d'office.</span>
+        <span class="dg-drop__t">Glissez un fichier, un dossier ou une archive, ou <u>parcourez</u> votre ordinateur</span>
+        <span class="dg-drop__s">Nous lisons les fichiers GeoJSON, les tableaux CSV avec des colonnes de latitude et de longitude, les shapefiles (.shp, .dbf, .shx, .prj) avec leur tableau et les archives zip d'un export. Nous réglons nous-mêmes les exports que nous connaissons.</span>
       </label>
     </div>
     <div data-srcpane="url" hidden>
+      <label class="adm-label" for="dg-wz-url">Adresse du fichier</label>
       <div class="dg-url-row">
         <input type="url" class="adm-input" id="dg-wz-url" placeholder="https://…/donnees.geojson ou .csv">
-        <button type="button" class="adm-btn adm-btn--secondary" id="dg-wz-url-load">Charger</button>
+        <button type="button" class="adm-btn adm-btn--secondary" id="dg-wz-url-load">Charger l'adresse</button>
       </div>
-      <div class="adm-form-hint">Un GeoJSON ou CSV accessible publiquement (open data, API SIG…). Un GeoJSON reste synchronisé avec l'URL ; un CSV est converti puis stocké.</div>
+      <div class="adm-form-hint">Collez l'adresse d'un fichier GeoJSON ou CSV publié en accès libre, par exemple sur un portail open data. Un GeoJSON reste synchronisé avec son adresse ; un CSV est converti puis enregistré de façon privée.</div>
     </div>
     ${internal.length ? `
     <div data-srcpane="internal" hidden>
@@ -194,19 +218,26 @@ function _bindSourceStep(overlay, w) {
     if (!url) return;
     const btn = overlay.querySelector('#dg-wz-url-load');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Chargement…';
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
+      let res;
+      try {
+        res = await fetch(url);
+      } catch {
+        throw new Error('Cette adresse n\'a pas pu être chargée. Vérifiez qu\'elle est publique et que son site autorise la lecture depuis un autre site (réglage CORS).');
+      }
+      if (!res.ok) throw new Error(`Cette adresse a répondu par une erreur (${res.status}). Vérifiez qu'elle est complète et publique.`);
+      // Un CSV publié par un tableur peut être en Windows-1252 : décodé comme un fichier déposé.
+      const text = decodeText(await res.arrayBuffer());
       const isCsv = /\.csv(\?|$)/i.test(url) || !['{', '['].includes(text.trim()[0]);
-      const name = decodeURIComponent((url.split('/').pop() || 'couche').replace(/\?.*$/, '').replace(/\.[^.]+$/, ''));
+      let name = 'couche';
+      try { name = decodeURIComponent((url.split('/').pop() || 'couche').replace(/\?.*$/, '').replace(/\.[^.]+$/, '')) || 'couche'; } catch { /* nom illisible */ }
       _ingest(overlay, w, text, isCsv ? 'csv' : 'geojson', name, url);
     } catch (e) {
-      _showDetect(overlay, `Impossible de charger cette URL (${esc(e.message)}). Vérifiez qu'elle est publique et autorise l'accès externe (CORS).`, true);
+      _showDetect(overlay, esc(readableError(e, 'Cette adresse n\'a pas pu être chargée. Vérifiez qu\'elle est complète et publique.')), true);
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Charger';
+      btn.textContent = 'Charger l\'adresse';
     }
   });
 
@@ -224,7 +255,7 @@ function _bindSourceStep(overlay, w) {
       w.cfg.metrics = [];
       w.cfg.ai_context = src.defaults.ai_context;
       overlay.querySelectorAll('[data-internal]').forEach((b) => b.classList.toggle('is-active', b === btn));
-      _showDetect(overlay, `<b>${esc(src.label)}</b> - les données de la structure seront chargées automatiquement.`, false);
+      _showDetect(overlay, `<b>${esc(src.label)}</b> : nous chargerons les données de votre structure, et elles resteront à jour.`, false);
       _showConfig(overlay, w);
     });
   });
@@ -240,7 +271,7 @@ async function _readFiles(overlay, w, rawFiles) {
     _showDetect(overlay, '<i class="fa-solid fa-spinner fa-spin"></i> Lecture des fichiers…', false);
     const files = await expandFiles(rawFiles);
     const { geo, tables } = classifyFiles(files);
-    if (!geo) throw new Error('Aucun fichier géographique reconnu : GeoJSON, shapefile (.shp avec .dbf et .prj) ou CSV avec latitude et longitude.');
+    if (!geo) throw new Error(NO_FILE_FOUND);
     // Une archive déposée seule donne son nom : c'est celui que l'on connaît,
     // pas celui, souvent illisible, du fichier qu'elle contient.
     const name = rawFiles.length === 1 && /\.zip$/i.test(rawFiles[0].name)
@@ -250,12 +281,13 @@ async function _readFiles(overlay, w, rawFiles) {
       const fc = await readShapefileParts(geo);
       _ingestFeatures(overlay, w, fc, 'Shapefile', name, null);
     } else {
-      _ingest(overlay, w, await geo.file.text(), geo.kind === 'csv' ? 'csv' : 'geojson', name, null);
+      // Un tableau enregistré par Excel est souvent en Windows-1252 : lu tel quel.
+      _ingest(overlay, w, await readTextFile(geo.file), geo.kind === 'csv' ? 'csv' : 'geojson', name, null);
     }
     if (!w.draft) return; // échec déjà affiché
     if (tables.length && w.draft.base.length) await _attachTable(overlay, w, tables[0]);
   } catch (e) {
-    _ingestFailed(overlay, w, e.message);
+    _ingestFailed(overlay, w, readableError(e, 'Ces fichiers n\'ont pas pu être lus. Vérifiez qu\'ils s\'ouvrent sur votre ordinateur, puis déposez-les de nouveau.'));
   }
 }
 
@@ -276,7 +308,7 @@ async function _attachTable(overlay, w, file) {
   if (_norm(j.layerKey) === _norm(j.tableKey)) {
     await _applyJoin(overlay, w);
     if (j.index) {
-      _showDetect(overlay, `Tableau « ${esc(file.name)} » rattaché de lui-même par la colonne commune « ${esc(j.layerKey)} » - <b>${_fmt(w.draft.features.length)}</b> entité(s). Filtrez ou ajustez ci-dessous si besoin.`, false);
+      _showDetect(overlay, `Le tableau « ${esc(file.name)} » a été rattaché de lui-même par la colonne commune « ${esc(j.layerKey)} » : ${_countReady(w.draft.features)}. Filtrez ou ajustez ci-dessous si besoin.`, false);
     }
     return;
   }
@@ -305,7 +337,7 @@ async function _applyRecipe(overlay, w, recipe) {
       overlay.querySelector('#dg-wz-join-fval').value = chosen;
       const all = values.map(([v]) => v).sort();
       filterInfo = all.length > 1
-        ? ` ${esc(filterCol)} disponible de ${esc(all[0])} à ${esc(all[all.length - 1])} : <b>${esc(chosen)}</b> retenu.`
+        ? ` La colonne « ${esc(filterCol)} » va de ${esc(all[0])} à ${esc(all[all.length - 1])} : nous avons retenu <b>${esc(chosen)}</b>.`
         : '';
     }
   }
@@ -335,7 +367,7 @@ async function _applyRecipe(overlay, w, recipe) {
   _renderKeepChips(overlay, w);
   _refreshFieldSelectors(overlay, w);
   _updateSaveState(overlay, w);
-  _showDetect(overlay, `<b>${esc(recipe.name)}</b> reconnu - <b>${_fmt(d.features.length)}</b> entité(s) prêtes.${filterInfo} Tout est configuré : enregistrez, ou ajustez ci-dessous.`, false);
+  _showDetect(overlay, `Nous avons reconnu un export <b>${esc(recipe.name)}</b> : ${_countReady(d.features)}.${filterInfo} Tout est réglé : ajoutez la couche, ou ajustez les réglages ci-dessous.`, false);
 }
 
 function _ingestFailed(overlay, w, message) {
@@ -348,32 +380,34 @@ function _ingestFailed(overlay, w, message) {
   _updateSaveState(overlay, w);
 }
 
-/** Une FeatureCollection lue (GeoJSON ou shapefile) devient le brouillon. */
+/**
+ * Une FeatureCollection lue (GeoJSON ou shapefile) devient le brouillon. Un
+ * fichier dont les positions ne sont pas en degrés est refusé : enregistré, il
+ * donnerait une couche invisible.
+ */
 function _ingestFeatures(overlay, w, fc, format, name, url) {
+  if (projectionProblem(fc)) throw new Error(projectionMessage({ kind: 'geojson' }));
   const features = prepareFeatures(fc);
-  if (!features.length) throw new Error('Aucune géométrie valide trouvée');
+  if (!features.length) throw new Error('Ce fichier ne contient aucun point, tracé ni zone que nous sachions lire. Vérifiez qu’il s’agit bien d’un fichier cartographique, ou déposez un tableau avec des colonnes de latitude et de longitude.');
   w.draft = { kind: url ? 'url' : 'file', url, name, base: features, features, fields: detectFields(features), keep: null, join: null };
-  _showDetect(overlay, `<b>${esc(format)}</b> reconnu - <b>${_fmt(features.length)}</b> entité(s) valide(s).`, false);
+  _showDetect(overlay, `Nous avons lu ce fichier au format ${esc(format)} : ${_countReady(features)}.`, false);
   _afterIngest(overlay, w, name);
 }
 
 function _ingest(overlay, w, text, kind, name, url) {
   try {
     if (kind === 'geojson') {
-      const fc = toFeatureCollection(JSON.parse(text));
-      if (!fc) throw new Error('GeoJSON non reconnu (FeatureCollection ou Feature attendu)');
-      _ingestFeatures(overlay, w, fc, 'GeoJSON', name, url);
+      _ingestFeatures(overlay, w, parseGeoJSONText(text), 'GeoJSON', name, url);
     } else {
       const { headers, records } = parseCsv(text);
-      if (!records.length) throw new Error('CSV vide ou illisible');
-      const lat = guessColumn(headers, ['lat', 'latitude', 'y']);
-      const lng = guessColumn(headers, ['lon', 'lng', 'long', 'longitude', 'x']);
+      if (!records.length) throw new Error('Ce tableau est vide ou illisible. Vérifiez qu\'il contient une ligne d\'en-têtes et au moins une ligne de données.');
+      const { lat, lng } = guessLatLng(headers);
       w.draft = { kind: url ? 'url' : 'file', url, name, csv: { headers, records, lat, lng }, base: [], features: [], fields: [], keep: null, join: null };
       _recountCsv(overlay, w);
       _afterIngest(overlay, w, name);
     }
   } catch (e) {
-    _ingestFailed(overlay, w, e.message);
+    _ingestFailed(overlay, w, readableError(e, 'Ce fichier n\'a pas pu être lu. Vérifiez qu\'il s\'ouvre sur votre ordinateur, puis déposez-le de nouveau.'));
   }
 }
 
@@ -389,17 +423,24 @@ function _afterIngest(overlay, w, name) {
 
 function _recountCsv(overlay, w) {
   const { records, lat, lng } = w.draft.csv;
-  const features = csvToFeatures(records, lat, lng);
+  const sameColumn = lat && lat === lng;
+  const features = lat && lng && !sameColumn ? csvToFeatures(records, lat, lng) : [];
   w.draft.base = prepareFeatures({ features });
   _recompute(w);
   const ok = w.draft.features.length > 0;
-  _showDetect(
-    overlay,
-    ok
-      ? `<b>CSV</b> reconnu - <b>${_fmt(features.length)}</b> point(s) géolocalisé(s) sur ${_fmt(records.length)} ligne(s).`
-      : 'Aucun point géolocalisé - vérifiez les colonnes latitude / longitude.',
-    !ok
-  );
+  let message;
+  if (ok) {
+    message = `Nous avons lu ce tableau CSV : <b>${_fmt(features.length)}</b> ${features.length >= 2 ? 'lignes' : 'ligne'} sur ${_fmt(records.length)} ${features.length >= 2 ? 'portent' : 'porte'} une position.`;
+  } else if (!lat || !lng) {
+    message = 'Nous ne trouvons pas de colonnes de latitude et de longitude dans ce tableau : choisissez-les ci-dessous.';
+  } else if (sameColumn) {
+    message = 'La latitude et la longitude doivent venir de deux colonnes différentes : choisissez-les ci-dessous.';
+  } else if (csvProjectionProblem(records, lat, lng)) {
+    message = esc(projectionMessage({ kind: 'csv', lat, lng }));
+  } else {
+    message = `Aucune ligne de ce tableau ne porte de position lisible dans les colonnes « ${esc(lat)} » et « ${esc(lng)} » : vérifiez les colonnes choisies ci-dessous.`;
+  }
+  _showDetect(overlay, message, !ok);
   _updateSaveState(overlay, w);
 }
 
@@ -462,7 +503,7 @@ function _enrichStepHtml() {
             </div>
             <div class="adm-form-group">
               <label class="adm-label" for="dg-wz-join-fval">vaut</label>
-              <select class="adm-select" id="dg-wz-join-fval" disabled><option value="">-</option></select>
+              <select class="adm-select" id="dg-wz-join-fval" disabled><option value="">(choisissez d'abord une colonne)</option></select>
             </div>
           </div>
           <div class="adm-form-group">
@@ -470,7 +511,7 @@ function _enrichStepHtml() {
             <div class="dg-checks" id="dg-wz-join-cols"></div>
           </div>
           <label class="adm-checkbox-label">
-            <input type="checkbox" id="dg-wz-join-strict" checked> Retirer les entités absentes du tableau
+            <input type="checkbox" id="dg-wz-join-strict" checked> Retirer les éléments absents du tableau
           </label>
           <div class="dg-join__actions">
             <button type="button" class="adm-btn adm-btn--secondary adm-btn--sm" id="dg-wz-join-apply"><i class="fa-solid fa-link"></i> Rattacher le tableau</button>
@@ -480,7 +521,7 @@ function _enrichStepHtml() {
         </div>
       </div>
       <div class="adm-form-group" id="dg-wz-keep-wrap">
-        <label class="adm-label">Champs conservés</label>
+        <label class="adm-label">Colonnes conservées</label>
         <div class="adm-form-hint" style="margin-bottom:8px">Décochez ce qui ne servira ni à la carte ni à l'analyse : la couche se charge d'autant plus vite.</div>
         <div class="dg-checks" id="dg-wz-keep"></div>
       </div>
@@ -517,7 +558,7 @@ function _bindEnrichStep(overlay, w) {
     overlay.querySelector('#dg-wz-join-cfg').hidden = true;
     overlay.querySelector('#dg-wz-join-drop').hidden = false;
     _setJoinStatus(overlay, '');
-    _showDetect(overlay, `Tableau retiré - <b>${_fmt(w.draft.features.length)}</b> entité(s).`, false);
+    _showDetect(overlay, `Le tableau est retiré : ${_countReady(w.draft.features)}.`, false);
     _renderKeepChips(overlay, w);
     _refreshFieldSelectors(overlay, w);
     _updateSaveState(overlay, w);
@@ -529,7 +570,7 @@ async function _readJoinFile(overlay, w, file) {
   _setJoinStatus(overlay, '<i class="fa-solid fa-spinner fa-spin"></i> Lecture des en-têtes…');
   try {
     const { headers, sample } = await csvHead(file, 50);
-    if (!headers.length) throw new Error('Tableau vide ou illisible');
+    if (!headers.length) throw new Error('Ce tableau est vide ou illisible. Vérifiez qu\'il contient une ligne d\'en-têtes.');
     const guess = guessJoinColumns(w.draft.fields, headers);
     w.draft.join = {
       file, headers, sample,
@@ -545,7 +586,7 @@ async function _readJoinFile(overlay, w, file) {
     tkey.innerHTML = headers.map((h) => `<option ${h === guess.tableKey ? 'selected' : ''}>${esc(h)}</option>`).join('');
     fcol.innerHTML = '<option value="">(toutes les lignes)</option>' + headers.map((h) => `<option>${esc(h)}</option>`).join('');
     const fval = overlay.querySelector('#dg-wz-join-fval');
-    fval.innerHTML = '<option value="">-</option>';
+    fval.innerHTML = '<option value="">(choisissez d\'abord une colonne)</option>';
     fval.disabled = true;
     overlay.querySelector('#dg-wz-join-strict').checked = true;
     _renderJoinColumns(overlay, w);
@@ -553,10 +594,10 @@ async function _readJoinFile(overlay, w, file) {
     overlay.querySelector('#dg-wz-join-drop').hidden = true;
     overlay.querySelector('#dg-wz-join-apply').hidden = false;
     overlay.querySelector('#dg-wz-join-remove').hidden = true;
-    _setJoinStatus(overlay, `${esc(file.name)} - ${headers.length} colonnes`);
+    _setJoinStatus(overlay, `Le tableau « ${esc(file.name)} » compte ${_plural(headers.length, 'colonne', 'colonnes')}.`);
   } catch (e) {
     w.draft.join = null;
-    _setJoinStatus(overlay, `<span class="dg-join__error">${esc(e.message)}</span>`);
+    _setJoinStatus(overlay, `<span class="dg-join__error">${esc(readableError(e, 'Ce tableau n\'a pas pu être lu. Vérifiez qu\'il s\'ouvre sur votre ordinateur, puis déposez-le de nouveau.'))}</span>`);
   }
 }
 
@@ -588,7 +629,7 @@ async function _loadFilterValues(overlay, w, column) {
   j.filterColumn = column;
   j.filterValue = '';
   if (!column) {
-    fval.innerHTML = '<option value="">-</option>';
+    fval.innerHTML = '<option value="">(choisissez d\'abord une colonne)</option>';
     fval.disabled = true;
     return null;
   }
@@ -601,10 +642,12 @@ async function _loadFilterValues(overlay, w, column) {
     fval.innerHTML = '<option value="">(choisir une valeur)</option>'
       + values.map(([v, n]) => `<option value="${escAttr(v)}">${esc(v)} (${_fmt(n)})</option>`).join('');
     fval.disabled = false;
-    _setJoinStatus(overlay, `${values.length} valeur(s) distincte(s) dans « ${esc(column)} »`);
+    _setJoinStatus(overlay, values.length >= 2
+      ? `La colonne « ${esc(column)} » prend ${_fmt(values.length)} valeurs différentes.`
+      : `La colonne « ${esc(column)} » ne prend qu'une valeur.`);
     return values;
   } catch (e) {
-    _setJoinStatus(overlay, `<span class="dg-join__error">${esc(e.message)}</span>`);
+    _setJoinStatus(overlay, `<span class="dg-join__error">${esc(readableError(e, 'Cette colonne n\'a pas pu être lue.'))}</span>`);
     return null;
   }
 }
@@ -626,17 +669,19 @@ async function _applyJoin(overlay, w) {
       filterColumn: j.filterColumn,
       filterValue: j.filterValue,
     });
-    if (!index.size) throw new Error(`Aucune ligne exploitable (${_fmt(rows)} lue(s)) : vérifiez la colonne commune et le filtre.`);
+    if (!index.size) throw new Error(`Aucune ligne n'a pu être retenue sur ${_plural(rows, 'ligne lue', 'lignes lues')} : vérifiez la colonne commune et le filtre.`);
     j.index = index;
     _recompute(w);
     if (!w.draft.features.length) {
       j.index = null;
       _recompute(w);
-      throw new Error('Aucune entité de la couche ne correspond au tableau : vérifiez les deux colonnes communes.');
+      throw new Error('Aucun élément de la couche ne correspond au tableau : vérifiez les deux colonnes communes.');
     }
-    const dropped = j.strict ? ` · ${_fmt(j.unmatched)} sans correspondance retirée(s)` : ` · ${_fmt(j.unmatched)} sans correspondance gardée(s)`;
-    _setJoinStatus(overlay, `<i class="fa-solid fa-circle-check"></i> ${_fmt(kept)} ligne(s) retenue(s) sur ${_fmt(rows)} · ${_fmt(j.matched)} entité(s) enrichie(s)${dropped}`);
-    _showDetect(overlay, `Tableau rattaché - <b>${_fmt(w.draft.features.length)}</b> entité(s) avec ${j.columns.length} colonne(s) supplémentaire(s).`, false);
+    const unmatched = j.unmatched
+      ? ` ${_plural(j.unmatched, 'élément sans correspondance a été', 'éléments sans correspondance ont été')} ${j.strict ? (j.unmatched >= 2 ? 'retirés' : 'retiré') : (j.unmatched >= 2 ? 'gardés' : 'gardé')}.`
+      : '';
+    _setJoinStatus(overlay, `<i class="fa-solid fa-circle-check"></i> Nous avons retenu ${_plural(kept, 'ligne', 'lignes')} sur ${_fmt(rows)} et complété ${_plural(j.matched, 'élément', 'éléments')}.${unmatched}`);
+    _showDetect(overlay, `Le tableau est rattaché : ${_countReady(w.draft.features)}, avec ${_plural(j.columns.length, 'colonne supplémentaire', 'colonnes supplémentaires')}.`, false);
     btn.hidden = true;
     overlay.querySelector('#dg-wz-join-remove').hidden = false;
     // La nature se redevine sur les données enrichies.
@@ -646,7 +691,7 @@ async function _applyJoin(overlay, w) {
     _refreshFieldSelectors(overlay, w);
     _updateSaveState(overlay, w);
   } catch (e) {
-    _setJoinStatus(overlay, `<span class="dg-join__error">${esc(e.message)}</span>`);
+    _setJoinStatus(overlay, `<span class="dg-join__error">${esc(readableError(e, 'Le tableau n\'a pas pu être rattaché. Vérifiez les colonnes communes, puis réessayez.'))}</span>`);
   } finally {
     btn.disabled = false;
   }
@@ -680,7 +725,7 @@ function _renderKeepChips(overlay, w) {
   overlay.querySelector('#dg-wz-keep-wrap').hidden = !stored;
   wrap.innerHTML = '';
   if (!d.fields.length) {
-    wrap.innerHTML = '<span class="adm-form-hint">Aucun champ détecté.</span>';
+    wrap.innerHTML = '<span class="adm-form-hint">Ce fichier n’a aucune colonne d’informations à conserver.</span>';
     return;
   }
   for (const f of d.fields) {
@@ -749,32 +794,34 @@ function _configStepsHtml(w) {
       <div class="dg-swatches" id="dg-wz-swatches"></div>
     </div>
     <div class="adm-form-group" id="dg-wz-cat-wrap" ${isCategory ? '' : 'hidden'}>
-      <label class="adm-label" for="dg-wz-catfield">Champ de catégorisation</label>
+      <label class="adm-label" for="dg-wz-catfield">Colorer selon</label>
       <select class="adm-select" id="dg-wz-catfield"></select>
       <div class="adm-form-hint">Une couleur est attribuée automatiquement à chaque valeur.</div>
     </div>
     <div class="adm-form-group" id="dg-wz-grad-wrap" ${isGraduated ? '' : 'hidden'}>
-      <label class="adm-label" for="dg-wz-valuefield">Champ numérique</label>
+      <label class="adm-label" for="dg-wz-valuefield">Valeur qui fait varier la couleur</label>
       <select class="adm-select" id="dg-wz-valuefield"></select>
-      <div class="adm-form-hint">Les tracés s'épaississent et se foncent avec la valeur ; les paliers suivent la répartition réelle des données.</div>
+      <div class="adm-form-hint">Plus la valeur est grande, plus la couleur passe du bleu au rouge, plus les tracés s'épaississent et plus les points grossissent. Les paliers suivent la répartition réelle des valeurs.</div>
     </div>
     <div class="adm-form-group">
-      <label class="adm-label" for="dg-wz-radius">Taille des points - <b id="dg-wz-radius-v">${esc(String(cfg.style.radius || 4))}</b> px</label>
+      <label class="adm-label" for="dg-wz-radius">Taille des points : <b id="dg-wz-radius-v">${esc(String(cfg.style.radius || 4))}</b> px</label>
       <input type="range" min="2" max="9" value="${esc(String(cfg.style.radius || 4))}" id="dg-wz-radius" class="dg-range">
     </div>
 
-    <div class="dg-step"><span class="dg-step__n">5</span><span class="dg-step__t">Popup &amp; analyse IA</span></div>
+    <div class="dg-step"><span class="dg-step__n">5</span><span class="dg-step__t">Ce qui s'affiche au clic</span></div>
     <div class="adm-form-group">
-      <label class="adm-label" for="dg-wz-title">Champ-titre de la popup</label>
+      <label class="adm-label" for="dg-wz-title">Titre de la fenêtre</label>
       <select class="adm-select" id="dg-wz-title"></select>
     </div>
     <div class="adm-form-group">
-      <label class="adm-label">Champs affichés dans la popup</label>
+      <label class="adm-label">Informations affichées</label>
       <div class="dg-checks" id="dg-wz-popfields"></div>
     </div>
+
+    <div class="dg-step"><span class="dg-step__n">6</span><span class="dg-step__t">Ce que l'analyse de zone en retient</span></div>
     <div class="adm-form-group" id="dg-wz-metrics-wrap" ${cfg.kind === 'reference' ? '' : 'hidden'}>
       <label class="adm-label">Chiffres de zone</label>
-      <div class="adm-form-hint" style="margin-bottom:8px">Pour chaque zone tracée, ces valeurs sont totalisées ou moyennées sur les entités qu'elle contient, affichées dans l'analyse et dans le rapport.</div>
+      <div class="adm-form-hint" style="margin-bottom:8px">Pour chaque zone tracée, nous calculons le total, la moyenne ou le maximum de ces valeurs sur les éléments qu'elle contient. Le dossier de zone les affiche sous le nom et l'unité que vous indiquez.</div>
       <div class="dg-metrics" id="dg-wz-metrics"></div>
     </div>
     <div class="adm-form-group">
@@ -782,7 +829,7 @@ function _configStepsHtml(w) {
       <textarea class="adm-textarea" id="dg-wz-ai" rows="2" placeholder="Ex. Signalements citoyens de dangers cyclables, ou passages de cyclistes par tronçon en 2025">${esc(cfg.ai_context)}</textarea>
     </div>
     <label class="adm-checkbox-label">
-      <input type="checkbox" id="dg-wz-defon" ${cfg.default_on ? 'checked' : ''}> Afficher la couche par défaut
+      <input type="checkbox" id="dg-wz-defon" ${cfg.default_on ? 'checked' : ''}> Afficher la couche à l'ouverture du diagnostic
     </label>
   `;
 }
@@ -933,7 +980,8 @@ function _refreshFieldSelectors(overlay, w) {
     const isCsv = !!w.draft?.csv;
     latlng.hidden = !isCsv;
     if (isCsv) {
-      const opts = w.draft.csv.headers.map((h) => `<option>${esc(h)}</option>`).join('');
+      const opts = '<option value="">(choisir une colonne)</option>'
+        + w.draft.csv.headers.map((h) => `<option value="${escAttr(h)}">${esc(h)}</option>`).join('');
       const latSel = overlay.querySelector('#dg-wz-lat');
       const lngSel = overlay.querySelector('#dg-wz-lng');
       latSel.innerHTML = opts;
@@ -964,7 +1012,7 @@ function _refreshFieldSelectors(overlay, w) {
   if (valSel) {
     valSel.innerHTML = numeric.length
       ? fieldOptions(cfg.style.value_field, numeric)
-      : `<option value="${escAttr(cfg.style.value_field || '')}">${cfg.style.value_field ? esc(cfg.style.value_field) : '(aucun champ numérique)'}</option>`;
+      : `<option value="${escAttr(cfg.style.value_field || '')}">${cfg.style.value_field ? esc(cfg.style.value_field) : '(aucune colonne de nombres)'}</option>`;
   }
   _renderMetrics(overlay, w, numeric);
 
@@ -972,7 +1020,8 @@ function _refreshFieldSelectors(overlay, w) {
   if (popWrap) {
     popWrap.innerHTML = '';
     if (!fields.length) {
-      popWrap.innerHTML = '<span class="adm-form-hint">Aucun champ détecté.</span>';
+      // Sans données chargées (couche en cours de réglage), les colonnes ne sont pas encore connues.
+      popWrap.innerHTML = `<span class="adm-form-hint">${(w.draft?.features || []).length ? 'Ces données n’ont aucune colonne d’informations à afficher.' : 'Nous ne connaissons pas encore les colonnes de ces données. Vous pourrez choisir les informations affichées une fois ses données chargées.'}</span>`;
     }
     if (!cfg.popup.fields?.length) cfg.popup.fields = fields.slice(0, 4);
     // Ne purger qu'à champs connus : en édition, les données peuvent ne pas
@@ -1012,31 +1061,58 @@ function _renderMetrics(overlay, w, numeric) {
   }
   wrap.innerHTML = '';
   if (!numeric.length) {
-    wrap.innerHTML = '<span class="adm-form-hint">Aucun champ numérique : la zone n\'affichera que le nombre d\'entités.</span>';
+    wrap.innerHTML = '<span class="adm-form-hint">Aucune colonne ne contient de nombres : le dossier de zone donnera seulement le nombre d\'éléments dans la zone.</span>';
     return;
   }
   for (const field of numeric) {
     const current = cfg.metrics.find((m) => m.field === field);
-    const row = document.createElement('label');
+    const row = document.createElement('div');
     row.className = 'dg-metric' + (current ? ' is-active' : '');
+    // Le nom et l'unité saisis sont ceux que le dossier de zone affiche.
     row.innerHTML = `
-      <input type="checkbox" data-mfield="${escAttr(field)}" ${current ? 'checked' : ''}>
-      <span class="dg-metric__name">${esc(field)}</span>
-      <select class="adm-select adm-select--sm" data-magg="${escAttr(field)}" ${current ? '' : 'disabled'}>
+      <label class="dg-metric__head">
+        <input type="checkbox" data-mfield="${escAttr(field)}" ${current ? 'checked' : ''}>
+        <span class="dg-metric__name">${esc(field)}</span>
+      </label>
+      <select class="adm-select adm-select--sm" data-magg="${escAttr(field)}" aria-label="Calcul appliqué à ${escAttr(field)}" ${current ? '' : 'disabled'}>
         ${Object.entries(METRIC_AGGS).map(([key, a]) => `<option value="${key}" ${(current?.agg || 'sum') === key ? 'selected' : ''}>${esc(a.label)}</option>`).join('')}
-      </select>`;
-    const check = row.querySelector('input');
+      </select>
+      <div class="dg-metric__words" ${current ? '' : 'hidden'}>
+        <label class="dg-metric__word"><span>Nom dans le dossier</span>
+          <input type="text" class="adm-input" data-mlabel="${escAttr(field)}" maxlength="80" value="${escAttr(current?.label || '')}" placeholder="Par exemple : passages par jour"></label>
+        <label class="dg-metric__word"><span>Unité</span>
+          <input type="text" class="adm-input" data-munit="${escAttr(field)}" maxlength="40" value="${escAttr(current?.unit || '')}" placeholder="Par exemple : passages"></label>
+      </div>`;
+    const check = row.querySelector('[data-mfield]');
     const select = row.querySelector('select');
+    const words = row.querySelector('.dg-metric__words');
+    const labelInput = row.querySelector('[data-mlabel]');
+    const unitInput = row.querySelector('[data-munit]');
+    const metricOf = () => cfg.metrics.find((x) => x.field === field);
     check.addEventListener('change', () => {
       const i = cfg.metrics.findIndex((m) => m.field === field);
-      if (check.checked && i < 0) cfg.metrics.push({ field, agg: select.value });
+      if (check.checked && i < 0) {
+        const m = { field, agg: select.value };
+        if (labelInput.value.trim()) m.label = labelInput.value.trim();
+        if (unitInput.value.trim()) m.unit = unitInput.value.trim();
+        cfg.metrics.push(m);
+      }
       if (!check.checked && i >= 0) cfg.metrics.splice(i, 1);
       select.disabled = !check.checked;
+      words.hidden = !check.checked;
       row.classList.toggle('is-active', check.checked);
     });
     select.addEventListener('change', () => {
-      const m = cfg.metrics.find((x) => x.field === field);
+      const m = metricOf();
       if (m) m.agg = select.value;
+    });
+    labelInput.addEventListener('input', () => {
+      const m = metricOf();
+      if (m) m.label = labelInput.value.trim();
+    });
+    unitInput.addEventListener('input', () => {
+      const m = metricOf();
+      if (m) m.unit = unitInput.value.trim();
     });
     wrap.appendChild(row);
   }
@@ -1074,20 +1150,30 @@ async function _save(overlay, w, existing, onSaved, close) {
       source_ref = w.draft.url;
     } else if (stored) {
       // Fichier local, CSV distant ou couche enrichie d'un tableau : normalisé
-      // en FeatureCollection (champs conservés seulement) puis déposé dans Storage.
+      // en FeatureCollection (champs conservés seulement) puis déposé dans le
+      // compartiment privé de la collectivité.
       const fc = {
         type: 'FeatureCollection',
         features: _keptFeatures(w).map(({ __pt, __bbox, ...f }) => f),
       };
       source_type = 'storage';
-      source_ref = await api.uploadDiagnosticGeoJSON(fc);
+      source_ref = await api.uploadDiagnosticGeoJSON(fc, w.city);
     }
 
+    // Un nom ou une unité laissés vides ne sont pas enregistrés.
+    const metrics = w.cfg.metrics.map((m) => {
+      const out = { ...m };
+      if (!out.label) delete out.label;
+      if (!out.unit) delete out.unit;
+      return out;
+    });
     const popup = {
+      // Les autres réglages enregistrés (période, adresse de la source) sont gardés.
+      ...existing?.popup,
       title_field: w.cfg.popup.title_field || '',
       fields: w.cfg.popup.fields || [],
       kind: w.cfg.kind,
-      metrics: w.cfg.kind === 'reference' ? w.cfg.metrics : [],
+      metrics: w.cfg.kind === 'reference' ? metrics : [],
     };
     // Provenance : une couche venue du catalogue le reste, même retouchée.
     const source = w.draft.source || existing?.popup?.source;
@@ -1104,15 +1190,19 @@ async function _save(overlay, w, existing, onSaved, close) {
       ai_context: w.cfg.ai_context,
       default_on: w.cfg.default_on,
       sort_order: existing?.sort_order ?? dg.layers.length,
-    });
+    }, w.city);
     if (error) throw error;
 
     toast(existing ? 'Couche mise à jour' : 'Couche ajoutée', 'success');
     close();
-    await onSaved?.(data);
+    // Espace changé pendant l'enregistrement : la couche est chez sa
+    // collectivité, la carte affichée n'est plus la sienne.
+    if (store.city === w.city) await onSaved?.(data);
   } catch (err) {
     console.error('[admin/diagnostic] Sauvegarde couche:', err);
-    toast('Erreur : ' + (err.message || err), 'error');
+    toast(readableError(err, existing
+      ? 'Les réglages n\'ont pas pu être enregistrés. Vérifiez votre connexion, puis réessayez.'
+      : 'La couche n\'a pas pu être ajoutée. Vérifiez votre connexion, puis réessayez.'), 'error');
     save.disabled = false;
     save.innerHTML = `<i class="fa-solid fa-check"></i> ${existing ? 'Enregistrer' : 'Ajouter la couche'}`;
   }
