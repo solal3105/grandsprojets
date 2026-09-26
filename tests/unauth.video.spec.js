@@ -10,7 +10,8 @@ import { test, expect } from '@playwright/test';
  *  - la vidéo tourne en boucle et démarre muette (les navigateurs refusent la
  *    lecture automatique avec le son), et le bouton du son la fait parler ;
  *  - hors plein écran, les deux sorties sont là : l'écran du stand et les
- *    pages des cinq modules.
+ *    pages des cinq modules, ouverts dans un nouvel onglet pour que la vidéo
+ *    reste ouverte derrière après chaque démonstration.
  *
  * Le plein écran lui-même n'est pas couvert : Chromium sans fenêtre refuse
  * requestFullscreen hors d'un vrai geste de l'utilisateur.
@@ -51,9 +52,20 @@ test.describe("0.76 Écran de salon - la page /video", () => {
   test("0.76.4 les sorties mènent à l'écran du stand et aux cinq modules", async ({ page }) => {
     const stand = page.getByRole('link', { name: /carte des projets de votre commune/ });
     await expect(stand).toHaveAttribute('href', 'https://openprojets.com/kiosk');
+    await expect(stand).toHaveAttribute('target', '_blank');
     const modules = page.locator('a[href="/carte"], a[href="/travaux"], a[href="/chantiers"], a[href="/participer"], a[href="/diagnostic"]');
     await expect(modules).toHaveCount(5);
-    await page.locator('a[href="/travaux"]').click();
-    await expect(page).toHaveURL(/\/travaux$/);
+    for (const lien of await modules.all()) await expect(lien).toHaveAttribute('target', '_blank');
+  });
+
+  test("0.76.5 un module s'ouvre dans un nouvel onglet, la vidéo reste ouverte", async ({ page }) => {
+    const [onglet] = await Promise.all([
+      page.context().waitForEvent('page'),
+      page.locator('a[href="/travaux"]').click(),
+    ]);
+    await onglet.waitForLoadState('domcontentloaded');
+    await expect(onglet).toHaveURL(/\/travaux$/);
+    await expect(page).toHaveURL(/\/video$/);
+    await onglet.close();
   });
 });

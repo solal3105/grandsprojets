@@ -56,9 +56,12 @@
       </div>
     </div>
 
+    <!-- Les sorties s'ouvrent dans un nouvel onglet : la vidéo reste ouverte
+         derrière, et on y revient après chaque démonstration sans la rouvrir. -->
     <div class="sorties w-full grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,5fr)]">
       <a
         :href="KIOSK_URL"
+        target="_blank" rel="noopener"
         class="group flex flex-col justify-between rounded-2xl bg-white text-dark p-5 transition duration-300 hover:-translate-y-1"
       >
         <span class="font-heading font-bold text-lg leading-snug tracking-tight">
@@ -66,6 +69,7 @@
         </span>
         <span class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary-ink">
           Chercher ma commune
+          <span class="sr-only">(dans un nouvel onglet)</span>
           <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
         </span>
       </a>
@@ -75,9 +79,10 @@
           Découvrez les cinq modules en détail
         </h2>
         <div class="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
-          <router-link
+          <a
             v-for="m in modules" :key="m.key"
-            :to="`/${m.key}`"
+            :href="`/${m.key}`"
+            target="_blank" rel="noopener"
             class="tuile group relative overflow-hidden rounded-2xl p-5 flex flex-col text-white transition duration-300 hover:-translate-y-1"
             :class="m.tone.socle"
           >
@@ -89,9 +94,10 @@
             <span class="relative mt-2 flex-1 text-sm leading-relaxed">{{ m.h1 }}</span>
             <span class="relative mt-3 inline-flex items-center gap-1.5 text-sm font-medium">
               Voir le module
+              <span class="sr-only">(dans un nouvel onglet)</span>
               <ArrowRight class="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
             </span>
-          </router-link>
+          </a>
         </div>
       </section>
     </div>
@@ -161,7 +167,14 @@ function peindreAmbiance(t) {
   x.drawImage(v, 0, 0, c.width, c.height)
 }
 
+// Au retour sur l'onglet, après une démonstration, la vidéo repart si le
+// navigateur l'a mise en pause pendant qu'elle était cachée.
+function reprendre() {
+  if (document.visibilityState === 'visible' && video.value?.paused) video.value.play().catch(() => {})
+}
+
 onMounted(() => {
+  document.addEventListener('visibilitychange', reprendre)
   document.addEventListener('fullscreenchange', suivrePleinEcran)
   document.addEventListener('webkitfullscreenchange', suivrePleinEcran)
   // Le fond de la fenêtre suit aussi, pour les rebonds de défilement.
@@ -172,6 +185,7 @@ onMounted(() => {
   boucle = requestAnimationFrame(peindreAmbiance)
 })
 onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', reprendre)
   document.removeEventListener('fullscreenchange', suivrePleinEcran)
   document.removeEventListener('webkitfullscreenchange', suivrePleinEcran)
   document.documentElement.classList.remove('bg-dark')
