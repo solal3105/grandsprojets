@@ -13,6 +13,12 @@ dans le dépôt.
   produit par `tools/web.sh` de l'atelier depuis le rendu définitif.
 - `open-projets-presentation.webp` : l'affiche, image du montage à la
   septième seconde.
+- `open-projets-avant-apres.mp4` : la vidéo rétro « avant / après », 2 min
+  (H.264 1080p à 30 i/s, crf 26, 17,5 Mo, son AAC). Dessinée en pixels et
+  sonorisée par le code dans l'atelier `~/grandsprojets/video-retro-open-projets/`,
+  hors dépôt. Elle tourne en boucle sur la page `/video` (écran de salon,
+  hors des moteurs, `home-src/src/v2/views/VideoView.vue`).
+- `open-projets-avant-apres.webp` : son affiche, l'écran titre à 4,2 s.
 
 La page qui l'embarque (bloc d'accueil du site) porte les données
 structurées VideoObject et la transcription intégrale, dans

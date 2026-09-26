@@ -163,6 +163,21 @@ const routes = [
     },
   },
   {
+    /* L'écran de salon : la vidéo rétro « avant / après » en boucle, avec deux
+       sorties, le stand des cartes des communes et les pages des modules.
+       Hors du menu, du plan du site et des moteurs ; pas d'en-tête ni de pied
+       de page (meta.ecran). */
+    path: '/video',
+    name: 'video',
+    component: () => import('./views/VideoView.vue'),
+    meta: {
+      title: 'Une ville avant et après Open Projets | Open Projets',
+      description: 'Une vidéo de deux minutes montre une ville avant et après Open Projets, puis présente les cinq modules de la suite.',
+      robots: 'noindex, nofollow',
+      ecran: true,
+    },
+  },
+  {
     /* La fabrique de liens de l'équipe commerciale : on y colle une adresse,
        on dit où on va la partager, et on repart avec un lien marqué (utm_*)
        que PostHog reconnaît. Hors du menu, du plan du site et des moteurs. */

@@ -16,6 +16,9 @@ export const VILLES_URL = `${SITE_URL}/ville/`
 // Les cartes des communes construites par la démo (pré-rendu edge cartes).
 export const CARTES_URL = `${SITE_URL}/cartes/`
 
+// Le même écran en mode stand : /kiosk redirige vers /cartes/?kiosk=1 (_redirects).
+export const KIOSK_URL = `${SITE_URL}/kiosk`
+
 /* L'application d'une collectivité : /ville/{ville}/{module}.
  *
  * Les trois modules publics ont chacun leur adresse, et la carte est le

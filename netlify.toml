@@ -214,6 +214,14 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
+# La page de la vidéo des salons (/video) est hors des moteurs, comme la
+# fabrique de liens. La règle vise la page seule : les fichiers sous /video/
+# gardent les en-têtes ci-dessous, la vidéo de présentation reste indexable.
+[[headers]]
+  for = "/video"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
 # La vidéo de présentation et son affiche ne changent qu'avec un nouveau
 # montage : elles se gardent longtemps, et le navigateur peut en demander
 # un morceau à la fois (lecture avant la fin du téléchargement).
