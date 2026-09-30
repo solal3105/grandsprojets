@@ -7,6 +7,15 @@
    opt-in, voir participer-confirm) : c'est à la fois l'anti-spam principal et
    le canal de suivi.
 
+   Le navigateur joint à chaque dépôt un identifiant tiré au hasard
+   (`appareil`, facultatif). Trois issues, rendues dans `etat` :
+     - `transmis` : un signalement confirmé porte déjà cette adresse et ce
+       navigateur, l'adresse est prouvée, le dépôt part sans nouvel email ;
+     - `ajoute` : un dépôt de moins d'une heure attend déjà sa confirmation
+       depuis ce navigateur avec cette adresse, le lien envoyé le transmettra
+       aussi, aucun email ne part ;
+     - `a_confirmer` : l'email de confirmation part, comme sans identifiant.
+
    Garde-fous : honeypot invisible (`website`), quotas journaliers par IP salée
    et par email (administrables dans participer_settings), photo bornée à 4 Mo
    après compression cliente, module activable/suspendable par ville.
@@ -15,9 +24,10 @@
 import { isValidCityCode, getCorsHeaders, preflightResp } from './lib/http.mjs';
 import {
   EMAIL_RE, PHOTO_MIMES, PHOTO_MAX_BYTES, BUCKET_PHOTOS, SITE,
-  jsonResp, hasServiceKey, hashIp, loadContext, loadCategories,
+  UUID_RE, LOT_FENETRE_MINUTES,
+  jsonResp, hasServiceKey, hashIp, hashAppareil, loadContext, loadCategories,
   svcInsert, svcCount, svcDelete, svcRpc, storageUpload, storageDelete,
-  mailConfirmation,
+  mailConfirmation, transmettreDepots,
 } from './lib/participer-common.mjs';
 
 const DATA_URL_RE = /^data:(image\/(?:webp|jpeg|png));base64,([A-Za-z0-9+/=]+)$/;
@@ -55,6 +65,11 @@ export default async (req, context) => {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     return jsonResp(400, { error: 'Position invalide' }, cors);
   }
+
+  // Absent : dépôt traité comme avant, un email par dépôt. Présent : un UUID,
+  // rien d'autre (il finit dans une empreinte, pas dans une requête).
+  const appareil = body?.appareil == null ? '' : String(body.appareil).trim();
+  if (appareil && !UUID_RE.test(appareil)) return jsonResp(400, { error: 'Identifiant de navigateur invalide' }, cors);
 
   const description = String(body?.description || '').trim().slice(0, 1000) || null;
   const adresse = String(body?.adresse || '').trim().slice(0, 300) || null;
@@ -98,6 +113,24 @@ export default async (req, context) => {
       return jsonResp(429, { error: 'Trop de signalements aujourd\'hui - réessayez demain' }, cors);
     }
 
+    /* Ce navigateur est-il reconnu pour cette adresse, ou une série est-elle
+       en cours ? Un signalement anonymisé n'a plus d'adresse : il ne compte
+       plus, la reconnaissance s'éteint avec la rétention. */
+    const emailNorm = email.toLowerCase();
+    const appareilHash = appareil ? await hashAppareil(appareil) : null;
+    let reconnu = false;
+    let serieEnCours = false;
+    if (appareilHash) {
+      const memes = { ville: `eq.${ville}`, email: `eq.${emailNorm}`, appareil_hash: `eq.${appareilHash}` };
+      const depuis = new Date(Date.now() - LOT_FENETRE_MINUTES * 60000).toISOString();
+      const [confirmes, recents] = await Promise.all([
+        svcCount('participer_signalements', { ...memes, email_confirmed: 'eq.true' }),
+        svcCount('participer_signalements', { ...memes, email_confirmed: 'eq.false', created_at: `gte.${depuis}` }),
+      ]);
+      reconnu = confirmes > 0;
+      serieEnCours = recents > 0;
+    }
+
     const id = crypto.randomUUID();
     let photoPath = null;
     if (photo) {
@@ -121,20 +154,43 @@ export default async (req, context) => {
         lat,
         lng,
         adresse,
-        email: email.toLowerCase(),
+        email: emailNorm,
         ip_hash: ipHash,
+        appareil_hash: appareilHash,
       });
     } catch (e) {
       if (photoPath) await storageDelete(BUCKET_PHOTOS, [photoPath]);
       throw e;
     }
 
+    const reference = row.reference;
+
+    /* Adresse déjà prouvée depuis ce navigateur : transmis tout de suite. Si
+       la transmission échoue, on retombe sur l'email de confirmation plutôt
+       que de laisser un dépôt en attente que personne ne confirmera. */
+    if (reconnu) {
+      try {
+        await transmettreDepots(row, ctx);
+        console.log(`[participer-submit] ${reference} transmis pour ${ville} (navigateur reconnu)`);
+        return jsonResp(200, { ok: true, etat: 'transmis', reference }, cors);
+      } catch (e) {
+        console.error(`[participer-submit] ${reference} transmission directe impossible, confirmation par email ::`, e?.message);
+      }
+    } else if (serieEnCours) {
+      const enAttente = await svcCount('participer_signalements', {
+        ville: `eq.${ville}`, email: `eq.${emailNorm}`, appareil_hash: `eq.${appareilHash}`, email_confirmed: 'eq.false',
+      });
+      console.log(`[participer-submit] ${reference} déposé pour ${ville} (rejoint une série, ${enAttente} en attente)`);
+      return jsonResp(200, { ok: true, etat: 'ajoute', en_attente: enAttente }, cors);
+    }
+
     /* Sans le message de confirmation, le dépôt est un orphelin invisible de
        tous : mieux vaut le refuser franchement que laisser l'habitant croire
        qu'il a signalé quelque chose. */
-    const reference = row.reference;
     const confirmUrl = `${SITE}/api/participer/confirm?token=${row.confirm_token}`;
-    const mail = await mailConfirmation({ to: email, confirmUrl, replyTo: ctx.settings?.notify_email || null });
+    const mail = await mailConfirmation({
+      to: email, confirmUrl, replyTo: ctx.settings?.notify_email || null, groupe: Boolean(appareilHash),
+    });
     if (mail.status !== 'envoye') {
       await svcDelete('participer_signalements', { id: `eq.${id}` });
       if (photoPath) await storageDelete(BUCKET_PHOTOS, [photoPath]);
@@ -143,7 +199,7 @@ export default async (req, context) => {
     }
 
     console.log(`[participer-submit] ${reference} déposé pour ${ville} (confirmation envoyée)`);
-    return jsonResp(200, { ok: true }, cors);
+    return jsonResp(200, { ok: true, etat: 'a_confirmer' }, cors);
   } catch (e) {
     console.error('[participer-submit] ::', e?.message);
     return jsonResp(500, { error: 'Dépôt impossible' }, cors);

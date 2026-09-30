@@ -8,6 +8,8 @@ import { test, expect } from '@playwright/test';
  *  - le module activé pour une ville fait apparaître son bouton et son panneau ;
  *  - le formulaire public porte ses garde-fous (honeypot hors écran, email
  *    obligatoire, mention urgence, lien confidentialité) ;
+ *  - une série de points part avec le même identifiant de navigateur, l'adresse
+ *    reste remplie, et l'écran suit ce que le serveur a fait du dépôt ;
  *  - les endpoints publics valident leurs entrées et, surtout, ne servent
  *    JAMAIS une donnée personnelle (email, hash d'IP, jetons) - test de fuite.
  *
@@ -104,6 +106,62 @@ test.describe('16.1 Participer - carte publique', () => {
     await expect(page.locator('.pt-explorer, .nav-panel__empty').first()).toBeVisible({ timeout: 15000 });
   });
 
+  /* Série de points : le navigateur joint le même identifiant à chaque dépôt,
+     l'adresse reste remplie pour le point suivant, et l'écran qui suit l'envoi
+     dit ce que le serveur a fait (email parti, point rattaché à la série,
+     transmis directement). Le serveur est simulé : aucun vrai dépôt. Le point
+     est placé par « Utiliser ma position », qui ne dépend pas du rendu carte. */
+  test('16.1.7 une série de points ne demande qu\'une confirmation', async ({ page, context, request }) => {
+    test.skip(!(await serviceConfigured(request)), SKIP_MSG);
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 45.76, longitude: 4.835 });
+
+    const reponses = [
+      { ok: true, etat: 'a_confirmer' },
+      { ok: true, etat: 'ajoute', en_attente: 2 },
+      { ok: true, etat: 'transmis', reference: 'TES-2026-0042' },
+    ];
+    const envois = [];
+    await page.route('**/api/participer/submit', async (route) => {
+      envois.push(route.request().postDataJSON());
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(reponses[envois.length - 1]) });
+    });
+
+    await openParticiperPanel(page);
+    await page.locator('.nav-panel__item[data-section="participer-signaler"]').click();
+
+    const deposer = async (categorie) => {
+      const form = page.locator('.pt-form');
+      await expect(form).toBeVisible({ timeout: 15000 });
+      await form.locator('#pt-geoloc').click();
+      await expect(form.locator('#pt-locate')).toHaveClass(/is-set/);
+      await form.locator('.pt-cat').nth(categorie).click();
+      await form.locator('#pt-submit').click();
+      await expect(page.locator('.pt-success')).toBeVisible({ timeout: 10000 });
+    };
+
+    await page.locator('#pt-email').fill('habitant@example.org');
+    await deposer(0);
+    await expect(page.locator('.pt-success h3')).toHaveText('Presque terminé');
+    await expect(page.locator('.pt-success')).toContainText('le même lien les transmettra tous');
+
+    await page.locator('#pt-next').click();
+    await expect(page.locator('#pt-email')).toHaveValue('habitant@example.org');
+    await deposer(1);
+    await expect(page.locator('.pt-success h3')).toHaveText('Point enregistré');
+    await expect(page.locator('.pt-success')).toContainText('que le précédent');
+
+    await page.locator('#pt-next').click();
+    await deposer(2);
+    await expect(page.locator('.pt-success h3')).toHaveText('Signalement transmis');
+    await expect(page.locator('.pt-success')).toContainText('TES-2026-0042');
+
+    expect(envois).toHaveLength(3);
+    expect(envois[0].appareil).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    expect(new Set(envois.map((e) => e.appareil)).size).toBe(1);
+    expect(envois.every((e) => e.email === 'habitant@example.org')).toBe(true);
+  });
+
   /* Non-régression : le détail s'ouvre dans le panneau #project-detail. Une
      variable manquante dans le rendu du suivi a déjà fait échouer l'ouverture
      en silence, sans que le rendu de la liste ne le révèle. */
@@ -157,6 +215,16 @@ test.describe('16.2 Participer - endpoints publics', () => {
     test.skip(!(await serviceConfigured(request)), SKIP_MSG);
     const r = await request.post(`${API}/submit`, {
       data: { ville: CITY, category_key: 'inexistante', lat: 45.7, lng: 4.8, email: 'habitant@example.org' },
+    });
+    expect(r.status()).toBe(400);
+  });
+
+  test('16.2.4b submit refuse un identifiant de navigateur qui n\'est pas un UUID', async ({ request }) => {
+    const r = await request.post(`${API}/submit`, {
+      data: {
+        ville: CITY, category_key: 'chantier', lat: 45.7, lng: 4.8,
+        email: 'habitant@example.org', appareil: 'eq.x,or=(1)',
+      },
     });
     expect(r.status()).toBe(400);
   });

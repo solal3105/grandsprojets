@@ -15,12 +15,12 @@
 
 import { isValidCityCode, getCorsHeaders, preflightResp, getAuthedUser, getProfile } from './lib/http.mjs';
 import {
-  UUID_RE, STATUT_KEYS, STATUTS_CLOS, TEAM_COLUMNS, BUCKET_PHOTOS, BUCKET_PUBLIC, SITE,
+  UUID_RE, STATUT_KEYS, STATUTS_CLOS, TEAM_COLUMNS, BUCKET_PHOTOS, BUCKET_PUBLIC,
   jsonResp, hasServiceKey,
   svcSelect, svcUpdate, svcDelete, insertEvent,
   storageDownload, storageUpload, storageDelete, storageSignedUrl, publicStorageUrl,
   loadContext, loadStatuts,
-  mailStatut,
+  mailStatut, suiviUrlOf,
 } from './lib/participer-common.mjs';
 
 const ACTIONS_ADMIN = new Set(['publish', 'unpublish', 'delete']);
@@ -39,7 +39,7 @@ async function notifyStatusChange(row, statutKey, message, settings) {
     reference: row.reference,
     statutLabel: st.label,
     message,
-    suiviUrl: `${SITE}/ville/${row.ville}/participer?participer_suivi=${row.suivi_token}`,
+    suiviUrl: suiviUrlOf(row.ville, row.suivi_token),
     replyTo: settings?.notify_email || null,
   });
   return mail.status === 'envoye';

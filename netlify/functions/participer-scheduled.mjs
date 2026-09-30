@@ -5,9 +5,9 @@
    Scheduled Function, pas de pg_cron) :
      1. PURGE des dépôts jamais confirmés après 7 jours (ligne + photo) ;
      2. ANONYMISATION des signalements clos depuis plus de `retention_mois`
-        (réglage par ville) : email et hash d'IP effacés, plus les contacts
-        laissés dans les demandes de retrait. Le contenu publié reste (il
-        n'est pas nominatif) ;
+        (réglage par ville) : email, hash d'IP et empreinte du navigateur
+        effacés, plus les contacts laissés dans les demandes de retrait. Le
+        contenu publié reste (il n'est pas nominatif) ;
      3. ALERTE anti « module fantôme » : si des signalements confirmés restent
         au statut « nouveau » au-delà de `alerte_jours`, la mairie reçoit un
         rappel (au plus un tous les 6 jours, jalonné par last_alert_at).
@@ -74,6 +74,9 @@ async function anonymize(settingsRows) {
     }, {
       email: null,
       ip_hash: null,
+      // L'empreinte du navigateur reconnu part avec l'adresse : sans elle, la
+      // reconnaissance de ce navigateur s'éteint aussi
+      appareil_hash: null,
       anonymized_at: new Date().toISOString(),
     });
     total += maj.length;

@@ -251,6 +251,10 @@ const participer = [
     desc: 'Elle sert uniquement à confirmer votre dépôt puis à vous informer de son traitement. Elle n\'apparaît ni sur la carte, ni dans les exports, et elle est effacée automatiquement au plus tard 12 mois après la clôture du signalement, comme l\'empreinte technique de connexion qui borne les abus.',
   },
   {
+    term: 'Votre navigateur est reconnu après une première confirmation',
+    desc: 'À votre premier dépôt, votre navigateur garde un identifiant tiré au hasard, qui ne dit rien de vous. Il permet de transmettre en un seul clic tous les points que vous signalez à la suite, puis d\'envoyer les suivants avec la même adresse sans nouvelle confirmation. Nous n\'en conservons qu\'une empreinte, rattachée à vos signalements et effacée en même temps que votre adresse email. Pour que votre navigateur ne soit plus reconnu, effacez les données de ce site dans ses réglages.',
+  },
+  {
     term: 'Rien n\'est public avant validation par la collectivité',
     desc: 'Votre description et votre photo ne deviennent visibles sur la carte qu\'après vérification par un agent : c\'est la collectivité qui est responsable de ce qu\'elle publie. Les métadonnées de vos photos, dont la position exacte de la prise de vue, sont supprimées dès l\'envoi.',
   },

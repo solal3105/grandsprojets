@@ -497,6 +497,13 @@
   color: var(--text-secondary);
 }
 
+.pt-success__next {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .pt-paused i {
   color: var(--color-warning);
 }

@@ -173,6 +173,35 @@
   let _formRoot = null;
   const _formContainer = () => _formRoot;
 
+  /* Identifiant tiré au hasard, gardé par ce navigateur et joint à chaque
+     dépôt : il permet de transmettre une série de points avec une seule
+     confirmation, puis de reconnaître le navigateur (le serveur n'en garde
+     qu'une empreinte). Stockage indisponible : pas d'identifiant, chaque
+     dépôt demande sa confirmation, comme avant. */
+  const APPAREIL_KEY = 'op.participer.appareil';
+  function _appareil() {
+    try {
+      let v = win.localStorage.getItem(APPAREIL_KEY);
+      if (!v && win.crypto?.randomUUID) {
+        v = win.crypto.randomUUID();
+        win.localStorage.setItem(APPAREIL_KEY, v);
+      }
+      return v || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /* L'adresse n'est rappelée que le temps de l'onglet : assez pour enchaîner
+     les points, pas assez pour qu'un appareil partagé la montre au suivant. */
+  const EMAIL_KEY = 'op.participer.email';
+  function _rememberedEmail() {
+    try { return win.sessionStorage.getItem(EMAIL_KEY) || ''; } catch { return ''; }
+  }
+  function _rememberEmail(email) {
+    try { win.sessionStorage.setItem(EMAIL_KEY, email); } catch { /* confort seulement */ }
+  }
+
   /** Ré-encode la photo via canvas : supprime les métadonnées EXIF (position
       du domicile...) et borne le poids. Toujours ré-encodée, jamais l'original. */
   async function _encodePhoto(file) {
@@ -261,7 +290,7 @@
 
         <div class="pt-section">
           <span class="pt-label">Pour vous tenir informé</span>
-          <input class="pt-input" type="email" id="pt-email" maxlength="180" placeholder="Votre email (jamais public)" autocomplete="email" required>
+          <input class="pt-input" type="email" id="pt-email" maxlength="180" placeholder="Votre email (jamais public)" autocomplete="email" required value="${esc(_rememberedEmail())}">
           <input class="pt-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
           <p class="pt-legal">Votre adresse sert uniquement à confirmer puis suivre ce signalement. Elle n'est jamais publiée et sera supprimée au plus tard ${retentionMois} mois après la clôture. <a href="/confidentialite" target="_blank" rel="noopener">En savoir plus</a></p>
         </div>
@@ -330,26 +359,25 @@
       btn.textContent = 'Envoi en cours...';
       feedback.hidden = true;
       try {
-        await apiPost('/submit', {
+        const email = container.querySelector('#pt-email')?.value.trim();
+        const appareil = _appareil();
+        const res = await apiPost('/submit', {
           ville: activeCity(),
           category_key: _draft.category,
           lat: _draft.lat,
           lng: _draft.lng,
           adresse: container.querySelector('#pt-adresse')?.value.trim() || null,
           description: container.querySelector('#pt-desc')?.value.trim() || null,
-          email: container.querySelector('#pt-email')?.value.trim(),
+          email,
           photo: _draft.photo,
           website: container.querySelector('.pt-hp')?.value || '',
+          ...(appareil ? { appareil } : {}),
         });
-        capture('participer_submitted', { ville: activeCity(), category: _draft.category, photo: Boolean(_draft.photo) });
-        const success = (config.settings?.success_text)
-          || 'Dernière étape : ouvrez l\'email que nous venons de vous envoyer et confirmez votre signalement. Pensez à vérifier vos indésirables.';
-        container.innerHTML = `
-          <div class="pt-success">
-            <span class="pt-success__icon"><i class="fa-solid fa-envelope-circle-check"></i></span>
-            <h3>Presque terminé</h3>
-            <p>${esc(success)}</p>
-          </div>`;
+        capture('participer_submitted', {
+          ville: activeCity(), category: _draft.category, photo: Boolean(_draft.photo), etat: res?.etat || null,
+        });
+        _rememberEmail(email);
+        _renderSuccess(container, config, res, Boolean(appareil));
         _resetDraft();
       } catch (err) {
         feedback.textContent = err.message || 'Envoi impossible - réessayez';
@@ -358,6 +386,51 @@
         btn.textContent = 'Envoyer mon signalement';
       }
     });
+  }
+
+  /**
+   * Écran qui suit un dépôt, selon ce que le serveur en a fait :
+   *  - transmis : navigateur reconnu, parti sans confirmation ;
+   *  - ajoute : rejoint une série qui attend déjà le clic de confirmation ;
+   *  - a_confirmer (ou réponse sans état) : un email de confirmation est parti.
+   * Toujours un bouton pour enchaîner : on signale rarement un seul point.
+   */
+  function _renderSuccess(container, config, res, serieCapable) {
+    let icon;
+    let titre;
+    let corps;
+    if (res?.etat === 'transmis') {
+      icon = 'fa-circle-check';
+      titre = 'Signalement transmis';
+      corps = `<p>Votre signalement ${esc(res.reference || '')} est transmis à votre collectivité. Vous recevez par email le lien pour suivre son traitement.</p>`;
+    } else if (res?.etat === 'ajoute') {
+      const n = Number(res.en_attente) || 0;
+      icon = 'fa-envelope-circle-check';
+      titre = 'Point enregistré';
+      // `en_attente` compte ce point avec ceux qui attendent déjà
+      corps = n > 2
+        ? `<p>Il attend la même confirmation que les précédents : le lien reçu par email transmettra vos ${n} points d'un coup.</p>`
+        : '<p>Il attend la même confirmation que le précédent : le lien reçu par email les transmettra tous les deux d\'un coup.</p>';
+    } else {
+      icon = 'fa-envelope-circle-check';
+      titre = 'Presque terminé';
+      const texte = config.settings?.success_text
+        || 'Dernière étape : ouvrez l\'email que nous venons de vous envoyer et confirmez votre signalement. Pensez à vérifier vos indésirables.';
+      corps = `<p>${esc(texte)}</p>`
+        + (serieCapable
+          ? '<p>Vous avez d\'autres points à signaler ? Déposez-les depuis ce navigateur : le même lien les transmettra tous d\'un coup.</p>'
+          : '');
+    }
+    container.innerHTML = `
+      <div class="pt-success">
+        <span class="pt-success__icon"><i class="fa-solid ${icon}"></i></span>
+        <h3>${titre}</h3>
+        ${corps}
+        <button type="button" class="pt-submit pt-submit--small pt-success__next" id="pt-next">
+          <i class="fa-solid fa-plus"></i> Signaler un autre point
+        </button>
+      </div>`;
+    container.querySelector('#pt-next')?.addEventListener('click', () => buildSignaler(container, config));
   }
 
   /** À appeler quand on quitte la vue Signaler : fige la pose de point. */

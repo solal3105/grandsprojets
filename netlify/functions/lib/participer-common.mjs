@@ -50,6 +50,13 @@ export const TEAM_COLUMNS = 'id,ville,reference,category_key,statut_key,descript
    fonction planifiée l'applique, le message de confirmation l'annonce. */
 export const PURGE_AFTER_DAYS = 7;
 
+/* Série de dépôts depuis un même navigateur avec la même adresse : tant qu'un
+   dépôt de moins d'une heure attend sa confirmation, le suivant ne déclenche
+   pas de nouvel email, le lien déjà envoyé le transmettra aussi. Au-delà, un
+   nouvel email part (le premier a pu se perdre) ; chacun des liens transmet
+   tout ce qui attend. */
+export const LOT_FENETRE_MINUTES = 60;
+
 export const BUCKET_PHOTOS = 'participer-photos';
 // Les photos publiées sont copiées dans le bucket public existant, sous un
 // préfixe dédié : une URL stable, servie comme n'importe quel asset
@@ -307,13 +314,98 @@ export async function sha256Hex(str) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Sel des empreintes : PARTICIPER_IP_SALT, à défaut la clé de service (jamais publique)
+const sel = () => process.env.PARTICIPER_IP_SALT || process.env.SUPABASE_SERVICE_ROLE_KEY || 'op-participer';
+
 /**
- * Hash d'IP SALÉ : un SHA-256 d'IPv4 nue se brute-force en secondes. Le sel
- * vient de PARTICIPER_IP_SALT, à défaut de la clé de service (jamais publique).
+ * Hash d'IP SALÉ : un SHA-256 d'IPv4 nue se brute-force en secondes.
  */
 export async function hashIp(ip) {
-  const salt = process.env.PARTICIPER_IP_SALT || process.env.SUPABASE_SERVICE_ROLE_KEY || 'op-participer';
-  return (await sha256Hex(`${salt}:${ip || 'inconnu'}`)).slice(0, 24);
+  return (await sha256Hex(`${sel()}:${ip || 'inconnu'}`)).slice(0, 24);
+}
+
+/**
+ * Empreinte de l'identifiant qu'un navigateur tire au hasard et joint à ses
+ * dépôts (UUID déjà validé). La base ne garde que l'empreinte : sans
+ * l'identifiant, qui reste dans le navigateur, elle ne permet pas de déposer
+ * en se faisant passer pour lui.
+ */
+export async function hashAppareil(appareil) {
+  return (await sha256Hex(`${sel()}:appareil:${String(appareil).toLowerCase()}`)).slice(0, 32);
+}
+
+/* ─── Transmission des dépôts confirmés ─── */
+
+export const suiviUrlOf = (ville, suiviToken) => `${SITE}/ville/${ville}/participer?participer_suivi=${suiviToken}`;
+
+/**
+ * Transmet à la collectivité un dépôt dont l'adresse est prouvée et, s'il
+ * vient d'un navigateur identifié, tous les dépôts encore en attente faits
+ * depuis ce navigateur avec la même adresse. Consigne l'événement de création
+ * de chacun, puis expédie UN accusé à l'habitant et UNE alerte à la mairie
+ * pour l'ensemble.
+ *
+ * Le filtre email_confirmed=false fait de l'UPDATE le point de sérialisation :
+ * deux appels rapprochés (double clic, préchargement du lien par un antivirus
+ * de messagerie) se partagent les lignes sans en traiter aucune deux fois.
+ *
+ * @param {Object} row - le dépôt de départ : id, ville, email, appareil_hash
+ * @param {Object} ctx - contexte de la ville (loadContext)
+ * @returns {Promise<Array>} les signalements transmis par CET appel
+ */
+export async function transmettreDepots(row, ctx) {
+  const lot = row.appareil_hash && row.email
+    ? { ville: `eq.${row.ville}`, email: `eq.${row.email}`, appareil_hash: `eq.${row.appareil_hash}` }
+    : { id: `eq.${row.id}` };
+  const transmis = await svcUpdate('participer_signalements', {
+    ...lot,
+    email_confirmed: 'eq.false',
+    select: 'id,ville,reference,category_key,adresse,suivi_token,created_at',
+  }, {
+    email_confirmed: true,
+    confirmed_at: new Date().toISOString(),
+  });
+  if (!transmis.length) return [];
+  transmis.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+
+  for (const s of transmis) {
+    await insertEvent({ signalementId: s.id, ville: s.ville, type: 'creation', newStatut: 'nouveau' });
+  }
+
+  const categories = await loadCategories(row.ville);
+  const items = transmis.map((s) => ({
+    reference: s.reference,
+    categorie: categories.find((c) => c.category_key === s.category_key)?.label || s.category_key,
+    adresse: s.adresse || null,
+    suiviUrl: suiviUrlOf(s.ville, s.suivi_token),
+  }));
+
+  const notify = ctx.settings?.notify_email || null;
+  await mailAccuse({ to: row.email, items, replyTo: notify });
+
+  if (notify) {
+    const ligne = (it) => `Référence : ${it.reference} - Catégorie : ${it.categorie}${it.adresse ? ` - ${it.adresse}` : ''}`;
+    await mailMairie(items.length === 1
+      ? {
+        to: notify,
+        subject: `Nouveau signalement ${items[0].reference}`,
+        lignes: [
+          `Un nouveau signalement vient d'être confirmé sur votre carte participative.`,
+          ligne(items[0]),
+          `Il attend votre modération avant toute publication.`,
+        ],
+      }
+      : {
+        to: notify,
+        subject: `${items.length} nouveaux signalements`,
+        lignes: [
+          `${items.length} nouveaux signalements viennent d'être confirmés sur votre carte participative. La même personne les a déposés à la suite.`,
+          ...items.map(ligne),
+          `Ils attendent votre modération avant toute publication.`,
+        ],
+      });
+  }
+  return transmis;
 }
 
 /* ─── Emails du module ───────────────────────────────────────────────────────
@@ -370,8 +462,15 @@ async function expedier({ to, subject, text, html, replyTo }) {
   });
 }
 
-/** 1er message : lien de confirmation du dépôt. */
-export function mailConfirmation({ to, confirmUrl, replyTo }) {
+/**
+ * 1er message : lien de confirmation du dépôt.
+ * `groupe` : le dépôt vient d'un navigateur identifié, le lien transmettra donc
+ * aussi les autres dépôts de ce navigateur. Sans lui, la phrase qui l'annonce
+ * serait fausse et n'est pas écrite.
+ */
+export function mailConfirmation({ to, confirmUrl, replyTo, groupe = false }) {
+  const serie = 'Un seul clic suffit : ce lien transmet aussi les autres points que vous signalerez '
+    + 'depuis le même navigateur avec cette adresse, et vous n\'aurez plus à confirmer les suivants.';
   return expedier({
     to,
     replyTo,
@@ -383,35 +482,62 @@ export function mailConfirmation({ to, confirmUrl, replyTo }) {
       'Pour le transmettre, confirmez votre adresse en ouvrant ce lien :',
       confirmUrl,
       '',
+      ...(groupe ? [serie, ''] : []),
       `Sans confirmation sous ${PURGE_AFTER_DAYS} jours, le signalement sera supprimé.`,
       "Si vous n'êtes pas à l'origine de ce dépôt, ignorez simplement ce message.",
     ].join('\n'),
     html: `<p style="${P}">Bonjour,</p>
 <p style="${P}">Vous venez de déposer un signalement sur la carte participative de votre collectivité. Pour le transmettre, confirmez votre adresse :</p>
 ${bouton(confirmUrl, 'Confirmer mon signalement')}
+${groupe ? `<p style="${P}">${echapperHtml(serie)}</p>` : ''}
 <p style="${P}">Sans confirmation sous ${PURGE_AFTER_DAYS} jours, le signalement sera supprimé. Si vous n'êtes pas à l'origine de ce dépôt, ignorez simplement ce message.</p>`,
   });
 }
 
-/** Accusé de réception après confirmation, avec référence et lien de suivi. */
-export function mailAccuse({ to, reference, suiviUrl, replyTo }) {
-  return expedier({
-    to,
-    replyTo,
-    subject: `Signalement ${reference} bien reçu`,
-    text: [
-      'Bonjour,',
-      '',
-      `Votre signalement a bien été transmis. Sa référence est ${reference}.`,
-      'Vous pouvez suivre son traitement à tout moment ici :',
-      suiviUrl,
-      '',
-      'Vous serez informé par email à chaque étape de son traitement.',
-    ].join('\n'),
-    html: `<p style="${P}">Bonjour,</p>
+/**
+ * Accusé de réception des signalements transmis ensemble : référence et lien
+ * de suivi de chacun. Un seul message, qu'il y en ait un ou dix.
+ * @param {Array<{reference, categorie, adresse, suiviUrl}>} items
+ */
+export function mailAccuse({ to, items, replyTo }) {
+  if (items.length === 1) {
+    const { reference, suiviUrl } = items[0];
+    return expedier({
+      to,
+      replyTo,
+      subject: `Signalement ${reference} bien reçu`,
+      text: [
+        'Bonjour,',
+        '',
+        `Votre signalement a bien été transmis. Sa référence est ${reference}.`,
+        'Vous pouvez suivre son traitement à tout moment ici :',
+        suiviUrl,
+        '',
+        'Vous serez informé par email à chaque étape de son traitement.',
+      ].join('\n'),
+      html: `<p style="${P}">Bonjour,</p>
 <p style="${P}">Votre signalement a bien été transmis. Sa référence est <strong>${echapperHtml(reference)}</strong>.</p>
 ${bouton(suiviUrl, 'Suivre mon signalement')}
 <p style="${P}">Vous serez informé par email à chaque étape de son traitement.</p>`,
+    });
+  }
+  const precision = (it) => [it.categorie, it.adresse].filter(Boolean).join(', ');
+  return expedier({
+    to,
+    replyTo,
+    subject: `Vos ${items.length} signalements sont bien reçus`,
+    text: [
+      'Bonjour,',
+      '',
+      `Vos ${items.length} signalements ont bien été transmis à votre collectivité. Chacun a sa référence et sa page de suivi :`,
+      '',
+      ...items.flatMap((it) => [`${it.reference} (${precision(it)}) :`, it.suiviUrl, '']),
+      'Vous serez informé par email à chaque étape de leur traitement.',
+    ].join('\n'),
+    html: `<p style="${P}">Bonjour,</p>
+<p style="${P}">Vos ${items.length} signalements ont bien été transmis à votre collectivité. Chacun a sa référence et sa page de suivi :</p>
+${items.map((it) => `<p style="${P}"><a href="${echapperHtml(it.suiviUrl)}" style="color:#FF0037;font-weight:600;">Suivre le signalement ${echapperHtml(it.reference)}</a><br><span style="color:#8a8a96;font-size:13px;">${echapperHtml(precision(it))}</span></p>`).join('\n')}
+<p style="${P}">Vous serez informé par email à chaque étape de leur traitement.</p>`,
   });
 }
 

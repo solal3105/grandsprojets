@@ -12,8 +12,9 @@ Habitant (carte publique)                    Équipe (admin)
   formulaire 4 étapes                          /admin/participer/
   └→ POST /api/participer/submit               file de traitement
       email de confirmation (double opt-in)    └→ POST /api/participer/update
-  └→ GET /api/participer/confirm?token=            statut / publier / rejeter /
-      accusé + lien de suivi                       doublon / supprimer
+      sauf série en cours / navigateur reconnu     statut / publier / rejeter /
+  └→ GET /api/participer/confirm?token=            doublon / supprimer
+      transmet la série, un accusé groupé
   └→ carte : GET /api/participer/geojson           (JWT + rôle revérifiés serveur)
   └→ suivi : /?participer_suivi=<token>
 ```
@@ -53,6 +54,36 @@ sort JAMAIS vers le public (ni GeoJSON, ni détail, ni export CSV).
   permanent. Le serveur passe par la clé de service, non concernée.
 - `participer_events.signalement_id` est nullable avec `ON DELETE SET NULL` :
   la trace de suppression survit à la suppression du signalement.
+- `participer_signalements.appareil_hash` : empreinte salée de l'identifiant
+  que le navigateur tire au hasard (voir « Une confirmation par navigateur »).
+  Aucun grant de lecture pour `authenticated`, effacée par l'anonymisation.
+
+## Une confirmation par navigateur
+
+Le navigateur tire au premier dépôt un UUID qu'il garde dans son stockage
+local (`op.participer.appareil`) et joint à chaque dépôt (`appareil`). Le
+serveur n'en garde que l'empreinte (`hashAppareil`, même sel que le hash
+d'IP). `participer-submit` rend alors un `etat` :
+
+| `etat` | Condition (même ville, même adresse, même empreinte) | Email |
+|---|---|---|
+| `transmis` | un signalement confirmé existe : l'adresse est déjà prouvée | accusé seulement, transmis tout de suite |
+| `ajoute` | un dépôt de moins d'une heure (`LOT_FENETRE_MINUTES`) attend sa confirmation | aucun, le lien déjà envoyé le transmettra |
+| `a_confirmer` | sinon, ou dépôt sans identifiant | email de confirmation, comme avant |
+
+Un clic sur n'importe quel lien de confirmation transmet tous les dépôts en
+attente du même navigateur avec la même adresse (`transmettreDepots`, partagé
+par `participer-confirm` et le cas `transmis`) : un seul accusé qui liste les
+références et leurs liens de suivi, une seule alerte mairie. L'UPDATE filtré
+sur `email_confirmed=false` sérialise les clics concurrents. Si la
+transmission directe échoue, le dépôt retombe sur l'email de confirmation.
+
+La reconnaissance s'éteint d'elle-même : un signalement anonymisé n'a plus ni
+adresse ni empreinte, un navigateur dont on efface les données tire un nouvel
+identifiant. L'adresse saisie n'est rappelée que le temps de l'onglet
+(`sessionStorage`), pour enchaîner les points sans la montrer au visiteur
+suivant d'un appareil partagé. Après chaque envoi, le panneau propose
+« Signaler un autre point ».
 
 ## Fonctions Netlify (routes `/api/participer/*`)
 
@@ -62,7 +93,7 @@ sort JAMAIS vers le public (ni GeoJSON, ni détail, ni export CSV).
 | `participer-geojson.mjs` | GET `/geojson?ville=` | public (signalements PUBLIÉS, props whitelistées) |
 | `participer-detail.mjs` | GET `/detail?token=` ou `?ville=&id=` | public (suivi personnel / détail publié) |
 | `participer-submit.mjs` | POST `/submit` | public (honeypot, quotas, photo 4 Mo max) |
-| `participer-confirm.mjs` | GET `/confirm?token=` | public (double opt-in, redirige vers le suivi) |
+| `participer-confirm.mjs` | GET `/confirm?token=` | public (double opt-in, transmet toute la série du navigateur, redirige vers le suivi) |
 | `participer-update.mjs` | POST `/update` | JWT + rôle revérifié serveur |
 | `participer-retrait.mjs` | POST `/retrait` | public (droit d'effacement, consigné + email mairie) |
 | `participer-scheduled.mjs` | planifiée `@daily` | purge non-confirmés (7 j, par lots de 100), anonymisation (rétention par ville, signalements + contacts de retrait), alerte anti « module fantôme » (jalonnée seulement si l'email part) |
@@ -78,8 +109,11 @@ motif obligatoire, `delete`).
 
 ## Emails (transport `lib/mail.mjs`, Resend ou Brevo)
 
-1. **Confirmation** au dépôt (sans elle, purge après 7 jours) ;
-2. **Accusé** après confirmation : référence + lien de suivi ;
+1. **Confirmation** au dépôt (sans elle, purge après 7 jours) ; pas d'email
+   pour un dépôt qui rejoint une série en cours ni depuis un navigateur
+   reconnu ;
+2. **Accusé** après confirmation : référence + lien de suivi, un seul message
+   pour tous les signalements transmis ensemble ;
 3. **Changement de statut** si `notify` est actif sur ce statut, avec le
    message public de l'agent ;
 4. **Mairie** (`participer_settings.notify_email`) : nouveau signalement,
@@ -133,7 +167,8 @@ Pour un hébergement européen des emails citoyens, configurer `BREVO_API_KEY`
 ## RGPD - engagements tenus par le code
 
 - Email jamais public, jamais exporté, jamais servi à un navigateur (grants
-  par colonne) ; effacé avec le hash d'IP N mois après clôture
+  par colonne) ; effacé avec le hash d'IP et l'empreinte du navigateur N mois
+  après clôture
   (`retention_mois`, défaut 12) par la fonction planifiée, de même que le
   contact laissé dans une demande de retrait.
 - Rien de textuel ni photo n'est public avant modération (`published`).
@@ -148,15 +183,19 @@ Pour un hébergement européen des emails citoyens, configurer `BREVO_API_KEY`
 ## Tests
 
 - `tests/unauth.participer.spec.js` (16.x) : bouton et panneau, garde-fous du
-  formulaire, contrats des endpoints, **test de fuite** (geojson sans email ni
-  jetons). Ville dédiée `test-e2e` (module activé + seed).
+  formulaire, série de points avec serveur simulé (16.1.7 : même identifiant,
+  adresse gardée, trois écrans de fin), contrats des endpoints, **test de
+  fuite** (geojson sans email ni jetons). Ville dédiée `test-e2e` (module
+  activé + seed).
 - `tests/admin.participer.spec.js` (17.x) : file, réglages, CRUD catégories,
   édition statuts.
 - `tests/invited.participer.spec.js` (18.x) : gating contributeur.
 
-Non testable en E2E : placement du point (WebGL), parcours complet
-dépôt → confirmation → modération (exige la boucle email réelle) - le contrat
-serveur de chaque étape est couvert unitairement à défaut.
+Non testable en E2E : placement du point au clic (WebGL ; 16.1.7 passe par
+« Utiliser ma position »), parcours complet dépôt → confirmation → modération
+(exige la boucle email réelle). La série a été vérifiée à la main le
+30/09/2026 sur `test-e2e` avec l'adresse de test `delivered+...@resend.dev`
+(aucune boîte réelle), lignes supprimées ensuite.
 
 En local, `netlify dev` n'injecte pas `SUPABASE_SERVICE_ROLE_KEY` (même limite
 que demo-generate) : les tests qui en dépendent SAUTENT explicitement au lieu
