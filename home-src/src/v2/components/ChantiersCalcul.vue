@@ -1,5 +1,6 @@
 <template>
-  <!-- Le calcul du prix de Chantiers, ligne à ligne -->
+  <!-- Le calcul du prix de Chantiers, ligne à ligne, par mois comme le reste
+       de l'estimation : la grille est annuelle, chaque montant est divisé par douze -->
   <div class="text-sm" :class="compact ? 'text-[13px]' : ''">
     <template v-if="chiffrage.espaces.length === 1">
       <dl class="divide-y divide-gray-border">
@@ -12,25 +13,24 @@
               <span class="font-medium text-dark">Permissions de voirie : {{ nombre(espace.routes.km) }} km de routes</span>
               <span v-if="espace.routes.coefficient > 1" class="block mt-0.5 text-xs text-gray-muted leading-snug">Ajusté à la densité : {{ texteDensite(espace.routes) }}.</span>
             </dt>
-            <dd class="tabular-nums whitespace-nowrap">{{ euros(reduction(espace.routes) ? espace.routes.bareme : espace.routes.montant) }}</dd>
+            <dd class="tabular-nums whitespace-nowrap">{{ parMois(reduction(espace.routes) ? espace.routes.bareme : espace.routes.montant) }}</dd>
           </div>
           <div v-if="reduction(espace.routes)" class="flex items-baseline justify-between gap-4 py-2.5">
             <dt>
               <span class="font-medium text-dark">Territoire peu dense : -{{ reduction(espace.routes) }} %</span>
               <span class="block mt-0.5 text-xs text-gray-muted leading-snug">{{ texteDensite(espace.routes) }}.</span>
             </dt>
-            <dd class="tabular-nums whitespace-nowrap text-green-ink">-{{ euros(espace.routes.bareme - espace.routes.montant) }}</dd>
+            <dd class="tabular-nums whitespace-nowrap text-green-ink">-{{ parMois(espace.routes.bareme - espace.routes.montant) }}</dd>
           </div>
         </template>
         <div v-if="espace.arretes.length" class="py-2.5">
           <div class="flex items-baseline justify-between gap-4">
             <dt class="font-medium text-dark">{{ espace.arretes.length > 1 ? `Arrêtés de circulation : ${espace.arretes.length} communes, chacune selon sa population` : `Arrêtés de circulation de ${espace.arretes[0].nom}, selon sa population` }}</dt>
-            <dd class="tabular-nums whitespace-nowrap">{{ euros(espace.montantArretes) }}</dd>
+            <dd class="tabular-nums whitespace-nowrap">{{ parMois(espace.montantArretes) }}</dd>
           </div>
           <ul class="mt-1.5 grid gap-0.5 text-xs text-gray-muted">
             <li v-for="g in tranches" :key="g.prix" class="flex items-baseline justify-between gap-4">
               <span>{{ g.n }} × {{ g.libelle }}</span>
-              <span class="tabular-nums whitespace-nowrap">{{ g.n }} × {{ euros(g.prix) }}</span>
             </li>
           </ul>
         </div>
@@ -46,7 +46,7 @@
             <th class="font-medium py-1.5 pr-3">Commune</th>
             <th v-if="avecRoutes" class="font-medium py-1.5 pr-3 text-right">Routes</th>
             <th v-if="avecRoutes" class="font-medium py-1.5 pr-3 text-right">Peu dense</th>
-            <th class="font-medium py-1.5 text-right">Par an</th>
+            <th class="font-medium py-1.5 text-right">Par mois</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-border">
@@ -54,17 +54,17 @@
             <td class="py-1.5 pr-3 text-dark">{{ e.nom }}</td>
             <td v-if="avecRoutes" class="py-1.5 pr-3 text-right tabular-nums">{{ nombre(e.routes?.km || 0) }} km</td>
             <td v-if="avecRoutes" class="py-1.5 pr-3 text-right tabular-nums text-green-ink">{{ reduction(e.routes) ? `-${reduction(e.routes)} %` : '' }}</td>
-            <td class="py-1.5 text-right tabular-nums whitespace-nowrap">{{ euros(e.total) }}</td>
+            <td class="py-1.5 text-right tabular-nums whitespace-nowrap">{{ parMois(e.total) }}</td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <div class="mt-3 pt-3 border-t-2 border-dark flex items-baseline justify-between gap-4">
-      <span class="font-heading font-bold text-dark">{{ titreTotal }}, par an</span>
-      <span class="font-heading font-bold text-dark tabular-nums whitespace-nowrap">{{ euros(chiffrage.annuel) }}</span>
+      <span class="font-heading font-bold text-dark">{{ titreTotal }}, par mois</span>
+      <span class="font-heading font-bold text-dark tabular-nums whitespace-nowrap">{{ euros(chiffrage.mensuel) }}</span>
     </div>
-    <p class="mt-1 text-xs text-gray-muted text-right tabular-nums">soit {{ euros(chiffrage.mensuel) }} par mois, avant les remises liées à la durée d'engagement et au nombre de modules choisis</p>
+    <p class="mt-1 text-xs text-gray-muted text-right tabular-nums">soit {{ euros(chiffrage.annuel) }} par an, avant les remises liées à la durée d'engagement et au nombre de modules choisis</p>
   </div>
 </template>
 
@@ -79,6 +79,7 @@ const props = defineProps({
 })
 
 const espace = computed(() => props.chiffrage.espaces[0])
+const parMois = (annuel) => euros(annuel / 12)
 const reference = (r) => DENSITE_REFERENCE[r] || DENSITE_REFERENCE.communale
 
 /* La densité : une réduction en pourcentage sous la moyenne, rien au-dessus */

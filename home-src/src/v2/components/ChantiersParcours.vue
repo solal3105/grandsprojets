@@ -146,8 +146,8 @@
               <h2 id="parcours-titre" class="titre">Chantiers pour {{ territoire.nom }}</h2>
               <!-- Le prix d'abord : sur un petit écran, le calcul défile dessous -->
               <p v-if="chiffrage.espaces.length" id="parcours-prix" class="mt-3 flex flex-wrap items-baseline gap-x-2">
-                <span class="font-heading font-bold text-3xl tracking-tight text-dark tabular-nums">{{ euros(chiffrage.annuel) }}</span>
-                <span class="text-sm text-gray-muted">HT par an, avant les remises liées à la durée d'engagement et au nombre de modules choisis</span>
+                <span class="font-heading font-bold text-3xl tracking-tight text-dark tabular-nums">{{ euros(chiffrage.mensuel) }}</span>
+                <span class="text-sm text-gray-muted">HT par mois, avant les remises liées à la durée d'engagement et au nombre de modules choisis</span>
               </p>
               <p class="aide">{{ resume }}</p>
               <div class="mt-5 rounded-2xl border border-gray-border p-4 sm:p-5">
