@@ -42,7 +42,7 @@
           <p class="etiquette">Pour</p>
           <p id="estimation-collectivite" class="mt-2 font-heading font-bold text-xl leading-tight">{{ collectivite || 'Votre collectivité' }}</p>
           <p v-if="contact" class="mt-1 text-sm text-gray-text">{{ contact }}</p>
-          <p class="mt-1 text-sm text-gray-text">{{ nombre(estimation.population) }} habitants</p>
+          <p class="mt-1 text-sm text-gray-text">{{ territoire && territoire.nom !== collectivite ? `${territoire.nom}, ` : '' }}{{ nombre(estimation.population) }} habitants</p>
         </div>
         <div>
           <p class="etiquette">De la part de</p>
@@ -75,6 +75,16 @@
           </li>
         </ul>
       </section>
+
+      <!-- Le calcul de Chantiers, quand le module est retenu -->
+      <section v-if="chiffrage" id="estimation-chantiers" class="mt-8">
+        <h2 class="font-heading font-bold text-lg tracking-tight">Le calcul de Chantiers et arrêtés</h2>
+        <p class="mt-2 text-sm text-gray-text leading-relaxed">{{ resumeChantiers }}</p>
+        <div class="mt-4 rounded-2xl border border-gray-border p-4">
+          <ChantiersCalcul :chiffrage="chiffrage" :exact="exact" compact />
+        </div>
+      </section>
+      <p v-else-if="chantiersAttendu" class="mt-8 text-sm text-gray-muted" role="status">{{ erreurTerritoire || 'Lecture des chiffres publics du territoire, pour le calcul de Chantiers.' }}</p>
 
       <!-- Le détail du prix : ouvre la seconde page du document imprimé -->
       <section class="mt-10 page-2">
@@ -160,14 +170,17 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Printer } from 'lucide-vue-next'
 import LogoSvg from '@/components/LogoSvg.vue'
+import ChantiersCalcul from '../components/ChantiersCalcul.vue'
+import { chargerTerritoire, cleValide } from '../data/territoires.mjs'
+import { chiffrerTerritoire, resumeVoirie } from '../data/voirie.mjs'
 import { modules, moduleByKey } from '../data/modules.js'
 import {
-  POIDS, POPULATION, ENGAGEMENTS, SOUS_LES_SEUILS, MISE_EN_SERVICE,
-  estimer, borner, euros, eurosFourchette, nombre, pourcent,
+  POPULATION, ENGAGEMENTS, SOUS_LES_SEUILS, MISE_EN_SERVICE,
+  estimer, estTarife, borner, euros, eurosFourchette, nombre, pourcent,
 } from '../data/tarification.mjs'
 import { useTarifExact } from '../composables/useTarifExact.js'
 
@@ -180,7 +193,25 @@ const montant = (v) => (exact.value ? euros(v) : eurosFourchette(v))
 
 /* Tout vient de l'adresse : la page de tarification y a mis les réglages et
  * ce que l'on a saisi pour le destinataire. Rien n'est enregistré. */
-const cles = computed(() => String(route.query.modules || '').split(',').filter((k) => POIDS[k] != null))
+const cles = computed(() => String(route.query.modules || '').split(',').filter((k) => estTarife(k)))
+
+/* Chantiers se chiffre sur le territoire : le document relit ses chiffres
+ * publics, avec les réponses du parcours portées par l'adresse */
+const territoire = ref(null)
+const erreurTerritoire = ref('')
+const chantiersAttendu = computed(() => cles.value.includes('chantiers') && cleValide(route.query.territoire))
+onMounted(async () => {
+  if (!cleValide(route.query.territoire)) return
+  try { territoire.value = await chargerTerritoire(String(route.query.territoire)) }
+  catch { erreurTerritoire.value = "Les chiffres publics du territoire n'ont pas pu être lus : Chantiers n'est pas compté dans cette estimation. Rechargez la page pour réessayer." }
+})
+const chiffrage = computed(() => {
+  if (!territoire.value || !cles.value.includes('chantiers')) return null
+  const q = route.query
+  const km = Number(q.km)
+  return chiffrerTerritoire(territoire.value, { nom: ['commune', 'interco', 'communes'].includes(q.nom) ? String(q.nom) : null, km: km > 0 ? km : null, sans: q.sans ? String(q.sans).split(',') : [], usage: ['permissions', 'arretes'].includes(q.usage) ? String(q.usage) : null })
+})
+const resumeChantiers = computed(() => (chiffrage.value ? resumeVoirie(territoire.value, chiffrage.value.org) : ''))
 const annees = computed(() => {
   const a = Number(route.query.annees)
   return ENGAGEMENTS.some((e) => e.annees === a) ? a : 1
@@ -189,6 +220,7 @@ const estimation = computed(() => estimer({
   population: route.query.population ? borner(route.query.population) : POPULATION.defaut,
   modules: cles.value.length ? cles.value : ['carte'],
   annees: annees.value,
+  prix: chiffrage.value ? { chantiers: chiffrage.value.mensuel } : {},
 }))
 const retenus = computed(() => modules.filter((m) => estimation.value.lignes.some((l) => l.cle === m.key)))
 const ligneDe = (cle) => estimation.value.lignes.find((l) => l.cle === cle) || { prix: 0 }

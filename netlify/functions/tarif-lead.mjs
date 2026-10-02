@@ -16,7 +16,7 @@
    ============================================================================ */
 
 import { envoyerMessageTarif, NOMS_MODULES } from './lib/tarif-mail.mjs';
-import { POIDS, POPULATION, ENGAGEMENTS, borner, euros, estimer, nombre } from '../../home-src/src/v2/data/tarification.mjs';
+import { POIDS, POPULATION, ENGAGEMENTS, borner, estTarife, euros, estimer, nombre } from '../../home-src/src/v2/data/tarification.mjs';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 
@@ -59,17 +59,35 @@ async function demandesDuJour(email) {
   return parseInt((r.headers.get('content-range') || '0/0').split('/')[1] || '0', 10);
 }
 
+/* Au-delà, un prix mensuel de Chantiers ne vient pas de la page : la plus
+   grande métropole y reste loin en dessous */
+const CHANTIERS_MENSUEL_MAX = 100000;
+const CLE_TERRITOIRE = /^(commune|epci|departement)-[0-9AB]{2,9}$/;
+
 /* Lit et borne les réglages envoyés par la page. Rend null si l'un d'eux est
-   hors de ce que la page elle-même propose. */
+   hors de ce que la page elle-même propose. Chantiers arrive avec son prix
+   mensuel, calculé par la page sur les données publiques du territoire : il
+   sert au message de l'équipe, jamais à un engagement. */
 export function lireReglages(body) {
   const population = Number(body?.population);
   if (!Number.isFinite(population) || population < POPULATION.min || population > POPULATION.max) return null;
   const modules = Array.isArray(body?.modules) ? body.modules.map(String) : [];
-  if (!modules.length || modules.length > Object.keys(POIDS).length) return null;
-  if (modules.some((m) => POIDS[m] == null) || new Set(modules).size !== modules.length) return null;
+  if (!modules.length || modules.length > Object.keys(POIDS).length + 1) return null;
+  if (modules.some((m) => !estTarife(m)) || new Set(modules).size !== modules.length) return null;
   const annees = Number(body?.annees);
   if (!ENGAGEMENTS.some((e) => e.annees === annees)) return null;
-  return { population: borner(population), modules, annees };
+  const reglages = { population: borner(population), modules, annees, prix: {}, territoire: null };
+  if (modules.includes('chantiers')) {
+    const mensuel = Number(body?.chantiers?.mensuel);
+    if (!Number.isFinite(mensuel) || mensuel <= 0 || mensuel > CHANTIERS_MENSUEL_MAX) return null;
+    reglages.prix.chantiers = mensuel;
+  }
+  if (body?.territoire) {
+    const cle = String(body.territoire.cle || '');
+    if (!CLE_TERRITOIRE.test(cle)) return null;
+    reglages.territoire = { cle, nom: String(body.territoire.nom || '').trim().slice(0, 120) };
+  }
+  return reglages;
 }
 
 export default async (req) => {
@@ -112,9 +130,10 @@ export default async (req) => {
       // Le message interne : ce que l'équipe lit dans la liste des demandes,
       // avec le tarif exact cette fois, puisqu'il ne sort pas d'ici.
       const e = estimer(reglages);
-      const message = `Tarif demandé sur l'estimateur : ${nombre(e.population)} habitants, `
+      const message = `Tarif demandé sur l'estimateur : ${reglages.territoire ? `${reglages.territoire.nom} (${reglages.territoire.cle}), ` : ''}${nombre(e.population)} habitants, `
         + `${reglages.modules.map((k) => NOMS_MODULES[k] || k).join(', ')}, engagement ${e.annees} ${e.annees > 1 ? 'ans' : 'an'}. `
         + `Grille : ${euros(e.mensuel)} HT par mois, mise en service ${euros(e.setup)}, total ${euros(e.total)} HT sur la durée. `
+        + (reglages.prix.chantiers ? `Dont Chantiers, calculé sur le territoire : ${euros(reglages.prix.chantiers)} HT par mois avant remises. ` : '')
         + `Message au demandeur : ${mail.status}${mail.error ? ` (${mail.error})` : ''}.`;
       const r = await fetch(`${SUPABASE_URL}/rest/v1/contact_requests`, {
         method: 'POST',

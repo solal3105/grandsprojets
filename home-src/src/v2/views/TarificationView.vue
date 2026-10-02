@@ -11,8 +11,8 @@
             Estimez le prix d'Open Projets pour votre collectivité
           </h1>
           <p class="mt-6 text-gray-text text-base sm:text-lg leading-relaxed max-w-[640px] mx-auto">
-            Trois réglages suffisent : la taille de votre commune, les modules que vous activez et la
-            durée de votre engagement. Les montants sont hors taxes.
+            Trois réglages suffisent : votre collectivité, les modules que vous activez et la durée
+            de votre engagement. Les montants sont hors taxes.
           </p>
         </div>
       </div>
@@ -29,10 +29,31 @@
             <div class="rounded-3xl border border-gray-border bg-white p-6 sm:p-7 shadow-pill">
               <div class="flex items-center gap-3">
                 <span class="w-8 h-8 rounded-full bg-dark text-white font-heading font-bold text-sm flex items-center justify-center">1</span>
-                <h2 class="font-heading font-bold text-xl sm:text-2xl tracking-tight text-dark">La taille de votre commune</h2>
+                <h2 class="font-heading font-bold text-xl sm:text-2xl tracking-tight text-dark">Votre collectivité</h2>
               </div>
 
-              <div class="mt-6 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <!-- La collectivité choisie : sa population sert à tous les modules,
+                   et ses données publiques chiffrent Chantiers -->
+              <div v-if="territoire" id="tarif-territoire" class="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gray-bg p-4 sm:p-5">
+                <span class="flex items-center gap-3.5 min-w-0">
+                  <span class="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-pill"><MapPin class="w-[18px] h-[18px] text-dark" /></span>
+                  <span class="min-w-0">
+                    <span class="block font-heading font-bold text-xl sm:text-2xl tracking-tight text-dark leading-tight">{{ territoire.nom }}</span>
+                    <span class="block mt-0.5 text-sm text-gray-text">{{ descriptionTerritoire }}</span>
+                  </span>
+                </span>
+                <button type="button" class="text-sm font-medium text-dark underline underline-offset-4 decoration-gray-300 hover:decoration-dark transition-colors" @click="effacerTerritoire">Changer de collectivité</button>
+              </div>
+
+              <template v-else>
+                <div class="mt-6">
+                  <TerritoireRecherche id="tarif-collectivite" :departements="retenus.includes('chantiers')" @choisir="(p) => choisirTerritoire(p, null, true)" />
+                  <p v-if="chargementTerritoire && !parcoursOuvert" class="mt-3 inline-flex items-center gap-2 text-sm text-gray-muted" role="status"><Loader2 class="w-4 h-4 animate-spin" /> Lecture des chiffres publics de ce territoire</p>
+                  <p v-if="erreurTerritoire && !parcoursOuvert" class="mt-3 text-sm text-primary-ink" role="alert">{{ erreurTerritoire }}</p>
+                </div>
+
+                <p class="mt-6 text-sm text-gray-muted">Ou indiquez directement un nombre d'habitants :</p>
+              <div class="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <label for="tarif-population" class="sr-only">Nombre d'habitants</label>
                 <!-- Le champ porte sa propre valeur (v-model) : lie directement a
                      la population, chaque rendu declenche par l'animation des
@@ -62,6 +83,7 @@
                 class="curseur mt-6 w-full"
                 :style="{ '--part': `${(curseur * 100).toFixed(2)}%` }"
                 @input="population = curseurVersPopulation($event.target.value / 1000)"
+                @change="mesurer('pricing_population_entered', { population, source: 'slider' })"
               />
               <div class="mt-2 flex justify-between text-[11px] text-gray-muted tabular-nums">
                 <span>{{ nombre(POPULATION.min) }}</span>
@@ -76,12 +98,13 @@
                   :class="population === r.population
                     ? 'border-dark bg-dark text-white'
                     : 'border-gray-border bg-white text-dark hover:border-gray-300'"
-                  @click="population = r.population"
+                  @click="population = r.population; mesurer('pricing_population_entered', { population: r.population, source: 'preset' })"
                 >
                   <span class="font-medium">{{ r.nom }}</span>
                   <span class="tabular-nums" :class="population === r.population ? 'text-white/70' : 'text-gray-muted'">{{ nombre(r.population) }}</span>
                 </button>
               </div>
+              </template>
             </div>
 
             <!-- 2. Les modules -->
@@ -96,16 +119,16 @@
               </p>
 
               <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div v-for="m in offre" :key="m.key" class="relative">
                 <button
-                  v-for="m in offre" :key="m.key"
                   type="button"
                   role="switch"
                   :aria-checked="retenus.includes(m.key)"
                   :data-module="m.key"
-                  class="group relative text-left rounded-2xl border-2 p-4 sm:p-5 transition duration-200"
-                  :class="retenus.includes(m.key)
+                  class="group relative w-full h-full text-left rounded-2xl border-2 p-4 sm:p-5 transition duration-200"
+                  :class="[retenus.includes(m.key)
                     ? 'border-dark bg-white shadow-card'
-                    : 'border-gray-border bg-gray-bg hover:border-gray-300'"
+                    : 'border-gray-border bg-gray-bg hover:border-gray-300', m.key === 'chantiers' && retenus.includes(m.key) ? 'pb-16' : '']"
                   @click="basculer(m.key)"
                 >
                   <span class="flex items-start justify-between gap-3">
@@ -121,10 +144,10 @@
                     </span>
                   </span>
                   <span class="mt-4 block font-heading font-bold text-base text-dark leading-tight">{{ m.name }}</span>
-                  <span class="mt-1 block text-xs text-gray-muted leading-snug">{{ m.tagline }}</span>
+                  <span class="mt-1 block text-xs text-gray-muted leading-snug">{{ m.key === 'chantiers' ? taglineChantiers : m.tagline }}</span>
                   <!-- Le prix de chaque module ne se lit qu'en mode commercial :
                        le visiteur voit la fourchette de l'ensemble, à droite -->
-                  <span v-if="exact" class="mt-4 flex flex-wrap items-baseline gap-x-1.5">
+                  <span v-if="exact && (m.key !== 'chantiers' || chiffrage)" class="mt-4 flex flex-wrap items-baseline gap-x-1.5">
                     <span class="font-heading font-semibold text-lg text-dark tabular-nums" :class="{ 'line-through text-gray-muted font-normal': remiseSur(m.key) }">
                       {{ euros(prixModule(m.key)) }}
                     </span>
@@ -133,6 +156,7 @@
                     </span>
                     <span class="text-xs text-gray-muted">/ mois HT</span>
                   </span>
+                  <span v-else-if="m.key === 'chantiers' && !retenus.includes('chantiers')" class="mt-4 block text-xs font-medium text-mod-chantiers">Se chiffre sur votre territoire, en quelques questions</span>
                   <span
                     v-if="remiseSur(m.key)"
                     class="absolute -top-2.5 right-4 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold text-white"
@@ -141,7 +165,20 @@
                     {{ exact ? `-${pourcent(estimation.remiseModules.taux)} sur le plus cher` : `Remise multi-modules -${pourcent(estimation.remiseModules.taux)}` }}
                   </span>
                 </button>
+                <!-- Chantiers se chiffre par un parcours : ce bouton le rouvre, avec le même libellé que sous le calcul -->
+                <button
+                  v-if="m.key === 'chantiers' && retenus.includes('chantiers')"
+                  id="tarif-chantiers-parametrer"
+                  type="button"
+                  class="absolute left-4 sm:left-5 bottom-4 inline-flex items-center gap-1.5 rounded-full border border-gray-border bg-white px-3 py-1.5 text-xs font-medium text-dark hover:border-dark transition-colors"
+                  @click="ouvrirParcours('edit')"
+                >
+                  <SlidersHorizontal class="w-3.5 h-3.5" />
+                  Modifier les réponses
+                </button>
+                </div>
               </div>
+
             </div>
 
             <!-- 3. L'engagement -->
@@ -238,7 +275,7 @@
               <p v-if="exact" class="mt-2 text-sm text-white/60">
                 <template v-if="retenus.length">
                   {{ retenus.length }} {{ retenus.length > 1 ? 'modules' : 'module' }}, engagement {{ annees }} {{ annees > 1 ? 'ans' : 'an' }},
-                  {{ nombre(population) }} habitants.
+                  {{ territoire ? `${territoire.nom}, ` : '' }}{{ nombre(population) }} habitants.
                 </template>
                 <template v-else>Choisissez au moins un module.</template>
               </p>
@@ -410,19 +447,36 @@
     </section>
 
     <ContactBlock />
+
+    <ChantiersParcours
+      v-model:ouvert="parcoursOuvert"
+      :territoire="territoire"
+      :reponses="reponsesChantiers"
+      :chargement="chargementTerritoire"
+      :erreur="erreurTerritoire"
+      :exact="exact"
+      :deja-retenu="retenus.includes('chantiers')"
+      @choisir-territoire="choisirTerritoire"
+      @valider="validerChantiers"
+      @abandonner="(etape) => mesurer('pricing_chantiers_wizard_abandoned', { step: etape, territory_key: territoire?.cle || null })"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, Check, AlertTriangle, ShieldCheck, FileText } from 'lucide-vue-next'
+import { ArrowRight, Check, AlertTriangle, ShieldCheck, FileText, MapPin, Loader2, SlidersHorizontal } from 'lucide-vue-next'
 import HeroGround from '../components/HeroGround.vue'
 import ContactBlock from '../components/ContactBlock.vue'
+import TerritoireRecherche from '../components/TerritoireRecherche.vue'
+import ChantiersParcours from '../components/ChantiersParcours.vue'
+import { chargerTerritoire, cleValide } from '../data/territoires.mjs'
+import { chiffrerTerritoire, nomPresume } from '../data/voirie.mjs'
 import { modules, moduleByKey } from '../data/modules.js'
 import {
-  POIDS, POPULATION, REPERES, ENGAGEMENTS, SEUILS, SOUS_LES_SEUILS, MISE_EN_SERVICE,
-  estimer, prixUnitaire, poidsDe, curseurVersPopulation, populationVersCurseur, borner,
+  POPULATION, REPERES, ENGAGEMENTS, SEUILS, SOUS_LES_SEUILS, MISE_EN_SERVICE,
+  estimer, estTarife, prixUnitaire, poidsDe, curseurVersPopulation, populationVersCurseur, borner,
   euros, eurosFourchette, nombre, pourcent,
 } from '../data/tarification.mjs'
 import { useChiffreAnime } from '../composables/useChiffreAnime.js'
@@ -431,12 +485,16 @@ import { useTarifExact } from '../composables/useTarifExact.js'
 const route = useRoute()
 const router = useRouter()
 
+/* Ce que les visiteurs règlent sur la page, mesuré dans PostHog (docs/analytics.md).
+ * Un bloqueur de traceurs peut empêcher le module de se charger : rien n'en dépend. */
+const mesurer = (evenement, proprietes) => window.OPAnalytics?.capture?.(evenement, proprietes)
+
 /* Fourchette ou tarif exact : voir composables/useTarifExact.js */
 const exact = useTarifExact(route, router)
 const montant = (v) => (exact.value ? euros(v) : eurosFourchette(v))
 
 /* Les modules qui ont un prix, dans l'ordre de la vitrine */
-const offre = modules.filter((m) => POIDS[m.key] != null)
+const offre = modules.filter((m) => estTarife(m.key))
 
 const PERIODES = [
   { cle: 'mois', label: 'Par mois' },
@@ -447,18 +505,106 @@ const PERIODES = [
  * partage en copiant le lien. */
 const depuisAdresse = () => {
   const q = route.query
-  const cles = String(q.modules || '').split(',').filter((k) => POIDS[k] != null)
+  const cles = String(q.modules || '').split(',').filter((k) => estTarife(k))
   const a = Number(q.annees)
+  const cle = cleValide(q.territoire) ? String(q.territoire) : null
+  const km = Number(q.km)
   return {
     population: q.population ? borner(q.population) : POPULATION.defaut,
     retenus: cles.length ? cles : ['carte'],
     annees: ENGAGEMENTS.some((e) => e.annees === a) ? a : 3,
+    territoire: cle,
+    // Les réponses du parcours Chantiers, quand l'adresse en porte
+    reponses: cle && cles.includes('chantiers')
+      ? { cle, nom: ['commune', 'interco', 'communes'].includes(q.nom) ? String(q.nom) : null, km: km > 0 ? km : null, sans: q.sans ? String(q.sans).split(',') : [], usage: ['permissions', 'arretes'].includes(q.usage) ? String(q.usage) : null }
+      : null,
   }
 }
 const initial = depuisAdresse()
 const population = ref(initial.population)
 const retenus = ref(initial.retenus)
 const annees = ref(initial.annees)
+
+/* La collectivité choisie, chargée depuis les données publiques. Sa
+ * population remplace le nombre d'habitants pour tous les modules. */
+const territoire = ref(null)
+const chargementTerritoire = ref(false)
+const erreurTerritoire = ref('')
+const reponsesChantiers = ref(initial.reponses)
+const parcoursOuvert = ref(false)
+
+/* `reponses` : celles que le parcours transmet en passant d'une commune à son
+ * intercommunalité ; `depuisPage` : une collectivité choisie sur la page, qui
+ * relance les questions de Chantiers quand le module est coché */
+async function choisirTerritoire(p, reponses = null, depuisPage = false) {
+  erreurTerritoire.value = ''
+  if (!p) { territoire.value = null; return }
+  chargementTerritoire.value = true
+  try {
+    const t = await chargerTerritoire(p.cle)
+    territoire.value = t
+    population.value = borner(t.population)
+    if (!destinataire.value.collectivite) destinataire.value.collectivite = t.nom
+    if (reponses) {
+      reponsesChantiers.value = { cle: t.cle, ...reponses, km: null, sans: [] }
+    } else if (retenus.value.includes('chantiers') && reponsesChantiers.value?.cle !== t.cle) {
+      // Une nouvelle collectivité avec Chantiers coché : les données publiques
+      // pré-remplissent, et les questions se reposent
+      reponsesChantiers.value = { cle: t.cle, nom: nomPresume(t), usage: reponsesChantiers.value?.usage || null, km: null, sans: [] }
+      if (depuisPage) ouvrirParcours('territory_changed')
+    }
+    mesurer('pricing_territory_selected', { territory_key: t.cle, territory_name: t.nom, territory_type: t.type, population: t.population, source: depuisPage ? 'page' : 'wizard' })
+  } catch (err) {
+    console.error('[Tarification] territoire illisible :', err)
+    erreurTerritoire.value = "Nous n'avons pas pu lire les chiffres publics de ce territoire. Réessayez dans un instant, ou indiquez un nombre d'habitants."
+  } finally {
+    chargementTerritoire.value = false
+  }
+}
+
+/* Chantiers reste coché : il se rechiffre sur la prochaine collectivité */
+function effacerTerritoire() {
+  territoire.value = null
+}
+
+const descriptionTerritoire = computed(() => {
+  const t = territoire.value
+  if (!t) return ''
+  const habitants = `${nombre(t.population)} habitants`
+  if (t.type === 'departement') return `Département · ${habitants}`
+  if (t.type === 'epci') return `Intercommunalité de ${t.communes.length} communes · ${habitants}`
+  return t.epci ? `Commune · ${t.epci.nom} · ${habitants}` : `Commune · ${habitants}`
+})
+
+/* Le prix de Chantiers : le modèle par espace, sur les réponses du parcours */
+const chiffrage = computed(() => {
+  const t = territoire.value
+  const r = reponsesChantiers.value
+  return t && r && r.cle === t.cle ? chiffrerTerritoire(t, r) : null
+})
+const taglineChantiers = computed(() => {
+  if (!retenus.value.includes('chantiers')) return moduleByKey.chantiers?.tagline
+  if (!chiffrage.value) return territoire.value || chargementTerritoire.value ? 'Lecture des chiffres publics du territoire.' : 'Choisissez votre collectivité pour le chiffrer.'
+  const t = territoire.value
+  if (t.type === 'commune' && chiffrage.value.org === 'toute') return `Les arrêtés de ${t.nom}, dans l'espace de son intercommunalité.`
+  const n = chiffrage.value.espaces.length
+  const seul = { permissions: ' Permissions de voirie seules.', arretes: ' Arrêtés de circulation seuls.' }[chiffrage.value.usage] || ''
+  return (n > 1 ? `${n} espaces, un par commune.` : `Un espace pour ${chiffrage.value.espaces[0].nom}.`) + seul
+})
+
+function validerChantiers(reponses) {
+  reponsesChantiers.value = reponses
+  if (!retenus.value.includes('chantiers')) {
+    retenus.value = offre.filter((m) => m.key === 'chantiers' || retenus.value.includes(m.key)).map((m) => m.key)
+  }
+  const c = chiffrage.value
+  mesurer('pricing_chantiers_configured', {
+    territory_key: territoire.value?.cle, territory_name: territoire.value?.nom,
+    usage: c?.usage || 'both', subscriber: reponses.nom || null, organisation: c?.org,
+    km: reponses.km ?? null, communes_excluded: reponses.sans?.length || 0,
+    spaces: c?.espaces.length, annual_price: c ? Math.round(c.annuel) : null,
+  })
+}
 const periode = ref('mois')
 
 const curseur = computed(() => populationVersCurseur(population.value))
@@ -469,20 +615,30 @@ watch(population, (p) => { populationSaisie.value = nombre(p) })
 
 function saisirPopulation() {
   const n = Number(String(populationSaisie.value).replace(/[^\d]/g, ''))
-  if (n) population.value = borner(n)
+  if (n) {
+    population.value = borner(n)
+    mesurer('pricing_population_entered', { population: population.value, typed: n, source: 'typed' })
+  }
   populationSaisie.value = nombre(population.value)
 }
 
 function basculer(cle) {
   const i = retenus.value.indexOf(cle)
   if (i >= 0) retenus.value = retenus.value.filter((k) => k !== cle)
+  // Chantiers ne s'ajoute qu'au bout de son parcours, qui pose ses questions
+  else if (cle === 'chantiers' && !chiffrage.value) ouvrirParcours('module_checked')
   else retenus.value = offre.filter((m) => m.key === cle || retenus.value.includes(m.key)).map((m) => m.key)
 }
 
-const estimation = computed(() => estimer({ population: population.value, modules: retenus.value, annees: annees.value }))
+const estimation = computed(() => estimer({
+  population: population.value,
+  modules: retenus.value,
+  annees: annees.value,
+  prix: chiffrage.value ? { chantiers: chiffrage.value.mensuel } : {},
+}))
 // Le module qui porte la remise multi-modules, quand il y en a une
 const remiseSur = (cle) => estimation.value.remiseModules.taux > 0 && estimation.value.remiseModules.module === cle
-const prixModule = (cle) => prixUnitaire(population.value) * poidsDe(cle, population.value)
+const prixModule = (cle) => (cle === 'chantiers' ? chiffrage.value?.mensuel || 0 : prixUnitaire(population.value) * poidsDe(cle))
 
 /* La demande du tarif exact : une adresse, un téléphone si l'on veut, et les
  * réglages du moment. La fonction /api/tarif-lead prévient l'équipe, envoie
@@ -504,6 +660,10 @@ async function demanderTarifExact() {
         population: population.value,
         modules: retenus.value,
         annees: annees.value,
+        ...(territoire.value ? { territoire: { cle: territoire.value.cle, nom: territoire.value.nom } } : {}),
+        ...(retenus.value.includes('chantiers') && chiffrage.value
+          ? { chantiers: { mensuel: Math.round(chiffrage.value.mensuel * 100) / 100, espaces: chiffrage.value.espaces.length, organisation: chiffrage.value.org } }
+          : {}),
       }),
     })
     const corps = await r.json().catch(() => ({}))
@@ -538,13 +698,52 @@ const jauge = computed(() => {
   }
 })
 
-/* L'adresse suit les réglages, sans empiler d'historique */
-watch([population, retenus, annees], () => {
-  router.replace({ query: { population: String(population.value), modules: retenus.value.join(','), annees: String(annees.value) } })
+/* Le parcours Chantiers : chaque ouverture est mesurée avec ce qui l'a déclenchée */
+function ouvrirParcours(declencheur) {
+  parcoursOuvert.value = true
+  mesurer('pricing_chantiers_wizard_opened', { trigger: declencheur, territory_key: territoire.value?.cle || null })
+}
+
+/* L'état réglé, une fois le visiteur arrêté une seconde et demie : ce qu'il a
+ * vraiment regardé, sans un événement par cran de curseur */
+let mesureReglages = null
+watch([population, retenus, annees, periode, territoire, reponsesChantiers], () => {
+  clearTimeout(mesureReglages)
+  mesureReglages = setTimeout(() => mesurer('pricing_settings_changed', {
+    population: population.value,
+    territory_key: territoire.value?.cle || null,
+    territory_name: territoire.value?.nom || null,
+    modules: retenus.value,
+    years: annees.value,
+    period: periode.value,
+    chantiers_usage: retenus.value.includes('chantiers') ? chiffrage.value?.usage || 'both' : null,
+    chantiers_annual_price: retenus.value.includes('chantiers') && chiffrage.value ? Math.round(chiffrage.value.annuel) : null,
+    monthly_price: Math.round(estimation.value.mensuel),
+    exact_view: exact.value,
+  }), 1500)
+}, { deep: true })
+
+/* L'adresse suit les réglages, sans empiler d'historique : une estimation
+ * se partage en copiant le lien, territoire et réponses Chantiers compris */
+function requete() {
+  const q = { population: String(population.value), modules: retenus.value.join(','), annees: String(annees.value) }
+  if (territoire.value) q.territoire = territoire.value.cle
+  const r = reponsesChantiers.value
+  if (territoire.value && r?.cle === territoire.value.cle && retenus.value.includes('chantiers')) {
+    if (r.nom) q.nom = r.nom
+    if (r.km) q.km = String(r.km)
+    if (r.sans?.length) q.sans = r.sans.join(',')
+    if (r.usage) q.usage = r.usage
+  }
+  return q
+}
+watch([population, retenus, annees, territoire, reponsesChantiers], () => {
+  router.replace({ query: requete() })
 })
 
 onMounted(() => {
-  if (!route.query.population) router.replace({ query: { population: String(population.value), modules: retenus.value.join(','), annees: String(annees.value) } })
+  if (initial.territoire) choisirTerritoire({ cle: initial.territoire })
+  else if (!route.query.population) router.replace({ query: requete() })
 })
 
 /* Le destinataire de l'estimation. La validité par défaut : soixante jours. */
@@ -561,12 +760,8 @@ const destinataire = ref({
 })
 
 function ouvrirEstimation() {
-  const q = {
-    population: String(population.value),
-    modules: retenus.value.join(','),
-    annees: String(annees.value),
-    collectivite: destinataire.value.collectivite.trim(),
-  }
+  mesurer('pricing_estimate_document_opened', { modules: retenus.value, years: annees.value, territory_key: territoire.value?.cle || null })
+  const q = { ...requete(), collectivite: destinataire.value.collectivite.trim() }
   if (destinataire.value.contact.trim()) q.contact = destinataire.value.contact.trim()
   if (destinataire.value.suivi.trim()) q.suivi = destinataire.value.suivi.trim()
   if (destinataire.value.valide) q.valide = destinataire.value.valide

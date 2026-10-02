@@ -98,6 +98,14 @@ rejoués. Il n'y a donc pas d'ordre d'initialisation à respecter.
 | `cartes_retour_veille` | cartes | Combien de cartes sont refermées par la veille, sans geste du visiteur |
 | `contact_request_submitted` | home | La conversion du site vitrine, par `referrer` |
 | `contact_request_failed` | home | Les demandes perdues sur erreur technique |
+| `pricing_territory_selected` | home | Quelles collectivités cherchent un prix (nom, type, population), sur la page ou dans le parcours Chantiers |
+| `pricing_population_entered` | home | Les tailles réglées sans collectivité : tapées, au curseur ou par commune type |
+| `pricing_settings_changed` | home | L'estimation réellement regardée, une fois le visiteur arrêté 1,5 s : modules, durée, période, prix |
+| `pricing_chantiers_wizard_opened` | home | Ce qui ouvre le parcours Chantiers (module coché, nouvelle collectivité, modification) |
+| `pricing_chantiers_wizard_abandoned` | home | La question où le parcours Chantiers perd les visiteurs |
+| `pricing_chantiers_configured` | home | Ce que les collectivités veulent faire dans Chantiers (usage, abonné, kilomètres, communes) et le prix annuel |
+| `pricing_estimate_document_opened` | home | Les estimations préparées pour être envoyées |
+| `tarif_demande_envoyee` | home | Les demandes de tarif exact laissées sur la page de tarifs |
 | `login_link_sent` | login | Les connexions demandées |
 | `login_link_failed` | login | Les comptes bloqués à l'entrée |
 | `login_github_started` | login | L'usage réel de la connexion GitHub |

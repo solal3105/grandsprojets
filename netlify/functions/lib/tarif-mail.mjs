@@ -47,17 +47,25 @@ const bcc = () => {
   return liste.map((a) => a.trim()).filter(Boolean);
 };
 
-/* Ce que le message rappelle : les réglages et la fourchette vue à l'écran */
-export function resumer({ population, modules, annees }) {
-  const e = estimer({ population, modules, annees });
+/* Ce que le message rappelle : les réglages et la fourchette vue à l'écran.
+   `prix` porte le prix mensuel de Chantiers calculé par la page, `territoire`
+   la collectivité choisie ({ cle, nom }) quand il y en a une. */
+export function resumer({ population, modules, annees, prix = {}, territoire = null }) {
+  const e = estimer({ population, modules, annees, prix });
   const noms = e.lignes.map((l) => NOMS_MODULES[l.cle] || l.cle);
+  const lien = new URL(`${SITE}/tarification`);
+  lien.searchParams.set('population', String(e.population));
+  lien.searchParams.set('modules', e.lignes.map((l) => l.cle).join(','));
+  lien.searchParams.set('annees', String(e.annees));
+  if (territoire?.cle) lien.searchParams.set('territoire', territoire.cle);
   return {
     habitants: nombre(e.population),
+    collectivite: territoire?.nom || '',
     modules: noms,
     annees: e.annees,
     mensuel: eurosFourchette(e.mensuel),
     total: eurosFourchette(e.total),
-    lien: `${SITE}/tarification?population=${e.population}&modules=${e.lignes.map((l) => l.cle).join(',')}&annees=${e.annees}`,
+    lien: lien.toString(),
   };
 }
 
@@ -70,7 +78,7 @@ function corpsTexte({ resume, telephone }) {
     `Nous avons bien reçu votre demande de tarif pour Open Projets. Voici ce que`,
     `vous avez indiqué :`,
     ``,
-    `- Une collectivité de ${resume.habitants} habitants`,
+    `- ${resume.collectivite ? `${resume.collectivite}, ${resume.habitants} habitants` : `Une collectivité de ${resume.habitants} habitants`}`,
     `- ${resume.modules.length > 1 ? 'Les modules' : 'Le module'} : ${resume.modules.join(', ')}`,
     `- Un engagement de ${pluriel(resume.annees, 'an')}`,
     `- La fourchette affichée : de ${resume.mensuel} HT par mois, soit de ${resume.total} HT`,
@@ -116,7 +124,7 @@ function corpsHtml({ resume, telephone }) {
           <p style="${p}">Bonjour,</p>
           <p style="${p}">Nous avons bien reçu votre demande de tarif pour Open Projets. Voici ce que vous avez indiqué :</p>
           <ul style="margin:0 0 16px;padding-left:20px;color:#4a4a55;font-size:15px;line-height:1.65;">
-            <li style="${li}">Une collectivité de <strong>${echapper(resume.habitants)} habitants</strong></li>
+            <li style="${li}">${resume.collectivite ? `<strong>${echapper(resume.collectivite)}</strong>, ${echapper(resume.habitants)} habitants` : `Une collectivité de <strong>${echapper(resume.habitants)} habitants</strong>`}</li>
             <li style="${li}">${resume.modules.length > 1 ? 'Les modules' : 'Le module'} : <strong>${echapper(resume.modules.join(', '))}</strong></li>
             <li style="${li}">Un engagement de <strong>${pluriel(resume.annees, 'an')}</strong></li>
             <li>La fourchette affichée : <strong>de ${echapper(resume.mensuel)} HT par mois</strong>, soit de ${echapper(resume.total)} HT sur la durée, mise en service comprise</li>
@@ -149,8 +157,8 @@ function corpsHtml({ resume, telephone }) {
  * jamais : rend l'état à consigner.
  * @returns {Promise<{ status: 'envoye'|'echec'|'non_configure', error?: string }>}
  */
-export async function envoyerMessageTarif({ email, telephone, population, modules, annees }) {
-  const resume = resumer({ population, modules, annees });
+export async function envoyerMessageTarif({ email, telephone, population, modules, annees, prix, territoire }) {
+  const resume = resumer({ population, modules, annees, prix, territoire });
   if (!resume.modules.length) return { status: 'echec', error: 'aucun module retenu' };
   const donnees = { resume, telephone: String(telephone || '').trim() };
   const resultat = await envoyerEmail({

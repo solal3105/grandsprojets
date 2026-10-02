@@ -11,7 +11,10 @@
  *     en dessous du marché pour les grandes villes. Une seule ancre fixe
  *     toute la courbe : le prix d'une unité de poids pour 12 000 habitants.
  *  2. Chaque module a un POIDS : son prix est l'unité fois son poids. Le
- *     module chantiers est à demi-poids pour les petites communes.
+ *     module chantiers fait exception : il a sa propre grille, par espace de
+ *     travail, au kilomètre de route et à l'arrêté (tarification-chantiers.mjs).
+ *     La page en calcule le prix mensuel et le passe à `estimer()`, qui lui
+ *     applique les mêmes remises et la même mise en service qu'aux autres.
  *  3. Prendre plusieurs modules fait baisser LE PLUS CHER d'entre eux :
  *     10 % par module ajouté (2 modules : -10 % sur le plus cher, 3 : -20 %,
  *     4 : -30 %, 5 : -40 %).
@@ -48,14 +51,10 @@ export const POIDS = {
   travaux: 0.6,
   participer: 2,
   diagnostic: 0.8,
-  chantiers: 3,
 }
 
-/* Le module chantiers vaut la moitié de son poids sous 5 000 habitants, son
- * poids entier à partir de 20 000, et monte en pente douce entre les deux :
- * au prix plein, une commune de 3 000 habitants paierait ce que Sogelink
- * facture à une ville moyenne. */
-export const CHANTIERS_DEMI_POIDS = { sous: 5000, plein: 20000 }
+/* Les modules qui ont un prix : ceux de la courbe, et chantiers, chiffré à part */
+export const estTarife = (cle) => POIDS[cle] != null || cle === 'chantiers'
 
 /* La mise en service : six mois d'abonnement. `offerteSous` à 0 : jamais
  * offerte ; un nombre d'habitants l'offrirait aux communes en dessous. */
@@ -164,35 +163,28 @@ export function prixUnitaire(population) {
   return ANCRE.prix * (p / ANCRE.population) ** EXPOSANT
 }
 
-/* Le poids d'un module pour cette population : celui de la table, sauf le
- * module chantiers qui monte de la moitié au plein entre ses deux bornes,
- * en logarithme de la population pour rester régulier au curseur. */
-export function poidsDe(cle, population) {
-  const base = POIDS[cle]
-  if (base == null) return null
-  if (cle !== 'chantiers') return base
-  const p = borner(population)
-  const { sous, plein } = CHANTIERS_DEMI_POIDS
-  if (p <= sous) return base / 2
-  if (p >= plein) return base
-  const x = (Math.log(p) - Math.log(sous)) / (Math.log(plein) - Math.log(sous))
-  return base * (0.5 + 0.5 * x)
+/* Le poids d'un module : celui de la table */
+export function poidsDe(cle) {
+  return POIDS[cle] ?? null
 }
 
 export function remiseEngagement(annees) {
   return ENGAGEMENTS.find((e) => e.annees === Number(annees))?.remise ?? 0
 }
 
-/* L'estimation complète. `modules` : les clés retenues. Tous les montants
- * rendus sont mensuels HT, sauf ceux qui portent « annuel », « setup » et
- * « total » dans leur nom. Rien n'est arrondi ici : la page arrondit à
- * l'affichage, pour que les lignes s'additionnent encore. */
-export function estimer({ population, modules, annees }) {
+/* L'estimation complète. `modules` : les clés retenues. `prix` : les prix
+ * mensuels déjà calculés ailleurs, aujourd'hui celui de chantiers ; un module
+ * chantiers sans prix est laissé de côté, la page ne le compte qu'une fois
+ * son territoire décrit. Tous les montants rendus sont mensuels HT, sauf ceux
+ * qui portent « annuel », « setup » et « total » dans leur nom. Rien n'est
+ * arrondi ici : la page arrondit à l'affichage, pour que les lignes
+ * s'additionnent encore. */
+export function estimer({ population, modules, annees, prix = {} }) {
   const unite = prixUnitaire(population)
-  const retenus = (modules || []).filter((k) => POIDS[k] != null)
-  const lignes = retenus.map((cle) => {
-    const poids = poidsDe(cle, population)
-    return { cle, poids, prix: unite * poids }
+  const lignes = (modules || []).flatMap((cle) => {
+    if (POIDS[cle] != null) return [{ cle, poids: POIDS[cle], prix: unite * POIDS[cle] }]
+    if (cle === 'chantiers' && Number(prix.chantiers) >= 0 && prix.chantiers != null) return [{ cle, poids: null, prix: Number(prix.chantiers) }]
+    return []
   })
   const brut = lignes.reduce((s, l) => s + l.prix, 0)
 

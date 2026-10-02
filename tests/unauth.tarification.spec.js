@@ -4,12 +4,16 @@ import { test, expect } from '@playwright/test';
 /**
  * L'estimateur de prix du site (/tarification) : une page hors de
  * tout menu, dans une version du site en noindex. Les règles : prix de base
- * en puissance 0,5 de la population, un poids par module (chantiers à
- * demi-poids sous 5 000 habitants), une remise sur le module le plus cher dès
- * le deuxième, une remise d'engagement, une mise en service de six mois
- * (jamais offerte), et le total sur la durée mis en regard des seuils des
- * marchés publics. Grille validée par l'équipe commerciale le 9 septembre
- * 2026.
+ * en puissance 0,5 de la population, un poids par module, une remise sur le
+ * module le plus cher dès le deuxième, une remise d'engagement, une mise en
+ * service de six mois (jamais offerte), et le total sur la durée mis en
+ * regard des seuils des marchés publics. Grille validée par l'équipe
+ * commerciale le 9 septembre 2026.
+ *
+ * Chantiers a sa propre grille, par espace de travail : les routes du
+ * gestionnaire au kilomètre, ajustées à la densité, et les arrêtés de chaque
+ * commune selon sa population. Il se chiffre par un parcours en fenêtre,
+ * sur les données publiques du territoire (simulées ici).
  *
  * Un visiteur voit une fourchette (plus ou moins 20 %, arrondie vers
  * l'extérieur) et demande le tarif exact en laissant son adresse : la demande
@@ -35,13 +39,24 @@ function attendu({ population, poids, annees }) {
   return { mensuel, annuel: mensuel * 12, setup, total: setup + mensuel * 12 * annees };
 }
 
-/* Le poids du module chantiers : la moitié sous 5 000 habitants, plein à
- * partir de 20 000, en pente logarithmique entre les deux */
-const chantiers = (population) => {
-  if (population <= 5000) return 1.5;
-  if (population >= 20000) return 3;
-  return 3 * (0.5 + 0.5 * (Math.log(population) - Math.log(5000)) / (Math.log(20000) - Math.log(5000)));
-};
+/* La grille de Chantiers, recalculée à la main elle aussi : prix annuel des
+ * routes au kilomètre par tranche, coefficient de densité en racine carrée
+ * (arrondi au centième), arrêtés selon la population de chaque commune */
+const baremeRoutes = (km) => [[25, 30], [100, 20], [500, 12], [2500, 8], [Infinity, 5]]
+  .reduce(([total, bas], [haut, prix]) => [total + Math.max(0, Math.min(km, haut) - bas) * prix, haut], [0, 0])[0];
+const densite = (habitants, km) => Math.round(Math.sqrt(habitants / km / 78.3) * 100) / 100;
+const arretes = (population) => (population < 500 ? 100 : population < 2000 ? 200 : 400);
+
+/* Le même calcul que attendu(), quand une ligne a un prix mensuel donné */
+function attenduAvecPrix({ population, poids, prix, annees }) {
+  const unite = 200 * (population / 12000) ** 0.5;
+  const lignes = [...poids.map((p) => unite * p), ...prix];
+  const brut = lignes.reduce((s, p) => s + p, 0);
+  const remiseModules = Math.max(...lignes) * 0.1 * (lignes.length - 1);
+  const remiseEngagement = { 1: 0, 2: 0.1, 3: 0.15, 4: 0.2 }[annees];
+  const mensuel = (brut - remiseModules) * (1 - remiseEngagement);
+  return { mensuel, setup: mensuel * 6 };
+}
 
 const nombreDe = (texte) => Number(String(texte).replace(/[^\d]/g, ''));
 
@@ -94,14 +109,14 @@ test.describe('0.39 - L\'estimateur de prix', () => {
   });
 
   test('0.39.2 - les modules, l\'engagement et la population changent le prix selon les règles', async ({ page }) => {
-    await page.goto(`${PAGE}?population=50000&modules=carte,travaux,chantiers&annees=4&commercial=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${PAGE}?population=50000&modules=carte,travaux,participer&annees=4&commercial=1`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#tarif-population')).toHaveValue(/^50\D000$/);
-    for (const cle of ['carte', 'travaux', 'chantiers']) {
+    for (const cle of ['carte', 'travaux', 'participer']) {
       await expect(page.locator(`[data-module="${cle}"]`)).toHaveAttribute('aria-checked', 'true');
     }
-    // Trois modules : -20 % sur le plus cher, les chantiers
-    await expect(page.locator('[data-module="chantiers"]')).toContainText('-20 % sur le plus cher');
-    const a = attendu({ population: 50000, poids: [1, 0.6, 3], annees: 4 });
+    // Trois modules : -20 % sur le plus cher, le signalement
+    await expect(page.locator('[data-module="participer"]')).toContainText('-20 % sur le plus cher');
+    const a = attendu({ population: 50000, poids: [1, 0.6, 2], annees: 4 });
     await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(a.mensuel));
     await expect.poll(() => page.locator('#tarif-setup').textContent().then(nombreDe)).toBe(Math.round(a.setup));
     await expect.poll(() => page.locator('#tarif-total').textContent().then(nombreDe)).toBe(Math.round(a.total));
@@ -111,7 +126,7 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(a.annuel));
 
     // Retirer un module et raccourcir l'engagement : l'adresse suit, le prix aussi
-    await page.locator('[data-module="chantiers"]').click();
+    await page.locator('[data-module="participer"]').click();
     await page.locator('[data-annees="1"]').click();
     // La virgule ressort parfois encodée dans l'adresse : on la compare décodée
     const adresse = () => decodeURIComponent(page.url());
@@ -129,36 +144,29 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(c.annuel));
     await expect.poll(() => page.locator('#tarif-setup').textContent().then(nombreDe)).toBe(Math.round(c.setup));
     await expect.poll(() => page.locator('#tarif-total').textContent().then(nombreDe)).toBe(Math.round(c.total));
-
-    // Le module chantiers est à demi-poids pour un bourg
-    await page.locator('#tarif-population').fill('3000');
-    await page.locator('#tarif-population').press('Enter');
-    await page.locator('[data-module="chantiers"]').click();
-    const d = attendu({ population: 3000, poids: [1, 0.6, chantiers(3000)], annees: 1 });
-    await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(d.annuel));
   });
 
   test('0.39.3 - le total sur la durée est mis en regard des seuils de la commande publique', async ({ page }) => {
-    const tous = (p) => [1, 0.6, chantiers(p), 2, 0.8];
+    const tous = [1, 0.6, 2, 0.8];
     // Une petite ville, la carte seule, un an : loin sous 60 000 € HT
     await page.goto(`${PAGE}?population=12000&modules=carte&annees=1&commercial=1`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#tarif-seuil')).toContainText('sans publicité ni mise en concurrence');
-    // Une ville moyenne, tous les modules, deux ans : entre 60 000 et 90 000 €, procédure adaptée
-    await page.goto(`${PAGE}?population=50000&modules=carte,travaux,chantiers,participer,diagnostic&annees=2`, { waitUntil: 'domcontentloaded' });
-    const a = attendu({ population: 50000, poids: tous(50000), annees: 2 });
+    // Une ville moyenne, quatre modules, quatre ans : entre 60 000 et 90 000 €, procédure adaptée
+    await page.goto(`${PAGE}?population=50000&modules=carte,travaux,participer,diagnostic&annees=4`, { waitUntil: 'domcontentloaded' });
+    const a = attendu({ population: 50000, poids: tous, annees: 4 });
     expect(a.total).toBeGreaterThan(60000);
     expect(a.total).toBeLessThan(90000);
     await expect(page.locator('#tarif-seuil')).toContainText('procédure adaptée');
     await expect(page.locator('#tarif-seuil')).not.toContainText('BOAMP');
     // Une grande ville sur quatre ans : la publicité devient obligatoire
-    await page.goto(`${PAGE}?population=150000&modules=carte,travaux,chantiers,participer,diagnostic&annees=4`, { waitUntil: 'domcontentloaded' });
-    const b = attendu({ population: 150000, poids: tous(150000), annees: 4 });
+    await page.goto(`${PAGE}?population=150000&modules=carte,travaux,participer,diagnostic&annees=4`, { waitUntil: 'domcontentloaded' });
+    const b = attendu({ population: 150000, poids: tous, annees: 4 });
     expect(b.total).toBeGreaterThan(90000);
     expect(b.total).toBeLessThan(216000);
     await expect(page.locator('#tarif-seuil')).toContainText('BOAMP');
-    // Une métropole sur quatre ans : au-delà du seuil européen, procédure formalisée
-    await page.goto(`${PAGE}?population=500000&modules=carte,travaux,chantiers,participer,diagnostic&annees=4`, { waitUntil: 'domcontentloaded' });
-    expect(attendu({ population: 500000, poids: tous(500000), annees: 4 }).total).toBeGreaterThan(216000);
+    // Une très grande ville sur quatre ans : au-delà du seuil européen, procédure formalisée
+    await page.goto(`${PAGE}?population=1000000&modules=carte,travaux,participer,diagnostic&annees=4`, { waitUntil: 'domcontentloaded' });
+    expect(attendu({ population: 1000000, poids: tous, annees: 4 }).total).toBeGreaterThan(216000);
     await expect(page.locator('#tarif-seuil')).toContainText('procédure formalisée');
   });
 
@@ -254,6 +262,10 @@ test.describe('0.39 - L\'estimateur de prix', () => {
       { ...bon, annees: 7 },
       { ...bon, population: 12 },
       { ...bon, telephone: 'appelez-moi' },
+      // Chantiers arrive toujours avec le prix calculé par la page
+      { ...bon, modules: ['carte', 'chantiers'] },
+      { ...bon, modules: ['chantiers'], chantiers: { mensuel: 10000000 } },
+      { ...bon, territoire: { cle: 'ville-de-nulle-part', nom: 'X' } },
     ];
     for (const data of essais) {
       const resp = await request.post('/api/tarif-lead', { data });
@@ -297,5 +309,95 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     await expect.poll(() => decodeURIComponent(page.url())).toMatch(/annees=1(&|$)/);
     await page.waitForTimeout(600);
     expect(Math.abs((await page.evaluate(() => window.scrollY)) - avant)).toBeLessThan(40);
+  });
+
+  test('0.39.9 - Chantiers se chiffre par un parcours en fenêtre, sur les données publiques du territoire, et se reparamètre', async ({ page }) => {
+    // Une communauté de deux communes, absente de BANATIC : la page doit demander
+    const reponse = (route, corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+    await page.route('https://geo.api.gouv.fr/**', (route) => {
+      const url = route.request().url();
+      if (url.includes('/epcis?nom=')) return reponse(route, [{ nom: 'CC Essai', code: '200000001', population: 1900 }]);
+      if (url.includes('/epcis/200000001/communes')) return reponse(route, [{ nom: 'Alpha', code: '01001', population: 1500 }, { nom: 'Beta', code: '01002', population: 400 }]);
+      if (url.includes('/epcis/200000001')) return reponse(route, { nom: 'CC Essai', code: '200000001', type: 'CC' });
+      return reponse(route, []);
+    });
+    await page.route('https://data.ofgl.fr/**', (route) => reponse(route, [{ code_insee: '01001', valeur: 30000 }, { code_insee: '01002', valeur: 12000 }]));
+
+    await page.goto(`${PAGE}?population=12000&modules=carte&annees=3&commercial=1`, { waitUntil: 'domcontentloaded' });
+    // Les mesures envoyées à PostHog, relevées au passage (le module est éteint sous Playwright)
+    await page.waitForFunction(() => !!window.OPAnalytics, null, { timeout: 15000 });
+    await page.evaluate(() => {
+      window.__mesures = [];
+      const capture = window.OPAnalytics.capture;
+      window.OPAnalytics.capture = (evenement, proprietes) => { window.__mesures.push({ evenement, proprietes }); return capture(evenement, proprietes); };
+    });
+    const mesure = (evenement) => page.evaluate((e) => window.__mesures.filter((m) => m.evenement === e).map((m) => m.proprietes), evenement);
+    // Cocher Chantiers ouvre le parcours, qui demande d'abord la collectivité
+    await page.locator('[data-module="chantiers"]').click();
+    const boite = page.getByRole('dialog');
+    await expect(boite).toBeVisible();
+    await expect(page.locator('[data-module="chantiers"]')).toHaveAttribute('aria-checked', 'false');
+    await page.locator('#parcours-territoire').fill('CC Essai');
+    await page.locator('[data-territoire="epci-200000001"]').dispatchEvent('mousedown');
+
+    // 1. Ce que l'on veut faire, et au nom de qui : sans réponse pré-remplie, il faut choisir
+    await expect(boite).toContainText('Que voulez-vous faire dans l\'outil ?');
+    await expect(boite.locator('[data-choix-usage="les-deux"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(boite.locator('[data-parcours="suivante"]')).toBeDisabled();
+    await boite.locator('[data-nom="interco"]').click();
+    await boite.locator('[data-parcours="suivante"]').click();
+    // 2. Les kilomètres, lus dans les critères de la DGF : 30 + 12
+    await expect(page.locator('#parcours-km')).toHaveValue('42');
+    await boite.locator('[data-parcours="suivante"]').click();
+    // 3. Les communes, toutes incluses d'office
+    await expect(boite).toContainText('2 sur 2 communes');
+    await boite.locator('[data-parcours="suivante"]').click();
+    // Le prix, avec son calcul : un territoire peu dense a sa réduction en pourcentage
+    await expect(boite).toContainText('Permissions de voirie : 42 km de routes');
+    await expect(boite).toContainText(`Territoire peu dense : -${Math.round((1 - densite(1900, 42)) * 100)} %`);
+    const routes = baremeRoutes(42) * densite(1900, 42);
+    const annuel = routes + arretes(1500) + arretes(400);
+    await expect(boite).toContainText(fr(Math.round(annuel)));
+    await boite.locator('[data-parcours="valider"]').click();
+    await expect(boite).toHaveCount(0);
+
+    // Le module est coché, son prix et son calcul sont sur la page
+    await expect(page.locator('[data-module="chantiers"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('#tarif-territoire')).toContainText('CC Essai');
+    await expect.poll(() => decodeURIComponent(page.url())).toMatch(/territoire=epci-200000001.*nom=interco/);
+    const a = attenduAvecPrix({ population: 1900, poids: [1], prix: [annuel / 12], annees: 3 });
+    await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(a.mensuel));
+
+    // Ce que la page a mesuré : l'ouverture du parcours, la collectivité, la configuration, puis l'état réglé
+    expect((await mesure('pricing_chantiers_wizard_opened'))[0]).toMatchObject({ trigger: 'module_checked' });
+    expect((await mesure('pricing_territory_selected'))[0]).toMatchObject({ territory_key: 'epci-200000001', population: 1900, source: 'wizard' });
+    expect((await mesure('pricing_chantiers_configured'))[0]).toMatchObject({ usage: 'both', subscriber: 'interco', annual_price: Math.round(annuel) });
+    await expect.poll(async () => (await mesure('pricing_settings_changed')).at(-1)?.modules, { timeout: 5000 }).toEqual(['carte', 'chantiers']);
+
+    // Les permissions seules : la première question les choisit, les communes ne sont plus demandées
+    await page.locator('#tarif-chantiers-parametrer').click();
+    await boite.locator('[data-choix-usage="permissions"]').click();
+    await boite.locator('[data-parcours="suivante"]').click();
+    await boite.locator('[data-parcours="suivante"]').click();
+    await boite.locator('[data-parcours="valider"]').click();
+    await expect.poll(() => decodeURIComponent(page.url())).toMatch(/usage=permissions/);
+    const seules = attenduAvecPrix({ population: 1900, poids: [1], prix: [routes / 12], annees: 3 });
+    await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(seules.mensuel));
+
+    // « Paramétrer » rouvre le parcours sur les réponses données
+    await page.locator('#tarif-chantiers-parametrer').click();
+    await expect(boite.locator('[data-nom="interco"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(boite.locator('[data-choix-usage="permissions"]')).toHaveAttribute('aria-checked', 'true');
+    // Les deux usages, chaque commune abonnée : un espace par commune, plus de question des kilomètres
+    await boite.locator('[data-choix-usage="les-deux"]').click();
+    await boite.locator('[data-nom="communes"]').click();
+    await boite.locator('[data-parcours="suivante"]').click();
+    await expect(boite).toContainText('Quelles communes s\'équipent ?');
+    await boite.locator('[data-parcours="suivante"]').click();
+    await boite.locator('[data-parcours="valider"]').click();
+    const parCommune = baremeRoutes(30) * densite(1500, 30) + arretes(1500) + baremeRoutes(12) * densite(400, 12) + arretes(400);
+    const b = attenduAvecPrix({ population: 1900, poids: [1], prix: [parCommune / 12], annees: 3 });
+    await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(b.mensuel));
+    await expect(page.locator('[data-module="chantiers"]')).toContainText('2 espaces, un par commune');
   });
 });
