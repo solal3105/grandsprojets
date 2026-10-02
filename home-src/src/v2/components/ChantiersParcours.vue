@@ -144,6 +144,11 @@
             <!-- 4. Le prix et son calcul -->
             <template v-else-if="etape === 'recap'">
               <h2 id="parcours-titre" class="titre">Chantiers pour {{ territoire.nom }}</h2>
+              <!-- Le prix d'abord : sur un petit écran, le calcul défile dessous -->
+              <p v-if="chiffrage.espaces.length" id="parcours-prix" class="mt-3 flex flex-wrap items-baseline gap-x-2">
+                <span class="font-heading font-bold text-3xl tracking-tight text-dark tabular-nums">{{ exact ? euros(chiffrage.annuel) : `de ${eurosFourchette(chiffrage.annuel)}` }}</span>
+                <span class="text-sm text-gray-muted">HT par an, avant remises</span>
+              </p>
               <p class="aide">{{ resume }}</p>
               <div class="mt-5 rounded-2xl border border-gray-border p-4 sm:p-5">
                 <ChantiersCalcul v-if="chiffrage.espaces.length" :chiffrage="chiffrage" :exact="exact" />
@@ -187,7 +192,7 @@ import { ref, reactive, computed, watch, nextTick, onUnmounted } from 'vue'
 import { ArrowLeft, ArrowRight, Check, ClipboardCheck, Info, Loader2, Search, Sparkles, X } from 'lucide-vue-next'
 import TerritoireRecherche from './TerritoireRecherche.vue'
 import ChantiersCalcul from './ChantiersCalcul.vue'
-import { nombre } from '../data/tarification.mjs'
+import { nombre, euros, eurosFourchette } from '../data/tarification.mjs'
 import { chiffrerChantiers } from '../data/tarification-chantiers.mjs'
 import {
   nomADemander, nomCorrigeable, nomPresume, choixNom, organisation, gestionnaireDesRoutes, resumeVoirie,
