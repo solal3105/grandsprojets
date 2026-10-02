@@ -15,11 +15,9 @@ import { test, expect } from '@playwright/test';
  * commune selon sa population. Il se chiffre par un parcours en fenêtre,
  * sur les données publiques du territoire (simulées ici).
  *
- * Un visiteur voit une fourchette (plus ou moins 20 %, arrondie vers
- * l'extérieur) et demande le tarif exact en laissant son adresse : la demande
- * part par /api/tarif-lead, la fourchette reste. Seul `?commercial=1` ouvre le
- * tarif exact, pour l'équipe. Les tests qui vérifient des montants passent par
- * ce paramètre.
+ * Tout le monde voit les montants exacts. Un visiteur peut recevoir son
+ * estimation par e-mail : la demande part par /api/tarif-lead. `?commercial=1`
+ * n'ouvre plus que le document à préparer pour une collectivité.
  *
  * Section : 0.39 - L'estimateur de prix
  */
@@ -60,13 +58,8 @@ function attenduAvecPrix({ population, poids, prix, annees }) {
 
 const nombreDe = (texte) => Number(String(texte).replace(/[^\d]/g, ''));
 
-/* La fourchette telle que la page l'écrit : plus ou moins 20 %, le bas
- * arrondi vers le bas et le haut vers le haut, au pas du montant */
+/* Un montant tel que la page l'écrit */
 const fr = (n) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(n);
-const fourchette = (v) => {
-  const pas = v < 1000 ? 10 : v < 10000 ? 100 : v < 100000 ? 1000 : 10000;
-  return `${fr(Math.floor((v * 0.8) / pas) * pas)} à ${fr(Math.ceil((v * 1.2) / pas) * pas)} €`;
-};
 
 test.describe('0.39 - L\'estimateur de prix', () => {
   test('0.39.0 - la page est ouverte aux moteurs, avec titre, description et canonical', async ({ request }) => {
@@ -192,34 +185,14 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     await expect(page).toHaveURL(/\/tarification\?.*population=12000/);
   });
 
-  test('0.39.5 - un visiteur voit une fourchette, et sa demande de tarif part à l\'équipe sans rien déverrouiller', async ({ page }) => {
+  test('0.39.5 - un visiteur voit les montants exacts et reçoit son estimation par e-mail', async ({ page }) => {
     const a = attendu({ population: 12000, poids: [1, 0.6], annees: 3 });
-
-    // Le document : des fourchettes et leur mention
-    await page.goto(`${PAGE}/estimation?population=12000&modules=carte,travaux&annees=3&collectivite=Ville%20de%20Trifouillis`, { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('#estimation-fourchette')).toBeVisible();
-    await expect(page.locator('#estimation-total')).toContainText(fourchette(a.total));
-    await expect(page.locator('#estimation-abonnement')).toContainText(fourchette(a.mensuel));
-
-    // La page : la fourchette de l'abonnement, le prix exact dedans, l'encart
-    // de la mise en service, et le formulaire. Ni détail, ni total, ni seuils.
-    await page.goto(`${PAGE}?population=12000&modules=carte,travaux&annees=3`, { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('#tarif-principal')).toContainText(`de ${fourchette(a.mensuel)}`);
-    const [bas, haut] = (await page.locator('#tarif-principal').textContent()).replace(/^de /, '').split(' à ').map(nombreDe);
-    expect(bas).toBeLessThanOrEqual(a.mensuel);
-    expect(haut).toBeGreaterThanOrEqual(a.mensuel);
-    await expect(page.locator('#tarif-mise-en-service')).toContainText('Mise en service et formation des équipes');
-    await expect(page.locator('#tarif-mise-en-service')).toContainText(fourchette(a.setup));
-    for (const id of ['#tarif-abonnement', '#tarif-setup', '#tarif-total', '#tarif-seuil', '#estimation-form']) {
-      await expect(page.locator(id)).toHaveCount(0);
-    }
-    expect(await page.locator('aside dl').count()).toBe(0);
-    // Aucun prix par module, et la remise (portée par la carte, le plus cher
-    // des deux) se nomme sans désigner ce module
-    await expect(page.locator('[data-module="carte"]')).not.toContainText('€');
-    await expect(page.locator('[data-module="travaux"]')).not.toContainText('€');
-    await expect(page.locator('[data-module="carte"]')).toContainText('Remise multi-modules');
-    await expect(page.locator('[data-module="carte"]')).not.toContainText('sur le plus cher');
+    await page.goto(`${PAGE}?population=12000&modules=carte,travaux&annees=3&commercial=0`, { waitUntil: 'domcontentloaded' });
+    await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(a.mensuel));
+    await expect.poll(() => page.locator('#tarif-total').textContent().then(nombreDe)).toBe(Math.round(a.total));
+    await expect(page.locator('[data-module="carte"]')).toContainText('sur le plus cher');
+    // Le document à préparer reste un outil de l'équipe
+    await expect(page.locator('#estimation-form')).toHaveCount(0);
 
     // La demande part à la fonction (simulée ici) avec l'adresse et les réglages du moment
     let recu = null;
@@ -227,30 +200,26 @@ test.describe('0.39 - L\'estimateur de prix', () => {
       recu = route.request().postDataJSON();
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, stored: true, mailed: true }) });
     });
-    await page.locator('#tarif-exact-email').fill('dgs@trifouillis.fr');
-    await page.locator('#tarif-exact-tel').fill('04 72 00 00 00');
-    await page.locator('#tarif-exact-form button[type="submit"]').click();
-    await expect(page.locator('#tarif-exact-merci')).toBeVisible();
-    await expect(page.locator('#tarif-exact-merci')).toContainText('dgs@trifouillis.fr');
-    await expect(page.locator('#tarif-exact-merci')).toContainText('message de confirmation');
+    await page.locator('#tarif-envoi-email').fill('dgs@trifouillis.fr');
+    await page.locator('#tarif-envoi-tel').fill('04 72 00 00 00');
+    await page.locator('#tarif-envoi-form button[type="submit"]').click();
+    await expect(page.locator('#tarif-envoi-merci')).toContainText('envoyé à dgs@trifouillis.fr');
     expect(recu).toEqual({ email: 'dgs@trifouillis.fr', telephone: '04 72 00 00 00', population: 12000, modules: ['carte', 'travaux'], annees: 3 });
-    await expect(page.locator('#tarif-exact-form')).toHaveCount(0);
+    await expect(page.locator('#tarif-envoi-form')).toHaveCount(0);
 
-    // Rien ne s'est déverrouillé : la fourchette reste, ici comme sur le document
-    await expect(page.locator('#tarif-principal')).toContainText(`de ${fourchette(a.mensuel)}`);
-    await expect(page.locator('#tarif-abonnement')).toHaveCount(0);
+    // Le document dit d'abord qu'il n'est pas un devis, puis donne les montants exacts
     await page.goto(`${PAGE}/estimation?population=12000&modules=carte,travaux&annees=3`, { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('#estimation-fourchette')).toBeVisible();
-    await expect(page.locator('#estimation-total')).toContainText(fourchette(a.total));
+    await expect(page.locator('#estimation-avertissement')).toContainText('n\'est pas un devis et ne vous engage pas');
+    await expect.poll(() => page.locator('#estimation-total').textContent().then(nombreDe)).toBe(Math.round(a.total));
   });
 
   test('0.39.5b - quand la demande ne part pas, la page le dit et garde le formulaire', async ({ page }) => {
     await page.goto(`${PAGE}?population=12000&modules=carte&annees=3`, { waitUntil: 'domcontentloaded' });
     await page.route('**/api/tarif-lead', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Demande impossible à enregistrer' }) }));
-    await page.locator('#tarif-exact-email').fill('dgs@trifouillis.fr');
-    await page.locator('#tarif-exact-form button[type="submit"]').click();
-    await expect(page.locator('#tarif-exact-form [role="alert"]')).toContainText('pas pu envoyer');
-    await expect(page.locator('#tarif-exact-merci')).toHaveCount(0);
+    await page.locator('#tarif-envoi-email').fill('dgs@trifouillis.fr');
+    await page.locator('#tarif-envoi-form button[type="submit"]').click();
+    await expect(page.locator('#tarif-envoi-form [role="alert"]')).toContainText('pas pu envoyer');
+    await expect(page.locator('#tarif-envoi-merci')).toHaveCount(0);
   });
 
   test('0.39.8 - /api/tarif-lead refuse une adresse ou des réglages invalides', async ({ request }) => {
@@ -274,30 +243,26 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     expect((await request.get('/api/tarif-lead')).status()).toBe(405);
   });
 
-  test('0.39.6 - l\'équipe commerciale ouvre le tarif exact par ?commercial=1, qui disparaît de l\'adresse sans se transmettre', async ({ page, browser }) => {
+  test('0.39.6 - ?commercial=1 ouvre le document à préparer, disparaît de l\'adresse et ne se transmet pas', async ({ page, browser }) => {
     await page.goto(`${PAGE}?population=12000&modules=carte&annees=3&commercial=1`, { waitUntil: 'domcontentloaded' });
-    const { mensuel } = attendu({ population: 12000, poids: [1], annees: 3 });
-    await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(mensuel));
-    await expect(page.locator('#tarif-exact-form')).toHaveCount(0);
+    await expect(page.locator('#estimation-form')).toBeVisible();
     await expect.poll(() => page.url()).not.toContain('commercial');
     await expect.poll(() => page.url()).toContain('population=12000');
 
-    // Le lien copié depuis ce navigateur ramène un prospect à la fourchette
+    // Le lien copié depuis ce navigateur ne transporte pas le mode commercial
     const autre = await browser.newContext();
     const prospect = await autre.newPage();
     await prospect.goto(page.url(), { waitUntil: 'domcontentloaded' });
-    await expect(prospect.locator('#tarif-mise-en-service')).toBeVisible();
-    await expect(prospect.locator('#tarif-principal')).toContainText(`de ${fourchette(mensuel)}`);
+    await expect(prospect.locator('#tarif-abonnement')).toBeVisible();
+    await expect(prospect.locator('#estimation-form')).toHaveCount(0);
     await autre.close();
 
-    // ?commercial=0 rend la vue publique dans le navigateur de l'équipe, et tient au rechargement
+    // ?commercial=0 le retire dans le navigateur de l'équipe, et tient au rechargement
     await page.goto(`${PAGE}?population=12000&modules=carte&annees=3&commercial=0`, { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('#tarif-mise-en-service')).toBeVisible();
-    await expect.poll(() => page.url()).not.toContain('commercial');
+    await expect(page.locator('#estimation-form')).toHaveCount(0);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(page.locator('#tarif-mise-en-service')).toBeVisible();
-    await expect(page.locator('#tarif-principal')).toContainText(`de ${fourchette(mensuel)}`);
-    await expect(page.locator('#tarif-abonnement')).toHaveCount(0);
+    await expect(page.locator('#tarif-abonnement')).toBeVisible();
+    await expect(page.locator('#estimation-form')).toHaveCount(0);
   });
 
   test('0.39.7 - changer un réglage ne fait pas défiler la page', async ({ page }) => {

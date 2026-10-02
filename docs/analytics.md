@@ -105,7 +105,7 @@ rejoués. Il n'y a donc pas d'ordre d'initialisation à respecter.
 | `pricing_chantiers_wizard_abandoned` | home | La question où le parcours Chantiers perd les visiteurs |
 | `pricing_chantiers_configured` | home | Ce que les collectivités veulent faire dans Chantiers (usage, abonné, kilomètres, communes) et le prix annuel |
 | `pricing_estimate_document_opened` | home | Les estimations préparées pour être envoyées |
-| `tarif_demande_envoyee` | home | Les demandes de tarif exact laissées sur la page de tarifs |
+| `tarif_demande_envoyee` | home | Les estimations demandées par e-mail sur la page de tarifs |
 | `login_link_sent` | login | Les connexions demandées |
 | `login_link_failed` | login | Les comptes bloqués à l'entrée |
 | `login_github_started` | login | L'usage réel de la connexion GitHub |

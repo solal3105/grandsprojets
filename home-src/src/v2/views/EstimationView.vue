@@ -28,7 +28,6 @@
         <div class="text-right">
           <p class="font-heading font-bold text-2xl leading-tight tracking-tight">Estimation budgétaire</p>
           <p class="mt-1 text-sm text-gray-text">Document indicatif, non contractuel</p>
-          <p v-if="!exact" id="estimation-fourchette" class="mt-1 text-xs text-gray-muted">Montants en fourchette. Le tarif exact vous est communiqué sur demande.</p>
           <dl class="mt-4 text-xs text-gray-text leading-relaxed">
             <div v-if="suivi" class="flex justify-end gap-2"><dt>Référence</dt><dd id="estimation-suivi" class="font-medium text-dark tabular-nums">{{ suivi }}</dd></div>
             <div class="flex justify-end gap-2"><dt>Établie le</dt><dd class="font-medium text-dark">{{ dateLongue(aujourdhui) }}</dd></div>
@@ -37,7 +36,13 @@
         </div>
       </header>
 
-      <section class="mt-10 grid grid-cols-2 gap-8">
+      <!-- Ce que ce document n'est pas, avant tout montant -->
+      <p id="estimation-avertissement" class="mt-8 rounded-2xl border-2 border-dark p-4 text-sm leading-relaxed">
+        <strong>Cette estimation n'est pas un devis et ne vous engage pas.</strong>
+        Elle donne un ordre de prix à partir des éléments connus à ce jour. Un devis vous sera adressé après un échange sur votre besoin.
+      </p>
+
+      <section class="mt-8 grid grid-cols-2 gap-8">
         <div>
           <p class="etiquette">Pour</p>
           <p id="estimation-collectivite" class="mt-2 font-heading font-bold text-xl leading-tight">{{ collectivite || 'Votre collectivité' }}</p>
@@ -71,7 +76,7 @@
               <span class="block font-heading font-semibold text-sm">{{ m.name }}</span>
               <span class="block mt-0.5 text-xs text-gray-text leading-snug">{{ m.produces }}</span>
             </span>
-            <span v-if="exact" class="text-sm font-medium tabular-nums whitespace-nowrap">{{ euros(ligneDe(m.key).prix) }} <span class="text-xs font-normal text-gray-muted">/ mois</span></span>
+            <span class="text-sm font-medium tabular-nums whitespace-nowrap">{{ euros(ligneDe(m.key).prix) }} <span class="text-xs font-normal text-gray-muted">/ mois</span></span>
           </li>
         </ul>
       </section>
@@ -81,7 +86,7 @@
         <h2 class="font-heading font-bold text-lg tracking-tight">Le calcul de Chantiers et arrêtés</h2>
         <p class="mt-2 text-sm text-gray-text leading-relaxed">{{ resumeChantiers }}</p>
         <div class="mt-4 rounded-2xl border border-gray-border p-4">
-          <ChantiersCalcul :chiffrage="chiffrage" :exact="exact" compact />
+          <ChantiersCalcul :chiffrage="chiffrage" compact />
         </div>
       </section>
       <p v-else-if="chantiersAttendu" class="mt-8 text-sm text-gray-muted" role="status">{{ erreurTerritoire || 'Lecture des chiffres publics du territoire, pour le calcul de Chantiers.' }}</p>
@@ -91,28 +96,25 @@
         <h2 class="font-heading font-bold text-lg tracking-tight">Le détail du prix, hors taxes</h2>
         <table class="mt-4 w-full text-sm">
           <tbody>
-            <!-- Le prix de chaque module ne figure qu'en mode commercial -->
-            <template v-if="exact">
-              <tr v-for="l in estimation.lignes" :key="l.cle" class="border-b border-gray-border">
-                <td class="py-2.5 pr-4">{{ moduleByKey[l.cle]?.name }}</td>
-                <td class="py-2.5 text-right tabular-nums whitespace-nowrap">{{ euros(l.prix) }} / mois</td>
-              </tr>
-            </template>
+            <tr v-for="l in estimation.lignes" :key="l.cle" class="border-b border-gray-border">
+              <td class="py-2.5 pr-4">{{ moduleByKey[l.cle]?.name }}</td>
+              <td class="py-2.5 text-right tabular-nums whitespace-nowrap">{{ euros(l.prix) }} / mois</td>
+            </tr>
             <tr v-if="estimation.remiseModules.montant > 0" class="border-b border-gray-border">
-              <td class="py-2.5 pr-4 text-gray-text">{{ exact ? `Plusieurs modules : -${pourcent(estimation.remiseModules.taux)} sur ${moduleByKey[estimation.remiseModules.module]?.name}` : 'Remise multi-modules' }}</td>
-              <td class="py-2.5 text-right tabular-nums whitespace-nowrap text-green-ink">{{ exact ? `-${euros(estimation.remiseModules.montant)} / mois` : `-${pourcent(estimation.remiseModules.taux)}` }}</td>
+              <td class="py-2.5 pr-4 text-gray-text">Plusieurs modules : -{{ pourcent(estimation.remiseModules.taux) }} sur {{ moduleByKey[estimation.remiseModules.module]?.name }}</td>
+              <td class="py-2.5 text-right tabular-nums whitespace-nowrap text-green-ink">-{{ euros(estimation.remiseModules.montant) }} / mois</td>
             </tr>
             <tr v-if="estimation.remiseEngagement.montant > 0" class="border-b border-gray-border">
               <td class="py-2.5 pr-4 text-gray-text">Engagement {{ estimation.annees }} ans : -{{ pourcent(estimation.remiseEngagement.taux) }} chaque année</td>
-              <td class="py-2.5 text-right tabular-nums whitespace-nowrap text-green-ink">{{ exact ? `-${euros(estimation.remiseEngagement.montant)} / mois` : `-${pourcent(estimation.remiseEngagement.taux)}` }}</td>
+              <td class="py-2.5 text-right tabular-nums whitespace-nowrap text-green-ink">-{{ euros(estimation.remiseEngagement.montant) }} / mois</td>
             </tr>
             <tr class="border-b border-gray-border font-semibold">
               <td class="py-2.5 pr-4">Abonnement</td>
-              <td id="estimation-abonnement" class="py-2.5 text-right tabular-nums whitespace-nowrap">{{ montant(estimation.mensuel) }} / mois, soit {{ montant(estimation.annuel) }} / an</td>
+              <td id="estimation-abonnement" class="py-2.5 text-right tabular-nums whitespace-nowrap">{{ euros(estimation.mensuel) }} / mois, soit {{ euros(estimation.annuel) }} / an</td>
             </tr>
             <tr class="border-b border-gray-border">
               <td class="py-2.5 pr-4">Mise en service, une seule fois<span v-if="estimation.setupOfferte" class="block text-xs text-gray-muted">Offerte aux communes de moins de {{ nombre(MISE_EN_SERVICE.offerteSous) }} habitants</span></td>
-              <td class="py-2.5 text-right tabular-nums whitespace-nowrap align-top">{{ estimation.setupOfferte ? 'Offerte' : montant(estimation.setup) }}</td>
+              <td class="py-2.5 text-right tabular-nums whitespace-nowrap align-top">{{ estimation.setupOfferte ? 'Offerte' : euros(estimation.setup) }}</td>
             </tr>
           </tbody>
         </table>
@@ -122,21 +124,21 @@
             <p class="font-heading font-bold text-base leading-tight">Total sur {{ estimation.annees }} {{ estimation.annees > 1 ? 'ans' : 'an' }}, mise en service comprise</p>
             <p class="mt-1 text-xs text-white/70">Hors taxes. La TVA de 20 % s'ajoute à ces montants.</p>
           </div>
-          <p id="estimation-total" class="font-heading font-bold tabular-nums whitespace-nowrap" :class="exact ? 'text-3xl' : 'text-2xl'">{{ montant(estimation.total) }} <span class="text-sm font-normal text-white/70">HT</span></p>
+          <p id="estimation-total" class="font-heading font-bold tabular-nums whitespace-nowrap text-3xl">{{ euros(estimation.total) }} <span class="text-sm font-normal text-white/70">HT</span></p>
         </div>
 
         <div class="mt-4 grid grid-cols-3 gap-3 text-center">
           <div class="rounded-2xl bg-gray-bg p-4">
             <p class="text-xs text-gray-muted">Première année</p>
-            <p class="mt-1 font-heading font-bold tabular-nums" :class="exact ? 'text-lg' : 'text-sm'">{{ montant(estimation.annuel + estimation.setup) }}</p>
+            <p class="mt-1 font-heading font-bold tabular-nums text-lg">{{ euros(estimation.annuel + estimation.setup) }}</p>
           </div>
           <div class="rounded-2xl bg-gray-bg p-4">
             <p class="text-xs text-gray-muted">Chaque année suivante</p>
-            <p class="mt-1 font-heading font-bold tabular-nums" :class="exact ? 'text-lg' : 'text-sm'">{{ montant(estimation.annuel) }}</p>
+            <p class="mt-1 font-heading font-bold tabular-nums text-lg">{{ euros(estimation.annuel) }}</p>
           </div>
           <div class="rounded-2xl bg-gray-bg p-4">
             <p class="text-xs text-gray-muted">Par mois, en moyenne</p>
-            <p class="mt-1 font-heading font-bold tabular-nums" :class="exact ? 'text-lg' : 'text-sm'">{{ montant(estimation.total / (estimation.annees * 12)) }}</p>
+            <p class="mt-1 font-heading font-bold tabular-nums text-lg">{{ euros(estimation.total / (estimation.annees * 12)) }}</p>
           </div>
         </div>
       </section>
@@ -156,7 +158,6 @@
         <p>
           Cette estimation est établie à partir des éléments connus à ce jour : {{ nombre(estimation.population) }} habitants,
           {{ retenus.map((m) => m.name).join(', ') }}, engagement de {{ estimation.annees }} {{ estimation.annees > 1 ? 'ans' : 'an' }}.
-          {{ exact ? '' : 'Les montants sont donnés en fourchette, le tarif exact vous est communiqué sur demande.' }}
           Elle ne vaut pas offre ferme : un devis définitif vous sera adressé après un échange sur votre besoin.
           Montants hors taxes, valables jusqu'au {{ dateLongue(validite) }}.
         </p>
@@ -180,16 +181,12 @@ import { chiffrerTerritoire, resumeVoirie } from '../data/voirie.mjs'
 import { modules, moduleByKey } from '../data/modules.js'
 import {
   POPULATION, ENGAGEMENTS, SOUS_LES_SEUILS, MISE_EN_SERVICE,
-  estimer, estTarife, borner, euros, eurosFourchette, nombre, pourcent,
+  estimer, estTarife, borner, euros, nombre, pourcent,
 } from '../data/tarification.mjs'
-import { useTarifExact } from '../composables/useTarifExact.js'
 
 const route = useRoute()
 const router = useRouter()
 
-/* Fourchette ou tarif exact : le même accès que la page de tarification */
-const exact = useTarifExact(route, router)
-const montant = (v) => (exact.value ? euros(v) : eurosFourchette(v))
 
 /* Tout vient de l'adresse : la page de tarification y a mis les réglages et
  * ce que l'on a saisi pour le destinataire. Rien n'est enregistré. */
