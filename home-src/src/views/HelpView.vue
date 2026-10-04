@@ -193,12 +193,14 @@ function showRole(role) {
   currentCategory.value = null
   router.replace({ hash: '#' + role })
   window.scrollTo({ top: 0, behavior: 'smooth' })
+  window.OPAnalytics?.capture?.('help_section_opened', { role, category: null })
 }
 
 function showCategory(catId) {
   currentCategory.value = catId
   router.replace({ hash: '#' + currentRole.value + '-' + catId })
   window.scrollTo({ top: 0, behavior: 'smooth' })
+  window.OPAnalytics?.capture?.('help_section_opened', { role: currentRole.value, category: catId })
 }
 
 function openPrintGuide(role) {

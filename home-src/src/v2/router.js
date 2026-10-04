@@ -216,7 +216,11 @@ const router = createRouter({
 /* Les balises <head> de chaque page. Le prérendu les fige dans le HTML servi
  * aux robots ; en navigation, elles suivent la page affichée. Une page qui
  * pose ses propres metas (les guides Ressources) est laissée tranquille. */
-router.afterEach((to) => {
+router.afterEach((to, from) => {
+  // Même page, adresse retouchée (réglages de l'estimateur, rubrique de l'aide) :
+  // ce n'est pas une nouvelle page vue. Ce que le visiteur y fait est mesuré par
+  // les événements propres à la page (pricing_settings_changed, help_section_opened).
+  const memePage = from.matched.length > 0 && from.path === to.path
   if (!to.meta.ownHead) {
     const title = to.meta.title || DEFAULT_TITLE
     document.title = title
@@ -235,6 +239,7 @@ router.afterEach((to) => {
   }
   // Google Analytics, en parallèle de PostHog : la balise est chargée sans
   // page vue automatique (index.html), c'est ici qu'elle part.
+  if (memePage) return
   if (typeof window.gtag === 'function') {
     window.gtag('event', 'page_view', {
       page_title: document.title,
