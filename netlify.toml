@@ -229,14 +229,21 @@
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
 
-# La vidéo de présentation et son affiche ne changent qu'avec un nouveau
-# montage : elles se gardent longtemps, et le navigateur peut en demander
-# un morceau à la fois (lecture avant la fin du téléchargement).
+# Les vidéos et leurs affiches ne changent qu'avec un nouveau montage : elles
+# se gardent longtemps, et le navigateur peut en demander un morceau à la fois
+# (lecture avant la fin du téléchargement). La règle vise les fichiers par leur
+# extension : « /video/* » touchait aussi la page /video, que les navigateurs
+# gardaient alors 30 jours sans voir ses mises à jour.
 [[headers]]
-  for = "/video/*"
+  for = "/video/*.mp4"
   [headers.values]
     Cache-Control = "public, max-age=2592000"
     Accept-Ranges = "bytes"
+
+[[headers]]
+  for = "/video/*.webp"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
 
 # ============================================
 # Le code de l'application doit revalider

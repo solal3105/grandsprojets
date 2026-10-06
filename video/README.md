@@ -23,4 +23,4 @@ dans le dépôt.
 La page qui l'embarque (bloc d'accueil du site) porte les données
 structurées VideoObject et la transcription intégrale, dans
 `home-src/src/v2/data/videoPresentation.js`. Les en-têtes de cache sont dans
-`netlify.toml` (`/video/*`).
+`netlify.toml` (`/video/*.mp4` et `/video/*.webp`, jamais `/video/*`, qui toucherait aussi la page /video).
