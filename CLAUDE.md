@@ -20,7 +20,7 @@ Build du site vitrine : `cd home-src && npm ci && npm run build` → output pré
 | **Admin** (`/admin/`) | Vanilla JS, **ES modules**, routeur pushState custom |
 | **Fiche** (`/fiche/`) | Vanilla JS, IIFE autonome (`fiche-v2.js`) |
 | **Cartes des communes** (`/cartes/`) | Vanilla JS, module ES (`cartes.js` + `catalogue.js` partagé avec l'edge `cartes`), page site + écran de salon `?kiosk=1` - doc `cartes/README.md` |
-| **Site vitrine** (`/home-src/`, sources dans `src/v2/` + vues partagées `src/views/`, build prérendu dans `/home/`, servi à la racine `/`) | Vue 3 + Vite + Tailwind, build séparé. Pages : accueil, `/carte` `/travaux` `/participer` `/chantiers` `/diagnostic` (modules), `/tarification`, `/ressources`, `/a-propos`, `/aide`, `/confidentialite`, `/alternative-*`, `/helios` et `/lien` (noindex, hors menu) |
+| **Site vitrine** (`/home-src/`, sources dans `src/v2/` + vues partagées `src/views/`, build prérendu dans `/home/`, servi à la racine `/`) | Vue 3 + Vite + Tailwind, build séparé. Pages : accueil, `/carte` `/travaux` `/participer` `/chantiers` `/diagnostic` (modules), `/tarification`, `/ressources`, `/a-propos`, `/aide`, `/confidentialite`, `/alternative-*`, `/helios`, `/lien`, `/video` (écran de salon) et `/roue` (roue des lots du stand, moteur pur JS dans `src/v2/roue/`) (noindex, hors menu) |
 | **Fonctions** (`/netlify/functions/`) | Node.js ESM `.mjs`, Netlify Functions v2 |
 | **Edge Functions** (`/netlify/edge-functions/`) | SEO/SSR : `domain-redirect`, `carte-legacy` (anciennes adresses `/?city=`), `home-seo` (site), `carte-seo` (titre par ville et module de la carte), `fiche-ssr`, `ville-hub`, `cartes` - routes dans `netlify.toml [[edge_functions]]` - doc `docs/seo.md` |
 

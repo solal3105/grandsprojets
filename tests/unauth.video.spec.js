@@ -9,12 +9,11 @@ import { test, expect } from '@playwright/test';
  *    l'en-tête ni le pied de page du site ;
  *  - la vidéo tourne en boucle et démarre muette (les navigateurs refusent la
  *    lecture automatique avec le son), et le bouton du son la fait parler ;
- *  - hors plein écran, les deux sorties sont là : l'écran du stand et les
- *    pages des cinq modules, ouverts dans un nouvel onglet pour que la vidéo
- *    reste ouverte derrière après chaque démonstration.
- *
- * Le plein écran lui-même n'est pas couvert : Chromium sans fenêtre refuse
- * requestFullscreen hors d'un vrai geste de l'utilisateur.
+ *  - un clic sur l'image met la vidéo en pause et la relance, sans jamais
+ *    passer en plein écran : seul le bouton du lecteur le fait ;
+ *  - les sorties sont là, l'écran du stand et les pages des cinq modules, et
+ *    une page s'ouvre dans un panneau posé sur la vidéo, qui se met en pause
+ *    pendant la visite et repart quand on revient.
  */
 
 test.describe("0.76 Écran de salon - la page /video", () => {
@@ -49,23 +48,59 @@ test.describe("0.76 Écran de salon - la page /video", () => {
     expect(await page.locator('video').evaluate((v) => v.muted)).toBe(true);
   });
 
-  test("0.76.4 les sorties mènent à l'écran du stand et aux cinq modules", async ({ page }) => {
-    const stand = page.getByRole('link', { name: /carte des projets de votre commune/ });
+  test("0.76.4 les icônes mènent à l'écran du stand, à la roue et aux cinq modules", async ({ page }) => {
+    const stand = page.getByRole('link', { name: 'Ma commune' });
     await expect(stand).toHaveAttribute('href', 'https://openprojets.com/kiosk');
-    await expect(stand).toHaveAttribute('target', '_blank');
     const modules = page.locator('a[href="/carte"], a[href="/travaux"], a[href="/chantiers"], a[href="/participer"], a[href="/diagnostic"]');
     await expect(modules).toHaveCount(5);
-    for (const lien of await modules.all()) await expect(lien).toHaveAttribute('target', '_blank');
+    for (const nom of ['Carte', 'Travaux', 'Chantiers', 'Signalement', 'Diagnostic']) {
+      await expect(page.getByRole('link', { name: nom, exact: true })).toBeVisible();
+    }
+    await expect(page.getByRole('link', { name: 'Roue des lots' })).toHaveAttribute('href', '/roue');
   });
 
-  test("0.76.5 un module s'ouvre dans un nouvel onglet, la vidéo reste ouverte", async ({ page }) => {
-    const [onglet] = await Promise.all([
-      page.context().waitForEvent('page'),
-      page.locator('a[href="/travaux"]').click(),
-    ]);
-    await onglet.waitForLoadState('domcontentloaded');
-    await expect(onglet).toHaveURL(/\/travaux$/);
+  test("0.76.5 un clic sur l'image met en pause sans passer en plein écran", async ({ page }) => {
+    const video = page.locator('video');
+    await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+    await video.click();
+    await expect.poll(() => video.evaluate((v) => v.paused)).toBe(true);
+    expect(await page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+    await page.getByRole('button', { name: 'Reprendre la vidéo' }).first().click();
+    await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+  });
+
+  test('0.76.6 le bouton du plein écran agrandit le lecteur, commandes comprises', async ({ page }) => {
+    await page.getByRole('button', { name: 'Passer en plein écran' }).click();
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement?.classList.contains('lecteur'))).toBe(true);
+    await page.getByRole('button', { name: 'Quitter le plein écran' }).click();
+    await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+  });
+
+  test("0.76.7 un module s'ouvre dans un panneau sur la vidéo, qui repart au retour", async ({ page }) => {
+    const video = page.locator('video');
+    await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+    await page.locator('a[href="/travaux"]').click();
+    const panneau = page.getByRole('dialog', { name: 'Travaux du quotidien' });
+    await expect(panneau).toBeVisible();
+    await expect(panneau.locator('iframe')).toHaveAttribute('src', '/travaux');
+    await expect(page.frameLocator('iframe').locator('h1')).toContainText('rue rouvre');
     await expect(page).toHaveURL(/\/video$/);
-    await onglet.close();
+    expect(await video.evaluate((v) => v.paused)).toBe(true);
+    await expect(panneau.getByRole('button', { name: 'Revenir à la vidéo' })).toBeFocused();
+    await panneau.getByRole('button', { name: 'Passer en plein écran' }).click();
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement?.getAttribute('role'))).toBe('dialog');
+    await panneau.getByRole('button', { name: 'Revenir à la vidéo' }).click();
+    await expect(panneau).toHaveCount(0);
+    expect(await page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+    await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+  });
+
+  test('0.76.8 Échap referme le panneau et rend la main au lien qui l\'a ouvert', async ({ page }) => {
+    const lien = page.locator('a[href="/diagnostic"]');
+    await lien.click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(lien).toBeFocused();
   });
 });

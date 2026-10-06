@@ -178,6 +178,20 @@ const routes = [
     },
   },
   {
+    /* La roue des lots du stand : on la lance au doigt, le lot gagné est celui
+       de la case où elle s'arrête. Ouverte depuis l'écran de la vidéo, hors du
+       menu, du plan du site et des moteurs ; pas d'en-tête ni de pied de page. */
+    path: '/roue',
+    name: 'roue',
+    component: () => import('./views/RoueView.vue'),
+    meta: {
+      title: 'Tournez la roue et gagnez un lot | Open Projets',
+      description: 'Sur le stand Open Projets, la roue des lots se lance au doigt et chaque case fait gagner le lot qu\'elle porte.',
+      robots: 'noindex, nofollow',
+      ecran: true,
+    },
+  },
+  {
     /* La fabrique de liens de l'équipe commerciale : on y colle une adresse,
        on dit où on va la partager, et on repart avec un lien marqué (utm_*)
        que PostHog reconnaît. Hors du menu, du plan du site et des moteurs. */

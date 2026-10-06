@@ -222,6 +222,13 @@
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
 
+# La roue des lots du stand, ouverte depuis la page de la vidéo, est hors des
+# moteurs pour la même raison.
+[[headers]]
+  for = "/roue"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
 # La vidéo de présentation et son affiche ne changent qu'avec un nouveau
 # montage : elles se gardent longtemps, et le navigateur peut en demander
 # un morceau à la fois (lecture avant la fin du téléchargement).
