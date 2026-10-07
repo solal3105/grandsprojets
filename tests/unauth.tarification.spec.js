@@ -163,6 +163,37 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     await expect(page.locator('#tarif-seuil')).toContainText('procédure formalisée');
   });
 
+  test('0.39.3b - le référencement UGAP est annoncé dès l\'ouverture, expliqué, et proposé quand le total dépasse les seuils', async ({ page }) => {
+    // Sous les seuils, l'encart n'en parle pas : il n'y a rien à éviter
+    await page.goto(`${PAGE}?population=12000&modules=carte&annees=1`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#ugap h2')).toHaveText("La suite Open Projets est disponible au catalogue multi-éditeurs de l'UGAP");
+    await expect(page.locator('#ugap img')).toHaveAttribute('alt', 'Éditeur référencé UGAP-SCC');
+    await expect(page.locator('#ugap li')).toHaveCount(3);
+    await expect(page.locator('#tarif-seuil a')).toHaveCount(0);
+    // La mention de l'ouverture mène au bloc sans perdre les réglages
+    await page.locator('#tarif-ugap-lien').click();
+    await expect(page).toHaveURL(/population=12000.*#ugap$/);
+    await expect(page.locator('#ugap')).toBeInViewport();
+    // Au-delà des seuils, l'encart y renvoie aussi
+    await page.goto(`${PAGE}?population=150000&modules=carte,travaux,participer,diagnostic&annees=4`, { waitUntil: 'domcontentloaded' });
+    const lien = page.locator('#tarif-seuil a');
+    await expect(lien).toContainText("Passer par l'UGAP vous en dispense");
+    await lien.click();
+    await expect(page).toHaveURL(/population=150000.*#ugap$/);
+    await expect(page.locator('#ugap')).toBeInViewport();
+  });
+
+  test('0.39.3c - la page À propos range le référencement UGAP dans la fiche de VAZY et renvoie au bloc des tarifs', async ({ page }) => {
+    await page.goto('/a-propos', { waitUntil: 'domcontentloaded' });
+    const bloc = page.locator('#apropos-ugap');
+    await expect(bloc).toContainText("VAZY est référencée dans le catalogue multi-éditeurs de l'UGAP.");
+    await expect(bloc.locator('img')).toHaveAttribute('alt', 'Éditeur référencé UGAP-SCC');
+    await bloc.locator('a').click();
+    // L'estimateur pose ses réglages dans l'adresse sans perdre l'ancre
+    await expect(page).toHaveURL(/\/tarification\?population=.*#ugap$/);
+    await expect(page.locator('#ugap')).toBeInViewport();
+  });
+
   test('0.39.4 - l\'estimation à envoyer est un document sans en-tête de site, avec le destinataire et notre numéro de suivi', async ({ page }) => {
     await page.goto(`${PAGE}?population=12000&modules=carte,travaux&annees=3&commercial=1`, { waitUntil: 'domcontentloaded' });
     await page.locator('#estimation-form input[type="text"]').nth(0).fill('Ville de Trifouillis');

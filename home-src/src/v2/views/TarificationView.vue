@@ -14,6 +14,17 @@
             Trois réglages suffisent : votre collectivité, les modules que vous activez et la durée
             de votre engagement. Les montants sont hors taxes.
           </p>
+          <!-- L'acheteur public doit voir d'entrée qu'il peut commander sans
+               consultation : c'est ce qui décide souvent de la suite. -->
+          <router-link
+            id="tarif-ugap-lien"
+            :to="{ query: route.query, hash: '#ugap' }"
+            class="group mt-8 inline-flex items-center gap-2.5 bg-white text-dark text-sm font-medium text-left pl-4 pr-5 py-2.5 rounded-2xl sm:rounded-full border border-gray-border shadow-pill hover:border-gray-300 transition-colors"
+          >
+            <BadgeCheck class="w-4 h-4 text-primary shrink-0" />
+            Open Projets se commande aussi par l'UGAP, sans mise en concurrence
+            <ArrowRight class="w-3.5 h-3.5 text-gray-muted shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
+          </router-link>
         </div>
       </div>
     </section>
@@ -337,7 +348,16 @@
                   role="status"
                 >
                   <component :is="estimation.seuilDepasse ? AlertTriangle : ShieldCheck" class="w-4 h-4 mt-0.5 shrink-0" />
-                  <span>{{ estimation.seuilDepasse ? estimation.seuilDepasse.texte : SOUS_LES_SEUILS }}</span>
+                  <span class="flex flex-col items-start">
+                    {{ estimation.seuilDepasse ? estimation.seuilDepasse.texte : SOUS_LES_SEUILS }}
+                    <router-link
+                      v-if="estimation.seuilDepasse"
+                      :to="{ query: route.query, hash: '#ugap' }"
+                      class="group mt-2 font-semibold"
+                    >
+                      Passer par l'UGAP vous en <span class="whitespace-nowrap">dispense<ArrowRight class="inline w-3.5 h-3.5 ml-1.5 -mt-0.5 transition-transform duration-200 group-hover:translate-x-0.5" /></span>
+                    </router-link>
+                  </span>
                 </p>
               </div>
 
@@ -434,6 +454,53 @@
       </div>
     </section>
 
+    <!-- Le référencement UGAP répond aux seuils juste au-dessus : une commande
+         passée à une centrale d'achat vaut publicité et mise en concurrence,
+         quel que soit le montant (article L2113-4 du code de la commande
+         publique). Le référencement est au nom de l'éditeur, VAZY, dans le
+         marché multi-éditeurs tenu par SCC. Rien ici sur le prix payé par
+         l'UGAP : nous ne l'affichons pas tant qu'il n'est pas confirmé. -->
+    <section id="ugap" class="pb-20 sm:pb-28 bg-white">
+      <div class="max-w-container mx-auto px-6">
+        <div class="rounded-3xl bg-dark text-white p-8 sm:p-12 lg:p-16 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
+          <div>
+            <img
+              :src="`${base}img/partners/ugap-editeur-reference-blanc.png`"
+              alt="Éditeur référencé UGAP-SCC"
+              width="720" height="265" loading="lazy"
+              class="h-16 sm:h-20 w-auto"
+            />
+            <h2 class="mt-10 font-heading font-bold text-3xl sm:text-4xl leading-[1.08] tracking-tight">
+              La suite Open Projets est disponible au catalogue <span class="whitespace-nowrap">multi-éditeurs</span> de l'UGAP
+            </h2>
+            <p class="mt-6 text-white/70 text-base sm:text-lg leading-relaxed max-w-[520px]">
+              L'UGAP est la centrale d'achat public de l'État. Les offres de son catalogue ont déjà
+              été attribuées par appel d'offres : en commandant Open Projets par elle, votre
+              collectivité achète sans organiser sa propre consultation.
+            </p>
+          </div>
+
+          <div>
+            <ul class="flex flex-col divide-y divide-white/10">
+              <li v-for="a in AVANTAGES_UGAP" :key="a.titre" class="flex gap-5 py-6 first:pt-0">
+                <span class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                  <component :is="a.icon" class="w-5 h-5 text-white" />
+                </span>
+                <span>
+                  <span class="block font-heading font-bold text-lg leading-snug">{{ a.titre }}</span>
+                  <span class="block mt-1.5 text-[15px] text-white/70 leading-relaxed">{{ a.texte }}</span>
+                </span>
+              </li>
+            </ul>
+            <p class="mt-2 pt-6 border-t border-white/10 text-xs text-white/60 leading-relaxed">
+              Article L2113-4 du code de la commande publique. Open Projets est référencé au nom de
+              son éditeur, VAZY.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <ContactBlock />
 
     <ChantiersParcours
@@ -453,7 +520,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, Check, AlertTriangle, ShieldCheck, FileText, MapPin, Loader2, SlidersHorizontal } from 'lucide-vue-next'
+import { ArrowRight, Check, AlertTriangle, ShieldCheck, FileText, MapPin, Loader2, SlidersHorizontal, FileCheck, Scale, Clock, BadgeCheck } from 'lucide-vue-next'
 import HeroGround from '../components/HeroGround.vue'
 import ContactBlock from '../components/ContactBlock.vue'
 import TerritoireRecherche from '../components/TerritoireRecherche.vue'
@@ -470,6 +537,27 @@ import { useChiffreAnime } from '../composables/useChiffreAnime.js'
 import { useModeCommercial } from '../composables/useModeCommercial.js'
 
 const route = useRoute()
+const base = import.meta.env.BASE_URL
+
+/* Ce que gagne l'acheteur à commander par l'UGAP. Seulement ce que le droit
+ * garantit : pas d'économie promise, le prix par l'UGAP n'étant pas affiché. */
+const AVANTAGES_UGAP = [
+  {
+    icon: FileCheck,
+    titre: "Vous n'avez pas d'appel d'offres à lancer",
+    texte: "Quel que soit le montant, une commande passée à une centrale d'achat vaut publicité et mise en concurrence. Les seuils présentés plus haut ne s'appliquent pas.",
+  },
+  {
+    icon: Scale,
+    titre: 'Votre achat est juridiquement sécurisé',
+    texte: "L'UGAP a mené la procédure et en assume la responsabilité : le respect des règles de la commande publique est garanti pour votre collectivité.",
+  },
+  {
+    icon: Clock,
+    titre: "Vous gagnez le temps d'une consultation",
+    texte: "Il n'y a ni cahier des charges à publier ni offres à comparer : votre service des marchés passe directement commande à l'UGAP.",
+  },
+]
 const router = useRouter()
 
 /* Ce que les visiteurs règlent sur la page, mesuré dans PostHog (docs/analytics.md).
@@ -729,7 +817,8 @@ watch([population, retenus, annees, territoire, reponsesChantiers], () => {
 
 onMounted(() => {
   if (initial.territoire) choisirTerritoire({ cle: initial.territoire })
-  else if (!route.query.population) router.replace({ query: requete() })
+  // L'ancre reste : on arrive ici par /tarification#ugap depuis la page À propos
+  else if (!route.query.population) router.replace({ query: requete(), hash: route.hash })
 })
 
 /* Le destinataire de l'estimation. La validité par défaut : soixante jours. */

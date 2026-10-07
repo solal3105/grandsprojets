@@ -79,6 +79,26 @@
                 <dd class="text-sm font-medium text-dark text-right">{{ ligne.valeur }}</dd>
               </div>
             </dl>
+
+            <!-- Le référencement UGAP fait partie de l'état civil d'un
+                 fournisseur public : il se range dans la fiche, pas à côté. -->
+            <div id="apropos-ugap" class="mt-4 pt-7 border-t border-gray-border flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-7">
+              <img
+                :src="`${base}img/partners/ugap-editeur-reference.png`"
+                alt="Éditeur référencé UGAP-SCC"
+                width="720" height="265" loading="lazy"
+                class="h-14 w-auto shrink-0 self-start sm:self-center"
+              />
+              <div>
+                <p class="text-sm text-gray-text leading-relaxed">
+                  VAZY est référencée dans le catalogue <span class="whitespace-nowrap">multi-éditeurs</span> de
+                  l'UGAP. Votre collectivité peut y commander Open Projets sans mise en concurrence.
+                </p>
+                <router-link to="/tarification#ugap" class="group mt-2 inline-block text-sm font-medium text-dark hover:text-primary-ink transition-colors">
+                  Voir ce que l'UGAP change pour votre <span class="whitespace-nowrap">achat<ArrowRight class="inline w-3.5 h-3.5 ml-1 -mt-0.5 transition-transform duration-200 group-hover:translate-x-0.5" /></span>
+                </router-link>
+              </div>
+            </div>
           </div>
         </div>
       </div>
