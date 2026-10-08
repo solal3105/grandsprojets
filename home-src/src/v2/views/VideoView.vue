@@ -8,8 +8,8 @@
        tout se referme quand plus personne n'y touche. On ne change jamais de
        page, et rien de ce que montrent les écrans ne peut en faire sortir : le
        plein écran tient du début à la fin, et le geste retour de l'appareil
-       remonte d'un cran au lieu de quitter la page. Page hors du menu, du plan
-       du site et des moteurs. -->
+       referme l'écran ouvert au lieu de quitter la page. Page hors du menu, du
+       plan du site et des moteurs. -->
   <div class="page-video relative isolate min-h-[100dvh] bg-dark text-white">
     <h1 class="sr-only">{{ videoAvantApres.nom }}</h1>
 
@@ -382,6 +382,7 @@ function basculerPleinEcran() {
   } else {
     vouloirPlein(true)
     entrerPleinEcran()
+    armerGarde()
   }
 }
 // Le navigateur n'accorde le plein écran que dans un geste du visiteur : c'est
@@ -467,7 +468,9 @@ function envoyer(type) {
 }
 
 // Le bouton de retour remonte d'un cran : dans l'écran des communes, il ferme
-// ce qui y est ouvert ; partout ailleurs, il ramène à la vidéo.
+// ce qui y est ouvert ; partout ailleurs, il ramène à la vidéo. Il agit
+// toujours lui-même, sans passer par l'historique : Chrome peut refuser un
+// retour demandé par la page, et le bouton ne doit jamais rester sans effet.
 function reculer() {
   toucher()
   if (ouverte.value?.liens === 'communes' && etape.value.niveau > 0) envoyer('salon:retour')
@@ -485,18 +488,34 @@ function toucheClavier(e) {
  *
  * Chaque écran ouvert prend une entrée d'historique (?ecran=...) : le geste
  * retour de la tablette, le bouton ou le glissement retour du navigateur
- * remontent alors d'un cran, comme le bouton de la barre, au lieu de quitter
- * la page. Refermer un écran rend l'adresse de l'accueil sans retirer
- * l'entrée : l'accueil garde ainsi derrière lui des entrées à son adresse, et
- * un retour de trop y reste. */
+ * referment l'écran ouvert au lieu de quitter la page. Les crans de l'écran
+ * des communes, eux, n'ont pas d'entrée : ils se remontent par le bouton de la
+ * barre. L'accueil garde toujours derrière lui au moins une entrée à son
+ * adresse, posée dans un geste du visiteur (le navigateur saute les autres) :
+ * un retour de trop y reste. Refermer un écran par son bouton ou par la veille
+ * rend l'adresse de l'accueil sans retirer l'entrée, qui devient une garde de
+ * plus. */
 
 const route = useRoute()
 const router = useRouter()
 
-function marquerEcran(vue) {
-  const query = { ...route.query, ecran: vue.key }
-  if (route.query.ecran) router.replace({ query })
-  else router.push({ query })
+function estAccueil(adresse) {
+  if (typeof adresse !== 'string') return false
+  const lieu = router.resolve(adresse)
+  return lieu.path === route.path && !lieu.query.ecran
+}
+function armerGarde() {
+  if (estAccueil(window.history.state?.back)) return Promise.resolve()
+  return router.push({ query: route.query, force: true })
+}
+async function marquerEcran(vue) {
+  if (route.query.ecran) {
+    router.replace({ query: { ...route.query, ecran: vue.key } })
+    return
+  }
+  await armerGarde()
+  // L'écran a pu se refermer pendant la pose de la garde
+  if (ouverte.value?.key === vue.key) router.push({ query: { ...route.query, ecran: vue.key } })
 }
 function demarquerEcran() {
   if (!route.query.ecran) return
@@ -504,15 +523,13 @@ function demarquerEcran() {
   delete query.ecran
   router.replace({ query })
 }
-// L'historique a reculé alors qu'un écran est ouvert : on remonte d'un cran.
-// Dans l'écran des communes, c'est la carte ou la saisie qui se referme, et
-// l'écran garde son entrée.
+// L'historique a bougé. En arrière d'un écran ouvert : il se referme. Sur une
+// entrée d'un écran déjà refermé : l'adresse revient à l'accueil.
 watch(() => route.query.ecran, (ecran) => {
-  if (ecran || !ouverte.value) return
-  if (ouverte.value.liens === 'communes' && etape.value.niveau > 0) {
-    envoyer('salon:retour')
-    marquerEcran(ouverte.value)
-  } else {
+  const vue = ouverte.value
+  if (!vue) {
+    if (ecran) demarquerEcran()
+  } else if (ecran !== vue.key) {
     fermer('retour')
   }
 })

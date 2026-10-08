@@ -15,7 +15,8 @@ import { test, expect } from '@playwright/test';
  *    imposée, et seul son bouton le quitte ;
  *  - rien de ce que montre un écran ne fait sortir du salon : ni plein écran
  *    à lui, ni nouvel onglet, ni navigation de la page entière ; le retour du
- *    navigateur ou de la tablette remonte d'un cran au lieu de quitter la page ;
+ *    navigateur ou de la tablette referme l'écran ouvert au lieu de quitter la
+ *    page, et un retour de trop reste sur l'accueil ;
  *  - chaque icône ouvre la chose elle-même sur tout l'écran, sous une seule
  *    barre : l'outil d'un module (jamais sa page de présentation), la
  *    reproduction du Diagnostic, l'écran des communes, la roue, les prix ;
@@ -375,29 +376,27 @@ test.describe("0.76 Écran de salon - la page /video", () => {
     await expect(barre(page)).toBeVisible();
   });
 
-  test("0.76.19 le retour du navigateur ou de la tablette remonte d'un cran au lieu de quitter la page", async ({ page }) => {
+  test("0.76.19 le retour du navigateur ou de la tablette referme l'écran ouvert, sans jamais quitter la page", async ({ page }) => {
     // Un écran ouvert : le retour le referme
     await page.getByRole('link', { name: 'Travaux', exact: true }).click();
     await expect(page).toHaveURL(/ecran=travaux/);
     await page.goBack();
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page).toHaveURL(/\/video$/);
+    // Un retour de plus reste sur l'accueil : il garde une entrée à son adresse
+    await page.goBack();
+    await expect(page).toHaveURL(/\/video$/);
+    await expect(page.locator('video')).toBeVisible();
 
-    // Dans l'écran des communes, le retour referme d'abord la carte ouverte
+    // Une carte ouverte dans l'écran des communes : le retour referme l'écran,
+    // et l'accueil le retient encore
     const cadre = await ouvrirCommunes(page);
     await cadre.locator('#communes-liste .commune__lien[href^="/ville/essai-"]').first().evaluate((a) => a.click());
     await expect(retour(page)).toHaveText('Revenir aux communes');
     await page.goBack();
-    await expect(cadre.locator('#couche')).toBeHidden();
-    await expect(barre(page)).toBeVisible();
-    await expect(retour(page)).toHaveText('Revenir à la vidéo');
-
-    // Un écran refermé par son bouton laisse l'accueil derrière lui : un
-    // retour de trop reste sur la page
-    await retour(page).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.goBack();
-    await expect(page).toHaveURL(/\/video/);
+    await expect(page).toHaveURL(/\/video$/);
     await expect(page.locator('video')).toBeVisible();
   });
 });
