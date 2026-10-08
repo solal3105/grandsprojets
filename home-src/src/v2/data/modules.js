@@ -26,6 +26,14 @@ export const ARRETE_URL = 'https://openprojets-chantiers.com/arrete/'
  * sans compte, avec un jeu de donnees deja rempli, et rien qui sorte de
  * l'appareil du visiteur. C'est ce que la vitrine embarque. */
 export const CHANTIERS_APP_URL = 'https://openprojets-chantiers.com/app/'
+// La meme, entree directement dans sa demonstration : sans l'ecran de connexion
+export const CHANTIERS_DEMO_URL = `${CHANTIERS_APP_URL}?demo`
+
+/* `demo` : l'outil lui-meme, tel qu'on le montre en direct. La page du module
+ * l'embarque, et l'ecran du salon (/video) l'ouvre tel quel par-dessus sa
+ * video. `titre` nomme le cadre, `consigne` dit au visiteur quoi y faire. Le
+ * Diagnostic n'en a pas : il vit dans l'administration, derriere un compte, et
+ * sa vitrine en montre une reproduction. */
 
 /* Les noms, arrêtés le 10 septembre 2026 : `name` est le nom complet (titres
  * de page, menus, document d'estimation, messages), `short` le nom d'usage
@@ -50,6 +58,11 @@ export const modules = [
     },
     live: { url: spaceUrl('metropole-lyon', 'carte'), label: 'Ouvrir un espace en service' },
     showcase: 'carte',
+    demo: {
+      url: spaceUrl('metropole-lyon', 'carte'),
+      titre: 'Carte des projets, espace de démonstration Métropole de Lyon',
+      consigne: "L'espace de la Métropole de Lyon, tel que ses habitants le consultent. Ouvrez une catégorie, puis un projet.",
+    },
     h1: "Vos projets d'aménagement deviennent une carte que vos habitants consultent",
     tagline: "Chaque projet a sa fiche publique, avec sa propre adresse, référencée sur les moteurs de recherche.",
     titres: { combine: "Ce module travaille avec les autres" },
@@ -216,6 +229,11 @@ export const modules = [
     },
     live: { url: spaceUrl('metropole-lyon', 'travaux'), label: 'Ouvrir un espace en service' },
     showcase: 'travaux',
+    demo: {
+      url: spaceUrl('metropole-lyon', 'travaux'),
+      titre: 'Module Travaux, espace de démonstration Métropole de Lyon',
+      consigne: 'Le module Travaux de la Métropole de Lyon. Déplacez le curseur de la chronologie : la carte se filtre avec lui.',
+    },
     h1: "Vos riverains savent enfin quand la rue rouvre",
     tagline: "Chaque chantier affiche son emprise, ses dates et son avancement, sans que personne n'appelle la mairie.",
     titres: { combine: "Ce module travaille avec les autres" },
@@ -341,6 +359,14 @@ export const modules = [
     aussi: { url: ARRETE_URL, label: 'Générer un arrêté, sans compte' },
     note: "Ce module a son propre espace de travail et son propre abonnement. Vos services y travaillent avec vos communes et les entreprises, vos habitants n'y entrent pas.",
     showcase: 'chantiers',
+    /* L'espace de travail est derriere invitation, mais il s'ouvre aussi en
+     * demonstration sans compte, avec un jeu de donnees deja rempli : le
+     * visiteur manipule le produit, pas une capture. */
+    demo: {
+      url: CHANTIERS_DEMO_URL,
+      titre: 'Open Projets Chantiers, espace de travail en démonstration',
+      consigne: "L'espace de travail des permissions de voirie, ouvert sur sa démonstration : un jeu de données est déjà en place, sans compte, et vos essais restent sur votre appareil.",
+    },
     h1: "Vos permissions de voirie et vos arrêtés de circulation s'instruisent en ligne",
     tagline: "Les entreprises déposent, vos services et vos communes instruisent dans un fil daté, et chaque chantier est suivi jusqu'à la réouverture de la rue.",
     titres: { combine: 'Ce module travaille avec les autres', },
@@ -431,6 +457,11 @@ export const modules = [
     },
     live: { url: spaceUrl('villedelyon', 'participer'), label: 'Ouvrir un espace en service' },
     showcase: 'participer',
+    demo: {
+      url: spaceUrl('villedelyon', 'participer'),
+      titre: 'Module Signalement, espace de démonstration',
+      consigne: 'Un espace où le module Signalement est ouvert. Déposez un signalement, ou passez par Explorer pour lire ceux déjà publiés.',
+    },
     h1: "Vos habitants vous signalent ce qui ne va pas, et suivent votre réponse",
     tagline: "Un habitant dépose en deux minutes sans créer de compte, vous décidez de ce qui devient public.",
     titres: { combine: "Ce module travaille avec les autres" },

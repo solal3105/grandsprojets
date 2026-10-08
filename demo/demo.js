@@ -143,7 +143,8 @@
   if (RETOUR) {
     ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => document.addEventListener(ev, armerFiletSaisie, { passive: true, capture: true }));
     const retour = $('btn-retour');
-    if (retour) {
+    // Dans l'écran du salon, sa barre porte le seul bouton de retour
+    if (retour && URL_PARAMS.get('salon') !== '1') {
       retour.hidden = false;
       retour.addEventListener('click', () => revenir());
     }

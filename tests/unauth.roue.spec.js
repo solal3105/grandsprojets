@@ -14,7 +14,7 @@ import {
  *  - la page est hors des moteurs, une partie lancée au bouton se termine sur
  *    le lot de la case où la roue s'arrête, et elle est comptée ;
  *  - un lot épuisé quitte la roue ;
- *  - l'écran de la vidéo ouvre la roue dans son panneau.
+ *  - l'écran de la vidéo ouvre la roue sur tout l'écran, sous sa barre.
  *
  * Le son, la vibration et la fluidité sur la tablette du stand ne sont pas
  * couverts ici.
@@ -124,11 +124,12 @@ test.describe('0.78 La roue des lots - la page', () => {
     await page.evaluate(() => localStorage.removeItem('op-roue-v1'));
   });
 
-  test("0.78.4 l'écran de la vidéo ouvre la roue dans son panneau", async ({ page }) => {
+  test("0.78.4 l'écran de la vidéo ouvre la roue sur tout l'écran, sous sa barre", async ({ page }) => {
     await page.goto('/video', { waitUntil: 'domcontentloaded' });
     await page.getByRole('link', { name: 'Roue des lots' }).click();
-    const panneau = page.getByRole('dialog', { name: 'La roue des lots' });
-    await expect(panneau.locator('iframe')).toHaveAttribute('src', '/roue');
-    await expect(page.frameLocator('iframe').getByRole('button', { name: 'Lancer la roue' })).toBeVisible();
+    const ecran = page.getByRole('dialog', { name: 'Tourner la roue des lots' });
+    await expect(ecran.locator('iframe')).toHaveAttribute('src', '/roue');
+    await expect(ecran.getByRole('button', { name: 'Revenir à la vidéo' })).toBeVisible();
+    await expect(page.frameLocator('.vue iframe').getByRole('button', { name: 'Lancer la roue' })).toBeVisible();
   });
 });

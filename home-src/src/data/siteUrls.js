@@ -19,6 +19,12 @@ export const CARTES_URL = `${SITE_URL}/cartes/`
 // Le même écran en mode stand : /kiosk redirige vers /cartes/?kiosk=1 (_redirects).
 export const KIOSK_URL = `${SITE_URL}/kiosk`
 
+/* Le même écran ouvert dans l'écran du salon (/video) : la barre du salon y
+ * porte le titre et le seul bouton de retour. L'adresse reste relative, parce
+ * que le salon ne pilote une page (ses retours, ses liens, ses gestes) que si
+ * elle partage son origine. */
+export const SALON_COMMUNES_PATH = '/cartes/?kiosk=1&salon=1'
+
 /* L'application d'une collectivité : /ville/{ville}/{module}.
  *
  * Les trois modules publics ont chacun leur adresse, et la carte est le

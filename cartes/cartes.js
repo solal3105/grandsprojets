@@ -15,6 +15,13 @@
    plein écran : l'écran de génération prévient la page quand il a fini, et
    c'est elle qui ouvre la carte construite.
 
+   Dans l'écran du salon (/video, ?kiosk=1&salon=1, dans son cadre) : la
+   barre du salon porte le seul bouton de retour, le titre et « Emporter cette
+   carte ». La page n'affiche plus son en-tête ni ses propres retours, elle dit
+   au salon où elle en est (message salon:etat), ferme ce qu'il lui demande de
+   fermer (salon:retour), et c'est le salon qui revient à la vidéo quand
+   personne ne touche plus à rien.
+
    Tablette modeste : un seul minuteur de veille (une fois par seconde), une
    seule chaîne de minuteurs pour les scènes, une seule image aérienne par
    vue (préchargée pour la scène suivante), la carte fermée détruite (src
@@ -29,6 +36,8 @@ import {
 const $ = (id) => document.getElementById(id);
 const PARAMS = new URLSearchParams(window.location.search);
 const KIOSK = PARAMS.get('kiosk') === '1';
+// Ouverte seule, la page garde ses retours : sans cadre, personne d'autre ne les porte
+const SALON = KIOSK && PARAMS.get('salon') === '1' && window.self !== window.top;
 // Clé de stand : l'écran de génération lève son quota par adresse IP avec elle
 const CLE = (PARAMS.get('k') || '').slice(0, 80);
 const SLUG_RE = /^[a-z0-9-]{1,60}$/;
@@ -56,6 +65,7 @@ function urlAccueil() {
   const u = new URL('/cartes/', window.location.origin);
   u.searchParams.set('kiosk', '1');
   if (CLE) u.searchParams.set('k', CLE);
+  if (SALON) u.searchParams.set('salon', '1');
   return u.pathname + u.search;
 }
 
@@ -72,6 +82,7 @@ function urlDemo(commune) {
   if (KIOSK) {
     u.searchParams.set('kiosk', '1');
     if (CLE) u.searchParams.set('k', CLE);
+    if (SALON) u.searchParams.set('salon', '1');
     u.searchParams.set('retour', urlAccueil());
   }
   return u.pathname + u.search;
@@ -445,7 +456,72 @@ const rappel = {
 
 const couche = { ouverte: false, slug: '', nom: '' };
 const saisie = { ouverte: false };
-const generation = { ouverte: false };
+const generation = { ouverte: false, nom: '' };
+
+/* ─── Le salon : la page dans le cadre de l'écran de la vidéo ─── */
+
+const salon = (() => {
+  let prevu = false;
+  let dernierGeste = 0;
+
+  function poster(message) {
+    try {
+      window.parent.postMessage(message, window.location.origin);
+    } catch { /* cadre détaché : plus personne à prévenir */ }
+  }
+
+  // Ce que la barre du salon doit montrer : son titre, son bouton de retour
+  // (et où il mène), l'action de la carte ouverte
+  function etat() {
+    const emporte = !$('emporter').hidden;
+    if (couche.ouverte && emporte) return { niveau: 2, titre: couche.nom, retour: 'Revenir à la carte' };
+    if (couche.ouverte) return { niveau: 1, titre: couche.nom, retour: 'Revenir aux communes', action: 'Emporter cette carte' };
+    // Une construction dure plusieurs minutes sans qu'on touche l'écran :
+    // le salon ne doit pas revenir à la vidéo pendant qu'on la regarde
+    if (generation.ouverte) return { niveau: 1, titre: generation.nom, retour: 'Revenir aux communes', attente: true };
+    if (saisie.ouverte) return { niveau: 1, retour: 'Revenir aux communes' };
+    return { niveau: 0 };
+  }
+
+  return {
+    // Plusieurs changements d'un même geste n'envoient qu'un état, le dernier
+    signaler() {
+      if (!SALON || prevu) return;
+      prevu = true;
+      queueMicrotask(() => {
+        prevu = false;
+        poster({ type: 'salon:etat', ...etat() });
+      });
+    },
+    // Les gestes faits ici, cartes ouvertes comprises, retiennent le salon
+    geste() {
+      if (!SALON) return;
+      const t = Date.now();
+      if (t - dernierGeste < 1000) return;
+      dernierGeste = t;
+      poster({ type: 'salon:geste' });
+    },
+    ecouter() {
+      window.addEventListener('message', (e) => {
+        if (e.source !== window.parent || e.origin !== window.location.origin) return;
+        const type = e.data?.type;
+        if (type === 'salon:retour') reculer();
+        else if (type === 'salon:action' && couche.ouverte) {
+          if ($('emporter').hidden) emporter.ouvrir();
+          else emporter.fermer();
+        }
+      });
+    },
+  };
+})();
+
+// Le retour du salon ferme ce qui est ouvert, du plus haut au plus bas
+function reculer() {
+  if (couche.ouverte && !$('emporter').hidden) emporter.fermer();
+  else if (couche.ouverte) fermerCouche('salon');
+  else if (generation.ouverte) fermerGeneration('salon');
+  else if (saisie.ouverte) fermerSaisie('salon');
+}
 
 /* Un seul minuteur, une fois par seconde, qui regarde depuis combien de temps
    personne n'a touché l'écran et referme ce qui doit l'être. */
@@ -457,10 +533,13 @@ const veille = (() => {
 
   function toucher() {
     dernierGeste = Date.now();
+    salon.geste();
     if (!couche.ouverte && !saisie.ouverte && !generation.ouverte) boucle.suspendre();
   }
 
   function tic() {
+    // Dans le salon, c'est lui qui revient à la vidéo, rappel compris
+    if (SALON) return;
     const calme = (Date.now() - dernierGeste) / 1000;
     if (generation.ouverte) {
       // L'écran de génération tient ses propres délais : on ne le referme
@@ -529,6 +608,7 @@ function ouvrirCouche(slug, nom, origine) {
   $('couche').hidden = false;
   document.body.classList.add('is-couche');
   veille.toucher();
+  salon.signaler();
   mesurer('cartes_ville_ouverte', { ville: slug, origine });
 }
 
@@ -547,6 +627,7 @@ function fermerCouche(motif) {
     window.history.replaceState(null, '', urlAccueil());
   }
   if (motif === 'veille') mesurer('cartes_retour_veille', { depuis: 'carte', ville: couche.slug });
+  salon.signaler();
   if (KIOSK) boucle.reprendre();
 }
 
@@ -642,10 +723,12 @@ function ouvrirGeneration(commune) {
   fermerSaisie();
   explication.cacher();
   generation.ouverte = true;
+  generation.nom = commune?.nom || '';
   cadreGeneration.src = urlDemo(commune);
   $('generation').hidden = false;
   document.body.classList.add('is-generation');
   veille.toucher();
+  salon.signaler();
 }
 
 function fermerGeneration(motif) {
@@ -656,6 +739,7 @@ function fermerGeneration(motif) {
   $('generation').hidden = true;
   document.body.classList.remove('is-generation');
   if (motif === 'veille') mesurer('cartes_retour_veille', { depuis: 'generation' });
+  salon.signaler();
   if (KIOSK && !couche.ouverte) boucle.reprendre();
 }
 
@@ -713,12 +797,15 @@ const emporter = (() => {
     champ.disabled = false;
     bouton.disabled = false;
     el.hidden = false;
+    salon.signaler();
     // Le focus est donné DANS le geste : Android n'ouvre son clavier qu'ainsi
     if (avecMail) champ.focus();
   }
 
   function fermer() {
-    if (!el.hidden) el.hidden = true;
+    if (el.hidden) return;
+    el.hidden = true;
+    salon.signaler();
   }
 
   async function envoyer(e) {
@@ -950,6 +1037,7 @@ function ouvrirSaisie() {
   saisieChamp?.vider();
   $('saisie-champ').focus();
   veille.toucher();
+  salon.signaler();
 }
 
 function fermerSaisie(motif) {
@@ -961,6 +1049,7 @@ function fermerSaisie(motif) {
   ciel.nuit(document.body.dataset.scene === 'comment');
   $('saisie-champ').blur();
   if (motif === 'veille') mesurer('cartes_retour_veille', { depuis: 'saisie' });
+  salon.signaler();
   if (KIOSK && !couche.ouverte && !generation.ouverte) boucle.reprendre();
 }
 
@@ -1045,7 +1134,14 @@ function initKiosque() {
   document.body.classList.add('is-kiosk');
   document.body.dataset.scene = 'accueil';
   neutraliserLiens();
-  initPleinEcran();
+  if (SALON) {
+    // Le plein écran et le thème se règlent depuis le salon, pas d'ici
+    document.body.classList.add('is-salon');
+    salon.ecouter();
+    salon.signaler();
+  } else {
+    initPleinEcran();
+  }
   garderAllume();
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') garderAllume();

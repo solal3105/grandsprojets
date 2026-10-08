@@ -152,6 +152,34 @@ photos demandées réduites au service d'images de Supabase (`render/image`,
 800 px de large), les images de la scène suivante préchargées, la carte fermée
 détruite (`src` vidé) pour rendre sa mémoire.
 
+## Dans l'écran du salon
+
+L'écran de la vidéo (`/video`) est l'accueil du salon : chaque icône y ouvre
+un écran sur toute la surface, sous une barre unique dont le seul bouton de
+retour remonte d'un cran. « Ma commune » y ouvre cette page en
+`/cartes/?kiosk=1&salon=1`, dans un cadre. Elle n'affiche alors ni son
+en-tête, ni « Revenir à l'accueil » (carte ouverte, saisie), ni la croix du
+panneau pour emporter la carte, et l'écran de génération qu'elle ouvre
+(`salon=1` transmis) cache aussi son retour. C'est la barre du salon qui porte
+le titre, le retour et « Emporter cette carte ».
+
+Les deux pages se parlent par `postMessage`, même origine uniquement :
+
+- la page envoie `{ type: 'salon:etat', niveau, titre?, retour?, action?,
+  attente? }` à chaque changement (carte ouverte, emport, saisie, génération).
+  `retour` est le libellé du bouton (« Revenir aux communes », « Revenir à la
+  carte »), `attente` signale une construction en cours, que le salon ne
+  referme pas au bout d'une minute ;
+- elle envoie `{ type: 'salon:geste' }` à chaque geste (au plus un par
+  seconde), cartes ouvertes comprises : c'est ce qui retient le salon ;
+- le salon envoie `{ type: 'salon:retour' }` (fermer ce qui est ouvert, du
+  plus haut au plus bas) et `{ type: 'salon:action' }` (ouvrir ou fermer le
+  panneau pour emporter la carte).
+
+Dans ce mode, la veille de la page ne referme rien : le salon revient
+lui-même à la vidéo après une minute sans geste. Ouverte seule (hors cadre),
+la page ignore `salon=1` et garde ses retours.
+
 ## Paramètres d'adresse
 
 - `/cartes/` : la page du site
@@ -159,6 +187,8 @@ détruite (`src` vidé) pour rendre sa mémoire.
 - `/cartes/?kiosk=1` : le stand
 - `/cartes/?kiosk=1&k=<clé>` : idem, la clé de stand est transmise à l'écran
   de génération (levée du quota par adresse IP, voir `demo/README.md`)
+- `/cartes/?kiosk=1&salon=1` : le stand dans le cadre de l'écran du salon
+  (voir plus haut) ; `/video?k=<clé>` y transmet la clé de stand
 - `/cartes/?kiosk=1&ouvrir=<slug>&nom=<Nom>` : ouvre tout de suite cette carte
   en couche. C'est ce que fait « Découvrir l'espace » sur l'écran de génération
   quand il a été ouvert par le stand : rien ne part dans un nouvel onglet.

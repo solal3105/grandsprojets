@@ -284,7 +284,9 @@ Suivi : `select mail_status, count(*) from demo_leads group by 1;`
   l'espace » envoient un message à la page (`postMessage`, même origine,
   `{ type: 'cartes:retour', ouvrir?, nom? }`), qui referme la couche et ouvre
   la carte. Ouvert seul avec `retour`, il navigue vers ce chemin (même
-  origine, chemin absolu uniquement)
+  origine, chemin absolu uniquement). Avec `salon=1` (stand ouvert dans
+  l'écran de la vidéo), il cache « Revenir à l'accueil » : la barre du salon
+  porte le seul retour
 - Diagnostic : `DEMO_DEBUG=1` en variable d'env renvoie le détail technique
   des erreurs au navigateur (désactivé par défaut)
 - Génération en 6 invocations SSE courtes (sources → ai → locate → media →

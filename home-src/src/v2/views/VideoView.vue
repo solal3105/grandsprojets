@@ -1,15 +1,19 @@
 <template>
-  <!-- L'écran de salon : la vidéo tourne en boucle, et les sorties restent à
-       portée de main, le stand des cartes des communes et les pages des cinq
-       modules. Une sortie s'ouvre par-dessus la vidéo, dans un panneau qu'on
-       referme pour revenir où on en était. Page hors du menu, du plan du site
-       et des moteurs. -->
+  <!-- L'écran de salon. Un seul accueil : la vidéo en boucle et les icônes des
+       écrans à ouvrir. Chaque icône ouvre la chose elle-même, jamais une page de
+       présentation : l'outil d'un module, sa reproduction quand il n'a pas de
+       démonstration publique, l'écran des communes, le générateur d'arrêtés, la
+       roue des lots, l'estimation des prix. L'écran ouvert prend tout l'écran,
+       sous une barre unique dont le seul bouton de retour remonte d'un cran, et
+       tout se referme quand plus personne n'y touche. On ne change jamais de
+       page : le plein écran tient du début à la fin. Page hors du menu, du plan
+       du site et des moteurs. -->
   <div class="page-video relative isolate min-h-[100dvh] bg-dark text-white">
     <h1 class="sr-only">{{ videoAvantApres.nom }}</h1>
 
     <!-- Le fond reprend l'image de la vidéo, en tout petit, agrandie et floutée :
          il en suit les couleurs, en fondu. Un voile l'assombrit vers le bas pour
-         que les sorties restent lisibles. -->
+         que les icônes restent lisibles. -->
     <canvas ref="ambiance" class="ambiance" width="32" height="18" aria-hidden="true" />
     <div class="fixed inset-0 -z-10 bg-gradient-to-b from-dark/10 via-dark/40 to-dark/85 pointer-events-none" aria-hidden="true" />
 
@@ -17,16 +21,10 @@
          colonne à droite, centrées sur le lecteur ; sur un écran en hauteur,
          les icônes passent sous la vidéo. -->
     <div class="scene" :inert="ouverte ? '' : null">
-      <div
-        ref="lecteur"
-        class="lecteur"
-        :class="{ 'is-plein': pleinVideo, 'is-calme': pleinVideo && lecture && !actif }"
-        @pointermove="reveiller"
-        @pointerdown="reveiller"
-      >
+      <div class="lecteur">
         <div class="ecran relative bg-black overflow-hidden">
           <!-- Un clic sur l'image met en pause ou relance, comme dans tout
-               lecteur. Le plein écran ne s'ouvre que par son bouton. -->
+               lecteur. -->
           <video
             ref="video"
             class="w-full h-full object-contain"
@@ -50,10 +48,9 @@
           </button>
         </div>
 
-        <!-- Les commandes restent sous l'image : posées dessus, elles cachaient
-             la fin des sous-titres. En plein écran seulement, elles passent sur
-             l'image et s'effacent quand on ne touche plus à rien. Sur un
-             téléphone, la barre de lecture prend une ligne à elle seule. -->
+        <!-- Les commandes restent sous l'image, pour ne pas cacher la fin des
+             sous-titres. Sur un téléphone, la barre de lecture prend une ligne
+             à elle seule. -->
         <div class="commandes flex flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap sm:gap-3">
           <button
             type="button"
@@ -89,103 +86,133 @@
             <Volume2 v-else class="w-4 h-4" />
             {{ muet ? 'Activer le son' : 'Couper le son' }}
           </button>
-          <button type="button" class="bouton" @click="basculerPleinVideo">
-            <Minimize v-if="pleinVideo" class="w-4 h-4" />
+          <!-- Le seul plein écran du salon : il vise la page entière, et tient
+               donc pour tous les écrans qu'on ouvre ensuite. -->
+          <button type="button" class="bouton" @click="basculerPleinEcran">
+            <Minimize v-if="plein" class="w-4 h-4" />
             <Maximize v-else class="w-4 h-4" />
-            <span class="sr-only sm:not-sr-only">{{ pleinVideo ? 'Quitter le plein écran' : 'Passer en plein écran' }}</span>
+            <span class="sr-only sm:not-sr-only">{{ plein ? 'Quitter le plein écran' : 'Passer en plein écran' }}</span>
           </button>
         </div>
       </div>
 
-      <!-- Les pages à ouvrir, en icônes d'applications comme sur l'écran d'accueil
-           d'une tablette : les cinq modules en grille, et dans le dock du bas les
-           deux activités du stand, la carte de sa commune et la roue des lots.
-           Les liens gardent leur adresse : un appui ordinaire ouvre la page dans
-           le panneau, un clic avec Cmd, Ctrl ou la molette l'ouvre dans un nouvel
-           onglet, comme partout. -->
-      <nav class="applis" aria-label="Pages à ouvrir">
+      <!-- Les icônes, comme sur l'écran d'accueil d'une tablette : les cinq
+           modules en grille, et dans le dock ce qu'on fait sur le stand. Les
+           liens gardent une adresse : un appui ordinaire ouvre l'écran ici, un
+           clic avec Cmd, Ctrl ou la molette l'ouvre dans un nouvel onglet. -->
+      <nav class="applis" aria-label="Écrans à ouvrir">
         <ul class="applis__grille" aria-label="Les cinq modules">
-          <li v-for="p in pagesModules" :key="p.key">
-            <a :href="p.url" class="appli" @click="ouvrir($event, p)">
-              <span class="appli__icone" :class="p.socle" aria-hidden="true">
-                <component :is="p.icone" class="appli__picto" />
+          <li v-for="v in vuesModules" :key="v.key">
+            <a :href="v.lien" class="appli" @click="ouvrir($event, v)">
+              <span class="appli__icone" :class="v.socle" aria-hidden="true">
+                <component :is="v.icone" class="appli__picto" />
               </span>
-              <span class="appli__nom">{{ p.court }}</span>
+              <span class="appli__nom">{{ v.court }}</span>
             </a>
           </li>
         </ul>
         <ul class="applis__dock" aria-label="Sur le stand">
-          <li>
-            <a :href="commune.url" class="appli" @click="ouvrir($event, commune)">
-              <span class="appli__icone appli__icone--blanc" aria-hidden="true">
-                <MapPinned class="appli__picto appli__picto--rouge" />
-              </span>
-              <span class="appli__nom">{{ commune.court }}</span>
-            </a>
-          </li>
-          <li>
-            <a :href="roue.url" class="appli" @click="ouvrir($event, roue)">
-              <!-- L'icône de la roue est la roue elle-même, aux couleurs de ses lots -->
-              <span class="appli__icone appli__icone--blanc" aria-hidden="true">
-                <svg class="appli__roue" viewBox="-1.1 -1.1 2.2 2.2">
+          <li v-for="v in vuesStand" :key="v.key">
+            <a :href="v.lien" class="appli" @click="ouvrir($event, v)">
+              <span class="appli__icone appli__icone--blanc" :class="v.teinte" aria-hidden="true">
+                <!-- L'icône de la roue est la roue elle-même, aux couleurs de ses lots -->
+                <svg v-if="v.key === 'roue'" class="appli__roue" viewBox="-1.1 -1.1 2.2 2.2">
                   <path v-for="q in quartiersRoue" :key="q.d" :d="q.d" :fill="q.teinte" />
                   <circle r="0.3" fill="#fff" />
                   <circle r="0.12" fill="#111" />
                   <path d="M-0.16 -1.08 L0.16 -1.08 L0 -0.78 Z" fill="#FF0037" stroke="#fff" stroke-width="0.05" />
                 </svg>
+                <component :is="v.icone" v-else class="appli__picto" />
               </span>
-              <span class="appli__nom">{{ roue.court }}</span>
+              <span class="appli__nom">{{ v.court }}</span>
             </a>
           </li>
         </ul>
       </nav>
     </div>
 
-    <!-- La page ouverte, dans un panneau posé sur la vidéo. Il se referme par
-         son bouton, par Échap ou d'un clic à côté ; son propre bouton le passe
-         en plein écran. -->
-    <div v-if="ouverte" class="voile-page" @click.self="fermer">
-      <div
-        ref="panneau"
-        class="panneau"
-        :class="{ 'is-plein': pleinPage }"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="titre-page-ouverte"
-      >
-        <div class="barre flex items-center gap-2 sm:gap-3 bg-dark text-white px-3 sm:px-4 py-2.5">
-          <span class="w-3 h-3 shrink-0 rounded-full" :class="ouverte.socle" aria-hidden="true" />
-          <h2 id="titre-page-ouverte" class="flex-1 min-w-0 truncate font-heading font-semibold text-[15px]">
-            {{ ouverte.titre }}
-          </h2>
-          <button v-if="pleinPossible" type="button" class="bouton" @click="basculerPleinPage">
-            <Minimize v-if="pleinPage" class="w-4 h-4" />
-            <Maximize v-else class="w-4 h-4" />
-            <span class="sr-only sm:not-sr-only">{{ pleinPage ? 'Quitter le plein écran' : 'Passer en plein écran' }}</span>
-          </button>
-          <button ref="boutonFermer" type="button" class="bouton" @click="fermer">
-            <X class="w-4 h-4" />
-            Revenir à la vidéo
-          </button>
+    <!-- L'écran ouvert, sur tout l'écran. Une seule barre : le bouton de retour,
+         qui dit où il ramène et ne remonte que d'un cran, le titre, la consigne,
+         et l'action de l'écran quand il en a une (emporter la carte d'une
+         commune). -->
+    <div
+      v-if="ouverte"
+      class="vue fixed inset-0 z-50 flex flex-col bg-dark"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titre-vue"
+    >
+      <div class="barre flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-2.5 border-b border-white/10">
+        <button ref="boutonRetour" type="button" class="bouton" @click="reculer">
+          <ArrowLeft class="w-4 h-4" />
+          {{ libelleRetour }}
+        </button>
+        <div class="flex-1 min-w-0">
+          <h2 id="titre-vue" class="truncate font-heading font-semibold text-[15px] sm:text-base">{{ titreVue }}</h2>
+          <p v-if="consigneVue" class="mt-0.5 text-[13px] leading-snug text-white/70 line-clamp-2">{{ consigneVue }}</p>
         </div>
-        <div class="relative flex-1" :class="ouverte.key === 'roue' ? 'bg-dark' : 'bg-white'">
-          <iframe
-            :key="ouverte.key"
-            class="absolute inset-0 w-full h-full"
-            :src="ouverte.url"
-            :title="ouverte.titre"
-            allow="fullscreen"
-            @load="chargee = true"
-          />
-          <p
-            v-if="!chargee"
-            class="absolute inset-0 grid place-items-center text-sm text-gray-text pointer-events-none"
-          >
-            <span class="inline-flex items-center gap-2">
-              <Loader class="w-4 h-4 animate-spin" />
-              Chargement de la page
-            </span>
-          </p>
+        <button v-if="actionVue" type="button" class="bouton bouton--plein" @click="agir">
+          {{ actionVue }}
+        </button>
+      </div>
+
+      <div class="vue__corps" :class="ouverte.fond === 'sombre' ? 'bg-dark' : 'bg-white'">
+        <!-- Le cadre reste caché jusqu'à son chargement : une page du site y
+             montrerait un instant son en-tête, retiré dès qu'elle démarre. -->
+        <iframe
+          v-if="ouverte.url"
+          ref="cadre"
+          :key="ouverte.key"
+          class="absolute inset-0 w-full h-full border-0"
+          :class="{ invisible: !chargee }"
+          :src="ouverte.url"
+          :title="titreVue"
+          allow="fullscreen; geolocation; screen-wake-lock"
+          @load="cadreCharge"
+        />
+        <!-- Un module sans démonstration publique montre la reproduction de sa
+             vitrine, sans la page qui l'entoure. -->
+        <div v-else class="absolute inset-0 overflow-y-auto text-dark">
+          <div class="max-w-[1040px] mx-auto px-4 sm:px-8 py-8 sm:py-12">
+            <component :is="ouverte.composant" :module-key="ouverte.key" />
+          </div>
+        </div>
+
+        <p
+          v-if="ouverte.url && !chargee"
+          class="absolute inset-0 grid place-items-center text-sm pointer-events-none"
+          :class="ouverte.fond === 'sombre' ? 'text-white/70' : 'text-gray-text'"
+        >
+          <span class="inline-flex items-center gap-2">
+            <Loader class="w-4 h-4 animate-spin" />
+            Chargement en cours
+          </span>
+        </p>
+
+        <p
+          v-if="lienBloque"
+          class="lien-bloque absolute left-1/2 bottom-6 -translate-x-1/2 w-max max-w-[90%] rounded-2xl bg-dark/90 px-5 py-3 text-center text-sm leading-relaxed text-white"
+          role="status"
+        >
+          {{ lienBloque }}
+        </p>
+
+        <!-- Le rappel avant le retour à la vidéo. Il couvre l'écran ouvert : un
+             appui n'importe où le retient, même sur un site dont nous ne voyons
+             pas les gestes. -->
+        <div
+          v-if="rappel"
+          class="absolute inset-0 z-10 grid place-items-center bg-black/45 p-4"
+          @pointerdown="toucher"
+        >
+          <div class="max-w-sm rounded-2xl bg-white px-6 py-5 text-center text-dark" role="alert">
+            <p class="font-heading font-semibold text-lg leading-snug">
+              Nous revenons à la vidéo dans {{ rappel }} {{ rappel > 1 ? 'secondes' : 'seconde' }}.
+            </p>
+            <button type="button" class="mt-4 rounded-full bg-dark px-5 py-2.5 text-sm font-medium text-white" @click="toucher">
+              Rester sur cet écran
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -193,26 +220,60 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { Loader, MapPinned, Maximize, Minimize, Pause, Play, Volume2, VolumeX, X } from 'lucide-vue-next'
-import { modules } from '../data/modules.js'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent, markRaw } from 'vue'
+import { ArrowLeft, Calculator, Loader, MapPinned, Maximize, Minimize, Pause, Play, Stamp, Volume2, VolumeX } from 'lucide-vue-next'
+import { modules, ARRETE_URL } from '../data/modules.js'
 import { lotsRoue } from '../data/roue.js'
 import { videoAvantApres } from '../data/videoAvantApres.js'
-import { KIOSK_URL } from '@/data/siteUrls.js'
+import { KIOSK_URL, SALON_COMMUNES_PATH, SITE_URL } from '@/data/siteUrls.js'
 
-/* Les pages qui s'ouvrent dans le panneau : les cinq modules, l'écran du stand
- * et la roue des lots. `court` est le nom sous l'icône, `titre` celui du
- * panneau. */
-const commune = { key: 'commune', court: 'Ma commune', titre: 'Chercher ma commune', url: KIOSK_URL, socle: 'bg-primary' }
-const roue = { key: 'roue', court: 'Roue des lots', titre: 'La roue des lots', url: '/roue', socle: 'bg-white' }
-const pagesModules = modules.map((m) => ({
+/* ---- Les écrans ----
+ *
+ * `court` est le nom sous l'icône, `titre` celui de la barre, `url` ce que
+ * montre le cadre, `lien` l'adresse du lien pour qui l'ouvre dans un nouvel
+ * onglet. `liens` dit ce que le cadre laisse suivre : `outil` garde la
+ * navigation de l'outil dans son cadre, `page` n'accepte que la page
+ * elle-même, `communes` laisse l'écran des communes tenir les siens. `fond` est
+ * la couleur sous le cadre pendant qu'il se charge. */
+
+const vuesModules = modules.map((m) => ({
   key: m.key,
   court: m.short,
   titre: m.name,
-  url: `/${m.key}`,
   socle: m.tone.socle,
   icone: m.icon,
+  url: m.demo?.url || null,
+  lien: m.demo?.url || `/${m.key}`,
+  consigne: m.demo?.consigne || null,
+  // Sans démonstration publique (le Diagnostic), la reproduction de la vitrine
+  composant: m.demo
+    ? null
+    : markRaw(defineAsyncComponent(() => import('../components/showcases/index.js').then((s) => s.showcases[m.showcase]))),
+  liens: 'outil',
+  fond: 'clair',
 }))
+
+// La clé du stand (/video?k=...) suit jusqu'à l'écran de génération : c'est
+// elle qui lève le quota de constructions par adresse IP (demo/README.md).
+const cleStand = (new URLSearchParams(window.location.search).get('k') || '').slice(0, 80)
+const commune = {
+  key: 'commune', court: 'Ma commune', titre: 'Voir la carte de votre commune', icone: MapPinned, teinte: 'text-mod-carte',
+  url: cleStand ? `${SALON_COMMUNES_PATH}&k=${encodeURIComponent(cleStand)}` : SALON_COMMUNES_PATH,
+  lien: KIOSK_URL, liens: 'communes', fond: 'sombre',
+}
+const vuesStand = [
+  commune,
+  {
+    key: 'arretes', court: 'Arrêtés', titre: 'Générer un arrêté de circulation ou de voirie', icone: Stamp, teinte: 'text-mod-chantiers',
+    url: ARRETE_URL, lien: ARRETE_URL, liens: 'outil', fond: 'clair',
+    consigne: 'Touchez « Créer mon arrêté gratuitement » et choisissez ce que vous avez prévu : votre arrêté se rédige sous vos yeux, sans compte.',
+  },
+  { key: 'roue', court: 'Roue des lots', titre: 'Tourner la roue des lots', url: '/roue', lien: '/roue', liens: 'page', fond: 'sombre' },
+  {
+    key: 'tarification', court: 'Tarification', titre: "Estimer le prix d'Open Projets", icone: Calculator, teinte: 'text-dark',
+    url: '/tarification?salon=1', lien: '/tarification', liens: 'page', fond: 'clair',
+  },
+]
 
 /* L'icône de la roue : huit quartiers aux couleurs des lots. */
 const quartiersRoue = Array.from({ length: 8 }, (_, i) => {
@@ -222,10 +283,9 @@ const quartiersRoue = Array.from({ length: 8 }, (_, i) => {
   return { d: `M0 0 L${point(a)} A1 1 0 0 1 ${point(b)} Z`, teinte: lotsRoue[i % lotsRoue.length].teinte }
 })
 
-const lecteur = ref(null)
 const video = ref(null)
-const panneau = ref(null)
-const boutonFermer = ref(null)
+const cadre = ref(null)
+const boutonRetour = ref(null)
 
 /* ---- La lecture ---- */
 
@@ -233,8 +293,7 @@ const lecture = ref(true)
 const muet = ref(true)
 const temps = ref(0)
 const duree = ref(videoAvantApres.duree)
-// Une pause demandée par le visiteur (ou par l'ouverture d'une page) n'est pas
-// défaite au retour sur l'onglet.
+// Une pause demandée par le visiteur n'est pas défaite au retour sur l'onglet.
 let pauseVoulue = false
 
 function basculerLecture() {
@@ -246,7 +305,6 @@ function basculerLecture() {
     pauseVoulue = true
     v.pause()
   }
-  reveiller()
 }
 // Les navigateurs refusent la lecture automatique avec le son : la vidéo part
 // muette, et le son s'active d'un geste.
@@ -273,82 +331,268 @@ function horloge(s) {
 // pendant qu'elle était cachée, jamais si on l'a arrêtée exprès.
 function reprendre() {
   const v = video.value
-  if (document.visibilityState === 'visible' && v?.paused && !pauseVoulue && !ouverte.value) v.play().catch(() => {})
+  if (document.visibilityState !== 'visible') return
+  garderAllume()
+  if (v?.paused && !pauseVoulue && !ouverte.value) v.play().catch(() => {})
 }
 
-/* ---- Le plein écran ---- */
+/* ---- Le plein écran ----
+ *
+ * Il vise la page entière : comme on n'en change jamais, il tient pour tous
+ * les écrans qu'on ouvre. L'iPhone ne sait mettre en plein écran que la
+ * vidéo, avec son propre lecteur : c'est ce qu'il obtient. */
 
-// L'iPhone ne sait mettre en plein écran que la vidéo, avec son propre lecteur :
-// le panneau d'une page, lui, y occupe déjà tout l'écran.
 const pleinPossible = ref(false)
-const pleinVideo = ref(false)
-const pleinPage = ref(false)
+const plein = ref(false)
 
-function entrerPleinEcran(el) {
-  if (el.requestFullscreen) el.requestFullscreen().catch(() => {})
-  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen()
-}
-function quitterPleinEcran() {
-  if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
-  else if (document.webkitFullscreenElement) document.webkitExitFullscreen()
-}
-// Le plein écran vise le lecteur entier, pas la vidéo seule : ses commandes,
-// dont celle qui en sort, restent disponibles par-dessus l'image.
-function basculerPleinVideo() {
-  if (pleinVideo.value) return quitterPleinEcran()
-  if (pleinPossible.value) entrerPleinEcran(lecteur.value)
-  else video.value?.webkitEnterFullscreen?.()
-}
-function basculerPleinPage() {
-  if (pleinPage.value) quitterPleinEcran()
-  else entrerPleinEcran(panneau.value)
+function basculerPleinEcran() {
+  if (plein.value) {
+    if (document.exitFullscreen) document.exitFullscreen().catch(() => {})
+    else document.webkitExitFullscreen?.()
+    return
+  }
+  const el = document.documentElement
+  if (!pleinPossible.value) video.value?.webkitEnterFullscreen?.()
+  else if (el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {})
+  else el.webkitRequestFullscreen?.()
 }
 function suivrePleinEcran() {
-  const el = document.fullscreenElement || document.webkitFullscreenElement || null
-  pleinVideo.value = !!el && el === lecteur.value
-  pleinPage.value = !!el && el === panneau.value
-  reveiller()
+  plein.value = !!(document.fullscreenElement || document.webkitFullscreenElement)
 }
 
-// En plein écran, les commandes s'effacent après trois secondes sans geste et
-// reviennent au moindre mouvement.
-const actif = ref(true)
-let minuteur = null
-function reveiller() {
-  actif.value = true
-  clearTimeout(minuteur)
-  minuteur = setTimeout(() => { actif.value = false }, 3000)
+// L'écran reste allumé : sur un stand, une tablette en veille ne montre rien.
+let verrou = null
+async function garderAllume() {
+  try {
+    if (navigator.wakeLock && (!verrou || verrou.released)) verrou = await navigator.wakeLock.request('screen')
+  } catch { /* refusé : la tablette gère elle-même sa mise en veille */ }
 }
 
-/* ---- Les pages ouvertes dans le panneau ---- */
+/* ---- L'écran ouvert ---- */
 
 const ouverte = ref(null)
 const chargee = ref(false)
+// Où en est l'écran des communes, d'après son dernier message : sa profondeur,
+// son titre, le libellé de son retour, son action, et s'il faut l'attendre.
+const etape = ref({ niveau: 0 })
 let declencheur = null
 let reprendreApres = false
 
-function ouvrir(e, page) {
+const titreVue = computed(() => etape.value.titre || ouverte.value?.titre || '')
+const libelleRetour = computed(() => etape.value.retour || 'Revenir à la vidéo')
+const actionVue = computed(() => etape.value.action || null)
+const consigneVue = computed(() => (etape.value.niveau ? null : ouverte.value?.consigne || null))
+
+function ouvrir(e, vue) {
   // Cmd, Ctrl, Maj ou la molette : le navigateur ouvre l'onglet lui-même.
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
   e.preventDefault()
   declencheur = e.currentTarget
-  const v = video.value
-  reprendreApres = !v.paused
-  v.pause()
-  chargee.value = false
-  ouverte.value = page
-  document.documentElement.classList.add('overflow-hidden')
-  nextTick(() => boutonFermer.value?.focus())
+  afficher(vue)
 }
-function fermer() {
-  if (pleinPage.value) quitterPleinEcran()
+
+// Ouvre un écran, depuis l'accueil ou à la place d'un autre (la roue mène à
+// l'écran des communes).
+function afficher(vue) {
+  const v = video.value
+  if (!ouverte.value) {
+    reprendreApres = !v.paused
+    v.pause()
+  }
+  etape.value = { niveau: 0 }
+  chargee.value = false
+  cadreDistant = false
+  lienBloque.value = ''
+  ouverte.value = vue
+  toucher()
+  document.documentElement.classList.add('overflow-hidden')
+  nextTick(() => boutonRetour.value?.focus())
+}
+
+function fermer(motif) {
   ouverte.value = null
+  etape.value = { niveau: 0 }
+  rappel.value = 0
+  lienBloque.value = ''
   document.documentElement.classList.remove('overflow-hidden')
-  if (reprendreApres) video.value?.play().catch(() => {})
+  // Après la veille, la vidéo repart toujours : c'est elle qui attire le
+  // visiteur suivant.
+  if (motif === 'veille') pauseVoulue = false
+  if (reprendreApres || motif === 'veille') video.value?.play().catch(() => {})
   nextTick(() => declencheur?.focus())
 }
+
+function envoyer(type) {
+  try {
+    cadre.value?.contentWindow?.postMessage({ type }, window.location.origin)
+  } catch { /* cadre déjà refermé */ }
+}
+
+// Le bouton de retour remonte d'un cran : dans l'écran des communes, il ferme
+// ce qui y est ouvert ; partout ailleurs, il ramène à la vidéo.
+function reculer() {
+  toucher()
+  if (ouverte.value?.liens === 'communes' && etape.value.niveau > 0) envoyer('salon:retour')
+  else fermer('bouton')
+}
+function agir() {
+  toucher()
+  envoyer('salon:action')
+}
 function toucheClavier(e) {
-  if (e.key === 'Escape' && ouverte.value && !pleinPage.value) fermer()
+  if (e.key === 'Escape' && ouverte.value) reculer()
+}
+
+/* L'écran des communes dit où il en est. Seuls ses messages, de même origine,
+ * sont écoutés, et ses textes passent par l'interpolation de Vue. */
+const texte = (t) => (typeof t === 'string' && t ? t.slice(0, 120) : null)
+function recevoir(e) {
+  if (!ouverte.value || e.origin !== window.location.origin || !cadre.value || e.source !== cadre.value.contentWindow) return
+  const d = e.data
+  if (d?.type === 'salon:etat') {
+    etape.value = {
+      niveau: Number(d.niveau) || 0,
+      titre: texte(d.titre),
+      retour: texte(d.retour),
+      action: texte(d.action),
+      attente: d.attente === true,
+    }
+    toucher()
+  } else if (d?.type === 'salon:geste') {
+    toucher()
+  }
+}
+
+/* ---- Les liens des écrans ouverts ----
+ *
+ * Un cadre de même origine laisse voir ses liens : celui qui mène à l'écran
+ * des communes l'ouvre ici, ceux qui mènent à un autre site restent fermés,
+ * et une page du site (la roue, les prix) ne mène nulle part ailleurs. Le
+ * visiteur sait pourquoi. Un cadre d'un autre site ne montre rien : il garde
+ * ses liens. */
+
+const EXPLICATIONS = {
+  ailleurs: "Ce lien mène à un autre site, qui ne s'ouvre pas sur l'écran du stand.",
+  page: "Cette page ne s'ouvre pas sur l'écran du stand. Revenez à la vidéo pour ouvrir un autre écran.",
+}
+const lienBloque = ref('')
+let minuteurLien = null
+function expliquer(motif) {
+  lienBloque.value = EXPLICATIONS[motif]
+  clearTimeout(minuteurLien)
+  minuteurLien = setTimeout(() => { lienBloque.value = '' }, 6000)
+}
+
+function versLesCommunes(u) {
+  const origines = [window.location.origin, new URL(SITE_URL).origin]
+  return origines.includes(u.origin) && (u.pathname === '/kiosk' || u.pathname.startsWith('/cartes'))
+}
+
+// Ce que devient une adresse demandée depuis le cadre : true si elle peut s'y
+// ouvrir, sinon elle a déjà été traitée (écran des communes ou explication).
+function autoriser(u, doc, vue) {
+  if (versLesCommunes(u)) {
+    afficher(commune)
+    return false
+  }
+  if (u.origin !== window.location.origin) {
+    expliquer('ailleurs')
+    return false
+  }
+  if (vue.liens === 'page' && u.pathname !== doc.location.pathname) {
+    expliquer('page')
+    return false
+  }
+  return true
+}
+
+function surveillerLiens(doc, fenetre, vue) {
+  doc.addEventListener('click', (e) => {
+    // Pas de instanceof : les éléments du cadre viennent d'un autre monde JavaScript
+    const a = typeof e.target?.closest === 'function' ? e.target.closest('a[href]') : null
+    if (!a) return
+    let cible
+    try {
+      cible = new URL(a.getAttribute('href') || '', doc.baseURI)
+    } catch {
+      return
+    }
+    if (!autoriser(cible, doc, vue)) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
+    // Un nouvel onglet s'ouvre dans le cadre
+    if (a.target === '_blank') a.target = '_self'
+  }, true)
+  try {
+    fenetre.open = (url) => {
+      try {
+        const u = new URL(String(url || ''), doc.baseURI)
+        if (autoriser(u, doc, vue)) fenetre.location.href = u.href
+      } catch { /* adresse illisible : ignorée */ }
+      return null
+    }
+  } catch { /* fenêtre inaccessible */ }
+}
+
+/* ---- La veille ----
+ *
+ * Quand plus personne ne touche l'écran ouvert, un rappel prévient, puis tout
+ * se referme et la vidéo repart. Les gestes comptent partout où nous les
+ * voyons : sur cette page, dans un cadre de même origine, et dans l'écran des
+ * communes, qui les signale lui-même, cartes ouvertes comprises. */
+
+const VEILLE = {
+  // Une minute sans geste, puis dix secondes de rappel
+  calme: 60,
+  prevenir: 10,
+  // Un cadre d'un autre site (Chantiers, le générateur d'arrêtés) ne nous
+  // montre pas ses gestes : le rappel y vient plus tard, et un appui le retient
+  distant: 180,
+  // La construction d'une carte se regarde plusieurs minutes sans toucher à
+  // rien : le même filet que l'écran du stand, au cas où elle ne finirait pas
+  attente: 20 * 60,
+}
+const GESTES = ['pointerdown', 'keydown', 'wheel', 'touchstart']
+const rappel = ref(0)
+let dernierGeste = Date.now()
+let cadreDistant = false
+let minuteurVeille = null
+
+function toucher() {
+  dernierGeste = Date.now()
+  rappel.value = 0
+}
+function tic() {
+  if (!ouverte.value) return
+  const delai = etape.value.attente ? VEILLE.attente : cadreDistant ? VEILLE.distant : VEILLE.calme
+  const reste = delai - (Date.now() - dernierGeste) / 1000
+  if (reste <= 0) fermer('veille')
+  else rappel.value = reste <= VEILLE.prevenir ? Math.ceil(reste) : 0
+}
+// Le premier appui dans un cadre d'un autre site lui donne le focus : c'est
+// le seul geste que nous en voyons.
+function focusCadre() {
+  if (ouverte.value && document.activeElement?.tagName === 'IFRAME') toucher()
+}
+
+function cadreCharge() {
+  chargee.value = true
+  const vue = ouverte.value
+  const el = cadre.value
+  if (!vue || !el) return
+  let doc = null
+  try {
+    doc = el.contentDocument
+  } catch {
+    doc = null
+  }
+  cadreDistant = !doc
+  if (!doc) return
+  GESTES.forEach((ev) => doc.addEventListener(ev, toucher, { passive: true, capture: true }))
+  // L'écran des communes tient ses liens lui-même
+  if (vue.liens !== 'communes') surveillerLiens(doc, el.contentWindow, vue)
 }
 
 /* ---- Le fond d'ambiance ---- */
@@ -365,7 +609,7 @@ function animer(t) {
   const v = video.value
   if (!v) return
   if (!v.paused) temps.value = v.currentTime
-  if (t - derniere < 100 || pleinVideo.value || ouverte.value) return
+  if (t - derniere < 100 || ouverte.value) return
   derniere = t
   const c = ambiance.value
   if (!c || v.readyState < 2) return
@@ -380,6 +624,11 @@ onMounted(() => {
   document.addEventListener('fullscreenchange', suivrePleinEcran)
   document.addEventListener('webkitfullscreenchange', suivrePleinEcran)
   document.addEventListener('keydown', toucheClavier)
+  GESTES.forEach((ev) => window.addEventListener(ev, toucher, { passive: true, capture: true }))
+  window.addEventListener('blur', focusCadre)
+  window.addEventListener('message', recevoir)
+  minuteurVeille = setInterval(tic, 1000)
+  garderAllume()
   // Le fond de la fenêtre suit aussi, pour les rebonds de défilement.
   document.documentElement.classList.add('bg-dark')
   const v = video.value
@@ -393,9 +642,14 @@ onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', suivrePleinEcran)
   document.removeEventListener('webkitfullscreenchange', suivrePleinEcran)
   document.removeEventListener('keydown', toucheClavier)
+  GESTES.forEach((ev) => window.removeEventListener(ev, toucher, { capture: true }))
+  window.removeEventListener('blur', focusCadre)
+  window.removeEventListener('message', recevoir)
+  clearInterval(minuteurVeille)
+  clearTimeout(minuteurLien)
+  verrou?.release?.().catch(() => {})
   document.documentElement.classList.remove('bg-dark', 'overflow-hidden')
   cancelAnimationFrame(boucle)
-  clearTimeout(minuteur)
 })
 </script>
 
@@ -451,8 +705,8 @@ onBeforeUnmount(() => {
 .applis__dock {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 14px 10px;
+  gap: 4px;
+  padding: 12px 10px 10px;
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -508,8 +762,9 @@ onBeforeUnmount(() => {
   height: 48%;
   color: #fff;
 }
-.appli__picto--rouge {
-  color: #c4002a;
+/* Sur une icône blanche, le picto prend la teinte posée sur l'icône */
+.appli__icone--blanc .appli__picto {
+  color: inherit;
 }
 .appli__roue {
   position: relative;
@@ -525,21 +780,13 @@ onBeforeUnmount(() => {
   color: #fff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
-/* Dans le dock, deux icônes seulement : leurs noms tiennent sur une ligne. */
-.applis__dock .appli {
-  width: auto;
-  min-width: var(--case);
-}
-.applis__dock .appli__nom {
-  white-space: nowrap;
-}
 @media (max-width: 639px) {
   .appli__nom { font-size: 11.5px; }
 }
 
 /* Sur un écran en largeur (salon, ordinateur) : la vidéo à gauche, qui prend
    toute la place restante sans défilement, et les icônes à droite, sur deux
-   colonnes. */
+   colonnes, le dock compris. */
 @media (min-width: 1024px) and (orientation: landscape) {
   .scene {
     --marge: 24px;
@@ -547,7 +794,7 @@ onBeforeUnmount(() => {
     --commandes: 56px;
     --icone: clamp(64px, 8.6vh, 96px);
     --case: calc(var(--icone) + 26px);
-    /* La colonne tient le dock, un peu plus large que les deux icônes. */
+    /* La colonne tient le dock, un peu plus large que deux icônes. */
     --colonne: calc(2 * var(--case) + 44px);
     padding: var(--marge);
     display: grid;
@@ -560,15 +807,17 @@ onBeforeUnmount(() => {
     grid-column: 2;
     grid-row: 1;
     align-self: center;
-    gap: 28px;
+    gap: 24px;
   }
   .applis__grille {
     grid-template-columns: repeat(2, var(--case));
-    gap: 22px 12px;
+    gap: 20px 12px;
   }
   .applis__dock {
-    gap: 10px;
-    padding: 14px 14px 12px;
+    display: grid;
+    grid-template-columns: repeat(2, var(--case));
+    gap: 16px 12px;
+    padding: 16px 14px 12px;
   }
   .appli__nom {
     font-size: 14px;
@@ -591,7 +840,7 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Les boutons du lecteur et du panneau. */
+/* Les boutons du lecteur et de la barre. */
 .bouton,
 .bouton-rond {
   display: inline-flex;
@@ -616,6 +865,11 @@ onBeforeUnmount(() => {
 .bouton:hover,
 .bouton-rond:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+.bouton--plein,
+.bouton--plein:hover {
+  background: #fff;
+  color: #111;
 }
 .reprise {
   transition: background-color 0.3s ease-in-out;
@@ -656,74 +910,17 @@ onBeforeUnmount(() => {
   background: #fff;
 }
 
-/* Le lecteur en plein écran : l'image occupe tout, les commandes passent
-   dessus, sur un dégradé, et s'effacent avec le curseur de la souris. */
-.lecteur.is-plein {
+/* L'écran ouvert : la barre, puis ce qu'il montre sur toute la hauteur. */
+.vue {
+  animation: entree 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.vue__corps {
   position: relative;
-  background: #000;
-}
-.lecteur.is-plein .ecran {
-  height: 100%;
-  aspect-ratio: auto;
-  border-radius: 0;
-}
-.lecteur.is-plein .commandes {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  margin: 0;
-  padding: 48px 32px 24px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent);
-  transition: opacity 0.3s ease-in-out;
-}
-.lecteur.is-calme,
-.lecteur.is-calme video {
-  cursor: none;
-}
-.lecteur.is-calme .commandes {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* Le panneau d'une page : presque tout l'écran sur un ordinateur, tout l'écran
-   sur un téléphone. */
-.voile-page {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(6px);
-  animation: apparition 0.3s ease-in-out;
-}
-.panneau {
-  margin: auto;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: #fff;
-  animation: entree 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@media (min-width: 768px) {
-  .voile-page {
-    padding: 24px;
-  }
-  .panneau {
-    max-width: 1680px;
-    border-radius: 16px;
-  }
-}
-.panneau.is-plein {
-  border-radius: 0;
-}
-@keyframes apparition {
-  from { opacity: 0; }
+  flex: 1;
+  min-height: 0;
 }
 @keyframes entree {
-  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  from { opacity: 0; transform: translateY(12px); }
 }
 
 .ambiance {
@@ -739,7 +936,6 @@ onBeforeUnmount(() => {
 }
 @media (prefers-reduced-motion: reduce) {
   .ambiance { display: none; }
-  .voile-page,
-  .panneau { animation: none; }
+  .vue { animation: none; }
 }
 </style>

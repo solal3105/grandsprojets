@@ -743,6 +743,15 @@ body.is-kiosk .pied,
 body.is-kiosk .lyon,
 body.is-kiosk .communes .titre--3 { display: none; }
 
+/* Dans l'écran du salon (/video), la barre du salon porte le titre, le seul
+   bouton de retour et « Emporter cette carte » : la page n'affiche ni son
+   en-tête, ni ses propres retours, et la carte ouverte prend toute la hauteur. */
+body.is-salon .entete,
+body.is-salon .couche__barre,
+body.is-salon #saisie-fermer,
+body.is-salon .emporter__fermer { display: none; }
+body.is-salon .couche { grid-template-rows: minmax(0, 1fr); }
+
 body.is-kiosk .scene {
   grid-area: scene;
   display: grid;

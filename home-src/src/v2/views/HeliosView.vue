@@ -42,7 +42,7 @@
         </div>
 
         <div class="mt-14 sm:mt-16 max-w-[1040px] mx-auto">
-          <TravauxLive />
+          <DemoLive module-key="travaux" />
         </div>
       </div>
     </section>
@@ -146,7 +146,7 @@
 import { ArrowRight, Check, HardHat, Building, Users } from 'lucide-vue-next'
 import HeroGround from '../components/HeroGround.vue'
 import ContactBlock from '../components/ContactBlock.vue'
-import TravauxLive from '../components/showcases/TravauxLive.vue'
+import DemoLive from '../components/showcases/DemoLive.vue'
 
 const base = import.meta.env.BASE_URL
 
