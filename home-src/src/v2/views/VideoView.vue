@@ -6,7 +6,9 @@
        roue des lots, l'estimation des prix. L'écran ouvert prend tout l'écran,
        sous une barre unique dont le seul bouton de retour remonte d'un cran, et
        tout se referme quand plus personne n'y touche. On ne change jamais de
-       page : le plein écran tient du début à la fin. Page hors du menu, du plan
+       page, et rien de ce que montrent les écrans ne peut en faire sortir : le
+       plein écran tient du début à la fin, et le geste retour de l'appareil
+       remonte d'un cran au lieu de quitter la page. Page hors du menu, du plan
        du site et des moteurs. -->
   <div class="page-video relative isolate min-h-[100dvh] bg-dark text-white">
     <h1 class="sr-only">{{ videoAvantApres.nom }}</h1>
@@ -158,7 +160,13 @@
 
       <div class="vue__corps" :class="ouverte.fond === 'sombre' ? 'bg-dark' : 'bg-white'">
         <!-- Le cadre reste caché jusqu'à son chargement : une page du site y
-             montrerait un instant son en-tête, retiré dès qu'elle démarre. -->
+             montrerait un instant son en-tête, retiré dès qu'elle démarre.
+             Rien de ce qu'il montre ne peut faire sortir du salon : il n'a pas
+             de plein écran à lui (qui défairait celui de la page), et son bac à
+             sable lui refuse les nouveaux onglets et la navigation de la page
+             entière, y compris pour un site dont nous ne voyons pas les liens.
+             Il garde tout le reste : scripts, stockage, formulaires,
+             téléchargements, impression. -->
         <iframe
           v-if="ouverte.url"
           ref="cadre"
@@ -167,7 +175,8 @@
           :class="{ invisible: !chargee }"
           :src="ouverte.url"
           :title="titreVue"
-          allow="fullscreen; geolocation; screen-wake-lock"
+          allow="geolocation; screen-wake-lock"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals"
           @load="cadreCharge"
         />
         <!-- Un module sans démonstration publique montre la reproduction de sa
@@ -220,9 +229,10 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent, markRaw } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent, markRaw } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Calculator, Loader, MapPinned, Maximize, Minimize, Pause, Play, Stamp, Volume2, VolumeX } from 'lucide-vue-next'
-import { modules, ARRETE_URL } from '../data/modules.js'
+import { modules, ARRETE_URL, ARRETE_STAND_URL } from '../data/modules.js'
 import { lotsRoue } from '../data/roue.js'
 import { videoAvantApres } from '../data/videoAvantApres.js'
 import { KIOSK_URL, SALON_COMMUNES_PATH, SITE_URL } from '@/data/siteUrls.js'
@@ -265,7 +275,7 @@ const vuesStand = [
   commune,
   {
     key: 'arretes', court: 'Arrêtés', titre: 'Générer un arrêté de circulation ou de voirie', icone: Stamp, teinte: 'text-mod-chantiers',
-    url: ARRETE_URL, lien: ARRETE_URL, liens: 'outil', fond: 'clair',
+    url: ARRETE_STAND_URL, lien: ARRETE_URL, liens: 'outil', fond: 'clair',
     consigne: 'Touchez « Créer mon arrêté gratuitement » et choisissez ce que vous avez prévu : votre arrêté se rédige sous vos yeux, sans compte.',
   },
   { key: 'roue', court: 'Roue des lots', titre: 'Tourner la roue des lots', url: '/roue', lien: '/roue', liens: 'page', fond: 'sombre' },
@@ -339,25 +349,51 @@ function reprendre() {
 /* ---- Le plein écran ----
  *
  * Il vise la page entière : comme on n'en change jamais, il tient pour tous
- * les écrans qu'on ouvre. L'iPhone ne sait mettre en plein écran que la
- * vidéo, avec son propre lecteur : c'est ce qu'il obtient. */
+ * les écrans qu'on ouvre. Une fois demandé par son bouton, seul ce bouton le
+ * quitte. Une sortie imposée par l'appareil (le geste retour d'Android, Échap
+ * tenu sur un clavier) se répare au geste suivant, où qu'il ait lieu, et la
+ * demande survit à un rechargement de l'onglet. L'iPhone ne sait mettre en
+ * plein écran que la vidéo, avec son propre lecteur : c'est ce qu'il obtient. */
 
+const CLE_PLEIN = 'op-salon-plein-ecran'
 const pleinPossible = ref(false)
 const plein = ref(false)
+let pleinVoulu = false
 
+function vouloirPlein(oui) {
+  pleinVoulu = oui
+  try {
+    if (oui) sessionStorage.setItem(CLE_PLEIN, '1')
+    else sessionStorage.removeItem(CLE_PLEIN)
+  } catch { /* stockage indisponible : la demande vaut pour la page ouverte */ }
+}
+function entrerPleinEcran() {
+  const el = document.documentElement
+  if (el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {})
+  else el.webkitRequestFullscreen?.()
+}
 function basculerPleinEcran() {
   if (plein.value) {
+    vouloirPlein(false)
     if (document.exitFullscreen) document.exitFullscreen().catch(() => {})
     else document.webkitExitFullscreen?.()
-    return
+  } else if (!pleinPossible.value) {
+    video.value?.webkitEnterFullscreen?.()
+  } else {
+    vouloirPlein(true)
+    entrerPleinEcran()
   }
-  const el = document.documentElement
-  if (!pleinPossible.value) video.value?.webkitEnterFullscreen?.()
-  else if (el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {})
-  else el.webkitRequestFullscreen?.()
+}
+// Le navigateur n'accorde le plein écran que dans un geste du visiteur : c'est
+// là qu'on le rétablit.
+function retablirPleinEcran() {
+  if (pleinVoulu && !plein.value && pleinPossible.value) entrerPleinEcran()
 }
 function suivrePleinEcran() {
   plein.value = !!(document.fullscreenElement || document.webkitFullscreenElement)
+  // Sur un clavier, Échap remonte alors d'un cran au lieu de sortir du plein
+  // écran ; le tenir appuyé en sort toujours (Chrome et Edge sur ordinateur).
+  if (plein.value) navigator.keyboard?.lock?.(['Escape']).catch(() => {})
 }
 
 // L'écran reste allumé : sur un stand, une tablette en veille ne montre rien.
@@ -404,6 +440,7 @@ function afficher(vue) {
   cadreDistant = false
   lienBloque.value = ''
   ouverte.value = vue
+  marquerEcran(vue)
   toucher()
   document.documentElement.classList.add('overflow-hidden')
   nextTick(() => boutonRetour.value?.focus())
@@ -414,6 +451,7 @@ function fermer(motif) {
   etape.value = { niveau: 0 }
   rappel.value = 0
   lienBloque.value = ''
+  demarquerEcran()
   document.documentElement.classList.remove('overflow-hidden')
   // Après la veille, la vidéo repart toujours : c'est elle qui attire le
   // visiteur suivant.
@@ -442,6 +480,42 @@ function agir() {
 function toucheClavier(e) {
   if (e.key === 'Escape' && ouverte.value) reculer()
 }
+
+/* ---- L'historique ----
+ *
+ * Chaque écran ouvert prend une entrée d'historique (?ecran=...) : le geste
+ * retour de la tablette, le bouton ou le glissement retour du navigateur
+ * remontent alors d'un cran, comme le bouton de la barre, au lieu de quitter
+ * la page. Refermer un écran rend l'adresse de l'accueil sans retirer
+ * l'entrée : l'accueil garde ainsi derrière lui des entrées à son adresse, et
+ * un retour de trop y reste. */
+
+const route = useRoute()
+const router = useRouter()
+
+function marquerEcran(vue) {
+  const query = { ...route.query, ecran: vue.key }
+  if (route.query.ecran) router.replace({ query })
+  else router.push({ query })
+}
+function demarquerEcran() {
+  if (!route.query.ecran) return
+  const query = { ...route.query }
+  delete query.ecran
+  router.replace({ query })
+}
+// L'historique a reculé alors qu'un écran est ouvert : on remonte d'un cran.
+// Dans l'écran des communes, c'est la carte ou la saisie qui se referme, et
+// l'écran garde son entrée.
+watch(() => route.query.ecran, (ecran) => {
+  if (ecran || !ouverte.value) return
+  if (ouverte.value.liens === 'communes' && etape.value.niveau > 0) {
+    envoyer('salon:retour')
+    marquerEcran(ouverte.value)
+  } else {
+    fermer('retour')
+  }
+})
 
 /* L'écran des communes dit où il en est. Seuls ses messages, de même origine,
  * sont écoutés, et ses textes passent par l'interpolation de Vue. */
@@ -522,8 +596,8 @@ function surveillerLiens(doc, fenetre, vue) {
       e.stopPropagation()
       return
     }
-    // Un nouvel onglet s'ouvre dans le cadre
-    if (a.target === '_blank') a.target = '_self'
+    // Un nouvel onglet, ou la page entière que viserait le lien, s'ouvre dans le cadre
+    if (a.target && a.target !== '_self') a.target = '_self'
   }, true)
   try {
     fenetre.open = (url) => {
@@ -565,6 +639,9 @@ function toucher() {
   rappel.value = 0
 }
 function tic() {
+  // Un geste fait dans un cadre d'un autre site ne nous parvient pas, mais il
+  // active aussi cette page : c'est à ce signe qu'on y rétablit le plein écran
+  if (navigator.userActivation?.isActive) retablirPleinEcran()
   if (!ouverte.value) return
   const delai = etape.value.attente ? VEILLE.attente : cadreDistant ? VEILLE.distant : VEILLE.calme
   const reste = delai - (Date.now() - dernierGeste) / 1000
@@ -591,8 +668,11 @@ function cadreCharge() {
   cadreDistant = !doc
   if (!doc) return
   GESTES.forEach((ev) => doc.addEventListener(ev, toucher, { passive: true, capture: true }))
-  // L'écran des communes tient ses liens lui-même
-  if (vue.liens !== 'communes') surveillerLiens(doc, el.contentWindow, vue)
+  doc.addEventListener('click', retablirPleinEcran, true)
+  // L'écran des communes tient ses liens et sa touche Échap lui-même
+  if (vue.liens === 'communes') return
+  surveillerLiens(doc, el.contentWindow, vue)
+  doc.addEventListener('keydown', toucheClavier)
 }
 
 /* ---- Le fond d'ambiance ---- */
@@ -620,11 +700,18 @@ function animer(t) {
 
 onMounted(() => {
   pleinPossible.value = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled)
+  try {
+    pleinVoulu = sessionStorage.getItem(CLE_PLEIN) === '1'
+  } catch { /* stockage indisponible */ }
+  // Rechargée avec un écran dans son adresse, la page repart de l'accueil
+  demarquerEcran()
   document.addEventListener('visibilitychange', reprendre)
   document.addEventListener('fullscreenchange', suivrePleinEcran)
   document.addEventListener('webkitfullscreenchange', suivrePleinEcran)
   document.addEventListener('keydown', toucheClavier)
   GESTES.forEach((ev) => window.addEventListener(ev, toucher, { passive: true, capture: true }))
+  window.addEventListener('click', retablirPleinEcran, true)
+  window.addEventListener('keydown', retablirPleinEcran, true)
   window.addEventListener('blur', focusCadre)
   window.addEventListener('message', recevoir)
   minuteurVeille = setInterval(tic, 1000)
@@ -643,6 +730,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('webkitfullscreenchange', suivrePleinEcran)
   document.removeEventListener('keydown', toucheClavier)
   GESTES.forEach((ev) => window.removeEventListener(ev, toucher, { capture: true }))
+  window.removeEventListener('click', retablirPleinEcran, true)
+  window.removeEventListener('keydown', retablirPleinEcran, true)
   window.removeEventListener('blur', focusCadre)
   window.removeEventListener('message', recevoir)
   clearInterval(minuteurVeille)

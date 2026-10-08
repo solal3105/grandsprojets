@@ -22,6 +22,9 @@ export const SIDE_INTERNAL = 'collectivite'
  * avec le module qui s'en sert, et nulle part ailleurs. */
 export const CHANTIERS_URL = 'https://openprojets-chantiers.com/'
 export const ARRETE_URL = 'https://openprojets-chantiers.com/arrete/'
+// Le meme generateur sur la tablette d'un stand : il ne retient rien d'un visiteur a
+// l'autre, le brouillon du precedent ne s'affiche jamais au suivant
+export const ARRETE_STAND_URL = `${ARRETE_URL}?stand=1`
 /* L'espace de travail lui-meme. Son ecran d'accueil porte « Essayer la démo » :
  * sans compte, avec un jeu de donnees deja rempli, et rien qui sorte de
  * l'appareil du visiteur. C'est ce que la vitrine embarque. */

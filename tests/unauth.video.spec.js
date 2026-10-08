@@ -10,14 +10,20 @@ import { test, expect } from '@playwright/test';
  *  - la vidéo tourne en boucle et démarre muette (les navigateurs refusent la
  *    lecture automatique avec le son), et le bouton du son la fait parler ;
  *  - un clic sur l'image met la vidéo en pause et la relance, sans jamais
- *    passer en plein écran ; le seul plein écran vise la page entière et
- *    tient quand on ouvre un écran ;
+ *    passer en plein écran ; le seul plein écran vise la page entière, tient
+ *    quand on ouvre un écran, revient au geste suivant après une sortie
+ *    imposée, et seul son bouton le quitte ;
+ *  - rien de ce que montre un écran ne fait sortir du salon : ni plein écran
+ *    à lui, ni nouvel onglet, ni navigation de la page entière ; le retour du
+ *    navigateur ou de la tablette remonte d'un cran au lieu de quitter la page ;
  *  - chaque icône ouvre la chose elle-même sur tout l'écran, sous une seule
  *    barre : l'outil d'un module (jamais sa page de présentation), la
  *    reproduction du Diagnostic, l'écran des communes, la roue, les prix ;
  *  - le seul bouton de retour remonte d'un cran, jusque dans l'écran des
  *    communes (carte ouverte, emport, construction d'une carte), dont les
  *    propres retours et l'en-tête disparaissent ;
+ *  - le générateur d'arrêtés s'ouvre en mode stand : le visiteur suivant ne
+ *    retrouve pas le brouillon du précédent ;
  *  - un lien qui mènerait ailleurs reste fermé et le visiteur sait pourquoi,
  *    et le lot « carte de votre commune » de la roue ouvre l'écran des
  *    communes ;
@@ -72,6 +78,8 @@ const retour = (page) => barre(page).locator('.barre button').first();
 async function ouvrirCommunes(page) {
   await page.getByRole('link', { name: 'Ma commune' }).click();
   await expect(barre(page).locator('iframe')).toHaveAttribute('src', '/cartes/?kiosk=1&salon=1');
+  // Le cadre reste caché jusqu'à son chargement : on n'y touche qu'ensuite, comme un visiteur
+  await expect(barre(page).locator('iframe')).toBeVisible();
   const cadre = page.frameLocator('.vue iframe');
   await expect(cadre.locator('body')).toHaveClass(/is-salon/);
   await expect(cadre.locator('#communes-liste .commune__lien').first()).toBeAttached();
@@ -160,7 +168,7 @@ test.describe("0.76 Écran de salon - la page /video", () => {
       const b = await ecran.boundingBox();
       return [b?.x, b?.y, Math.round(b?.width || 0), Math.round(b?.height || 0)];
     }).toEqual([0, 0, fenetre?.width, fenetre?.height]);
-    await expect(page).toHaveURL(/\/video$/);
+    await expect(page).toHaveURL(/\/video\?ecran=travaux$/);
     expect(await video.evaluate((v) => v.paused)).toBe(true);
     // Un seul bouton de retour, qui a le focus
     await expect(ecran.getByRole('button')).toHaveCount(1);
@@ -299,10 +307,103 @@ test.describe("0.76 Écran de salon - la page /video", () => {
     await expect(page.locator('body')).not.toHaveClass(/is-salon/);
     await expect(page.locator('.entete')).toBeVisible();
   });
+
+  test("0.76.15 le générateur d'arrêtés s'ouvre en mode stand, sans le brouillon du visiteur précédent", async ({ page }) => {
+    await page.getByRole('link', { name: 'Arrêtés' }).click();
+    const ecran = page.getByRole('dialog', { name: 'Générer un arrêté de circulation ou de voirie' });
+    await expect(ecran.locator('iframe')).toHaveAttribute('src', 'https://openprojets-chantiers.com/arrete/?stand=1');
+    await expect(ecran).toContainText('Créer mon arrêté gratuitement');
+  });
+
+  test("0.76.16 une sortie imposée du plein écran se répare au geste suivant, et seul son bouton le quitte", async ({ page }) => {
+    const enPleinEcran = () => page.evaluate(() => document.fullscreenElement === document.documentElement);
+    await page.getByRole('button', { name: 'Passer en plein écran' }).click();
+    await expect.poll(enPleinEcran).toBe(true);
+    // L'appareil en sort de lui-même (geste retour d'Android, Échap tenu)
+    await page.evaluate(() => document.exitFullscreen());
+    await expect.poll(enPleinEcran).toBe(false);
+    // Le geste suivant, où qu'il soit, le rétablit
+    await page.getByRole('link', { name: 'Diagnostic', exact: true }).click();
+    await expect.poll(enPleinEcran).toBe(true);
+    await retour(page).click();
+    // Quitté par son bouton, il ne revient plus de lui-même
+    await page.getByRole('button', { name: 'Quitter le plein écran' }).click();
+    await expect.poll(enPleinEcran).toBe(false);
+    await page.getByRole('link', { name: 'Diagnostic', exact: true }).click();
+    await expect(barre(page)).toBeVisible();
+    expect(await enPleinEcran()).toBe(false);
+  });
+
+  test("0.76.17 un geste dans un écran d'un autre site rétablit aussi le plein écran", async ({ page }) => {
+    const enPleinEcran = () => page.evaluate(() => document.fullscreenElement === document.documentElement);
+    await page.getByRole('button', { name: 'Passer en plein écran' }).click();
+    await expect.poll(enPleinEcran).toBe(true);
+    await page.getByRole('link', { name: 'Carte', exact: true }).click();
+    await expect(barre(page).locator('iframe')).toBeVisible();
+    await page.evaluate(() => document.exitFullscreen());
+    await expect.poll(enPleinEcran).toBe(false);
+    await page.frameLocator('.vue iframe').locator('h1').click();
+    await expect.poll(enPleinEcran, { timeout: 4000 }).toBe(true);
+  });
+
+  test("0.76.18 rien de ce que montre un écran ne fait sortir du salon", async ({ page }) => {
+    await page.getByRole('link', { name: 'Carte', exact: true }).click();
+    const cadre = barre(page).locator('iframe');
+    await expect(cadre).toBeVisible();
+    // Ni plein écran à lui, qui déferait celui de la page, ni nouvel onglet, ni
+    // navigation de la page entière
+    const sandbox = (await cadre.getAttribute('sandbox')) || '';
+    expect(sandbox).toContain('allow-scripts');
+    expect(sandbox).not.toMatch(/allow-popups|allow-top-navigation/);
+    expect(await cadre.getAttribute('allow')).not.toContain('fullscreen');
+    const outil = page.frameLocator('.vue iframe');
+    expect(await outil.locator('body').evaluate(() => document.fullscreenEnabled)).toBe(false);
+    await outil.locator('body').evaluate((body) => {
+      for (const cible of ['_blank', '_top']) {
+        const a = body.ownerDocument.createElement('a');
+        a.href = 'https://exemple.invalid/ailleurs';
+        a.target = cible;
+        a.textContent = cible;
+        body.appendChild(a);
+        a.click();
+      }
+      window.open('https://exemple.invalid/fenetre');
+    });
+    await page.waitForTimeout(500);
+    expect(page.context().pages()).toHaveLength(1);
+    await expect(page).toHaveURL(/\/video\?ecran=carte$/);
+    await expect(barre(page)).toBeVisible();
+  });
+
+  test("0.76.19 le retour du navigateur ou de la tablette remonte d'un cran au lieu de quitter la page", async ({ page }) => {
+    // Un écran ouvert : le retour le referme
+    await page.getByRole('link', { name: 'Travaux', exact: true }).click();
+    await expect(page).toHaveURL(/ecran=travaux/);
+    await page.goBack();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/video$/);
+
+    // Dans l'écran des communes, le retour referme d'abord la carte ouverte
+    const cadre = await ouvrirCommunes(page);
+    await cadre.locator('#communes-liste .commune__lien[href^="/ville/essai-"]').first().evaluate((a) => a.click());
+    await expect(retour(page)).toHaveText('Revenir aux communes');
+    await page.goBack();
+    await expect(cadre.locator('#couche')).toBeHidden();
+    await expect(barre(page)).toBeVisible();
+    await expect(retour(page)).toHaveText('Revenir à la vidéo');
+
+    // Un écran refermé par son bouton laisse l'accueil derrière lui : un
+    // retour de trop reste sur la page
+    await retour(page).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/video/);
+    await expect(page.locator('video')).toBeVisible();
+  });
 });
 
 test.describe("0.76 Écran de salon - le retour à la vidéo", () => {
-  test("0.76.15 après une minute sans geste, un rappel prévient, puis tout se referme et la vidéo repart", async ({ page }) => {
+  test("0.76.20 après une minute sans geste, un rappel prévient, puis tout se referme et la vidéo repart", async ({ page }) => {
     await page.clock.install();
     await page.goto('/video', { waitUntil: 'domcontentloaded' });
     await page.getByRole('link', { name: 'Diagnostic', exact: true }).click();
