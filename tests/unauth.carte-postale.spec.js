@@ -590,6 +590,111 @@ test.describe('0.42 - Carte postale : atelier et composition', () => {
     }
   });
 
+  test('0.42.20 - Sans bandeau, la photo couvre la carte et la mention IGN reste à 5 mm', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await ouvrir(page);
+    await entrer(page);
+    await page.evaluate(() => document.fonts.ready);
+    const option = page.getByLabel('Afficher le bandeau Open Projets');
+    await expect(option).toBeChecked();
+    await expect(page.locator('.cp__signature')).toBeHidden();
+    await option.uncheck();
+    await expect(page.locator('#carte-postale')).toHaveClass(/is-sans-bandeau/);
+    await expect(page.locator('.cp__bandeau')).toBeHidden();
+    // La carte reste signée : logo blanc et adresse du site en bas à droite.
+    await expect(page.locator('.cp__signature')).toBeVisible();
+    await expect(page.locator('.cp__signature span')).toHaveText('openprojets.com');
+    await expect.poll(() => page.locator('.cp__signature img').evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
+    for (const width of [430, 1400]) {
+      await page.setViewportSize({ width, height: 950 });
+      const layout = await page.evaluate(() => {
+        const card = document.querySelector('.cp__objet').getBoundingClientRect();
+        const image = document.querySelector('.cp__image').getBoundingClientRect();
+        const credit = document.querySelector('.cp__credit').getBoundingClientRect();
+        const caption = document.getElementById('cp-inscription').getBoundingClientRect();
+        const site = document.querySelector('.cp__signature span').getBoundingClientRect();
+        const logo = document.querySelector('.cp__signature img').getBoundingClientRect();
+        return {
+          imageShare: image.height / card.height,
+          creditMargin: (card.bottom - credit.bottom) / card.width * 100,
+          siteMargin: (card.bottom - site.bottom) / card.width * 100,
+          sameLine: Math.abs(site.bottom - credit.bottom),
+          captionGap: credit.top - caption.bottom,
+          logoAboveSite: site.top - logo.bottom,
+          logoRight: card.right - logo.right,
+        };
+      });
+      expect(layout.imageShare, `Part de la photo à ${width} px`).toBeCloseTo(1, 2);
+      expect(layout.creditMargin, `Marge de la mention IGN à ${width} px`).toBeGreaterThanOrEqual(4.99);
+      expect(layout.siteMargin, `Marge de l'adresse du site à ${width} px`).toBeGreaterThanOrEqual(4.99);
+      expect(layout.sameLine, `Adresse et mention IGN sur la même ligne à ${width} px`).toBeLessThan(1);
+      expect(layout.captionGap, `Inscription et mention IGN à ${width} px`).toBeGreaterThan(0);
+      expect(layout.logoAboveSite).toBeGreaterThanOrEqual(0);
+      expect(layout.logoRight).toBeGreaterThan(0);
+    }
+    await option.check();
+    await expect(page.locator('#carte-postale')).not.toHaveClass(/is-sans-bandeau/);
+    await expect(page.locator('.cp__bandeau')).toBeVisible();
+    await expect(page.locator('.cp__signature')).toBeHidden();
+  });
+
+  test("0.42.21 - L'image imprimée sans bandeau garde l'inscription, la mention IGN et la signature", async ({ page }) => {
+    await ouvrir(page);
+    // Sans bandeau, le QR n'est pas dessiné : son absence ne doit rien bloquer.
+    await page.route('**/qr-carte-postale.svg', (route) => route.abort());
+    const painted = await page.evaluate(async () => {
+      const texts = [];
+      const images = [];
+      const originalText = CanvasRenderingContext2D.prototype.fillText;
+      const originalImage = CanvasRenderingContext2D.prototype.drawImage;
+      CanvasRenderingContext2D.prototype.fillText = function (text, x, y, ...args) {
+        const metrics = this.measureText(text);
+        const left = this.textAlign === 'center' ? x - metrics.width / 2 : x;
+        texts.push({
+          text, left, right: left + metrics.width,
+          top: y - metrics.actualBoundingBoxAscent, bottom: y + metrics.actualBoundingBoxDescent, baseline: y,
+        });
+        return originalText.call(this, text, x, y, ...args);
+      };
+      CanvasRenderingContext2D.prototype.drawImage = function (image, ...args) {
+        if (image.src) images.push({ src: new URL(image.src).pathname, x: args[0], y: args[1], w: args[2], h: args[3] });
+        return originalImage.call(this, image, ...args);
+      };
+      try {
+        // L'inscription la plus longue permise par le champ (52 caractères).
+        const canvas = await window.Postcard.composer({
+          imageCarte: null, inscription: 'Souvenir de Saint-Rémy-de-Provence, vue du ciel 1957', bandeau: false,
+          punchline: window.Epoques.punchline({ annee: 1957 }, 2026),
+        });
+        return { texts, images, width: canvas.width, height: canvas.height };
+      } finally {
+        CanvasRenderingContext2D.prototype.fillText = originalText;
+        CanvasRenderingContext2D.prototype.drawImage = originalImage;
+      }
+    });
+    const mm = 300 / 25.4;
+    expect(painted.width).toBe(1181);
+    expect(painted.height).toBe(1748);
+    const credit = painted.texts.find((item) => item.text.startsWith('Fond de carte'));
+    const site = painted.texts.find((item) => item.text === 'openprojets.com');
+    const caption = painted.texts.filter((item) => item !== credit && item !== site);
+    expect(caption.map((item) => item.text).join(' ')).toBe('Souvenir de Saint-Rémy-de-Provence, vue du ciel 1957');
+    expect(painted.texts.map((item) => item.text).join(' ')).not.toMatch(/contact@vazy\.app|07 60 77 16 13|À vous d'écrire/);
+    // Pas de QR ni de logo en couleur, seulement le logo blanc en bas à droite.
+    expect(painted.images.map((image) => image.src)).toEqual(['/img/logos/square_white.png']);
+    const [logo] = painted.images;
+    expect(painted.width - (logo.x + logo.w)).toBeGreaterThan(5 * mm);
+    expect(logo.y + logo.h).toBeLessThanOrEqual(site.top);
+    expect(site.baseline).toBe(credit.baseline);
+    // L'inscription s'arrête avant la colonne de la signature.
+    const signatureLeft = Math.min(logo.x, site.left);
+    for (const line of caption) {
+      expect(line.right, `« ${line.text} »`).toBeLessThan(signatureLeft);
+      expect(credit.top).toBeGreaterThan(line.bottom);
+    }
+    for (const item of painted.texts) expect(painted.height - item.bottom).toBeGreaterThanOrEqual(5 * mm);
+  });
+
 });
 
 test.describe('0.43 - Carte postale : mouvement au survol', () => {

@@ -287,6 +287,41 @@ body:not(.a-commune) .scene::before { background:
   color: var(--gris);
 }
 
+/* Sans bandeau : la photo prend toute la carte, l'inscription remonte à 12 mm
+   du bord (INSCRIPTION_BAS_PLEINE de postcard.js, ligne de base comprise) et la
+   mention IGN, obligatoire, passe en blanc sur l'image. La signature occupe
+   une colonne de 16 mm en bas à droite, que l'inscription laisse libre à 3 mm
+   près : 6,6 + 16 + 3 = 25,6 % de la largeur (SIGNATURE_* de postcard.js). */
+.cp.is-sans-bandeau { --cp-image: 100%; }
+.cp.is-sans-bandeau .cp__bandeau { display: none; }
+.cp.is-sans-bandeau .cp__inscription {
+  right: calc(var(--cp-l) * 0.256);
+  bottom: calc(var(--cp-l) * 0.107);
+}
+.cp.is-sans-bandeau .cp__credit,
+.cp__signature span {
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+.cp__signature {
+  position: absolute;
+  right: calc(var(--cp-l) * 0.066);
+  /* Même ligne de base que la mention IGN : même retrait, même corps. */
+  bottom: calc(var(--cp-l) * 0.05);
+  width: calc(var(--cp-l) * 0.16);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--cp-l) * 0.008);
+  pointer-events: none;
+}
+.cp.is-sans-bandeau .cp__signature { display: flex; }
+.cp__signature img { width: calc(var(--cp-l) * 0.14); height: auto; display: block; }
+.cp__signature span {
+  font-size: max(10px, calc(var(--cp-l) * 0.0203));
+  white-space: nowrap;
+}
+
 /* Reflet : la bande claire qui glisse selon l'inclinaison. C'est ce détail qui
    fait lire « objet » plutôt que « rectangle ». */
 .cp__reflet {
@@ -570,6 +605,26 @@ body:not(.a-commune) .scene::before { background:
   padding: 6px;
 }
 .btn--lien:hover { color: #fff; }
+
+/* Réglage rare, rangé sous les actions sans leur faire concurrence */
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+.option:hover { color: #fff; }
+.option input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
 
 /* ─── Impression ─────────────────────────────────────────────────────────────
    On n'imprime PAS la page : on imprime l'image composée en 300 points par

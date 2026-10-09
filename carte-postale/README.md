@@ -74,6 +74,23 @@ La capture augmente uniquement la densité de pixels de MapLibre avec
 inchangés : agrandir le conteneur à zoom constant élargissait le cadrage.
 La densité initiale est rétablie après la capture, même en cas d'échec.
 
+## Sans le bandeau
+
+Une case discrète, sous les boutons de sortie, retire le bandeau (logo,
+accroche, contact et QR). Elle est cochée à chaque ouverture : la carte part
+avec le bandeau sauf choix contraire. Décochée, la photo couvre les 148 mm,
+à l'écran comme sur le papier, et l'inscription remonte à 12 mm du bord
+(`INSCRIPTION_BAS_PLEINE` dans `postcard.js`, `.is-sans-bandeau .cp__inscription`
+dans la feuille de style, à garder accordés). La mention IGN reste, en blanc
+sur l'image, avec le même retrait de 5 mm. La capture prend alors la hauteur
+pleine de la carte (`Postcard.hauteur`) au lieu de `Postcard.imageHauteur`.
+
+La carte reste signée en bas à droite : le logo blanc de 14 mm
+(`square_white.png`) et `openprojets.com` dessous, sur la même ligne de base
+que la mention IGN, dans une colonne de 16 mm que l'inscription laisse libre
+à 3 mm près (`SIGNATURE_*` dans `postcard.js`, `.cp__signature` dans la
+feuille de style).
+
 ## Recherche d'adresse
 
 `address.js` interroge le [géocodage de la Géoplateforme IGN](https://cartes.gouv.fr/aide/fr/guides-utilisateur/utiliser-les-services-de-la-geoplateforme/geocodage/)

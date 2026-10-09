@@ -20,12 +20,24 @@
   const IMAGE_H = Math.round(H * 0.70);
   const MARGE = Math.round(L * 0.066);
   const PRINT_SAFE_MARGIN = Math.ceil(5 * MM);
+  /* Sans bandeau, la photo couvre toute la carte et la mention IGN passe
+     dessus : l'inscription remonte à 12 mm du bord pour la laisser respirer.
+     Même hauteur que `bottom` de .is-sans-bandeau .cp__inscription. */
+  const INSCRIPTION_BAS_PLEINE = Math.round(12 * MM);
+  /* Sans bandeau, la carte reste signée en bas à droite : le logo blanc de
+     14 mm et l'adresse du site dessous, dans une colonne de 16 mm que
+     l'inscription laisse libre à 3 mm près. Mêmes fractions que .cp__signature
+     et .is-sans-bandeau .cp__inscription dans la feuille de style. */
+  const SIGNATURE_COLONNE = Math.round(16 * MM);
+  const SIGNATURE_LOGO = Math.round(14 * MM);
+  const SIGNATURE_ECART = Math.round(3 * MM);
 
   const PAPIER = '#f7f5f1';
   const ENCRE = '#12121a';
   const GRIS = '#5d5d6b';
 
   const LOGO = '/img/logos/classic_color.png';
+  const LOGO_BLANC = '/img/logos/square_white.png';
   // Même contact et même QR pour l'aperçu et le papier. Le SVG embarqué encode
   // cette adresse et garde une zone blanche de quatre modules sur chaque côté.
   const CONTACT = Object.freeze({
@@ -79,6 +91,59 @@
     ctx.drawImage(img, x + (l - il) / 2, y + (h - ih) / 2, il, ih);
   }
 
+  // Le bandeau accueille le logo, l'accroche, le contact et un QR de 24 mm.
+  async function peindreBandeau(ctx, punchline) {
+    const yB = IMAGE_H;
+    const hB = H - IMAGE_H;
+    ctx.fillStyle = PAPIER;
+    ctx.fillRect(0, yB, L, hB);
+
+    const qrTaille = Math.round(24 * MM);
+    const qrX = L - MARGE - qrTaille;
+    const colonne = qrX - MARGE - 40;
+
+    /* Le logo, EN COULEUR, ouvre le bandeau : c'est la seule note vive de
+       l'objet et elle signe qui l'a fabriqué. Sur le papier crème il ressort
+       sans retouche. */
+    let y = yB + Math.round(L * 0.03);
+    const logo = await charger(LOGO);
+    if (logo) {
+      const lLogo = Math.round(L * 0.22);
+      const hLogo = Math.round((logo.height / logo.width) * lLogo);
+      ctx.drawImage(logo, MARGE, y, lLogo, hLogo);
+      y += hLogo + 52;
+    } else {
+      y += 40;
+    }
+
+    // Punchline
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = '700 48px "Space Grotesk", sans-serif';
+    ctx.fillStyle = ENCRE;
+    const lignesPunch = lignes(ctx, punchline || '', colonne);
+    ecrire(ctx, punchline || '', MARGE, y, colonne, 62);
+    y += (lignesPunch.length - 1) * 62 + 90;
+
+    // Le contact est détaché de l'accroche pour rester facile à repérer.
+    ctx.font = '600 38px "Space Grotesk", sans-serif';
+    ctx.fillStyle = ENCRE;
+    ctx.fillText(CONTACT.email, MARGE, y);
+    ctx.fillText(CONTACT.phone, MARGE, y + 48);
+
+    // QR et sa légende, centrés verticalement dans le bandeau
+    const qr = await charger(CONTACT.qrImage);
+    if (!qr) throw new Error('Le QR code de la carte postale est indisponible.');
+    const qrY = yB + Math.round((hB - (qrTaille + 42)) / 2);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(qr, qrX, qrY, qrTaille, qrTaille);
+    ctx.imageSmoothingEnabled = true;
+    ctx.font = '400 28px "Inter", sans-serif';
+    ctx.fillStyle = GRIS;
+    ctx.textAlign = 'center';
+    ctx.fillText(new URL(CONTACT.url).hostname, qrX + qrTaille / 2, qrY + qrTaille + 34);
+    ctx.textAlign = 'left';
+  }
+
   const Postcard = {
     contact: CONTACT,
     largeur: L,
@@ -99,12 +164,16 @@
       await document.fonts.ready;
     },
 
-    async composer({ imageCarte, inscription, punchline }) {
+    /* `bandeau: false` donne une carte sans accroche, contact ni QR : la photo
+       occupe alors les 148 mm, avec la mention IGN, obligatoire, en bas à
+       gauche et la signature (logo et adresse du site) en bas à droite. */
+    async composer({ imageCarte, inscription, punchline, bandeau = true }) {
       await Postcard.policesPretes();
       const c = document.createElement('canvas');
       c.width = L;
       c.height = H;
       const ctx = c.getContext('2d');
+      const hImage = bandeau ? IMAGE_H : H;
 
       ctx.fillStyle = PAPIER;
       ctx.fillRect(0, 0, L, H);
@@ -112,18 +181,18 @@
       /* ── L'image ── */
       const fond = imageCarte ? await charger(imageCarte) : null;
       if (fond) {
-        couvrir(ctx, fond, 0, 0, L, IMAGE_H);
+        couvrir(ctx, fond, 0, 0, L, hImage);
       } else {
         ctx.fillStyle = '#0d1420';
-        ctx.fillRect(0, 0, L, IMAGE_H);
+        ctx.fillRect(0, 0, L, hImage);
       }
 
       // Voile bas : il détache l'inscription quelle que soit la photo dessous
-      const voile = ctx.createLinearGradient(0, IMAGE_H * 0.54, 0, IMAGE_H);
+      const voile = ctx.createLinearGradient(0, hImage * 0.54, 0, hImage);
       voile.addColorStop(0, 'rgba(6,10,18,0)');
       voile.addColorStop(1, 'rgba(6,10,18,0.86)');
       ctx.fillStyle = voile;
-      ctx.fillRect(0, IMAGE_H * 0.54, L, IMAGE_H * 0.46);
+      ctx.fillRect(0, hImage * 0.54, L, hImage * 0.46);
 
       /* ── Inscription, posée sur l'image ── */
       if (inscription) {
@@ -133,72 +202,54 @@
         ctx.shadowColor = 'rgba(0,0,0,0.65)';
         ctx.shadowBlur = 22;
         ctx.shadowOffsetY = 3;
-        const largeurTexte = L - MARGE * 2;
+        const largeurTexte = L - MARGE * 2 - (bandeau ? 0 : SIGNATURE_COLONNE + SIGNATURE_ECART);
         const l = lignes(ctx, inscription, largeurTexte);
-        const base = IMAGE_H - 74 - (l.length - 1) * 64;
+        const base = (bandeau ? IMAGE_H - 74 : H - INSCRIPTION_BAS_PLEINE) - (l.length - 1) * 64;
         ecrire(ctx, inscription, MARGE, base, largeurTexte, 64);
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetY = 0;
       }
 
-      // Le bandeau accueille le logo, l'accroche, le contact et un QR de 24 mm.
-      const yB = IMAGE_H;
-      const hB = H - IMAGE_H;
-      ctx.fillStyle = PAPIER;
-      ctx.fillRect(0, yB, L, hB);
-
-      const qrTaille = Math.round(24 * MM);
-      const qrX = L - MARGE - qrTaille;
-      const colonne = qrX - MARGE - 40;
-
-      /* Le logo, EN COULEUR, ouvre le bandeau : c'est la seule note vive de
-         l'objet et elle signe qui l'a fabriqué. Sur le papier crème il ressort
-         sans retouche. */
-      let y = yB + Math.round(L * 0.03);
-      const logo = await charger(LOGO);
-      if (logo) {
-        const lLogo = Math.round(L * 0.22);
-        const hLogo = Math.round((logo.height / logo.width) * lLogo);
-        ctx.drawImage(logo, MARGE, y, lLogo, hLogo);
-        y += hLogo + 52;
-      } else {
-        y += 40;
-      }
-
-      // Punchline
-      ctx.textBaseline = 'alphabetic';
-      ctx.font = '700 48px "Space Grotesk", sans-serif';
-      ctx.fillStyle = ENCRE;
-      const lignesPunch = lignes(ctx, punchline || '', colonne);
-      ecrire(ctx, punchline || '', MARGE, y, colonne, 62);
-      y += (lignesPunch.length - 1) * 62 + 90;
-
-      // Le contact est détaché de l'accroche pour rester facile à repérer.
-      ctx.font = '600 38px "Space Grotesk", sans-serif';
-      ctx.fillStyle = ENCRE;
-      ctx.fillText(CONTACT.email, MARGE, y);
-      ctx.fillText(CONTACT.phone, MARGE, y + 48);
-
-      // QR et sa légende, centrés verticalement dans le bandeau
-      const qr = await charger(CONTACT.qrImage);
-      if (!qr) throw new Error('Le QR code de la carte postale est indisponible.');
-      const qrY = yB + Math.round((hB - (qrTaille + 42)) / 2);
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(qr, qrX, qrY, qrTaille, qrTaille);
-      ctx.imageSmoothingEnabled = true;
-      ctx.font = '400 28px "Inter", sans-serif';
-      ctx.fillStyle = GRIS;
-      ctx.textAlign = 'center';
-      ctx.fillText(new URL(CONTACT.url).hostname, qrX + qrTaille / 2, qrY + qrTaille + 34);
-      ctx.textAlign = 'left';
+      if (bandeau) await peindreBandeau(ctx, punchline);
 
       // La mention IGN garde 5 mm de sécurité sous les lettres descendantes.
+      // Sur la photo, elle passe en blanc avec une ombre pour rester lisible.
       ctx.font = '400 24px "Inter", sans-serif';
-      ctx.fillStyle = GRIS;
+      ctx.fillStyle = bandeau ? GRIS : 'rgba(255,255,255,0.82)';
+      if (!bandeau) {
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 8;
+      }
       const credit = 'Fond de carte © IGN, Géoplateforme';
-      const creditDescent = ctx.measureText(credit).actualBoundingBoxDescent;
-      ctx.fillText(credit, MARGE, H - PRINT_SAFE_MARGIN - creditDescent);
+      const site = new URL(CONTACT.url).hostname;
+      const creditMesure = ctx.measureText(credit);
+      const siteMesure = ctx.measureText(site);
+      // Mention et adresse partagent la même ligne de base, sous la plus basse
+      // des deux lettres descendantes.
+      const base = H - PRINT_SAFE_MARGIN - Math.max(
+        creditMesure.actualBoundingBoxDescent,
+        bandeau ? 0 : siteMesure.actualBoundingBoxDescent,
+      );
+      ctx.fillText(credit, MARGE, base);
+
+      if (!bandeau) {
+        const centre = L - MARGE - SIGNATURE_COLONNE / 2;
+        ctx.textAlign = 'center';
+        ctx.fillText(site, centre, base);
+        ctx.textAlign = 'left';
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        const logo = await charger(LOGO_BLANC);
+        if (logo) {
+          const hLogo = Math.round((logo.height / logo.width) * SIGNATURE_LOGO);
+          const yLogo = base - siteMesure.actualBoundingBoxAscent - Math.round(1.4 * MM) - hLogo;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(logo, centre - SIGNATURE_LOGO / 2, yLogo, SIGNATURE_LOGO, hLogo);
+        }
+      }
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
 
       return c;
     },

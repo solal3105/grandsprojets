@@ -246,6 +246,14 @@
     });
   }
 
+  /* ─── Bandeau ─── */
+
+  // Décoché, la photo couvre toute la carte, à l'écran comme sur le papier.
+  const optionBandeau = $('option-bandeau');
+  const majBandeau = () => carte.classList.toggle('is-sans-bandeau', !optionBandeau.checked);
+  optionBandeau.addEventListener('change', majBandeau);
+  majBandeau();
+
   /* ─── Sortie ─── */
 
   async function fabriquer(bouton) {
@@ -257,9 +265,13 @@
     // La carte reste immobile pendant le rendu à la définition d'impression.
     carte.classList.add('is-plat');
     resetTilt();
+    const bandeau = optionBandeau.checked;
     try {
       const image = aScene
-        ? await window.Scene.capturer(window.Postcard.imageLargeur, window.Postcard.imageHauteur)
+        ? await window.Scene.capturer(
+          window.Postcard.imageLargeur,
+          bandeau ? window.Postcard.imageHauteur : window.Postcard.hauteur,
+        )
         : null;
       // Une carte postale sans son image n'est pas une carte postale : mieux
       // vaut le dire que d'imprimer un rectangle vide devant un prospect.
@@ -271,6 +283,7 @@
         imageCarte: image,
         inscription: $('inscription').value.trim(),
         punchline: window.Epoques.punchline(epoque, ANNEE),
+        bandeau,
       });
     } catch (error) {
       console.error('La préparation de la carte postale a échoué.', error);

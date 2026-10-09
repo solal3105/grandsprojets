@@ -14,7 +14,7 @@
   <!-- ?v= : marque de version. Les fichiers statiques du site sont servis avec
        24 h de cache ; seul un changement d'adresse déloge un fichier déjà pris.
        À INCRÉMENTER à chaque modification des fichiers de ce dossier. -->
-  <link rel="stylesheet" href="style.css?v=14" />
+  <link rel="stylesheet" href="style.css?v=15" />
   <script defer src="/modules/analytics.js" data-op-space="carte-postale"></script>
 </head>
 <body>
@@ -68,6 +68,11 @@
             </div>
           </div>
           <p class="cp__credit">Fond de carte © IGN, Géoplateforme</p>
+          <!-- Signature de la carte quand le bandeau est retiré -->
+          <div class="cp__signature">
+            <img src="/img/logos/square_white.png" alt="Open Projets" />
+            <span>openprojets.com</span>
+          </div>
           <span class="cp__reflet" aria-hidden="true"></span>
         </div>
         <span class="cp__ombre" aria-hidden="true"></span>
@@ -121,6 +126,11 @@
           <p class="reglage__aide">La carte s’imprime sur une page de 100 × 148 mm, en portrait.</p>
           <button id="btn-png" class="btn btn--fantome" type="button">Télécharger l’image</button>
           <button id="btn-autre" class="btn btn--lien" type="button">Rechercher un autre lieu</button>
+          <!-- Discret exprès : la carte part avec le bandeau, sauf choix contraire -->
+          <label class="option">
+            <input id="option-bandeau" type="checkbox" checked />
+            <span>Afficher le bandeau Open Projets</span>
+          </label>
         </div>
       </section>
     </aside>
@@ -132,8 +142,8 @@
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
   <script src="epoques.js?v=4"></script>
   <script src="scene.js?v=6"></script>
-  <script src="postcard.js?v=7"></script>
+  <script src="postcard.js?v=8"></script>
   <script src="address.js?v=3"></script>
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
