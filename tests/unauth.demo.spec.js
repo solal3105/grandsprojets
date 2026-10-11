@@ -293,6 +293,31 @@ test.describe('Démo salon - endpoint d\'enregistrement de l\'adresse', () => {
     const resp = await request.get('/api/demo-lead');
     expect(resp.status()).toBe(405);
   });
+
+  /* Non-régression du 11/10/2026 : tant que la redirection des domaines
+     secondaires (edge function domain-redirect, posée sur /*) couvrait /api/*,
+     /api/demo-lead recevait en production l'adresse d'un intermédiaire au lieu
+     de celle du visiteur, et le plafond par adresse confondait des inconnus.
+     L'adresse elle-même ne se vérifie pas en local (netlify dev rend toujours
+     la boucle locale) : on vérifie que rien ne s'intercale plus devant l'API.
+     Un hôte secondaire déclenche la redirection, ce qui la rend observable. */
+  test('0.32.14 - aucune edge function ne s\'intercale devant /api/demo-lead', async ({ request }) => {
+    const HOTE_SECONDAIRE = { Host: 'www.openprojets.com' };
+
+    // Témoin : sur une page, la redirection du domaine secondaire a bien lieu
+    const page = await request.get('/', { headers: HOTE_SECONDAIRE, maxRedirects: 0 });
+    expect(page.status()).toBe(301);
+    expect(page.headers().location).toBe('https://openprojets.com/');
+
+    // Sur l'API, la requête arrive à la fonction, qui juge l'adresse invalide
+    const resp = await request.post('/api/demo-lead', {
+      headers: HOTE_SECONDAIRE,
+      data: { email: 'pas-une-adresse', ville: 'essai-vannes' },
+      maxRedirects: 0,
+    });
+    expect(resp.status()).toBe(400);
+    expect((await resp.json()).error).toContain('mail');
+  });
 });
 
 /**

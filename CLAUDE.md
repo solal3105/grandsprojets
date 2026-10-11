@@ -112,7 +112,7 @@ La carte publique utilise un **système de modules enregistrables** piloté par 
 - `sitemap` et `llms-txt` partagent `lib/projects-index.mjs` : lecture **paginée** de `contribution_uploads` (PostgREST plafonne à 1 000 lignes par réponse, silencieusement), filtres et doublons identiques - toute lecture complète d'une table passe par `fetchAllRows`
 
 ### Edge Functions (`netlify/edge-functions/`)
-- `domain-redirect` (toutes les routes), `carte-legacy` (`/` : redirige `?city=`, `?cat=&project=`, `?module=` vers `/ville/{ville}/{module}`), `home-seo` (JSON-LD et en-têtes des pages prérendues du site), `carte-seo` (`/ville/*/carte|travaux|participer` : titre, description, canonical, robots et JSON-LD par ville, page hors index si la ville est inconnue, 301 vers la carte si le module n'est pas activé), `fiche-ssr` (pré-rendu SEO de `/fiche/*/*/*`, 301 des anciennes adresses `/fiche/?cat=&project=`, canonical des doublons vers la page la plus ancienne), `lien-court` (`/l/{code}` : redirection 302 vers l'adresse marquée enregistrée dans `share_links`, les `utm_*` voyagent avec ; code inconnu = page 404 hors index), `ville-hub` (`/ville/` = index des villes rangé par région, carte de France en SVG par `_lib/france-map.js` ; `/ville/{ville}` = hub), `cartes` (`/cartes/`)
+- `domain-redirect` (toutes les routes sauf `/api/*` : une edge function intercalée devant une fonction la privait de l'adresse du visiteur, test 0.32.14), `carte-legacy` (`/` : redirige `?city=`, `?cat=&project=`, `?module=` vers `/ville/{ville}/{module}`), `home-seo` (JSON-LD et en-têtes des pages prérendues du site), `carte-seo` (`/ville/*/carte|travaux|participer` : titre, description, canonical, robots et JSON-LD par ville, page hors index si la ville est inconnue, 301 vers la carte si le module n'est pas activé), `fiche-ssr` (pré-rendu SEO de `/fiche/*/*/*`, 301 des anciennes adresses `/fiche/?cat=&project=`, canonical des doublons vers la page la plus ancienne), `lien-court` (`/l/{code}` : redirection 302 vers l'adresse marquée enregistrée dans `share_links`, les `utm_*` voyagent avec ; code inconnu = page 404 hors index), `ville-hub` (`/ville/` = index des villes rangé par région, carte de France en SVG par `_lib/france-map.js` ; `/ville/{ville}` = hub), `cartes` (`/cartes/`)
 - Routées via `[[edge_functions]]` dans `netlify.toml` - pas de détection automatique par chemin
 
 ### Mesure d'audience (`modules/analytics.js`)
@@ -259,7 +259,7 @@ La suite couvre l'**admin**, la **carte publique** (UI/navigation), la **fiche**
 
 **Admin** : édition/suppression catégorie, upload Supabase Storage, comportement hors-ligne, refresh token
 
-**Edge Functions** : `home-seo`, `domain-redirect` - aucun test dédié (`fiche-ssr` et `ville-hub` sont couverts par `unauth.fiche` / `unauth.ville`, le sitemap par `unauth.sitemap`)
+**Edge Functions** : `home-seo` - aucun test dédié, `domain-redirect` seulement pour son exclusion de `/api/*` (0.32.14) (`fiche-ssr` et `ville-hub` sont couverts par `unauth.fiche` / `unauth.ville`, le sitemap par `unauth.sitemap`)
 
 ## Pièges courants
 - `modules/ui/toggles.js` est le seul `<script type="module">` de la carte

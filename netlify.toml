@@ -17,8 +17,11 @@
 # Edge Functions - pré-rendu SEO
 # ============================================
 
+# Jamais devant les fonctions : une edge function intercalée devant /api/*
+# privait /api/demo-lead de l'adresse du visiteur (voir domain-redirect.js)
 [[edge_functions]]
   path = "/*"
+  excludedPath = ["/api/*"]
   function = "domain-redirect"
 
 # Les adresses courtes partagées par l'équipe commerciale (page /lien)
