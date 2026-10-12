@@ -99,6 +99,18 @@ function extractEmail(payload) {
   return Array.isArray(payload.emails) ? payload.emails[0] ?? null : null;
 }
 
+// ── Garde-fous super administrateur (audit de sécurité du 12/10/2026) ───────
+// Phaos ne mène jamais à un super administrateur : la ville « global » n'est pas
+// une ville que l'on peut demander, et un compte super administrateur ne s'ouvre
+// pas par un jeton Phaos, même si l'adresse correspond.
+function cityFromRequest(city) {
+  if (typeof city !== 'string' || !/^[a-z0-9-]+$/i.test(city)) return null;
+  return city.toLowerCase() === 'global' ? null : city;
+}
+function isSuperAdminProfile(profile) {
+  return profile?.role === 'admin' && Array.isArray(profile?.ville) && profile.ville.includes('global');
+}
+
 // ── Rate-limiting en mémoire ─────────────────────────────────────────────────
 // Limite à 10 requêtes par IP par fenêtre glissante de 60s.
 // Note : par instance Netlify Function (cold start = reset). Acceptable en B2B V1
@@ -160,6 +172,8 @@ export const _internals = {
   base64urlToBuffer,
   detectAzureEnv,
   extractEmail,
+  cityFromRequest,
+  isSuperAdminProfile,
   checkRateLimit,
   rateLimitMap,
   RATE_LIMIT_MAX,
@@ -192,7 +206,7 @@ export default async function handler(req) {
     return errResp(400, 'idToken manquant ou invalide', corsHeaders);
   }
   // city est optionnelle - si absente, le profil sera créé sans ville
-  const citySlug = (typeof city === 'string' && /^[a-z0-9-]+$/i.test(city)) ? city : null;
+  const citySlug = cityFromRequest(city);
 
   // ② Décoder le JWT sans vérification pour lire iss (détection env) et kid (sélection clé)
   let header, payload;
@@ -279,6 +293,12 @@ export default async function handler(req) {
     const existing = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
 
     if (existing) {
+      const { data: profile } = await supabase
+        .from('profiles').select('role, ville').eq('id', existing.id).maybeSingle();
+      if (isSuperAdminProfile(profile)) {
+        console.warn(`[auth-token] Compte super administrateur refusé par le SSO : ${existing.id}`);
+        return errResp(403, 'Ce compte ne peut pas se connecter depuis Phaos.', corsHeaders);
+      }
       userId = existing.id;
       console.log(`[auth-token] Utilisateur existant trouvé : ${userId}`);
     } else {

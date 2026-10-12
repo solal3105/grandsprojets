@@ -13,7 +13,7 @@ import { _internals } from '../netlify/functions/auth-token.mjs';
  */
 
 const {
-  decodeJwt, base64urlToBuffer, detectAzureEnv, extractEmail,
+  decodeJwt, base64urlToBuffer, detectAzureEnv, extractEmail, cityFromRequest, isSuperAdminProfile,
   checkRateLimit, rateLimitMap, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS, AZURE_ENVS,
 } = _internals;
 
@@ -141,6 +141,22 @@ test.describe("0.56 - Phaos : émetteur et identité", () => {
     expect(extractEmail({ email: 'a@b.fr' })).toBeNull();
     expect(extractEmail({ upn: 'a@b.fr', preferred_username: 'a@b.fr' })).toBeNull();
     expect(extractEmail({})).toBeNull();
+  });
+
+  // Non-régression de l'audit du 12/10/2026 : Phaos ne mène jamais à un super
+  // administrateur, ni en demandant la ville « global », ni par l'adresse d'un
+  // compte super administrateur existant.
+  test('0.56.6 - Phaos ne mène jamais à un super administrateur', () => {
+    expect(cityFromRequest('global')).toBeNull();
+    expect(cityFromRequest('GLOBAL')).toBeNull();
+    expect(cityFromRequest('metropole-lyon')).toBe('metropole-lyon');
+    expect(cityFromRequest('ville; drop')).toBeNull();
+    expect(cityFromRequest(undefined)).toBeNull();
+    expect(isSuperAdminProfile({ role: 'admin', ville: ['global'] })).toBe(true);
+    expect(isSuperAdminProfile({ role: 'admin', ville: ['metropole-lyon', 'global'] })).toBe(true);
+    expect(isSuperAdminProfile({ role: 'admin', ville: ['metropole-lyon'] })).toBe(false);
+    expect(isSuperAdminProfile({ role: 'invited', ville: null })).toBe(false);
+    expect(isSuperAdminProfile(null)).toBe(false);
   });
 
 });

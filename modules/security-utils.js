@@ -36,6 +36,23 @@
     },
 
     /**
+     * Couleur CSS sûre à placer dans un attribut style : hexadécimal, variable
+     * CSS, rgb()/hsl() numériques ou nom de couleur. Toute autre valeur (qui
+     * pourrait fermer l'attribut ou appeler une adresse) est remplacée.
+     * @param {string} value - Couleur venue de la base
+     * @param {string} [fallback] - Valeur rendue si la couleur est refusée
+     * @returns {string}
+     */
+    safeColor: function(value, fallback = '') {
+      const v = String(value ?? '').trim();
+      if (/^#[0-9a-f]{3,8}$/i.test(v)) return v;
+      if (/^var\(--[a-z0-9-]+\)$/i.test(v)) return v;
+      if (/^(rgb|hsl)a?\([\d\s.,%/]+\)$/i.test(v)) return v;
+      if (/^[a-z]{3,20}$/i.test(v)) return v;
+      return fallback;
+    },
+
+    /**
      * Valide et nettoie une URL pour éviter javascript: ou data: schemes malveillants
      * @param {string} url - URL à valider
      * @returns {string} - URL sécurisée ou chaîne vide si dangereuse
@@ -125,7 +142,12 @@
    * @returns {string} Classe normalisée (ex: 'fa-solid fa-bus')
    */
   function normalizeIconClass(iconClass, fallback) {
-    const cls = iconClass || fallback || 'fa-solid fa-map-marker';
+    // La classe vient souvent de la base (saisie par une ville ou un
+    // contributeur) et finit dans un attribut class, parfois sans échappement :
+    // on ne garde que les caractères d'un nom de classe, ce qui la rend sûre
+    // partout où elle passe (audit de sécurité du 11/10/2026).
+    const clean = (v) => String(v || '').replace(/[^\w\s-]/g, '').trim();
+    const cls = clean(iconClass) || clean(fallback) || 'fa-solid fa-map-marker';
     if (cls.includes('fa-solid') || cls.includes('fa-regular') || cls.includes('fa-brands')) return cls;
     return `fa-solid ${cls}`;
   }

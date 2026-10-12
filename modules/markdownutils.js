@@ -6,18 +6,24 @@
   if (window.MarkdownUtils) return; // déjà chargé
 
   // -------- Chargement dynamique des dépendances --------
+  // Une promesse par adresse : un second appel attend le chargement en cours au
+  // lieu de conclure, à la seule vue de la balise, que le script est prêt. Une
+  // balise en échec est retirée pour qu'un appel suivant puisse réessayer.
+  const _loading = new Map();
   function loadScriptOnce(src) {
-    return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) return resolve();
+    if (_loading.has(src)) return _loading.get(src);
+    const p = new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = src;
       s.async = true;
       s.crossOrigin = 'anonymous';
       s.referrerPolicy = 'no-referrer';
       s.onload = resolve;
-      s.onerror = reject;
+      s.onerror = (e) => { s.remove(); _loading.delete(src); reject(e); };
       document.head.appendChild(s);
     });
+    _loading.set(src, p);
+    return p;
   }
 
 
@@ -46,9 +52,17 @@
       }
     } catch (e) { console.debug('[markdown] marked config failed:', e); }
 
-    // DOMPurify pour la sanitisation
+    // DOMPurify pour la sanitisation, version figée (une adresse sans version
+    // suivait la dernière publication du paquet)
     if (!window.DOMPurify) {
-      await loadScriptOnce('https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js');
+      const sources = [
+        'https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js',
+        'https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js'
+      ];
+      for (const src of sources) {
+        if (window.DOMPurify) break;
+        try { await loadScriptOnce(src); } catch (e) { console.debug('[markdown] CDN fallback:', e); }
+      }
     }
   }
 
@@ -119,10 +133,21 @@
     } else {
       html = body;
     }
-    // Sanitisation simple via DOMPurify (option 1, keep it simple)
-    const safeHtml = (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function')
-      ? window.DOMPurify.sanitize(html, { ADD_TAGS: ['figure', 'figcaption'] })
-      : html;
+    // Le Markdown est écrit par des contributeurs : sans DOMPurify, on n'affiche
+    // que du texte échappé, jamais le HTML brut (audit de sécurité du 11/10/2026).
+    // Les éléments de formulaire et les styles sont refusés : ils permettraient
+    // d'habiller un faux écran dans la fiche ou dans l'écran de modération.
+    if (!(window.DOMPurify && typeof window.DOMPurify.sanitize === 'function')) {
+      const text = String(body)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+      return { attrs, html: `<p>${text.replace(/\n{2,}/g, '</p><p>')}</p>` };
+    }
+    const safeHtml = window.DOMPurify.sanitize(html, {
+      ADD_TAGS: ['figure', 'figcaption'],
+      FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select'],
+      FORBID_ATTR: ['style']
+    });
     return { attrs, html: safeHtml };
   }
 

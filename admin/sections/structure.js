@@ -1,6 +1,10 @@
 import { store } from '../store.js';
 import * as api from '../api.js';
 import { toast, esc, skeletonTable } from '../components/ui.js';
+
+// Seule forme acceptée par le sélecteur de couleur : #rrggbb. Toute autre
+// valeur venue de la base est ignorée plutôt qu'injectée dans le style.
+const HEX6 = /^#[0-9a-f]{6}$/i;
 import { uploaderHTML, bindUploader } from '../components/uploader.js';
 
 const DEFAULT_COLOR = '#14AE5C';
@@ -52,7 +56,7 @@ async function _fetchBasemaps() {
 }
 
 function _renderContent(container, branding, basemaps, allToggles) {
-  const color = branding.primary_color || DEFAULT_COLOR;
+  const color = HEX6.test(branding.primary_color || '') ? branding.primary_color : DEFAULT_COLOR;
   const colorHex = color.replace('#', '');
   const enabledToggles = new Set(branding.enabled_toggles || []);
   const enabledCities = branding.enabled_cities || [];

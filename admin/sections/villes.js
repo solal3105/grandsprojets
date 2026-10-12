@@ -1,6 +1,6 @@
 import { store } from '../store.js';
 import * as api from '../api.js';
-import { toast, confirm, esc, skeletonTable, emptyState } from '../components/ui.js';
+import { toast, confirm, esc, safeColor, skeletonTable, emptyState } from '../components/ui.js';
 import { uploaderHTML, bindUploader } from '../components/uploader.js';
 
 const DEFAULT_COLOR = '#14AE5C';
@@ -95,8 +95,8 @@ function _renderCityList(body, cities) {
       ? `<img src="${esc(city.logo_url)}" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:8px;background:var(--black-alpha-06);padding:2px;">`
       : `<div style="width:40px;height:40px;border-radius:8px;background:var(--primary-alpha-12);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--primary);"><i class="fa-solid fa-city"></i></div>`;
 
-    const colorDot = city.primary_color
-      ? `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${esc(city.primary_color)};vertical-align:middle;margin-right:4px;border:2px solid var(--adm-glass-border);"></span>`
+    const colorDot = safeColor(city.primary_color)
+      ? `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${safeColor(city.primary_color)};vertical-align:middle;margin-right:4px;border:2px solid var(--adm-glass-border);"></span>`
       : '';
 
     const adminBadge = city.admin_count != null

@@ -349,7 +349,9 @@ window.DataModule = (function() {
 	function createCustomMarkerIcon(category = null, iconOverride = null, colorOverride = null) {
 		// Récupérer les styles de la catégorie ou utiliser les overrides
 		const { color, iconClass } = category ? getCategoryStyle(category) : { color: 'var(--primary)', iconClass: 'fa-solid fa-map-marker' };
-		const finalColor = colorOverride || color;
+		// Couleur et icône viennent de la base : validées avant d'entrer dans le
+		// HTML du marqueur (audit de sécurité du 11/10/2026)
+		const finalColor = window.SecurityUtils.safeColor(colorOverride || color, 'var(--primary)');
 		const finalIcon = window.normalizeIconClass(iconOverride || iconClass);
 		
 		// Créer le marker avec design sobre : pin blanc avec bordure colorée et icône
@@ -384,11 +386,12 @@ window.DataModule = (function() {
 	 */
 	function createSimpleMarkerIcon(iconClass, color = 'var(--primary)') {
 		const finalIcon = window.normalizeIconClass(iconClass, 'fa-map-marker');
-		
+		const finalColor = window.SecurityUtils.safeColor(color, 'var(--primary)');
+
 		// Créer le marker simple : juste l'icône avec couleur et ombre
 		return L.divIcon({
 			html: `
-				<div class="gp-simple-marker" style="--marker-color: ${color};">
+				<div class="gp-simple-marker" style="--marker-color: ${finalColor};">
 					<i class="${finalIcon}"></i>
 				</div>
 			`,

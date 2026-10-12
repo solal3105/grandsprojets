@@ -23,10 +23,10 @@
     categoryIcons.forEach(({ category, icon_class, label, category_styles }) => {
       if (category === 'contribute') return;
 
-      let fullIcon = icon_class || 'fa-layer-group';
-      if (fullIcon && !/^fa-(solid|regular|brands)/.test(fullIcon)) {
-        fullIcon = `fa-solid ${fullIcon}`;
-      }
+      // Libellé, icône et couleur sont saisis par la ville : rien n'entre dans
+      // le HTML sans être échappé ou validé (audit de sécurité du 11/10/2026)
+      const _esc = win.SecurityUtils.escapeHtml;
+      const fullIcon = win.normalizeIconClass(icon_class, 'fa-layer-group');
 
       let color = null;
       if (category_styles) {
@@ -36,15 +36,16 @@
           color = styles.color;
         } catch {}
       }
-      const colorStyle = color ? `style="--item-color: ${color}"` : '';
-      const displayLabel = label || category;
+      const safeColor = win.SecurityUtils.safeColor(color);
+      const colorStyle = safeColor ? `style="--item-color: ${safeColor}"` : '';
+      const displayLabel = _esc(label || category);
 
       const layersMap = win.categoryLayersMap || {};
       const layers = layersMap[category] || [category];
       const desc = layers.length > 1 ? `${layers.length} couches` : '';
 
       html += `
-        <button class="nav-panel__item" data-category="${category}" ${colorStyle}
+        <button class="nav-panel__item" data-category="${_esc(category)}" ${colorStyle}
                 aria-label="${displayLabel}">
           <div class="nav-panel__item-icon"><i class="${fullIcon}"></i></div>
           <div class="nav-panel__item-text">
@@ -145,6 +146,7 @@
     const li = document.createElement('li');
     li.classList.add('project-card');
     li.dataset.project = project.id;
+    categoryColor = win.SecurityUtils.safeColor(categoryColor) || null;
     if (categoryColor) li.style.setProperty('--card-accent', categoryColor);
 
     const hasCover = !!(project.cover_url);

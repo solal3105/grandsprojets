@@ -44,10 +44,10 @@
         btn.dataset.tooltip = mod.label;
         btn.setAttribute('aria-label', mod.label);
 
-        const icon = mod.icon_class || 'fas fa-layer-group';
+        const icon = win.normalizeIconClass(mod.icon_class, 'fas fa-layer-group');
         btn.innerHTML = `
           <i class="${icon}" aria-hidden="true"></i>
-          <span class="gp-sidebar__label">${mod.label}</span>
+          <span class="gp-sidebar__label">${win.SecurityUtils.escapeHtml(mod.label)}</span>
         `;
         container.appendChild(btn);
       });

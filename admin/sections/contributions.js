@@ -1,7 +1,7 @@
 import { store } from '../store.js';
 import { router } from '../router.js';
 import * as api from '../api.js';
-import { toast, confirm, slidePanel, esc, escAttr, sanitizeUrl, formatDate, formatRelativeDate, renderPagination, emptyState, skeletonTable } from '../components/ui.js';
+import { toast, confirm, slidePanel, esc, escAttr, safeColor, sanitizeUrl, formatDate, formatRelativeDate, renderPagination, emptyState, skeletonTable } from '../components/ui.js';
 import { Copilot } from '../components/copilot.js';
 import { createMiniMap, pickBasemap, parseCategoryStyles } from '../components/minimap.js';
 import { uploaderHTML, bindUploader } from '../components/uploader.js';
@@ -241,7 +241,7 @@ function _renderItem(item) {
     ? `<img class="adm-list-item__cover" src="${esc(item.cover_url)}" alt="" loading="lazy">`
     : `<div class="adm-list-item__cover adm-list-item__cover--ph"><i class="fa-solid fa-image"></i></div>`;
 
-  const catColor = _state.catColors?.[item.category] || 'var(--primary)';
+  const catColor = safeColor(_state.catColors?.[item.category], 'var(--primary)');
 
   return `
     <div class="adm-list-item ${item.approved ? '' : 'adm-list-item--pending'}" data-id="${item.id}">

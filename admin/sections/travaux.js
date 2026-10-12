@@ -428,7 +428,7 @@ async function _renderCreateForm(container, chantier = null) {
                   <span>${e.label}</span>
                 </label>`).join('')}
             </div>
-            <input type="hidden" id="tw-etat" value="${chantier?.etat || 'en_cours'}">
+            <input type="hidden" id="tw-etat" value="${esc(chantier?.etat || 'en_cours')}">
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
             <div class="cw-field">

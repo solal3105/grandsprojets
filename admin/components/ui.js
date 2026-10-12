@@ -101,6 +101,15 @@ export function esc(str) {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Couleur sûre à placer dans un attribut style : délègue à SecurityUtils.safeColor
+ * (hexadécimal, variable CSS, rgb()/hsl(), nom de couleur). Une couleur saisie
+ * en base ne peut ni fermer l'attribut ni appeler une adresse.
+ */
+export function safeColor(value, fallback = '') {
+  return window.SecurityUtils?.safeColor ? window.SecurityUtils.safeColor(value, fallback) : fallback;
+}
+
 /** Échappement d'attribut - désormais identique à esc() (qui couvre les guillemets).
  *  Conservé comme marqueur d'intention sur les sinks d'attribut. */
 export function escAttr(str) {

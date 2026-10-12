@@ -504,9 +504,9 @@
       const renderer = this._moduleRenderers[this._currentModule];
       const modLabel = renderer?.label || this._currentModule || 'Menu';
       this._breadcrumb.innerHTML = `
-        <span class="nav-panel__breadcrumb-item" data-action="back">${modLabel}</span>
+        <span class="nav-panel__breadcrumb-item" data-action="back">${win.SecurityUtils.escapeHtml(modLabel)}</span>
         <span class="nav-panel__breadcrumb-sep"><i class="fas fa-chevron-right"></i></span>
-        <span class="nav-panel__breadcrumb-current">${label}</span>
+        <span class="nav-panel__breadcrumb-current">${win.SecurityUtils.escapeHtml(label)}</span>
       `;
 
       // Bind breadcrumb back

@@ -241,6 +241,31 @@ test.describe('0.8 - Échappement : pas de repli fail-open', () => {
     expect(r.attribut).not.toContain("'");
     expect(r.attribut).not.toContain('"');
   });
+
+  // Non-régression de l'audit du 11/10/2026 : une icône de chantier saisie par
+  // un contributeur se rendait telle quelle dans le marqueur de la carte publique.
+  test('0.8.4 normalizeIconClass et safeColor ne laissent passer aucun HTML', async ({ page }) => {
+    await page.goto('/ville/metropole-lyon/carte', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !!window.SecurityUtils?.safeColor && !!window.normalizeIconClass, { timeout: 15000 });
+
+    const r = await page.evaluate(() => ({
+      icone: window.normalizeIconClass('fa-solid"><img src=x onerror=alert(1)>'),
+      iconeSure: window.normalizeIconClass('fa-solid fa-bus'),
+      iconeNue: window.normalizeIconClass('fa-bus'),
+      couleurPiege: window.SecurityUtils.safeColor('red" onclick="alert(1)', 'var(--primary)'),
+      couleurUrl: window.SecurityUtils.safeColor('url(https://x.example/b)', ''),
+      couleurHex: window.SecurityUtils.safeColor('#14AE5C'),
+      couleurVar: window.SecurityUtils.safeColor('var(--color-warning)'),
+    }));
+
+    expect(r.icone).not.toMatch(/[<>"'=]/);
+    expect(r.iconeSure).toBe('fa-solid fa-bus');
+    expect(r.iconeNue).toBe('fa-solid fa-bus');
+    expect(r.couleurPiege).toBe('var(--primary)');
+    expect(r.couleurUrl).toBe('');
+    expect(r.couleurHex).toBe('#14AE5C');
+    expect(r.couleurVar).toBe('var(--color-warning)');
+  });
 });
 
 /**

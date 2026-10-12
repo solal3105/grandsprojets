@@ -152,7 +152,9 @@ export function setIconField(container, id, cls) {
 }
 
 export function renderIconField(id, value, defaultIcon = 'fa-solid fa-tag') {
-  const cls = value || defaultIcon;
+  // La valeur vient de la base (saisie par une ville ou un contributeur) :
+  // échappée avant d'entrer dans les attributs (audit de sécurité du 11/10/2026)
+  const cls = _esc(value || defaultIcon);
   return `<div class="adm-ip-field" data-ip-for="${id}">
     <button type="button" class="adm-ip-trigger" id="${id}-btn" aria-label="Choisir une icône" aria-haspopup="listbox">
       <div class="adm-ip-trigger__preview"><i class="${cls}"></i></div>
@@ -381,7 +383,7 @@ function _renderGrid() {
   const currentVal = _state.inputEl?.value || '';
   grid.innerHTML = icons.map(entry => `
     <button type="button" class="adm-ip-icon ${entry.cls === currentVal ? 'adm-ip-icon--selected' : ''}"
-      data-cls="${entry.cls}" title="${_esc(entry.label)}" role="option" aria-selected="${entry.cls === currentVal}">
+      data-cls="${_esc(entry.cls)}" title="${_esc(entry.label)}" role="option" aria-selected="${entry.cls === currentVal}">
       <i class="${entry.cls}"></i>
       <span>${_esc(entry.label)}</span>
     </button>

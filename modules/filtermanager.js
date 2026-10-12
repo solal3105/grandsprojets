@@ -19,14 +19,15 @@
           const styles = typeof catData.category_styles === 'string'
             ? JSON.parse(catData.category_styles)
             : catData.category_styles;
-          if (styles.color) el.style.setProperty('--item-color', styles.color);
+          const color = win.SecurityUtils.safeColor(styles.color);
+          if (color) el.style.setProperty('--item-color', color);
         } catch (e) { console.debug('[filter] category_styles parse error:', e); }
       }
 
-      const icon = iconClass ? (win.normalizeIconClass?.(iconClass) || iconClass) : '';
+      const icon = iconClass ? win.normalizeIconClass(iconClass) : '';
       el.innerHTML = `
         <span class="dock-panel__item-icon"><i class="${icon}"></i></span>
-        <span class="dock-panel__item-label">${label || layerName}</span>
+        <span class="dock-panel__item-label">${win.SecurityUtils.escapeHtml(label || layerName)}</span>
       `;
       return el;
     },

@@ -1,6 +1,6 @@
 import { store } from '../store.js';
 import * as api from '../api.js';
-import { toast, confirm, esc, skeletonTable } from '../components/ui.js';
+import { toast, confirm, esc, safeColor, skeletonTable } from '../components/ui.js';
 import { renderIconField, bindIconField, setIconField } from '../components/icon-picker.js';
 
 let _categories = [];
@@ -504,7 +504,7 @@ function _renderCatCard(cat) {
   const iconClass = cat.icon_class || 'fa-solid fa-folder';
   const layers = cat.layers_to_display;
   const layersText = Array.isArray(layers) && layers.length > 0 ? layers.join(', ') : '';
-  const color = _getCatColor(cat);
+  const color = safeColor(_getCatColor(cat));
   const iconStyle = color
     ? `style="background:${color}1a;color:${color};"`
     : `style="background:var(--primary-alpha-12);color:var(--primary);"`;
