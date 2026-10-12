@@ -133,7 +133,8 @@
   // suivi personnel d'un signalement (?participer_suivi=) : le paramètre est
   // conservé (utile aux analyses) mais sa valeur est masquée.
   const URL_PROPS = ['$current_url', '$referrer', '$initial_current_url', '$initial_referrer'];
-  const MASKED_PARAMS = ['participer_suivi'];
+  // `k` est la clé du stand, qui lève les plafonds de la démo payante.
+  const MASKED_PARAMS = ['participer_suivi', 'k'];
 
   function sanitizeProperties(properties) {
     for (const key of URL_PROPS) {

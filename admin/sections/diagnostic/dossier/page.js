@@ -35,6 +35,10 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
   const alive = () => !disposed && isAlive() && city === store.city;
   const dialog = document.createElement('dialog');
   dialog.className = 'dz-dialog';
+  // Le dossier cite les textes des habitants (adresses, noms, téléphones
+  // éventuels) : masqués pour l'enregistrement de session, comme les fenêtres
+  // de la carte (audit de sécurité du 11/10/2026)
+  dialog.setAttribute('data-op-mask', '');
   document.body.appendChild(dialog);
   let printRoot = null;
   const removePrint = () => { printRoot?.remove(); printRoot = null; };
@@ -42,6 +46,7 @@ export async function renderDossierPage(container, reportId, isAlive = () => tru
     removePrint();
     printRoot = document.createElement('div');
     printRoot.className = 'dz-print-host';
+    printRoot.setAttribute('data-op-mask', '');
     printRoot.innerHTML = printHtml(dossier, { appendix, draft: dirty || isDraft(), reportUrl: `${location.origin}/admin/diagnostic/${reportId}/` });
     document.body.appendChild(printRoot);
   };

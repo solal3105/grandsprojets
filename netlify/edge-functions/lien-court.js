@@ -51,7 +51,13 @@ function pageInconnue(code) {
 
 export default async (request) => {
   const url = new URL(request.url);
-  const code = decodeURIComponent(url.pathname.replace(/^\/l\//, '').replace(/\/$/, '')).toLowerCase();
+  // Un « % » mal formé (/l/%E0) ferait lever decodeURIComponent : page inconnue
+  let code = '';
+  try {
+    code = decodeURIComponent(url.pathname.replace(/^\/l\//, '').replace(/\/$/, '')).toLowerCase();
+  } catch {
+    return pageInconnue('');
+  }
   if (!CODE_VALIDE.test(code)) return pageInconnue(code);
 
   let cible = '';

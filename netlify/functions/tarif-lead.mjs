@@ -104,6 +104,26 @@ export function lireReglages(body) {
   return reglages;
 }
 
+/* Nom officiel du territoire, lu sur geo.api.gouv.fr à partir de sa clé. Le
+   message part à une adresse saisie librement : il ne reprend jamais le nom
+   envoyé par la page, sinon n'importe qui ferait signer par notre domaine le
+   texte de son choix (audit de sécurité du 11/10/2026). */
+const GEO_API = { commune: 'communes', epci: 'epcis', departement: 'departements' };
+async function nomOfficiel(cle) {
+  const m = /^(commune|epci|departement)-([0-9AB]{2,9})$/.exec(cle || '');
+  if (!m) return '';
+  try {
+    const r = await fetch(`https://geo.api.gouv.fr/${GEO_API[m[1]]}/${m[2]}?fields=nom`, {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!r.ok) return '';
+    const data = await r.json();
+    return String(data?.nom || '').trim().slice(0, 120);
+  } catch {
+    return '';
+  }
+}
+
 export default async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return json(405, { error: 'Méthode non autorisée' });
@@ -123,6 +143,7 @@ export default async (req) => {
 
   const reglages = lireReglages(body);
   if (!reglages) return json(400, { error: 'Réglages de l\'estimation invalides' });
+  if (reglages.territoire) reglages.territoire.nom = await nomOfficiel(reglages.territoire.cle);
 
   const serviceDisponible = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!serviceDisponible) console.warn('[tarif-lead] SUPABASE_SERVICE_ROLE_KEY absente : la demande ne sera pas enregistrée');

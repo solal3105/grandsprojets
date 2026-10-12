@@ -79,6 +79,26 @@ async function findRunId(ville) {
   }
 }
 
+// Nom de la commune tel que l'espace d'essai l'a enregistré. Le message part à
+// une adresse saisie librement : il ne reprend jamais un texte du visiteur, sinon
+// n'importe qui ferait signer par notre domaine le texte de son choix (audit de
+// sécurité du 11/10/2026).
+async function nomDeLEspace(ville) {
+  if (!ville) return '';
+  try {
+    const url = new URL(`${SUPABASE_URL}/rest/v1/city_branding`);
+    url.searchParams.set('select', 'brand_name');
+    url.searchParams.set('ville', `eq.${ville}`);
+    url.searchParams.set('limit', '1');
+    const r = await fetch(url.toString(), { headers: serviceHeaders() });
+    if (!r.ok) return '';
+    const rows = await r.json();
+    return String(rows[0]?.brand_name || '').trim().slice(0, 120);
+  } catch {
+    return '';
+  }
+}
+
 export default async (req, context) => {
   // Corps null obligatoire : un 204 avec un corps fait lever le constructeur Response.
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
@@ -121,9 +141,9 @@ export default async (req, context) => {
       return json(200, { ok: true, stored: false });
     }
 
-    const runId = await findRunId(ville);
-    const communeNom = String(body?.communeNom || '').trim().slice(0, 120);
-    const spaceUrl = ville ? `https://openprojets.com/ville/${ville}/carte` : null;
+    const [runId, communeNom] = await Promise.all([findRunId(ville), nomDeLEspace(ville)]);
+    // Un espace qui n'existe pas n'a pas de lien à envoyer : pas de message
+    const spaceUrl = communeNom ? `https://openprojets.com/ville/${ville}/carte` : null;
 
     /* Le message part AVANT l'enregistrement, pour que son issue soit consignée
        avec l'adresse : une ligne « envoyé » ou « échec » vaut bien mieux qu'une

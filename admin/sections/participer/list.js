@@ -183,7 +183,14 @@ async function _exportCsv() {
       toast(`Export limité aux ${rows.length} plus récents sur ${total} - filtrez pour le reste`, 'warning');
     }
 
-    const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    // Un texte d'habitant qui commence par = + - @ serait lu comme une formule
+    // par le tableur : il est préfixé d'une apostrophe. Les nombres (une
+    // longitude négative) restent des nombres.
+    const cell = (v) => {
+      let s = String(v ?? '');
+      if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+([.,]\d+)?$/.test(s)) s = `'${s}`;
+      return `"${s.replace(/"/g, '""')}"`;
+    };
     const lignes = [
       ['reference', 'categorie', 'statut', 'description', 'adresse', 'lat', 'lng', 'publie', 'cree_le', 'clos_le'].join(';'),
       ...rows.map((r) => [

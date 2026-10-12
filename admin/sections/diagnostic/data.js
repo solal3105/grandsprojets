@@ -340,7 +340,10 @@ export async function loadLayerData(layer) {
   const url = layerDataUrl(layer);
   if (!url) throw new Error('La source de cette couche n\'existe plus. Retirez la couche, puis ajoutez de nouveau vos données.');
   // Une source relayée par nos fonctions (flux partenaire) exige la session.
-  const headers = url.startsWith('/api/sources/') && store.session?.access_token
+  // Le chemin est lu après résolution : « /api/sources/../x » ne reçoit pas le jeton.
+  const target = new URL(url, location.origin);
+  const relayed = target.origin === location.origin && target.pathname.startsWith('/api/sources/');
+  const headers = relayed && store.session?.access_token
     ? { Authorization: `Bearer ${store.session.access_token}` }
     : {};
   let res;
