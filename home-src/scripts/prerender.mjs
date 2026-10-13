@@ -28,8 +28,8 @@ const HOME_DIR = resolve(REPO_ROOT, 'home')
 const CONTENT_DIR = resolve(__dirname, '../src/content/ressources')
 
 // Pages statiques à prerendre. Hors liste, donc servies par le fallback SPA :
-// /helios, /aide/guide-* et /tarification/estimation (noindex), les
-// redirections (/contact, /fonctionnalites, /tarifs, /modules).
+// /helios, /aide/guide-*, /tarification/estimation et /tarification/appel-offres
+// (noindex), les redirections (/contact, /fonctionnalites, /tarifs, /modules).
 const STATIC_ROUTES = [
   '/',
   '/carte',

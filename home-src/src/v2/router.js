@@ -92,6 +92,19 @@ const routes = [
     component: () => import('./views/EstimationView.vue'),
     meta: { title: 'Estimation budgétaire | Open Projets', document: true, robots: 'noindex, nofollow' },
   },
+  {
+    /* Le même estimateur pour un candidat à un appel d'offres : le montant du
+       marché remplace le nombre d'habitants. Hors du menu, du plan du site et
+       des moteurs : son adresse est donnée par nos partenaires. */
+    path: '/tarification/appel-offres',
+    name: 'tarification-appel-offres',
+    component: () => import('./views/TarificationMarcheView.vue'),
+    meta: {
+      title: "Open Projets dans un appel d'offres | Open Projets",
+      description: "Chiffrez Open Projets dans votre réponse à un appel d'offres : le prix suit le montant du marché, et il n'est dû que si vous le remportez.",
+      robots: 'noindex, nofollow',
+    },
+  },
   // L'ancienne page des tarifs, retirée bien avant la refonte
   { path: '/tarifs', redirect: '/tarification' },
   {
