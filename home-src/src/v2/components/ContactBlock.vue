@@ -8,12 +8,11 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
         <div>
           <h2 class="font-heading font-bold text-3xl sm:text-4xl lg:text-[44px] leading-[1.08] tracking-tight text-dark">
-            Nous configurons votre espace avec vous
+            {{ titre }}
           </h2>
 
           <p class="mt-5 text-gray-text text-base sm:text-lg leading-relaxed max-w-[480px]">
-            Dites-nous quel territoire vous représentez. Nous vous rappelons et montons votre espace
-            ensemble, sur vos vraies données.
+            {{ texte }}
           </p>
 
           <ul class="mt-10 flex flex-col gap-4">
@@ -27,7 +26,7 @@
 
         </div>
 
-        <DemoRequestForm :referrer="referrer" :id-prefix="`${referrer}-contact`" />
+        <DemoRequestForm :referrer="referrer" :id-prefix="`${referrer}-contact`" :email-placeholder="emailPlaceholder" :org-placeholder="orgPlaceholder" />
       </div>
     </div>
   </section>
@@ -38,8 +37,17 @@ import { Receipt, ShieldCheck, Unlock } from 'lucide-vue-next'
 import DemoRequestForm from '@/components/DemoRequestForm.vue'
 
 /* D'où vient la demande : `home` pour le site, `helios` sur la page des
- * clients Hélios. La valeur part avec la demande et dans la mesure. */
-defineProps({ referrer: { type: String, default: 'home' } })
+ * clients Hélios, `appel-offres` sur celle des candidats aux appels d'offres.
+ * La valeur part avec la demande et dans la mesure. */
+defineProps({
+  referrer: { type: String, default: 'home' },
+  // Le titre, le texte et les exemples des champs, propres à la page qui
+  // accueille le bloc quand elle ne s'adresse pas à une collectivité
+  titre: { type: String, default: 'Nous configurons votre espace avec vous' },
+  texte: { type: String, default: 'Dites-nous quel territoire vous représentez. Nous vous rappelons et montons votre espace ensemble, sur vos vraies données.' },
+  emailPlaceholder: { type: String, default: 'email@collectivite.fr' },
+  orgPlaceholder: { type: String, default: 'Nom de la collectivité' },
+})
 
 const reassurance = [
   { icon: ShieldCheck, label: 'Hébergement en Europe, conforme au RGPD' },

@@ -246,7 +246,13 @@
       </div>
     </section>
 
-    <ContactBlock referrer="appel-offres" />
+    <ContactBlock
+      referrer="appel-offres"
+      titre="Nous préparons votre offre avec vous"
+      texte="Dites-nous à quel marché vous répondez et quand l'offre doit partir. Nous vous rappelons pour préparer l'espace de démonstration et le texte de votre mémoire technique."
+      email-placeholder="email@entreprise.fr"
+      org-placeholder="Nom de votre entreprise"
+    />
   </div>
 </template>
 

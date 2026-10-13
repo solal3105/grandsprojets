@@ -20,7 +20,7 @@
             v-model="form.email"
             type="email"
             required
-            placeholder="email@collectivite.fr"
+            :placeholder="emailPlaceholder"
             class="form-input"
           />
         </div>
@@ -44,7 +44,7 @@
             v-model="form.organization"
             type="text"
             required
-            placeholder="Nom de la collectivité"
+            :placeholder="orgPlaceholder"
             class="form-input"
           />
         </div>
@@ -151,6 +151,10 @@ const props = defineProps({
   referrer: { type: String, default: 'home' },
   submitLabel: { type: String, default: 'Envoyer la demande' },
   idPrefix: { type: String, default: 'demo' },
+  // Les exemples des champs : une collectivité par défaut, une entreprise
+  // sur la page des candidats aux appels d'offres
+  emailPlaceholder: { type: String, default: 'email@collectivite.fr' },
+  orgPlaceholder: { type: String, default: 'Nom de la collectivité' },
 })
 
 const form = reactive({
