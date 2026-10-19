@@ -16,6 +16,14 @@ import { resourceSeo } from '../../home-src/src/lib/resource-seo.mjs';
 
 const BASE_ORIGIN = 'https://openprojets.com';
 
+// Images de partage (scripts/og-images.mjs) : une par page de module, la
+// générale ailleurs. Mêmes adresses et textes que home-src/src/v2/router.js.
+const OG_DEFAULT = {
+  image: `${BASE_ORIGIN}/img/og/open-projets.jpg`,
+  alt: 'Open Projets : les cinq modules, de la carte des projets au diagnostic terrain',
+};
+const ogModule = (key, name) => ({ image: `${BASE_ORIGIN}/img/og/${key}.jpg`, alt: `${name}, un module d'Open Projets` });
+
 const DEFAULT = {
   title: 'La carte des projets de votre collectivité | Open Projets',
   description: 'Publiez les projets urbains et les chantiers de votre commune sur une carte à vos couleurs, sans développement. Vos habitants consultent sans compte.',
@@ -31,30 +39,35 @@ const PAGES = {
     title: 'Carte des projets urbains de votre commune | Open Projets',
     description: "Chaque projet d'aménagement a sa fiche publique, avec sa propre adresse, sur une carte à vos couleurs. Vos habitants la consultent sans compte ni application.",
     canonical: `${BASE_ORIGIN}/carte`,
+    og: ogModule('carte', 'Carte des projets urbains'),
   },
   '/travaux': {
     breadcrumb: 'Travaux du quotidien',
     title: 'Les travaux du quotidien sur une carte | Open Projets',
     description: 'Chaque chantier affiche son emprise, ses dates et son avancement sur la carte de votre commune. Les riverains savent ce qui se passe sans appeler la mairie.',
     canonical: `${BASE_ORIGIN}/travaux`,
+    og: ogModule('travaux', 'Travaux du quotidien'),
   },
   '/participer': {
     breadcrumb: 'Signalement',
     title: 'Le signalement des habitants sur une carte | Open Projets',
     description: 'Un habitant signale un problème en deux minutes, sans créer de compte. Vous décidez de ce qui devient public et vous suivez le traitement sur la carte.',
     canonical: `${BASE_ORIGIN}/participer`,
+    og: ogModule('participer', 'Signalement'),
   },
   '/chantiers': {
     breadcrumb: 'Chantiers et arrêtés',
     title: 'Chantiers et arrêtés de voirie en ligne | Open Projets',
     description: "Les entreprises déposent leurs demandes en ligne, vos services instruisent dans un fil daté, et chaque chantier est suivi jusqu'à la réouverture de la rue.",
     canonical: `${BASE_ORIGIN}/chantiers`,
+    og: ogModule('chantiers', 'Chantiers et arrêtés'),
   },
   '/diagnostic': {
     breadcrumb: 'Diagnostic terrain',
     title: "Le diagnostic de terrain assisté par l'IA | Open Projets",
     description: "Tracez une zone : l'IA lit tous ses textes et en tire des constats illustrés de citations exactes, à côté des chiffres calculés sur vos données.",
     canonical: `${BASE_ORIGIN}/diagnostic`,
+    og: ogModule('diagnostic', 'Diagnostic terrain'),
   },
   '/tarification': {
     breadcrumb: 'Tarification',
@@ -197,7 +210,7 @@ function buildJsonLd(meta) {
         datePublished: meta.article.date,
         dateModified: meta.article.updated || meta.article.date,
         inLanguage: 'fr-FR',
-        image: `${BASE_ORIGIN}/img/logos/square_white.png`,
+        image: (meta.og || OG_DEFAULT).image,
         author: { '@id': ORG_ID },
         publisher: { '@id': ORG_ID },
       }
@@ -219,7 +232,7 @@ function buildJsonLd(meta) {
 
 function injectMeta(html, meta) {
   const { title, description, canonical } = meta;
-  const ogImage = `${BASE_ORIGIN}/img/logos/square_white.png`;
+  const og = meta.og || OG_DEFAULT;
   // Toujours une FONCTION de remplacement : une chaîne y ferait interpréter
   // les séquences $ du contenu comme motifs de remplacement JavaScript. La
   // fonction reçoit le début de balise capturé et le complète.
@@ -231,7 +244,9 @@ function injectMeta(html, meta) {
   rep(/(<meta\s+property="og:title"\s+content=")[^"]*"/, esc(title));
   rep(/(<meta\s+property="og:description"\s+content=")[^"]*"/, esc(description));
   rep(/(<meta\s+property="og:url"\s+content=")[^"]*"/, esc(canonical));
-  rep(/(<meta\s+property="og:image"\s+content=")[^"]*"/, esc(ogImage));
+  rep(/(<meta\s+property="og:image"\s+content=")[^"]*"/, esc(og.image));
+  rep(/(<meta\s+property="og:image:alt"\s+content=")[^"]*"/, esc(og.alt));
+  rep(/(<meta\s+name="twitter:image"\s+content=")[^"]*"/, esc(og.image));
   rep(/(<meta\s+name="twitter:title"\s+content=")[^"]*"/, esc(title));
   rep(/(<meta\s+name="twitter:description"\s+content=")[^"]*"/, esc(description));
 

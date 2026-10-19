@@ -58,7 +58,11 @@
     const DEFAULT = '/img/logos/favicon.png';
     // L'URL vient de city_branding : une valeur rejetée retombe sur le favicon
     // par défaut plutôt que d'être posée telle quelle dans un href.
-    const href = (faviconUrl && win.SecurityUtils?.sanitizeUrl(faviconUrl)) || DEFAULT;
+    const custom = faviconUrl && win.SecurityUtils?.sanitizeUrl(faviconUrl);
+    const href = custom || DEFAULT;
+    // Sans favicon de ville, l'icône Apple reste la nôtre en 180 px : le 32 px
+    // agrandi sur un écran d'accueil ou dans un aperçu de lien est flou.
+    const appleHref = custom || '/apple-touch-icon.png';
 
     let icon = document.querySelector('link[rel="icon"]');
     if (icon) {
@@ -72,11 +76,11 @@
 
     let apple = document.querySelector('link[rel="apple-touch-icon"]');
     if (apple) {
-      apple.href = href;
+      apple.href = appleHref;
     } else {
       apple = document.createElement('link');
       apple.rel = 'apple-touch-icon';
-      apple.href = href;
+      apple.href = appleHref;
       document.head.appendChild(apple);
     }
   },
