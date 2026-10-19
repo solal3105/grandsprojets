@@ -226,3 +226,76 @@ export function pourcent(taux) {
   return `${Math.round((Number(taux) || 0) * 100)} %`
 }
 
+
+/* Le prix dans une réponse à un appel d'offres (page /tarification/appel-offres).
+ *
+ * Un candidat (entreprise de travaux, maîtrise d'œuvre, bureau d'études)
+ * propose Open Projets dans son offre. On ne connaît pas sa collectivité,
+ * mais on connaît le montant estimé du marché : il remplace le nombre
+ * d'habitants, et tout le reste de la grille s'applique tel quel (poids des
+ * modules, remise multi-modules, remise sur la durée, mise en service).
+ *
+ * Le montant est converti en habitants à raison de 12 000 habitants pour un
+ * million d'euros HT : un marché d'un million coûte ce que coûte une petite
+ * ville. C'est le seul chiffre à régler pour déplacer cette grille. Chantiers
+ * n'y figure pas : il est payé par le gestionnaire des routes, et l'entreprise
+ * y dépose gratuitement. */
+export const HABITANTS_PAR_EURO = 12000 / 1000000
+
+/* Les montants que la page laisse choisir : ceux qui tombent dans les bornes
+ * de population de la grille */
+export const MARCHE = {
+  min: Math.ceil(POPULATION.min / HABITANTS_PAR_EURO / 1000) * 1000,
+  max: Math.floor(POPULATION.max / HABITANTS_PAR_EURO / 1000000) * 1000000,
+  defaut: 1000000,
+}
+
+export function bornerMarche(montant) {
+  const m = Math.round(Number(montant) || MARCHE.defaut)
+  return Math.min(MARCHE.max, Math.max(MARCHE.min, m))
+}
+
+export function populationEquivalente(montant) {
+  return borner(bornerMarche(montant) * HABITANTS_PAR_EURO)
+}
+
+const LOG_MARCHE_MIN = Math.log(MARCHE.min)
+const LOG_MARCHE_MAX = Math.log(MARCHE.max)
+
+export function curseurVersMarche(t) {
+  const x = Math.min(1, Math.max(0, Number(t) || 0))
+  const brut = Math.exp(LOG_MARCHE_MIN + (LOG_MARCHE_MAX - LOG_MARCHE_MIN) * x)
+  // Arrondi à deux chiffres significatifs : 1 200 000, pas 1 187 342
+  const pas = 10 ** Math.max(3, Math.floor(Math.log10(brut)) - 1)
+  return bornerMarche(Math.round(brut / pas) * pas)
+}
+
+export function marcheVersCurseur(montant) {
+  return (Math.log(bornerMarche(montant)) - LOG_MARCHE_MIN) / (LOG_MARCHE_MAX - LOG_MARCHE_MIN)
+}
+
+/* La formation dans une offre : une journée comprise, chaque journée en plus
+ * facturée au prix de journée. Elle s'ajoute au total, hors des remises : c'est
+ * du temps passé, pas de l'abonnement. */
+export const FORMATION = { comprises: 1, prixJour: 800, max: 30 }
+
+export function bornerJours(jours) {
+  const j = Math.round(Number(jours) || 0)
+  return Math.min(FORMATION.max, Math.max(0, j))
+}
+
+/* L'estimation d'une offre : la même que celle d'une collectivité, à la
+ * population équivalente au montant. `annees` : la durée du marché,
+ * `joursFormation` : les journées de formation en plus de celle comprise. */
+export function estimerMarche({ montant, modules, annees, joursFormation = 0 }) {
+  const retenus = (modules || []).filter((cle) => POIDS[cle] != null)
+  const base = estimer({ population: populationEquivalente(montant), modules: retenus, annees })
+  const jours = bornerJours(joursFormation)
+  const formation = { jours, montant: jours * FORMATION.prixJour }
+  return {
+    ...base,
+    montant: bornerMarche(montant),
+    formation,
+    total: base.total + formation.montant,
+  }
+}
