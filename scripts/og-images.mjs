@@ -78,23 +78,20 @@ function moduleHtml(m) {
 <style>${BASE_CSS}
 body{--t:${m.teinte}}
 .gauche{position:absolute;left:64px;top:56px;bottom:52px;width:500px;display:flex;flex-direction:column}
-.pill{margin-top:44px;align-self:flex-start;display:inline-flex;align-items:center;gap:10px;
-  color:var(--t);background:color-mix(in srgb,var(--t) 10%,white);border:1.5px solid color-mix(in srgb,var(--t) 30%,white);
-  border-radius:999px;padding:8px 18px;font-weight:600;font-size:20px}
-h1{margin-top:22px;font-size:52px}
-p{margin-top:20px;font-size:23px;line-height:1.4;color:#4A4A4A}
+h1{margin-top:56px;font-size:64px;color:var(--t)}
+.phrase{margin-top:22px;font-family:'Space Grotesk',sans-serif;font-weight:500;font-size:31px;line-height:1.2;letter-spacing:-0.01em;color:#111}
+p{margin-top:16px;font-size:21px;line-height:1.4;color:#4A4A4A}
 .url{margin-top:auto}
 .socle{position:absolute;left:620px;top:70px;width:640px;height:500px;border-radius:32px;background:var(--t);overflow:hidden}
 .ecran{position:absolute;left:660px;top:128px;width:620px;border-radius:16px;overflow:hidden;
   box-shadow:0 30px 60px rgba(0,0,0,.28),0 0 0 6px rgba(255,255,255,.9)}
 .ecran{height:388px}
 .ecran img{display:block;width:100%;height:100%;object-fit:cover;object-position:left top}
-.side{font-size:17px;font-weight:500;color:#666;margin-top:14px}
 </style></head><body>
 <div class="gauche">
   <img class="logo" src="${LOGO}" alt="">
-  <span class="pill">${m.name}</span>
-  <h1>${m.titre}</h1>
+  <h1>${m.name}</h1>
+  <div class="phrase">${m.titre}</div>
   <p>${m.texte}</p>
   <div class="url">openprojets.com<span>/${m.key}</span></div>
 </div>
