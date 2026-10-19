@@ -52,10 +52,13 @@ const bcc = () => {
    la collectivité choisie ({ cle, nom }), `reponses` les réponses du parcours
    Chantiers ({ nom, usage, km, sans }), pour que les liens rouvrent la même
    estimation. */
-export function resumer({ population, modules, annees, prix = {}, territoire = null, reponses = null }) {
-  const e = estimer({ population, modules, annees, prix });
+const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+
+export function resumer({ population, modules, annees, joursFormation = 0, prix = {}, territoire = null, reponses = null }) {
+  const e = estimer({ population, modules, annees, prix, joursFormation });
   const noms = e.lignes.map((l) => NOMS_MODULES[l.cle] || l.cle);
   const reglages = new URLSearchParams({ population: String(e.population), modules: e.lignes.map((l) => l.cle).join(','), annees: String(e.annees) });
+  if (e.formation.jours) reglages.set('formation', String(e.formation.jours));
   if (territoire?.cle) reglages.set('territoire', territoire.cle);
   if (reponses?.nom) reglages.set('nom', reponses.nom);
   if (reponses?.usage) reglages.set('usage', reponses.usage);
@@ -70,13 +73,13 @@ export function resumer({ population, modules, annees, prix = {}, territoire = n
     annees: e.annees,
     mensuel: euros(e.mensuel),
     setup: euros(e.setup),
+    // Une journée comprise ; les journées en plus, quand il y en a
+    formation: e.formation.jours ? `une journée comprise, plus ${pluriel(e.formation.jours, 'journée')} à ${euros(e.formation.montant)} HT` : 'une journée comprise',
     total: euros(e.total),
     lien: `${SITE}/tarification?${reglages}`,
     document: `${SITE}/tarification/estimation?${document}`,
   };
 }
-
-const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
 
 function corpsTexte({ resume, telephone }) {
   return [
@@ -89,7 +92,8 @@ function corpsTexte({ resume, telephone }) {
     `- Un engagement de ${pluriel(resume.annees, 'an')}`,
     `- L'abonnement : ${resume.mensuel} HT par mois`,
     `- La mise en service : ${resume.setup} HT, une seule fois`,
-    `- Le total sur ${pluriel(resume.annees, 'an')} : ${resume.total} HT, mise en service comprise`,
+    `- La formation : ${resume.formation}`,
+    `- Le total sur ${pluriel(resume.annees, 'an')} : ${resume.total} HT, mise en service et formation comprises`,
     ``,
     `Cette estimation n'est pas un devis et ne vous engage pas. Un devis vous`,
     `sera adressé après un échange sur votre besoin.`,
@@ -141,7 +145,8 @@ function corpsHtml({ resume, telephone }) {
             <li style="${li}">Un engagement de <strong>${pluriel(resume.annees, 'an')}</strong></li>
             <li style="${li}">L'abonnement : <strong>${echapper(resume.mensuel)} HT par mois</strong></li>
             <li style="${li}">La mise en service : <strong>${echapper(resume.setup)} HT</strong>, une seule fois</li>
-            <li>Le total sur ${pluriel(resume.annees, 'an')} : <strong>${echapper(resume.total)} HT</strong>, mise en service comprise</li>
+            <li style="${li}">La formation : ${echapper(resume.formation)}</li>
+            <li>Le total sur ${pluriel(resume.annees, 'an')} : <strong>${echapper(resume.total)} HT</strong>, mise en service et formation comprises</li>
           </ul>
           <p style="margin:0 0 16px;padding:14px 16px;border:2px solid #101014;border-radius:12px;color:#101014;font-size:15px;line-height:1.6;"><strong>Cette estimation n'est pas un devis et ne vous engage pas.</strong> Un devis vous sera adressé après un échange sur votre besoin.</p>
           <p style="${p}">Pour en parler, répondez simplement à ce message.${telephone ? ` Vous nous avez laissé le <strong>${echapper(telephone)}</strong> : nous vous y appellerons si c'est plus simple.` : ''}</p>
@@ -172,8 +177,8 @@ function corpsHtml({ resume, telephone }) {
  * jamais : rend l'état à consigner.
  * @returns {Promise<{ status: 'envoye'|'echec'|'non_configure', error?: string }>}
  */
-export async function envoyerMessageTarif({ email, telephone, population, modules, annees, prix, territoire, reponses }) {
-  const resume = resumer({ population, modules, annees, prix, territoire, reponses });
+export async function envoyerMessageTarif({ email, telephone, population, modules, annees, joursFormation, prix, territoire, reponses }) {
+  const resume = resumer({ population, modules, annees, joursFormation, prix, territoire, reponses });
   if (!resume.modules.length) return { status: 'echec', error: 'aucun module retenu' };
   const donnees = { resume, telephone: String(telephone || '').trim() };
   const resultat = await envoyerEmail({

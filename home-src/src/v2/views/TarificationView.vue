@@ -221,6 +221,47 @@
               </div>
             </div>
 
+            <!-- 4. La formation -->
+            <div class="rounded-3xl border border-gray-border bg-white p-6 sm:p-7 shadow-pill">
+              <div class="flex items-center gap-3">
+                <span class="w-8 h-8 rounded-full bg-dark text-white font-heading font-bold text-sm flex items-center justify-center">4</span>
+                <h2 class="font-heading font-bold text-xl sm:text-2xl tracking-tight text-dark">La formation</h2>
+              </div>
+              <p class="mt-3 text-sm text-gray-text leading-relaxed">
+                Une journée de formation est comprise. Si vos équipes en demandent davantage, chaque
+                journée en plus est facturée {{ euros(FORMATION.prixJour) }} HT.
+              </p>
+
+              <div class="mt-6 flex flex-wrap items-center gap-4">
+                <div class="inline-flex items-center rounded-full border border-gray-border bg-gray-bg p-1">
+                  <button
+                    id="tarif-formation-moins"
+                    type="button"
+                    class="w-10 h-10 rounded-full flex items-center justify-center text-dark hover:bg-white transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                    :disabled="joursFormation <= 0"
+                    aria-label="Une journée de formation en moins"
+                    @click="joursFormation = bornerJours(joursFormation - 1)"
+                  >
+                    <Minus class="w-4 h-4" />
+                  </button>
+                  <span id="tarif-formation-jours" class="min-w-[3ch] text-center font-heading font-bold text-xl text-dark tabular-nums" aria-live="polite">{{ joursFormation }}</span>
+                  <button
+                    id="tarif-formation-plus"
+                    type="button"
+                    class="w-10 h-10 rounded-full flex items-center justify-center text-dark hover:bg-white transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                    :disabled="joursFormation >= FORMATION.max"
+                    aria-label="Une journée de formation en plus"
+                    @click="joursFormation = bornerJours(joursFormation + 1)"
+                  >
+                    <Plus class="w-4 h-4" />
+                  </button>
+                </div>
+                <span class="text-sm text-gray-text">
+                  {{ joursFormation === 0 ? 'Aucune journée en plus' : `${joursFormation} ${joursFormation > 1 ? 'journées' : 'journée'} en plus, ${euros(estimation.formation.montant)} HT` }}
+                </span>
+              </div>
+            </div>
+
             <!-- L'estimation à envoyer : un document A4 à enregistrer en PDF,
                  avec le destinataire et notre numéro de suivi. Rien n'est
                  enregistré : tout passe dans l'adresse du document. -->
@@ -312,12 +353,20 @@
                   <dt class="text-white/80">Mise en service, une fois<span v-if="estimation.setupOfferte" class="block text-xs text-white/50">Offerte aux communes de moins de {{ nombre(MISE_EN_SERVICE.offerteSous) }} habitants</span></dt>
                   <dd id="tarif-setup" class="tabular-nums whitespace-nowrap">{{ estimation.setupOfferte ? 'Offerte' : euros(estimation.setup) }}</dd>
                 </div>
+                <div class="flex items-baseline justify-between gap-4 py-2.5 border-b border-white/10">
+                  <dt class="text-white/80">Une journée de formation</dt>
+                  <dd class="whitespace-nowrap text-green">Comprise</dd>
+                </div>
+                <div v-if="estimation.formation.jours > 0" class="flex items-baseline justify-between gap-4 py-2.5 border-b border-white/10">
+                  <dt class="text-white/80">{{ estimation.formation.jours }} {{ estimation.formation.jours > 1 ? 'journées' : 'journée' }} de formation en plus, à {{ euros(FORMATION.prixJour) }}</dt>
+                  <dd id="tarif-formation" class="tabular-nums whitespace-nowrap">{{ euros(estimation.formation.montant) }}</dd>
+                </div>
               </dl>
 
               <!-- Le total sur la durée, face aux seuils des marchés publics -->
               <div class="mt-6">
                 <div class="flex items-baseline justify-between gap-4">
-                  <span class="text-sm text-white/80">Total sur {{ annees }} {{ annees > 1 ? 'ans' : 'an' }}, mise en service comprise<br /><span class="text-xs text-white/50">C'est ce montant que la commande publique regarde</span></span>
+                  <span class="text-sm text-white/80">Total sur {{ annees }} {{ annees > 1 ? 'ans' : 'an' }}, mise en service et formation comprises<br /><span class="text-xs text-white/50">C'est ce montant que la commande publique regarde</span></span>
                   <span id="tarif-total" class="font-heading font-bold tabular-nums whitespace-nowrap text-2xl">{{ euros(totalAnime) }} <span class="text-sm font-normal text-white/60">HT</span></span>
                 </div>
 
@@ -520,7 +569,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, Check, AlertTriangle, ShieldCheck, FileText, MapPin, Loader2, SlidersHorizontal, FileCheck, Scale, Clock, BadgeCheck } from 'lucide-vue-next'
+import { ArrowRight, Check, AlertTriangle, ShieldCheck, FileText, MapPin, Loader2, SlidersHorizontal, FileCheck, Scale, Clock, BadgeCheck, Minus, Plus } from 'lucide-vue-next'
 import HeroGround from '../components/HeroGround.vue'
 import ContactBlock from '../components/ContactBlock.vue'
 import TerritoireRecherche from '../components/TerritoireRecherche.vue'
@@ -529,8 +578,8 @@ import { chargerTerritoire, cleValide } from '../data/territoires.mjs'
 import { chiffrerTerritoire, nomPresume } from '../data/voirie.mjs'
 import { modules, moduleByKey } from '../data/modules.js'
 import {
-  POPULATION, REPERES, ENGAGEMENTS, SEUILS, SOUS_LES_SEUILS, MISE_EN_SERVICE,
-  estimer, estTarife, prixUnitaire, poidsDe, curseurVersPopulation, populationVersCurseur, borner,
+  POPULATION, REPERES, ENGAGEMENTS, SEUILS, SOUS_LES_SEUILS, MISE_EN_SERVICE, FORMATION,
+  estimer, bornerJours, estTarife, prixUnitaire, poidsDe, curseurVersPopulation, populationVersCurseur, borner,
   euros, nombre, pourcent,
 } from '../data/tarification.mjs'
 import { useChiffreAnime } from '../composables/useChiffreAnime.js'
@@ -588,6 +637,7 @@ const depuisAdresse = () => {
     retenus: cles.length ? cles : ['carte'],
     annees: ENGAGEMENTS.some((e) => e.annees === a) ? a : 3,
     territoire: cle,
+    joursFormation: bornerJours(q.formation),
     // Les réponses du parcours Chantiers, quand l'adresse en porte
     reponses: cle && cles.includes('chantiers')
       ? { cle, nom: ['commune', 'interco', 'communes'].includes(q.nom) ? String(q.nom) : null, km: km > 0 ? km : null, sans: q.sans ? String(q.sans).split(',') : [], usage: ['permissions', 'arretes'].includes(q.usage) ? String(q.usage) : null }
@@ -598,6 +648,8 @@ const initial = depuisAdresse()
 const population = ref(initial.population)
 const retenus = ref(initial.retenus)
 const annees = ref(initial.annees)
+// Les journées de formation en plus de celle comprise
+const joursFormation = ref(initial.joursFormation)
 
 /* La collectivité choisie, chargée depuis les données publiques. Sa
  * population remplace le nombre d'habitants pour tous les modules. */
@@ -709,6 +761,7 @@ const estimation = computed(() => estimer({
   modules: retenus.value,
   annees: annees.value,
   prix: chiffrage.value ? { chantiers: chiffrage.value.mensuel } : {},
+  joursFormation: joursFormation.value,
 }))
 // Le module qui porte la remise multi-modules, quand il y en a une
 const remiseSur = (cle) => estimation.value.remiseModules.taux > 0 && estimation.value.remiseModules.module === cle
@@ -734,6 +787,7 @@ async function envoyerEstimation() {
         population: population.value,
         modules: retenus.value,
         annees: annees.value,
+        formation: joursFormation.value,
         ...(territoire.value ? { territoire: { cle: territoire.value.cle, nom: territoire.value.nom } } : {}),
         ...(retenus.value.includes('chantiers') && chiffrage.value
           ? { chantiers: { mensuel: Math.round(chiffrage.value.mensuel * 100) / 100, espaces: chiffrage.value.espaces.length, organisation: chiffrage.value.org, reponses: reponsesChantiers.value } }
@@ -781,7 +835,7 @@ function ouvrirParcours(declencheur) {
 /* L'état réglé, une fois le visiteur arrêté une seconde et demie : ce qu'il a
  * vraiment regardé, sans un événement par cran de curseur */
 let mesureReglages = null
-watch([population, retenus, annees, periode, territoire, reponsesChantiers], () => {
+watch([population, retenus, annees, joursFormation, periode, territoire, reponsesChantiers], () => {
   clearTimeout(mesureReglages)
   mesureReglages = setTimeout(() => mesurer('pricing_settings_changed', {
     population: population.value,
@@ -789,6 +843,7 @@ watch([population, retenus, annees, periode, territoire, reponsesChantiers], () 
     territory_name: territoire.value?.nom || null,
     modules: retenus.value,
     years: annees.value,
+    extra_training_days: joursFormation.value,
     period: periode.value,
     chantiers_usage: retenus.value.includes('chantiers') ? chiffrage.value?.usage || 'both' : null,
     chantiers_annual_price: retenus.value.includes('chantiers') && chiffrage.value ? Math.round(chiffrage.value.annuel) : null,
@@ -801,6 +856,7 @@ watch([population, retenus, annees, periode, territoire, reponsesChantiers], () 
  * se partage en copiant le lien, territoire et réponses Chantiers compris */
 function requete() {
   const q = { population: String(population.value), modules: retenus.value.join(','), annees: String(annees.value) }
+  if (joursFormation.value) q.formation = String(joursFormation.value)
   if (territoire.value) q.territoire = territoire.value.cle
   const r = reponsesChantiers.value
   if (territoire.value && r?.cle === territoire.value.cle && retenus.value.includes('chantiers')) {
@@ -811,7 +867,7 @@ function requete() {
   }
   return q
 }
-watch([population, retenus, annees, territoire, reponsesChantiers], () => {
+watch([population, retenus, annees, joursFormation, territoire, reponsesChantiers], () => {
   router.replace({ query: requete() })
 })
 

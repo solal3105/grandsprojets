@@ -25,6 +25,9 @@
  *     toutes les remises, une seule fois. Elle n'est offerte à aucune commune
  *     (le seuil `offerteSous` est à zéro ; un seuil d'habitants la rendrait
  *     gratuite en dessous).
+ *  6. Une journée de formation est comprise. Chaque journée en plus coûte
+ *     800 € HT et s'ajoute au total, hors des remises : c'est du temps passé,
+ *     pas de l'abonnement.
  *
  * Les chiffres en vigueur sont ceux validés par l'équipe commerciale le
  * 9 septembre 2026 avec le classeur de `docs/tarification/` : quand ils
@@ -61,6 +64,15 @@ export const estTarife = (cle) => POIDS[cle] != null || cle === 'chantiers'
 export const MISE_EN_SERVICE = { mois: 6, offerteSous: 0 }
 
 /* Remise sur le module le plus cher : ce taux par module ajouté au premier */
+/* La formation : une journée comprise, chaque journée en plus facturée au prix
+ * de journée, hors des remises */
+export const FORMATION = { comprises: 1, prixJour: 800, max: 30 }
+
+export function bornerJours(jours) {
+  const j = Math.round(Number(jours) || 0)
+  return Math.min(FORMATION.max, Math.max(0, j))
+}
+
 export const REMISE_PAR_MODULE_AJOUTE = 0.10
 
 /* Les durées d'engagement proposées, et la remise annuelle de chacune */
@@ -92,7 +104,7 @@ export const ENGAGEMENTS = [
  * Un contrat écrit est de toute façon obligatoire dès 25 000 € HT (R2112-1),
  * et un accord-cadre ne dépasse pas quatre ans (L2125-1) : c'est pourquoi la
  * page s'arrête à quatre ans d'engagement. */
-export const SOUS_LES_SEUILS = "Sous 60 000 € HT sur toute la durée, mise en service comprise, votre collectivité peut commander sans publicité ni mise en concurrence préalables. Elle doit seulement retenir une offre pertinente, faire bon usage des deniers publics et ne pas contracter systématiquement avec le même fournisseur."
+export const SOUS_LES_SEUILS = "Sous 60 000 € HT sur toute la durée, mise en service et formation comprises, votre collectivité peut commander sans publicité ni mise en concurrence préalables. Elle doit seulement retenir une offre pertinente, faire bon usage des deniers publics et ne pas contracter systématiquement avec le même fournisseur."
 
 /* Le texte de chaque seuil est celui qu'on lit quand le total le DÉPASSE */
 export const SEUILS = [
@@ -170,7 +182,7 @@ export function remiseEngagement(annees) {
  * qui portent « annuel », « setup » et « total » dans leur nom. Rien n'est
  * arrondi ici : la page arrondit à l'affichage, pour que les lignes
  * s'additionnent encore. */
-export function estimer({ population, modules, annees, prix = {} }) {
+export function estimer({ population, modules, annees, prix = {}, joursFormation = 0 }) {
   const unite = prixUnitaire(population)
   const lignes = (modules || []).flatMap((cle) => {
     if (POIDS[cle] != null) return [{ cle, poids: POIDS[cle], prix: unite * POIDS[cle] }]
@@ -192,7 +204,9 @@ export function estimer({ population, modules, annees, prix = {} }) {
   const setupOfferte = borner(population) < MISE_EN_SERVICE.offerteSous
   const setup = setupOfferte ? 0 : mensuel * MISE_EN_SERVICE.mois
   const duree = Number(annees) || 1
-  const total = setup + annuel * duree
+  const jours = bornerJours(joursFormation)
+  const formation = { jours, montant: jours * FORMATION.prixJour }
+  const total = setup + annuel * duree + formation.montant
 
   return {
     population: borner(population),
@@ -206,6 +220,7 @@ export function estimer({ population, modules, annees, prix = {} }) {
     setup,
     setupOfferte,
     annees: duree,
+    formation,
     total,
     // Le premier seuil que le total dépasse, du plus haut au plus bas
     seuilDepasse: [...SEUILS].reverse().find((s) => total >= s.montant) || null,
@@ -274,28 +289,13 @@ export function marcheVersCurseur(montant) {
   return (Math.log(bornerMarche(montant)) - LOG_MARCHE_MIN) / (LOG_MARCHE_MAX - LOG_MARCHE_MIN)
 }
 
-/* La formation dans une offre : une journée comprise, chaque journée en plus
- * facturée au prix de journée. Elle s'ajoute au total, hors des remises : c'est
- * du temps passé, pas de l'abonnement. */
-export const FORMATION = { comprises: 1, prixJour: 800, max: 30 }
-
-export function bornerJours(jours) {
-  const j = Math.round(Number(jours) || 0)
-  return Math.min(FORMATION.max, Math.max(0, j))
-}
-
 /* L'estimation d'une offre : la même que celle d'une collectivité, à la
  * population équivalente au montant. `annees` : la durée du marché,
  * `joursFormation` : les journées de formation en plus de celle comprise. */
 export function estimerMarche({ montant, modules, annees, joursFormation = 0 }) {
   const retenus = (modules || []).filter((cle) => POIDS[cle] != null)
-  const base = estimer({ population: populationEquivalente(montant), modules: retenus, annees })
-  const jours = bornerJours(joursFormation)
-  const formation = { jours, montant: jours * FORMATION.prixJour }
   return {
-    ...base,
+    ...estimer({ population: populationEquivalente(montant), modules: retenus, annees, joursFormation }),
     montant: bornerMarche(montant),
-    formation,
-    total: base.total + formation.montant,
   }
 }

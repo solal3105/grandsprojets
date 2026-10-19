@@ -90,6 +90,19 @@ test.describe('0.40 - L\'estimateur de prix : le message au demandeur', () => {
     }
   });
 
+  test('0.40.2b - les journées de formation en plus figurent dans le message, le total et les liens', async () => {
+    const appels = interceptor();
+    const demande = { ...DEMANDE, joursFormation: 2 };
+    await envoyerMessageTarif(demande);
+    const resume = resumer(demande);
+    expect(resume.total).toBe(euros(estimer(demande).total));
+    for (const corps of [appels[0].corps.text, appels[0].corps.html]) {
+      expect(corps).toContain('une journée comprise, plus 2 journées');
+      expect(corps).toContain(resume.total);
+      expect(corps).toMatch(/annees=3&(amp;)?formation=2/);
+    }
+  });
+
   test('0.40.3 - le téléphone figure quand il est donné, et seulement alors', async () => {
     let appels = interceptor();
     await envoyerMessageTarif({ ...DEMANDE, telephone: '04 72 00 00 00' });

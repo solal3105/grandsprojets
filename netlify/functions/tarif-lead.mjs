@@ -15,7 +15,7 @@
    ============================================================================ */
 
 import { envoyerMessageTarif, NOMS_MODULES } from './lib/tarif-mail.mjs';
-import { POIDS, POPULATION, ENGAGEMENTS, borner, estTarife, euros, estimer, nombre } from '../../home-src/src/v2/data/tarification.mjs';
+import { POIDS, POPULATION, ENGAGEMENTS, FORMATION, borner, estTarife, euros, estimer, nombre } from '../../home-src/src/v2/data/tarification.mjs';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 
@@ -89,7 +89,10 @@ export function lireReglages(body) {
   if (modules.some((m) => !estTarife(m)) || new Set(modules).size !== modules.length) return null;
   const annees = Number(body?.annees);
   if (!ENGAGEMENTS.some((e) => e.annees === annees)) return null;
-  const reglages = { population: borner(population), modules, annees, prix: {}, territoire: null, reponses: null };
+  // Les journées de formation en plus de celle comprise : absentes = aucune
+  const jours = body?.formation == null ? 0 : Number(body.formation);
+  if (!Number.isInteger(jours) || jours < 0 || jours > FORMATION.max) return null;
+  const reglages = { population: borner(population), modules, annees, joursFormation: jours, prix: {}, territoire: null, reponses: null };
   if (modules.includes('chantiers')) {
     const mensuel = Number(body?.chantiers?.mensuel);
     if (!Number.isFinite(mensuel) || mensuel <= 0 || mensuel > CHANTIERS_MENSUEL_MAX) return null;
@@ -146,7 +149,8 @@ export default async (req) => {
       const e = estimer(reglages);
       const message = `Estimation demandée par e-mail sur l'estimateur : ${reglages.territoire ? `${reglages.territoire.nom} (${reglages.territoire.cle}), ` : ''}${nombre(e.population)} habitants, `
         + `${reglages.modules.map((k) => NOMS_MODULES[k] || k).join(', ')}, engagement ${e.annees} ${e.annees > 1 ? 'ans' : 'an'}. `
-        + `Grille : ${euros(e.mensuel)} HT par mois, mise en service ${euros(e.setup)}, total ${euros(e.total)} HT sur la durée. `
+        + (e.formation.jours ? `${e.formation.jours} ${e.formation.jours > 1 ? 'journées' : 'journée'} de formation en plus de celle comprise. ` : '')
+        + `Grille : ${euros(e.mensuel)} HT par mois, mise en service ${euros(e.setup)}${e.formation.jours ? `, formation ${euros(e.formation.montant)}` : ''}, total ${euros(e.total)} HT sur la durée. `
         + (reglages.prix.chantiers ? `Dont Chantiers, calculé sur le territoire : ${euros(reglages.prix.chantiers)} HT par mois avant remises. ` : '')
         + `Message au demandeur : ${mail.status}${mail.error ? ` (${mail.error})` : ''}.`;
       const r = await fetch(`${SUPABASE_URL}/rest/v1/contact_requests`, {

@@ -65,7 +65,8 @@
           {{ retenus.length > 1 ? `les ${retenus.length} modules ci-dessous` : 'le module ci-dessous' }},
           sur un engagement de {{ estimation.annees }} {{ estimation.annees > 1 ? 'ans' : 'an' }}.
           La mise en service comprend la configuration de l'espace, vos catégories et votre identité
-          visuelle, vos premières fiches et la formation de votre équipe.
+          visuelle, vos premières fiches et une journée de formation de votre équipe.<template v-if="estimation.formation.jours > 0">
+          S'y ajoutent {{ estimation.formation.jours }} {{ estimation.formation.jours > 1 ? 'journées' : 'journée' }} de formation, à {{ euros(FORMATION.prixJour) }} HT la journée.</template>
         </p>
         <ul class="mt-5 grid grid-cols-1 gap-3">
           <li v-for="m in retenus" :key="m.key" class="flex items-start gap-4 rounded-2xl border border-gray-border p-4">
@@ -116,12 +117,20 @@
               <td class="py-2.5 pr-4">Mise en service, une seule fois<span v-if="estimation.setupOfferte" class="block text-xs text-gray-muted">Offerte aux communes de moins de {{ nombre(MISE_EN_SERVICE.offerteSous) }} habitants</span></td>
               <td class="py-2.5 text-right tabular-nums whitespace-nowrap align-top">{{ estimation.setupOfferte ? 'Offerte' : euros(estimation.setup) }}</td>
             </tr>
+            <tr class="border-b border-gray-border">
+              <td class="py-2.5 pr-4">Une journée de formation</td>
+              <td class="py-2.5 text-right whitespace-nowrap text-green-ink">Comprise</td>
+            </tr>
+            <tr v-if="estimation.formation.jours > 0" class="border-b border-gray-border">
+              <td class="py-2.5 pr-4">{{ estimation.formation.jours }} {{ estimation.formation.jours > 1 ? 'journées' : 'journée' }} de formation en plus, à {{ euros(FORMATION.prixJour) }} la journée</td>
+              <td id="estimation-formation" class="py-2.5 text-right tabular-nums whitespace-nowrap">{{ euros(estimation.formation.montant) }}</td>
+            </tr>
           </tbody>
         </table>
 
         <div class="mt-5 rounded-2xl bg-dark text-white p-5 flex items-center justify-between gap-6 encre">
           <div>
-            <p class="font-heading font-bold text-base leading-tight">Total sur {{ estimation.annees }} {{ estimation.annees > 1 ? 'ans' : 'an' }}, mise en service comprise</p>
+            <p class="font-heading font-bold text-base leading-tight">Total sur {{ estimation.annees }} {{ estimation.annees > 1 ? 'ans' : 'an' }}, mise en service et formation comprises</p>
             <p class="mt-1 text-xs text-white/70">Hors taxes. La TVA de 20 % s'ajoute à ces montants.</p>
           </div>
           <p id="estimation-total" class="font-heading font-bold tabular-nums whitespace-nowrap text-3xl">{{ euros(estimation.total) }} <span class="text-sm font-normal text-white/70">HT</span></p>
@@ -130,7 +139,7 @@
         <div class="mt-4 grid grid-cols-3 gap-3 text-center">
           <div class="rounded-2xl bg-gray-bg p-4">
             <p class="text-xs text-gray-muted">Première année</p>
-            <p class="mt-1 font-heading font-bold tabular-nums text-lg">{{ euros(estimation.annuel + estimation.setup) }}</p>
+            <p class="mt-1 font-heading font-bold tabular-nums text-lg">{{ euros(estimation.annuel + estimation.setup + estimation.formation.montant) }}</p>
           </div>
           <div class="rounded-2xl bg-gray-bg p-4">
             <p class="text-xs text-gray-muted">Chaque année suivante</p>
@@ -180,7 +189,7 @@ import { chargerTerritoire, cleValide } from '../data/territoires.mjs'
 import { chiffrerTerritoire, resumeVoirie } from '../data/voirie.mjs'
 import { modules, moduleByKey } from '../data/modules.js'
 import {
-  POPULATION, ENGAGEMENTS, SOUS_LES_SEUILS, MISE_EN_SERVICE,
+  POPULATION, ENGAGEMENTS, SOUS_LES_SEUILS, MISE_EN_SERVICE, FORMATION,
   estimer, estTarife, borner, euros, nombre, pourcent,
 } from '../data/tarification.mjs'
 
@@ -218,6 +227,7 @@ const estimation = computed(() => estimer({
   modules: cles.value.length ? cles.value : ['carte'],
   annees: annees.value,
   prix: chiffrage.value ? { chantiers: chiffrage.value.mensuel } : {},
+  joursFormation: route.query.formation,
 }))
 const retenus = computed(() => modules.filter((m) => estimation.value.lignes.some((l) => l.cle === m.key)))
 const ligneDe = (cle) => estimation.value.lignes.find((l) => l.cle === cle) || { prix: 0 }

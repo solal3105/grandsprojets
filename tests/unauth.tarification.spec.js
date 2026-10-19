@@ -235,7 +235,7 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     await page.locator('#tarif-envoi-tel').fill('04 72 00 00 00');
     await page.locator('#tarif-envoi-form button[type="submit"]').click();
     await expect(page.locator('#tarif-envoi-merci')).toContainText('envoyé à dgs@trifouillis.fr');
-    expect(recu).toEqual({ email: 'dgs@trifouillis.fr', telephone: '04 72 00 00 00', population: 12000, modules: ['carte', 'travaux'], annees: 3 });
+    expect(recu).toEqual({ email: 'dgs@trifouillis.fr', telephone: '04 72 00 00 00', population: 12000, modules: ['carte', 'travaux'], annees: 3, formation: 0 });
     await expect(page.locator('#tarif-envoi-form')).toHaveCount(0);
 
     // Le document dit d'abord qu'il n'est pas un devis, puis donne les montants exacts
@@ -266,6 +266,10 @@ test.describe('0.39 - L\'estimateur de prix', () => {
       { ...bon, modules: ['carte', 'chantiers'] },
       { ...bon, modules: ['chantiers'], chantiers: { mensuel: 10000000 } },
       { ...bon, territoire: { cle: 'ville-de-nulle-part', nom: 'X' } },
+      // Les journées de formation en plus : un entier de 0 à 30
+      { ...bon, formation: -1 },
+      { ...bon, formation: 31 },
+      { ...bon, formation: 1.5 },
     ];
     for (const data of essais) {
       const resp = await request.post('/api/tarif-lead', { data });
@@ -395,5 +399,40 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     const b = attenduAvecPrix({ population: 1900, poids: [1], prix: [parCommune / 12], annees: 3 });
     await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(b.mensuel));
     await expect(page.locator('[data-module="chantiers"]')).toContainText('2 espaces, un par commune');
+  });
+
+  test('0.39.10 - une journée de formation est comprise, chaque journée en plus ajoute 800 € HT au total, au document et à la demande', async ({ page }) => {
+    const a = attendu({ population: 12000, poids: [1, 0.6], annees: 2 });
+    await page.goto(`${PAGE}?population=12000&modules=carte,travaux&annees=2`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#tarif-formation-jours')).toHaveText('0');
+    await expect(page.locator('#tarif-formation-moins')).toBeDisabled();
+    await expect(page.locator('aside')).toContainText('Une journée de formation');
+    await expect(page.locator('#tarif-formation')).toHaveCount(0);
+    await expect.poll(() => page.locator('#tarif-total').textContent().then(nombreDe)).toBe(Math.round(a.total));
+
+    // Deux journées en plus : 1 600 € HT, hors des remises, dans le total et l'adresse
+    await page.locator('#tarif-formation-plus').click();
+    await page.locator('#tarif-formation-plus').click();
+    await expect(page.locator('#tarif-formation-jours')).toHaveText('2');
+    await expect.poll(() => page.locator('#tarif-formation').textContent().then(nombreDe)).toBe(1600);
+    await expect.poll(() => page.locator('#tarif-total').textContent().then(nombreDe)).toBe(Math.round(a.total + 1600));
+    await expect(page).toHaveURL(/formation=2/);
+
+    // La demande par e-mail porte les journées
+    let recu = null;
+    await page.route('**/api/tarif-lead', async (route) => {
+      recu = route.request().postDataJSON();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, stored: true, mailed: true }) });
+    });
+    await page.locator('#tarif-envoi-email').fill('dgs@trifouillis.fr');
+    await page.locator('#tarif-envoi-form button[type="submit"]').click();
+    await expect(page.locator('#tarif-envoi-merci')).toBeVisible();
+    expect(recu.formation).toBe(2);
+
+    // Le document reprend la journée comprise, les journées en plus et le même total
+    await page.goto(`${PAGE}/estimation?population=12000&modules=carte,travaux&annees=2&formation=2`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#estimation')).toContainText('Une journée de formation');
+    await expect.poll(() => page.locator('#estimation-formation').textContent().then(nombreDe)).toBe(1600);
+    await expect.poll(() => page.locator('#estimation-total').textContent().then(nombreDe)).toBe(Math.round(a.total + 1600));
   });
 });
