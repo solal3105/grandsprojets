@@ -250,15 +250,6 @@ export const MARCHE = {
   defaut: 1000000,
 }
 
-/* Des marchés types, pour choisir en un geste */
-export const REPERES_MARCHE = [
-  { nom: 'Rue de bourg', montant: 250000 },
-  { nom: 'Centre-ville', montant: 1000000 },
-  { nom: 'Boulevard', montant: 5000000 },
-  { nom: 'ZAC', montant: 20000000 },
-  { nom: 'Ligne de tram', montant: 80000000 },
-]
-
 export function bornerMarche(montant) {
   const m = Math.round(Number(montant) || MARCHE.defaut)
   return Math.min(MARCHE.max, Math.max(MARCHE.min, m))

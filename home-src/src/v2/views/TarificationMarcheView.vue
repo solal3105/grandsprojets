@@ -63,21 +63,6 @@
                 <span>{{ euros(MARCHE.min) }}</span>
                 <span>{{ euros(MARCHE.max) }}</span>
               </div>
-
-              <div class="mt-5 flex flex-wrap gap-2">
-                <button
-                  v-for="r in REPERES_MARCHE" :key="r.nom"
-                  type="button"
-                  class="inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm transition-colors"
-                  :class="montant === r.montant
-                    ? 'border-dark bg-dark text-white'
-                    : 'border-gray-border bg-white text-dark hover:border-gray-300'"
-                  @click="montant = r.montant"
-                >
-                  <span class="font-medium">{{ r.nom }}</span>
-                  <span class="tabular-nums" :class="montant === r.montant ? 'text-white/70' : 'text-gray-muted'">{{ euros(r.montant) }}</span>
-                </button>
-              </div>
             </div>
 
             <!-- 2. Les modules -->
@@ -313,7 +298,7 @@ import HeroGround from '../components/HeroGround.vue'
 import ContactBlock from '../components/ContactBlock.vue'
 import { modules, moduleByKey } from '../data/modules.js'
 import {
-  ENGAGEMENTS, MARCHE, REPERES_MARCHE, POIDS, FORMATION,
+  ENGAGEMENTS, MARCHE, POIDS, FORMATION,
   estimerMarche, bornerJours, prixUnitaire, poidsDe, populationEquivalente, curseurVersMarche, marcheVersCurseur, bornerMarche,
   euros, nombre, pourcent,
 } from '../data/tarification.mjs'
