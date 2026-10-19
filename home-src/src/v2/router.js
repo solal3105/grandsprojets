@@ -2,10 +2,15 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from './views/HomeView.vue'
 import ModuleView from './views/ModuleView.vue'
 import { alternatives } from '@/data/alternatives.js'
+import { moduleByKey } from './data/modules.js'
 import { setMeta, setCanonical } from '@/lib/head.js'
 
 const BASE = 'https://openprojets.com'
 const DEFAULT_TITLE = 'La carte des projets de votre collectivité | Open Projets'
+// Images de partage (scripts/og-images.mjs) : une par page de module, la
+// générale ailleurs. Les deux copies (ici et home-seo.js) restent identiques.
+const DEFAULT_OG_IMAGE = `${BASE}/img/og/open-projets.jpg`
+const DEFAULT_OG_ALT = 'Open Projets : les cinq modules, de la carte des projets au diagnostic terrain'
 const DEFAULT_DESC = 'Publiez les projets urbains et les chantiers de votre commune sur une carte à vos couleurs, sans développement. Vos habitants consultent sans compte.'
 
 /* Titre (60 caractères au plus, un seul suffixe « | Open Projets ») et
@@ -44,7 +49,10 @@ const moduleRoutes = Object.entries(MODULE_PAGES).map(([key, seo]) => ({
   path: `/${key}`,
   name: `module-${key}`,
   component: ModuleView,
-  meta: { moduleKey: key, title: seo.title, description: seo.description, canonical: `${BASE}/${key}` },
+  meta: {
+    moduleKey: key, title: seo.title, description: seo.description, canonical: `${BASE}/${key}`,
+    ogImage: `${BASE}/img/og/${key}.jpg`, ogAlt: `${moduleByKey[key].name}, un module d'Open Projets`,
+  },
 }))
 
 /* Pages « Alternative à … », générées depuis data/alternatives.js : elles
@@ -262,6 +270,10 @@ router.afterEach((to, from) => {
     const canonical = to.meta.canonical || `${BASE}${to.path}`
     setCanonical(canonical)
     setMeta('og:url', canonical, 'property')
+    const ogImage = to.meta.ogImage || DEFAULT_OG_IMAGE
+    setMeta('og:image', ogImage, 'property')
+    setMeta('og:image:alt', to.meta.ogAlt || DEFAULT_OG_ALT, 'property')
+    setMeta('twitter:image', ogImage, 'name')
     setMeta('robots', to.meta.robots || 'index, follow')
   }
   // Google Analytics, en parallèle de PostHog : la balise est chargée sans
