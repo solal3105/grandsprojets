@@ -168,6 +168,47 @@
                 </button>
               </div>
             </div>
+
+            <!-- 4. La formation -->
+            <div class="rounded-3xl border border-gray-border bg-white p-6 sm:p-7 shadow-pill">
+              <div class="flex items-center gap-3">
+                <span class="w-8 h-8 rounded-full bg-dark text-white font-heading font-bold text-sm flex items-center justify-center">4</span>
+                <h2 class="font-heading font-bold text-xl sm:text-2xl tracking-tight text-dark">La formation</h2>
+              </div>
+              <p class="mt-3 text-sm text-gray-text leading-relaxed">
+                Une journée de formation est comprise. Si le marché en demande davantage, chaque journée
+                en plus est facturée {{ euros(FORMATION.prixJour) }} HT.
+              </p>
+
+              <div class="mt-6 flex flex-wrap items-center gap-4">
+                <div class="inline-flex items-center rounded-full border border-gray-border bg-gray-bg p-1">
+                  <button
+                    id="marche-formation-moins"
+                    type="button"
+                    class="w-10 h-10 rounded-full flex items-center justify-center text-dark hover:bg-white transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                    :disabled="joursFormation <= 0"
+                    aria-label="Une journée de formation en moins"
+                    @click="joursFormation = bornerJours(joursFormation - 1)"
+                  >
+                    <Minus class="w-4 h-4" />
+                  </button>
+                  <span id="marche-formation-jours" class="min-w-[3ch] text-center font-heading font-bold text-xl text-dark tabular-nums" aria-live="polite">{{ joursFormation }}</span>
+                  <button
+                    id="marche-formation-plus"
+                    type="button"
+                    class="w-10 h-10 rounded-full flex items-center justify-center text-dark hover:bg-white transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                    :disabled="joursFormation >= FORMATION.max"
+                    aria-label="Une journée de formation en plus"
+                    @click="joursFormation = bornerJours(joursFormation + 1)"
+                  >
+                    <Plus class="w-4 h-4" />
+                  </button>
+                </div>
+                <span class="text-sm text-gray-text">
+                  {{ joursFormation === 0 ? 'Aucune journée en plus' : `${joursFormation} ${joursFormation > 1 ? 'journées' : 'journée'} en plus, ${euros(estimation.formation.montant)} HT` }}
+                </span>
+              </div>
+            </div>
           </div>
 
           <!-- Le résultat, qui suit le défilement -->
@@ -181,7 +222,7 @@
               </p>
               <p class="mt-2 text-sm text-white/60">
                 <template v-if="retenus.length">
-                  Sur {{ annees }} {{ annees > 1 ? 'ans' : 'an' }}, mise en service comprise, soit
+                  Sur {{ annees }} {{ annees > 1 ? 'ans' : 'an' }}, mise en service et formation comprises, soit
                   {{ partDuMarche }} d'un marché de {{ euros(montant) }}.
                 </template>
                 <template v-else>Choisissez au moins un module.</template>
@@ -208,6 +249,14 @@
                 <div class="flex items-baseline justify-between gap-4 py-2.5 border-b border-white/10">
                   <dt class="text-white/80">Mise en service, une fois</dt>
                   <dd id="marche-setup" class="tabular-nums whitespace-nowrap">{{ euros(estimation.setup) }}</dd>
+                </div>
+                <div class="flex items-baseline justify-between gap-4 py-2.5 border-b border-white/10">
+                  <dt class="text-white/80">Une journée de formation</dt>
+                  <dd class="whitespace-nowrap text-green">Comprise</dd>
+                </div>
+                <div v-if="estimation.formation.jours > 0" class="flex items-baseline justify-between gap-4 py-2.5 border-b border-white/10">
+                  <dt class="text-white/80">{{ estimation.formation.jours }} {{ estimation.formation.jours > 1 ? 'journées' : 'journée' }} de formation en plus, à {{ euros(FORMATION.prixJour) }}</dt>
+                  <dd id="marche-formation" class="tabular-nums whitespace-nowrap">{{ euros(estimation.formation.montant) }}</dd>
                 </div>
               </dl>
 
@@ -259,13 +308,13 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, Check, ShieldCheck, FileText, HardHat, KeyRound } from 'lucide-vue-next'
+import { ArrowRight, Check, ShieldCheck, FileText, HardHat, KeyRound, Minus, Plus } from 'lucide-vue-next'
 import HeroGround from '../components/HeroGround.vue'
 import ContactBlock from '../components/ContactBlock.vue'
 import { modules, moduleByKey } from '../data/modules.js'
 import {
-  ENGAGEMENTS, MARCHE, REPERES_MARCHE, POIDS,
-  estimerMarche, prixUnitaire, poidsDe, populationEquivalente, curseurVersMarche, marcheVersCurseur, bornerMarche,
+  ENGAGEMENTS, MARCHE, REPERES_MARCHE, POIDS, FORMATION,
+  estimerMarche, bornerJours, prixUnitaire, poidsDe, populationEquivalente, curseurVersMarche, marcheVersCurseur, bornerMarche,
   euros, nombre, pourcent,
 } from '../data/tarification.mjs'
 import { useChiffreAnime } from '../composables/useChiffreAnime.js'
@@ -303,6 +352,7 @@ const anneesInitiales = Number(q.annees)
 const montant = ref(q.montant ? bornerMarche(q.montant) : MARCHE.defaut)
 const retenus = ref(clesInitiales.length ? clesInitiales : ['carte', 'travaux'])
 const annees = ref(ENGAGEMENTS.some((e) => e.annees === anneesInitiales) ? anneesInitiales : 2)
+const joursFormation = ref(bornerJours(q.formation))
 
 const curseur = computed(() => marcheVersCurseur(montant.value))
 
@@ -329,7 +379,7 @@ function basculer(cle) {
     : offre.filter((m) => m.key === cle || retenus.value.includes(m.key)).map((m) => m.key)
 }
 
-const estimation = computed(() => estimerMarche({ montant: montant.value, modules: retenus.value, annees: annees.value }))
+const estimation = computed(() => estimerMarche({ montant: montant.value, modules: retenus.value, annees: annees.value, joursFormation: joursFormation.value }))
 const remiseSur = (cle) => estimation.value.remiseModules.taux > 0 && estimation.value.remiseModules.module === cle
 const prixModule = (cle) => prixUnitaire(populationEquivalente(montant.value)) * poidsDe(cle)
 
@@ -341,18 +391,21 @@ const partDuMarche = computed(() => {
 })
 
 /* L'adresse suit les réglages, sans empiler d'historique */
-watch([montant, retenus, annees], () => {
-  router.replace({ query: { montant: String(montant.value), modules: retenus.value.join(','), annees: String(annees.value) }, hash: route.hash })
+watch([montant, retenus, annees, joursFormation], () => {
+  const query = { montant: String(montant.value), modules: retenus.value.join(','), annees: String(annees.value) }
+  if (joursFormation.value) query.formation = String(joursFormation.value)
+  router.replace({ query, hash: route.hash })
 }, { immediate: true })
 
 /* Le chiffrage réglé, mesuré une fois le visiteur arrêté (docs/analytics.md) */
 let mesure = null
-watch([montant, retenus, annees], () => {
+watch([montant, retenus, annees, joursFormation], () => {
   clearTimeout(mesure)
   mesure = setTimeout(() => window.OPAnalytics?.capture?.('pricing_tender_settings_changed', {
     tender_amount: montant.value,
     modules: retenus.value,
     years: annees.value,
+    extra_training_days: joursFormation.value,
     total_price: Math.round(total.value),
   }), 1500)
 }, { deep: true })

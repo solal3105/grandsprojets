@@ -283,12 +283,28 @@ export function marcheVersCurseur(montant) {
   return (Math.log(bornerMarche(montant)) - LOG_MARCHE_MIN) / (LOG_MARCHE_MAX - LOG_MARCHE_MIN)
 }
 
+/* La formation dans une offre : une journée comprise, chaque journée en plus
+ * facturée au prix de journée. Elle s'ajoute au total, hors des remises : c'est
+ * du temps passé, pas de l'abonnement. */
+export const FORMATION = { comprises: 1, prixJour: 800, max: 30 }
+
+export function bornerJours(jours) {
+  const j = Math.round(Number(jours) || 0)
+  return Math.min(FORMATION.max, Math.max(0, j))
+}
+
 /* L'estimation d'une offre : la même que celle d'une collectivité, à la
- * population équivalente au montant. `annees` : la durée du marché. */
-export function estimerMarche({ montant, modules, annees }) {
+ * population équivalente au montant. `annees` : la durée du marché,
+ * `joursFormation` : les journées de formation en plus de celle comprise. */
+export function estimerMarche({ montant, modules, annees, joursFormation = 0 }) {
   const retenus = (modules || []).filter((cle) => POIDS[cle] != null)
+  const base = estimer({ population: populationEquivalente(montant), modules: retenus, annees })
+  const jours = bornerJours(joursFormation)
+  const formation = { jours, montant: jours * FORMATION.prixJour }
   return {
-    ...estimer({ population: populationEquivalente(montant), modules: retenus, annees }),
+    ...base,
     montant: bornerMarche(montant),
+    formation,
+    total: base.total + formation.montant,
   }
 }

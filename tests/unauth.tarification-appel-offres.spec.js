@@ -7,7 +7,9 @@ import { test, expect } from '@playwright/test';
  * estimé du marché à la place du nombre d'habitants, à raison de 12 000
  * habitants pour un million d'euros HT. Poids des modules, remise sur le plus
  * cher, remise sur la durée et mise en service de six mois sont ceux des
- * collectivités. Chantiers n'y figure pas. Page hors des moteurs, hors menu.
+ * collectivités. Une journée de formation est comprise, chaque journée en
+ * plus coûte 800 € HT, hors des remises. Chantiers n'y figure pas. Page hors
+ * des moteurs, hors menu.
  *
  * Section : 0.86 - L'estimateur pour les appels d'offres
  */
@@ -16,7 +18,7 @@ const PAGE = '/tarification/appel-offres';
 
 /* Les règles de home-src/src/v2/data/tarification.mjs, recalculées à la main :
  * le test vérifie la page, pas le fichier qui la nourrit. */
-function attendu({ montant, poids, annees }) {
+function attendu({ montant, poids, annees, jours = 0 }) {
   const population = montant * 0.012;
   const unite = 200 * (population / 12000) ** 0.5;
   const prix = poids.map((p) => unite * p);
@@ -24,7 +26,7 @@ function attendu({ montant, poids, annees }) {
   const remiseModules = Math.max(...prix) * 0.1 * (poids.length - 1);
   const remiseDuree = { 1: 0, 2: 0.1, 3: 0.15, 4: 0.2 }[annees];
   const mensuel = (brut - remiseModules) * (1 - remiseDuree);
-  return { mensuel, total: mensuel * 6 + mensuel * 12 * annees };
+  return { mensuel, total: mensuel * 6 + mensuel * 12 * annees + jours * 800 };
 }
 
 const nombreDe = (texte) => Number(String(texte).replace(/[^\d]/g, ''));
@@ -60,5 +62,24 @@ test.describe('0.86 - L\'estimateur pour les appels d\'offres', () => {
     await expect.poll(() => page.locator('#marche-total').textContent().then(nombreDe)).toBe(Math.round(att.total));
     // L'adresse porte le chiffrage : il se partage en copiant le lien
     await expect(page).toHaveURL(/montant=250000&modules=carte(,|%2C)travaux&annees=1/);
+  });
+
+  test('0.86.3 - une journée de formation est comprise, chaque journée en plus ajoute 800 € au total', async ({ page }) => {
+    await page.goto(`${PAGE}?montant=1000000&modules=carte,travaux&annees=2`, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#marche-formation-jours')).toHaveText('0');
+    await expect(page.locator('#marche-formation-moins')).toBeDisabled();
+    await expect(page.locator('aside')).toContainText('Une journée de formation');
+    await expect(page.locator('#marche-formation')).toHaveCount(0);
+
+    await page.locator('#marche-formation-plus').click();
+    await page.locator('#marche-formation-plus').click();
+    await expect(page.locator('#marche-formation-jours')).toHaveText('2');
+    await expect.poll(() => page.locator('#marche-formation').textContent().then(nombreDe)).toBe(1600);
+    const att = attendu({ montant: 1000000, poids: [1, 0.6], annees: 2, jours: 2 });
+    await expect.poll(() => page.locator('#marche-total').textContent().then(nombreDe)).toBe(Math.round(att.total));
+    // Le nombre de journées voyage dans l'adresse
+    await expect(page).toHaveURL(/formation=2/);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#marche-formation-jours')).toHaveText('2');
   });
 });
