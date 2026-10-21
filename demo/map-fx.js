@@ -266,15 +266,22 @@
     return { center: [lng, lat], zoom };
   }
 
+  /* Écarte d'un cadrage les projets isolés loin du reste (un point géocodé
+     dans la commune voisine). Le seuil ne descend pas sous 1 km environ :
+     les projets qui couvrent toute la commune (PLU, stationnement) tombent
+     tous au même point, ce qui écrasait la distance médiane. À Ambilly, le
+     cadre se resserrait alors sur ce seul point et laissait les autres sous
+     le bandeau. Un tri qui écarterait plus d'un quart des projets est
+     abandonné. */
   function coeurDesPoints(coords) {
     if (coords.length < 4) return coords;
     const med = (v) => { const t = v.slice().sort((a, b) => a - b); return t[Math.floor(t.length / 2)]; };
     const cx = med(coords.map((c) => c[0]));
     const cy = med(coords.map((c) => c[1]));
     const d = coords.map((c) => Math.hypot((c[0] - cx) * Math.cos((cy * Math.PI) / 180), c[1] - cy));
-    const limite = Math.max(med(d) * 3, 0.004);
+    const limite = Math.max(med(d) * 3, 0.012);
     const coeur = coords.filter((_, i) => d[i] <= limite);
-    return coeur.length >= 2 ? coeur : coords;
+    return coeur.length >= Math.max(2, Math.ceil(coords.length * 0.75)) ? coeur : coords;
   }
 
   /* Faisceau vertical au-dessus d'un projet ponctuel. Un volume translucide
