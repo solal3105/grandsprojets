@@ -269,6 +269,26 @@ ne plus être contacté.
 
 Suivi : `select mail_status, count(*) from demo_leads group by 1;`
 
+### La relance personnelle, deux jours ouvrés plus tard
+
+`netlify/functions/demo-relance-scheduled.mjs` (tâche planifiée chaque heure,
+à la 17e minute) envoie un court message de Solal deux jours ouvrés après la
+démo, entre 9 h et 12 h à Paris : texte brut, sans HTML, sans logo, sans lien.
+Calendrier, tri et texte dans `lib/demo-relance.mjs`.
+
+- **Une relance par adresse**, jamais de séquence : plusieurs démos de la même
+  personne donnent une relance sur la commune la plus récente.
+- **Écartés** (motif dans `followup_reason`) : l'équipe, les adresses
+  factices, un premier message non parti, une adresse qui nous a déjà écrit
+  par le formulaire (`contact_requests`), une démo de plus de 7 jours.
+- **Réglages** : `DEMO_RELANCE_FROM` (par défaut
+  `Solal Gendrin <solal@openprojets.com>`), `DEMO_RELANCE_REPLY_TO` et
+  `DEMO_RELANCE_BCC` (par défaut `solal@vazy.app`), `DEMO_RELANCE_ACTIVE=false`
+  pour couper l'envoi.
+- Pas d'envoi rétroactif : la migration marque les leads existants `ignore`.
+
+Suivi : `select followup_status, followup_reason, count(*) from demo_leads group by 1, 2;`
+
 ## Garde-fous
 
 - Idempotence : une commune déjà générée redirige vers l'espace existant, sauf
