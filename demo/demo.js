@@ -519,10 +519,7 @@
 
   /* Les entrées passent par une FILE cadencée : quand une vague de lecture
      livre plusieurs projets d'un coup, les cartes tombent quand même une par
-     une, toutes les 420 ms - l'œil suit chaque arrivée. Le rejeu d'un
-     espace déjà prêt resserre cette cadence pour tenir dans sa durée. */
-  const CADENCE_ENTREE_MS = 420;
-  let mainCadence = CADENCE_ENTREE_MS;
+     une, toutes les 420 ms - l'œil suit chaque arrivée. */
   const mainFileEntrees = [];
   let mainEntreeTimer = null;
   function mainAdd(title, domain) {
@@ -535,7 +532,7 @@
     const item = mainFileEntrees.shift();
     if (!item) return;
     mainPoseCarte(item.title, item.domain);
-    mainEntreeTimer = setTimeout(() => { mainEntreeTimer = null; mainEntreeSuivante(); }, mainCadence);
+    mainEntreeTimer = setTimeout(() => { mainEntreeTimer = null; mainEntreeSuivante(); }, 420);
   }
   function mainPoseCarte(title, domain) {
     const zone = $('hand');
@@ -624,7 +621,6 @@
     clearTimeout(mainSortieTimer);
     mainEntreeTimer = null;
     mainSortieTimer = null;
-    mainCadence = CADENCE_ENTREE_MS;
     if (zone) { zone.innerHTML = ''; zone.classList.remove('has-cards'); }
   }
 
@@ -1027,61 +1023,72 @@
       logo.src = rejeu.logo;
     }
 
-    /* Le calendrier tient dans la durée totale : le survol a une longueur
-       fixe, le reste se partage entre la chute des cartes (30 %), leurs vols
-       (60 %) et la pose des dernières illustrations (10 %). */
+    /* Le calendrier tient dans la durée totale. Le survol a une longueur
+       fixe ; le reste est un DÉFILÉ : chaque carte tombe dans la main puis
+       s'envole un peu plus tard vers son point. La main ne tient ainsi que
+       trois ou quatre cartes à la fois, dont les titres restent lisibles,
+       même pour cinquante projets (constat sur la première version, où les
+       cartes tombaient toutes avant de partir et se recouvraient). */
     const total = dureeRejeu(n);
     const phares = items.slice()
-      .sort((a, b) => (b.geometry ? 1 : 0) - (a.geometry ? 1 : 0))
+      // Les projets les plus parlants au survol : une emprise, puis une image
+      .sort((a, b) => ((b.geometry ? 2 : 0) + (b.cover ? 1 : 0)) - ((a.geometry ? 2 : 0) + (a.cover ? 1 : 0)))
       .slice(0, n >= 6 ? 2 : 1);
-    const RYTHME = { pas: 2800, vol: 2200, fin: 1800 };
+    const RYTHME = { pas: 3200, vol: 2600, fin: 1800, zoom: 15.6, pitch: 52 };
     const survol = hasFx ? phares.length * RYTHME.pas + RYTHME.fin : 0;
     const intro = 1800;
     const reste = Math.max(4000, total - intro - survol);
-    const tCartes = reste * 0.3;
-    const tVols = reste * 0.6;
-    const pasVol = tVols / n;
+    const sejour = 1400; // temps passé par une carte dans la main
+    const defile = Math.max(1000, reste * 0.9 - sejour);
+    const pas = defile / n;
     const pluriel = n > 1 ? 's' : '';
+    /* Au-delà d'une douzaine de projets, étiquettes et vignettes se
+       recouvraient en vue d'ensemble (constat sur Angers, 48 projets) :
+       elles se replient plus tôt et les vignettes arrivent réduites. */
+    const dense = n > 12;
 
     setStage(0);
     setPill('Espace déjà prêt', `${n} projet${pluriel} à replacer sur la carte`, false);
     plateauActivite('mairie', `La carte de ${nom} existe déjà`, 'reconstruction sous vos yeux', rejeu.logo);
 
-    // Les projets tombent en cartes dans la main, une par une
-    rejeuPlus(intro, () => {
-      setStage(1);
-      setProgress(20);
-      setPill('Projets de la commune', `${n} fiche${pluriel} publiée${pluriel}`, false);
-      mainCadence = Math.max(60, Math.min(CADENCE_ENTREE_MS, tCartes / n));
-      items.forEach((p) => mainAdd(p.title, null));
+    /* La caméra se pose UNE fois sur l'ensemble des projets, avant le premier
+       envol : recadrer à chaque épingle faisait bouger la carte sans arrêt et
+       la laissait décalée quand les mouvements se chevauchaient. */
+    rejeuPlus(intro * 0.5, () => {
+      if (hasFx) window.MapFX.cadrer(items, intro * 0.5 + Math.min(2400, sejour + pas * 2));
     });
 
-    // Chaque carte s'envole vers son emplacement, son illustration suit
-    const debutVols = intro + tCartes;
-    rejeuPlus(debutVols, () => {
+    rejeuPlus(intro, () => {
       setStage(2);
+      setProgress(20);
       setPill('Localisation des projets', `0/${n}`, false);
     });
     items.forEach((p, i) => {
-      rejeuPlus(debutVols + i * pasVol, () => {
-        setProgress(30 + Math.round(((i + 1) / n) * 55));
+      const chute = intro + i * pas;
+      rejeuPlus(chute, () => mainPoseCarte(p.title, null));
+      rejeuPlus(chute + sejour, () => {
+        setProgress(20 + Math.round(((i + 1) / n) * 65));
         $('hud-detail').textContent = `${i + 1}/${n}`;
         plateauActivite('pin', p.title, 'projet replacé sur la carte');
         mainFly(p.title, p);
-        if (hasFx) window.MapFX.addProject({ lat: p.lat, lng: p.lng, geometry: p.geometry, precise: true, title: p.title });
+        if (hasFx) {
+          window.MapFX.addProject({
+            lat: p.lat, lng: p.lng, geometry: p.geometry, precise: true, title: p.title,
+            cadrer: false, etiquetteMs: dense ? 2200 : 4000,
+          });
+        }
       });
       if (p.cover && hasFx) {
-        rejeuPlus(debutVols + i * pasVol + Math.min(900, pasVol + 300), () => {
-          window.MapFX.attachPhoto(p.lat, p.lng, p.cover);
-        });
+        rejeuPlus(chute + sejour + 700, () => window.MapFX.attachPhoto(p.lat, p.lng, p.cover, { reduite: dense }));
       }
     });
 
-    rejeuPlus(debutVols + tVols, () => {
+    const finDefile = intro + defile + sejour;
+    rejeuPlus(finDefile, () => {
       setStage(3);
       setPill('Illustrations', `${items.filter((p) => p.cover).length}/${n}`, true);
     });
-    rejeuPlus(debutVols + tVols + reste * 0.1, () => {
+    rejeuPlus(intro + reste, () => {
       setStage(4);
       setProgress(92);
       setPill(`La carte de ${nom}`, 'Survol des projets', false);

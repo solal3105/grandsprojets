@@ -202,6 +202,23 @@
     );
   }
 
+  /* Le coeur d'un nuage de points : ceux qui restent à moins de trois fois la
+     distance médiane du point médian. Un seul projet placé loin (une zone
+     d'activité en bord de commune, une adresse approximative) suffisait à
+     dézoomer tout le cadre, et la carte restait trop haute pour montrer les
+     bâtiments. Les projets écartés restent posés, simplement hors du cadre
+     de départ. */
+  function coeurDesPoints(coords) {
+    if (coords.length < 4) return coords;
+    const med = (v) => { const t = v.slice().sort((a, b) => a - b); return t[Math.floor(t.length / 2)]; };
+    const cx = med(coords.map((c) => c[0]));
+    const cy = med(coords.map((c) => c[1]));
+    const d = coords.map((c) => Math.hypot((c[0] - cx) * Math.cos((cy * Math.PI) / 180), c[1] - cy));
+    const limite = Math.max(med(d) * 3, 0.004);
+    const coeur = coords.filter((_, i) => d[i] <= limite);
+    return coeur.length >= 2 ? coeur : coords;
+  }
+
   /* Faisceau vertical au-dessus d'un projet ponctuel. Un volume translucide
      monte de terre : sans lui, une adresse restait une punaise plate au milieu
      de reliefs et de batiments en volume. */
@@ -332,13 +349,21 @@
       map.addLayer({ id: 'fx-hillshade', type: 'hillshade', source: 'fx-dem', paint: t.hillshade });
     } catch { /* relief indisponible : carte plate */ }
 
-    // Bâtiments en 3D au niveau rue (source « carto » embarquée par le style)
+    /* Bâtiments en 3D au niveau rue. La source vectorielle est retrouvée dans
+       le style lui-même (celle qui dessine déjà les bâtiments à plat) : Carto
+       ne l'appelle plus « carto », et la couche échouait sans bruit, si bien
+       qu'aucun bâtiment ne se levait (relevé sur les captures du rejeu). */
     try {
-      const firstSymbol = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
+      const style = map.getStyle();
+      const firstSymbol = style.layers.find((l) => l.type === 'symbol')?.id;
+      const source = style.layers.find((l) => l['source-layer'] === 'building')?.source
+        || (style.sources[t.buildings.source] ? t.buildings.source : null)
+        || Object.keys(style.sources).find((k) => style.sources[k].type === 'vector');
+      if (!source) throw new Error('aucune source vectorielle');
       map.addLayer({
         id: 'fx-3d-buildings',
         type: 'fill-extrusion',
-        source: t.buildings.source,
+        source,
         'source-layer': 'building',
         minzoom: t.buildings.minzoom,
         paint: {
@@ -628,7 +653,7 @@
 
     // Un projet localisé : emprise embrasée, épingle étiquetée, et la caméra
     // vient le voir (file d'attente : un vol après l'autre)
-    addProject({ lat, lng, geometry, precise, title }) {
+    addProject({ lat, lng, geometry, precise, title, cadrer = true, etiquetteMs = 6000 }) {
       if (!ok) return;
       projectCoords.push([lng, lat]);
 
@@ -650,9 +675,41 @@
       // Même précaution que pour les vignettes : l'étiquette du projet est une
       // boîte de texte, elle se verrait en haut à gauche le temps d'une trame.
       requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
-      setTimeout(() => el.classList.add('is-collapsed'), 6000);
+      setTimeout(() => el.classList.add('is-collapsed'), etiquetteMs);
 
-      this.reframe();
+      if (cadrer) this.reframe();
+    },
+
+    /* Cadrage unique sur un ensemble de points connus d'avance (rejeu d'un
+       espace déjà prêt). Le cadre est calculé À PLAT, là où `cameraForBounds`
+       est exact, puis la caméra s'incline autour du même centre avec un léger
+       recul : incliner agrandit le premier plan, et sans ce recul les projets
+       du bas passaient sous l'établi. Les marges réservent la place du
+       bandeau du haut et de l'établi du bas. */
+    cadrer(points, duree = 2400) {
+      if (!ok || !points?.length) return;
+      reframePending = false;
+      recentrePending = false;
+      mode = 'focus';
+      const coords = coeurDesPoints(points.map((p) => [p.lng, p.lat]));
+      const vol = prefersReduced ? 0 : duree;
+      if (coords.length === 1) {
+        map.flyTo({ center: coords[0], zoom: 15, pitch: 45, bearing: -12, duration: vol, essential: true });
+        return;
+      }
+      let cam = null;
+      try {
+        cam = map.cameraForBounds(boundsOf(coords), {
+          padding: { top: 190, bottom: 250, left: 140, right: 140 },
+          bearing: -12,
+          maxZoom: 15.6,
+        });
+      } catch { /* bornes dégénérées : repli sur le recadrage habituel */ }
+      if (!cam) { this.reframe(); return; }
+      map.flyTo({
+        center: cam.center, zoom: cam.zoom - 0.35, pitch: 42, bearing: -12,
+        duration: vol, curve: 1.4, essential: true,
+      });
     },
 
     // Recadrage continu : la carte se réajuste en permanence pour montrer TOUS
@@ -688,7 +745,7 @@
        ajouté au conteneur avant que sa transformation ne soit appliquée, et une
        image pas encore chargée n'a aucune dimension, ce qui provoquait un
        second saut au moment où elle arrivait. */
-    attachPhoto(lat, lng, url) {
+    attachPhoto(lat, lng, url, { reduite = false } = {}) {
       if (!ok || !url) return;
       const img = new Image();
       img.alt = '';
@@ -707,7 +764,9 @@
         // Deux trames : la première laisse la carte positionner le marqueur, la
         // seconde laisse le navigateur en tenir compte avant qu'on ne dévoile.
         requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
-        setTimeout(() => el.classList.add('is-small'), 6500);
+        // Carte dense : la vignette arrive déjà réduite, sinon elles se recouvrent
+        if (reduite) el.classList.add('is-small');
+        else setTimeout(() => el.classList.add('is-small'), 6500);
       };
       img.onerror = () => { /* photo indisponible : pas de vignette, c'est tout */ };
       img.src = String(url);
@@ -725,7 +784,7 @@
     tour(points, onFocus, onDone, rythme = {}) {
       if (!ok || !points?.length) { onDone?.(); return; }
       if (prefersReduced) { this.finale(); onDone?.(); return; }
-      const { pas = 4600, vol = 3200, fin = 2600 } = rythme;
+      const { pas = 4600, vol = 3200, fin = 2600, zoom = 16.2, pitch = 62 } = rythme;
       mode = 'focus';
       const etapes = points.slice(0, 3);
       const jeton = ++tourJeton;
@@ -742,8 +801,8 @@
         onFocus?.(p);
         map.flyTo({
           center: [p.lng, p.lat],
-          zoom: 16.2,
-          pitch: 62,
+          zoom,
+          pitch,
           bearing: (i * 47) % 360,
           duration: vol,
           curve: 1.5,
