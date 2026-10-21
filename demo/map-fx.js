@@ -681,11 +681,11 @@
     },
 
     /* Cadrage unique sur un ensemble de points connus d'avance (rejeu d'un
-       espace déjà prêt). Le cadre est calculé À PLAT, là où `cameraForBounds`
-       est exact, puis la caméra s'incline autour du même centre avec un léger
-       recul : incliner agrandit le premier plan, et sans ce recul les projets
-       du bas passaient sous l'établi. Les marges réservent la place du
-       bandeau du haut et de l'établi du bas. */
+       espace déjà prêt). Le cadre est posé À PLAT avec `fitBounds`, le seul
+       calcul juste en projection globe avec relief (`cameraForBounds` y
+       rendait un centre décalé ou un zoom bien trop large, relevé sur Ambilly
+       et Angers), puis la caméra s'incline doucement autour du même centre.
+       Les marges réservent la place du bandeau du haut et de l'établi du bas. */
     cadrer(points, duree = 2400) {
       if (!ok || !points?.length) return;
       reframePending = false;
@@ -694,21 +694,17 @@
       const coords = coeurDesPoints(points.map((p) => [p.lng, p.lat]));
       const vol = prefersReduced ? 0 : duree;
       if (coords.length === 1) {
-        map.flyTo({ center: coords[0], zoom: 15, pitch: 45, bearing: -12, duration: vol, essential: true });
+        map.flyTo({ center: coords[0], zoom: 15, pitch: 40, bearing: 0, duration: vol, essential: true });
         return;
       }
-      let cam = null;
-      try {
-        cam = map.cameraForBounds(boundsOf(coords), {
-          padding: { top: 190, bottom: 250, left: 140, right: 140 },
-          bearing: -12,
-          maxZoom: 15.6,
-        });
-      } catch { /* bornes dégénérées : repli sur le recadrage habituel */ }
-      if (!cam) { this.reframe(); return; }
-      map.flyTo({
-        center: cam.center, zoom: cam.zoom - 0.35, pitch: 42, bearing: -12,
-        duration: vol, curve: 1.4, essential: true,
+      map.fitBounds(boundsOf(coords), {
+        padding: { top: 180, bottom: 240, left: 140, right: 140 },
+        pitch: 0, bearing: 0, maxZoom: 15.4,
+        duration: vol, essential: true,
+      });
+      if (prefersReduced) return;
+      map.once('moveend', () => {
+        try { map.easeTo({ pitch: 36, duration: 1600, essential: true }); } catch { /* carte détruite */ }
       });
     },
 
