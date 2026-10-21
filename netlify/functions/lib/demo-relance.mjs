@@ -125,6 +125,8 @@ export function composerRelance({ communeNom, creeLe }) {
       '',
       `C'était par simple curiosité, ou vous avez un projet en tête pour ${commune} ?`,
       '',
+      'Qu\'en avez-vous pensé ?',
+      '',
       'Bonne journée,',
       'Solal',
     ].join('\n'),

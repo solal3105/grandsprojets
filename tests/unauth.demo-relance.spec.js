@@ -82,6 +82,8 @@ test.describe('Démo - le message de relance', () => {
       '',
       'C\'était par simple curiosité, ou vous avez un projet en tête pour Chenôve ?',
       '',
+      'Qu\'en avez-vous pensé ?',
+      '',
       'Bonne journée,',
       'Solal',
     ].join('\n'));
