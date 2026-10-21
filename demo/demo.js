@@ -519,7 +519,10 @@
 
   /* Les entrées passent par une FILE cadencée : quand une vague de lecture
      livre plusieurs projets d'un coup, les cartes tombent quand même une par
-     une, toutes les 420 ms - l'œil suit chaque arrivée. */
+     une, toutes les 420 ms - l'œil suit chaque arrivée. Le rejeu d'un
+     espace déjà prêt resserre cette cadence pour tenir dans sa durée. */
+  const CADENCE_ENTREE_MS = 420;
+  let mainCadence = CADENCE_ENTREE_MS;
   const mainFileEntrees = [];
   let mainEntreeTimer = null;
   function mainAdd(title, domain) {
@@ -532,7 +535,7 @@
     const item = mainFileEntrees.shift();
     if (!item) return;
     mainPoseCarte(item.title, item.domain);
-    mainEntreeTimer = setTimeout(() => { mainEntreeTimer = null; mainEntreeSuivante(); }, 420);
+    mainEntreeTimer = setTimeout(() => { mainEntreeTimer = null; mainEntreeSuivante(); }, mainCadence);
   }
   function mainPoseCarte(title, domain) {
     const zone = $('hand');
@@ -621,6 +624,7 @@
     clearTimeout(mainSortieTimer);
     mainEntreeTimer = null;
     mainSortieTimer = null;
+    mainCadence = CADENCE_ENTREE_MS;
     if (zone) { zone.innerHTML = ''; zone.classList.remove('has-cards'); }
   }
 
@@ -748,6 +752,7 @@
       }
       else if (msg.type === 'done') { es.close(); es = null; onDone(msg); }
       else if (msg.type === 'notice') showNotice(msg.message);
+      else if (msg.type === 'replay') rejeuEnAttente = msg;
       else if (msg.type === 'error') {
         es.close(); es = null;
         if (msg.retryable) tryResume(msg.debug);
@@ -802,6 +807,7 @@
     repriseCibleeTentee = false;
     startTime = Date.now();
     lastDone = null;
+    rejeuAnnuler();
     window.OPAnalytics?.capture('demo_generation_started', {
       municipality: commune.nom,
       municipality_insee: commune.code,
@@ -880,6 +886,7 @@
       projects_count: msg.projectsCount ?? null,
       duration_seconds: elapsed,
       existing: !!msg.existing,
+      replayed: Boolean(msg.existing && rejeuEnAttente?.items?.length),
       kiosk: KIOSK,
     });
     $('done-commune').textContent = msg.communeNom || currentCommune?.nom || '';
@@ -939,13 +946,154 @@
       try { $('lead-email').focus(); } catch { /* champ absent */ }
       armerFiletLead();
     };
-    if (hasFx && phares.length && !msg.existing) {
+    const rejeu = msg.existing ? rejeuEnAttente : null;
+    rejeuEnAttente = null;
+    if (rejeu?.items?.length) {
+      rejouer(rejeu, msg.communeNom || currentCommune?.nom || '', terminer);
+    } else if (hasFx && phares.length && !msg.existing) {
       window.MapFX.tour(phares, showFlyover, terminer);
     } else {
       if (hasFx) window.MapFX.finale();
       terminer();
     }
   }
+
+  /* ─── Rejeu d'un espace déjà prêt ───
+     Une commune déjà générée ne retombe plus directement sur l'écran de fin :
+     sa carte se reconstruit sous les yeux du visiteur avec les gestes de la
+     génération (les cartes tombent dans la main, s'envolent vers leur point,
+     reçoivent leur illustration, puis un court survol). Seul ce qui est vrai
+     est rejoué : les fiches publiées, leur emplacement et leur image, le logo
+     et la couleur de la mairie. Durée de 15 à 30 s selon le nombre de
+     projets ; un bouton permet de passer directement à la suite. */
+  let rejeuEnAttente = null;
+  let rejeuTimers = [];
+  let rejeuFin = null;
+
+  // 3 projets : 15 s ; 10 projets : 18 s ; 40 projets et plus : 30 s
+  function dureeRejeu(n) {
+    return Math.min(30000, Math.max(15000, 14000 + n * 400));
+  }
+
+  function rejeuPlus(ms, fn) {
+    rejeuTimers.push(setTimeout(fn, Math.max(0, Math.round(ms))));
+  }
+
+  function rejeuAnnuler() {
+    rejeuEnAttente = null;
+    rejeuTimers.forEach(clearTimeout);
+    rejeuTimers = [];
+    rejeuFin = null;
+    if (hasFx) window.MapFX.tourStop();
+    $('btn-passer').hidden = true;
+  }
+
+  // Fin du rejeu, qu'il soit allé à son terme ou que le visiteur l'ait passé
+  function rejeuTerminer(passe) {
+    const suite = rejeuFin;
+    if (!suite) return;
+    rejeuAnnuler();
+    finishStages();
+    setProgress(100);
+    if (passe) {
+      mainClear();
+      if (hasFx) window.MapFX.finale();
+    }
+    suite();
+  }
+
+  function rejouer(rejeu, nom, terminer) {
+    const items = rejeu.items.filter((p) => p && p.title && Number.isFinite(p.lat) && Number.isFinite(p.lng));
+    const n = items.length;
+    if (!n) { terminer(); return; }
+    rejeuTimers.forEach(clearTimeout);
+    rejeuTimers = [];
+    rejeuFin = terminer;
+
+    // L'écran repart d'une progression vierge : la construction se rejoue
+    resetStages();
+    progressPct = 0;
+    setProgress(4);
+    $('btn-passer').hidden = false;
+
+    if (rejeu.color) {
+      document.documentElement.style.setProperty('--accent', rejeu.color);
+      if (hasFx) window.MapFX.setAccent(rejeu.color);
+    }
+    if (rejeu.logo) {
+      const logo = $('hud-logo');
+      logo.onload = () => { logo.hidden = false; $('hud-commune').hidden = true; };
+      logo.onerror = () => { logo.hidden = true; $('hud-commune').hidden = false; };
+      logo.src = rejeu.logo;
+    }
+
+    /* Le calendrier tient dans la durée totale : le survol a une longueur
+       fixe, le reste se partage entre la chute des cartes (30 %), leurs vols
+       (60 %) et la pose des dernières illustrations (10 %). */
+    const total = dureeRejeu(n);
+    const phares = items.slice()
+      .sort((a, b) => (b.geometry ? 1 : 0) - (a.geometry ? 1 : 0))
+      .slice(0, n >= 6 ? 2 : 1);
+    const RYTHME = { pas: 2800, vol: 2200, fin: 1800 };
+    const survol = hasFx ? phares.length * RYTHME.pas + RYTHME.fin : 0;
+    const intro = 1800;
+    const reste = Math.max(4000, total - intro - survol);
+    const tCartes = reste * 0.3;
+    const tVols = reste * 0.6;
+    const pasVol = tVols / n;
+    const pluriel = n > 1 ? 's' : '';
+
+    setStage(0);
+    setPill('Espace déjà prêt', `${n} projet${pluriel} à replacer sur la carte`, false);
+    plateauActivite('mairie', `La carte de ${nom} existe déjà`, 'reconstruction sous vos yeux', rejeu.logo);
+
+    // Les projets tombent en cartes dans la main, une par une
+    rejeuPlus(intro, () => {
+      setStage(1);
+      setProgress(20);
+      setPill('Projets de la commune', `${n} fiche${pluriel} publiée${pluriel}`, false);
+      mainCadence = Math.max(60, Math.min(CADENCE_ENTREE_MS, tCartes / n));
+      items.forEach((p) => mainAdd(p.title, null));
+    });
+
+    // Chaque carte s'envole vers son emplacement, son illustration suit
+    const debutVols = intro + tCartes;
+    rejeuPlus(debutVols, () => {
+      setStage(2);
+      setPill('Localisation des projets', `0/${n}`, false);
+    });
+    items.forEach((p, i) => {
+      rejeuPlus(debutVols + i * pasVol, () => {
+        setProgress(30 + Math.round(((i + 1) / n) * 55));
+        $('hud-detail').textContent = `${i + 1}/${n}`;
+        plateauActivite('pin', p.title, 'projet replacé sur la carte');
+        mainFly(p.title, p);
+        if (hasFx) window.MapFX.addProject({ lat: p.lat, lng: p.lng, geometry: p.geometry, precise: true, title: p.title });
+      });
+      if (p.cover && hasFx) {
+        rejeuPlus(debutVols + i * pasVol + Math.min(900, pasVol + 300), () => {
+          window.MapFX.attachPhoto(p.lat, p.lng, p.cover);
+        });
+      }
+    });
+
+    rejeuPlus(debutVols + tVols, () => {
+      setStage(3);
+      setPill('Illustrations', `${items.filter((p) => p.cover).length}/${n}`, true);
+    });
+    rejeuPlus(debutVols + tVols + reste * 0.1, () => {
+      setStage(4);
+      setProgress(92);
+      setPill(`La carte de ${nom}`, 'Survol des projets', false);
+      if (hasFx) window.MapFX.tour(phares, showFlyover, () => rejeuTerminer(false), RYTHME);
+      else rejeuTerminer(false);
+    });
+  }
+
+  $('btn-passer').addEventListener('click', () => {
+    showFlyover(null);
+    rejeuTerminer(true);
+  });
 
   /* ─── Récupération de l'adresse en fin de parcours ─── */
 
@@ -1215,6 +1363,7 @@
   }
 
   function reset() {
+    rejeuAnnuler();
     clearTimeout(redirectTimer);
     clearTimeout(leadTimer);
     clearTimeout(saisieTimer);

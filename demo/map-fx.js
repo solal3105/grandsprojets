@@ -152,6 +152,8 @@
   // le centre de la commune en attendant.
   let sourceOrigin = null;
   let reframePending = false;
+  // Survol en cours : un nouveau jeton rend caduques les étapes déjà programmées
+  let tourJeton = 0;
   let recentrePending = false;
 
   /* Registre de la génération en cours, pour REJOUER la scène sur un style
@@ -716,17 +718,24 @@
        tourne autour, puis remonte en vue d'ensemble. C'est le moment ou le
        visiteur sort son telephone. `onFocus` laisse l'ecran afficher le titre
        et la photo du projet survole. */
-    tour(points, onFocus, onDone) {
+    /* `rythme` raccourcit le survol du rejeu d'un espace déjà prêt, qui doit
+       tenir dans sa durée totale. `tourStop` l'interrompt quand le visiteur
+       passe l'animation : sans lui, l'étape suivante relançait la caméra
+       derrière l'écran de fin. */
+    tour(points, onFocus, onDone, rythme = {}) {
       if (!ok || !points?.length) { onDone?.(); return; }
       if (prefersReduced) { this.finale(); onDone?.(); return; }
+      const { pas = 4600, vol = 3200, fin = 2600 } = rythme;
       mode = 'focus';
       const etapes = points.slice(0, 3);
+      const jeton = ++tourJeton;
       let i = 0;
       const suivant = () => {
+        if (jeton !== tourJeton) return;
         if (i >= etapes.length) {
           onFocus?.(null);
           this.finale();
-          setTimeout(() => onDone?.(), 2600);
+          setTimeout(() => { if (jeton === tourJeton) onDone?.(); }, fin);
           return;
         }
         const p = etapes[i];
@@ -736,15 +745,17 @@
           zoom: 16.2,
           pitch: 62,
           bearing: (i * 47) % 360,
-          duration: 3200,
+          duration: vol,
           curve: 1.5,
           essential: true,
         });
         i++;
-        setTimeout(suivant, 4600);
+        setTimeout(suivant, pas);
       };
       suivant();
     },
+
+    tourStop() { tourJeton++; },
 
     /* Recadrage final : vue d'ensemble sur tous les projets, VRAIMENT centrée.
 
@@ -778,6 +789,7 @@
     reset() {
       if (!ok) return;
       this.scanStop();
+      this.tourStop();
       reframePending = false;
       recentrePending = false;
       markers.forEach((m) => m.remove());
