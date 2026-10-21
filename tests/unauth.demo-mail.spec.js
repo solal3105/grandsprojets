@@ -157,8 +157,20 @@ test.describe('Démo salon - message au visiteur', () => {
     // volontairement absente des deux versions du message.
     expect(appels[0].corps.text).not.toContain('/tarification');
     expect(appels[0].corps.html).not.toContain('/tarification');
-    expect(appels[0].corps.text).toContain('/#contact');
-    expect(appels[0].corps.html).toContain('/#contact');
+    // Le seul lien du message est la carte : on invite à répondre, pas à cliquer
+    expect(appels[0].corps.text).toContain('Répondez simplement à ce message');
+    expect(appels[0].corps.html).toContain('Répondez simplement à ce message');
+  });
+
+  test('0.34.13 - le nombre de projets n\'apparaît que s\'il est connu', async () => {
+    const appels = interceptor();
+
+    await envoyerMessageDemo(DONNEES);
+    await envoyerMessageDemo({ ...DONNEES, projectsCount: null });
+
+    expect(appels[0].corps.text).toContain('12 projets y figurent.');
+    expect(appels[1].corps.text).not.toContain('projets y figurent');
+    expect(appels[1].corps.html).not.toContain('projets y figurent');
   });
 
   test('0.34.8 - sans adresse d\'espace, aucun message n\'est tenté', async () => {
