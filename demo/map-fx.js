@@ -217,7 +217,21 @@
   /* Recale la caméra d'après la position réelle des points à l'écran : leur
      boîte englobante doit remplir la zone libre, centrée. Un seul mouvement
      court ; rien ne bouge si l'écart est déjà négligeable. */
-  function corrigerCadre(coords, zoomMax) {
+/* Le globe ne gère pas le relief au niveau du centre de la vue : MapLibre
+     y laisse l'altitude du centre à zéro. Dans une commune en hauteur, tout
+     ce qui est posé sur le sol s'affiche alors décalé vers le haut de
+     l'écran (Ambilly, 420 m : environ 250 px). Une fois la caméra descendue
+     sur la commune, où globe et carte plane se confondent à l'œil, la carte
+     passe en projection plane, qui gère le relief correctement. `reset`
+     remet le globe pour le retour à la France. */
+  function passerAPlat() {
+    try {
+      if (map.getProjection()?.type !== 'mercator') map.setProjection({ type: 'mercator' });
+    } catch { /* projection inchangée */ }
+  }
+
+    function corrigerCadre(coords, zoomMax, passes = 3, jeton = tourJeton) {
+    if (jeton !== tourJeton) return;
     const conteneur = map.getContainer();
     const W = conteneur.clientWidth, H = conteneur.clientHeight;
     const z = ZONE_LIBRE;
@@ -240,8 +254,13 @@
     const libreCy = (z.top + (H - z.bottom)) / 2 - H / 2;
     map.easeTo({
       center: centre, zoom, offset: [libreCx, libreCy],
-      duration: 1100, easing: (t) => t * (2 - t), essential: true,
+      duration: 1100, easing: (t) => t * (2 - t), freezeElevation: true, essential: true,
     });
+    if (passes > 1) {
+      map.once('moveend', () => {
+        try { corrigerCadre(coords, zoomMax, passes - 1, jeton); } catch { /* carte détruite */ }
+      });
+    }
   }
 
     function vueMercator(coords, conteneur, marges, zoomMax) {
@@ -774,12 +793,16 @@
         : vueMercator(coords, map.getContainer(), ZONE_LIBRE, 15.4);
       map.flyTo({
         ...cible, pitch, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 },
-        duration: vol, curve: 1.3, essential: true,
+        duration: vol, curve: 1.3, freezeElevation: true, essential: true,
       });
       if (prefersReduced) return;
       map.once('moveend', () => {
         if (jeton !== tourJeton) return;
-        try { corrigerCadre(coords, 15.4); } catch { /* carte détruite */ }
+        passerAPlat();
+        // La projection change à la trame suivante : on mesure après elle
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          try { corrigerCadre(coords, 15.4, 3, jeton); } catch { /* carte détruite */ }
+        }));
       });
     },
 
@@ -920,6 +943,8 @@
       if (!ok) return;
       this.scanStop();
       this.tourStop();
+      // Le rejeu a pu passer la carte à plat (voir passerAPlat)
+      try { if (map.getProjection()?.type !== 'globe') map.setProjection({ type: 'globe' }); } catch { /* projection inchangée */ }
       reframePending = false;
       recentrePending = false;
       markers.forEach((m) => m.remove());
