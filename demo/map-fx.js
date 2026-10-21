@@ -208,10 +208,43 @@
      de départ. */
   /* Centre et zoom qui font tenir des points dans l'écran, marges déduites,
      calculés en Mercator (tuiles de 512 px) : le résultat ne dépend pas de la
-     position de la caméra au moment de l'appel. L'inclinaison étire le bas de
-     l'écran, d'où un léger recul. Les marges asymétriques décalent le centre
-     au lieu d'être confiées à la carte. */
-  function vueMercator(coords, conteneur, marges, zoomMax, pitch = 0) {
+     position de la caméra au moment de l'appel. Les marges asymétriques
+     décalent le centre au lieu d'être confiées à la carte. */
+/* Zone de l'écran laissée libre pendant le rejeu : le bandeau d'étapes
+     occupe le haut, la carte en main et l'établi occupent le bas. */
+  const ZONE_LIBRE = { top: 170, bottom: 200, left: 120, right: 120 };
+
+  /* Recale la caméra d'après la position réelle des points à l'écran : leur
+     boîte englobante doit remplir la zone libre, centrée. Un seul mouvement
+     court ; rien ne bouge si l'écart est déjà négligeable. */
+  function corrigerCadre(coords, zoomMax) {
+    const conteneur = map.getContainer();
+    const W = conteneur.clientWidth, H = conteneur.clientHeight;
+    const z = ZONE_LIBRE;
+    const pts = coords.map((c) => map.project(c));
+    const x0 = Math.min(...pts.map((p) => p.x)), x1 = Math.max(...pts.map((p) => p.x));
+    const y0 = Math.min(...pts.map((p) => p.y)), y1 = Math.max(...pts.map((p) => p.y));
+    const libreW = Math.max(200, W - z.left - z.right);
+    const libreH = Math.max(160, H - z.top - z.bottom);
+    const echelle = Math.min(libreW / Math.max(1, x1 - x0), libreH / Math.max(1, y1 - y0));
+    const dz = Math.max(-2, Math.min(1.5, Math.log2(echelle)));
+    const zoom = Math.min(zoomMax, map.getZoom() + dz);
+    // Décalage entre le milieu des points et le milieu de la zone libre
+    const dx = (x0 + x1) / 2 - (z.left + (W - z.right)) / 2;
+    const dy = (y0 + y1) / 2 - (z.top + (H - z.bottom)) / 2;
+    if (Math.abs(dx) < 24 && Math.abs(dy) < 24 && Math.abs(zoom - map.getZoom()) < 0.15) return;
+    // Le milieu des points vient au milieu de la zone libre (`offset`), et
+    // le zoom se fait autour de lui.
+    const centre = map.unproject([(x0 + x1) / 2, (y0 + y1) / 2]);
+    const libreCx = (z.left + (W - z.right)) / 2 - W / 2;
+    const libreCy = (z.top + (H - z.bottom)) / 2 - H / 2;
+    map.easeTo({
+      center: centre, zoom, offset: [libreCx, libreCy],
+      duration: 1100, easing: (t) => t * (2 - t), essential: true,
+    });
+  }
+
+    function vueMercator(coords, conteneur, marges, zoomMax) {
     const mx = (lng) => (lng + 180) / 360;
     const my = (lat) => {
       const s = Math.sin((Math.max(-85, Math.min(85, lat)) * Math.PI) / 180);
@@ -224,7 +257,7 @@
     const W = Math.max(200, conteneur.clientWidth - marges.left - marges.right);
     const H = Math.max(160, conteneur.clientHeight - marges.top - marges.bottom);
     const etendue = Math.min(W / Math.max(1e-9, (x1 - x0) * 512), H / Math.max(1e-9, (y1 - y0) * 512));
-    const zoom = Math.min(zoomMax, Math.log2(etendue) - (pitch ? 0.3 : 0));
+    const zoom = Math.min(zoomMax, Math.log2(etendue));
     const monde = 512 * 2 ** zoom;
     const cx = (x0 + x1) / 2 + (marges.right - marges.left) / 2 / monde;
     const cy = (y0 + y1) / 2 + (marges.bottom - marges.top) / 2 / monde;
@@ -707,28 +740,39 @@
     },
 
     /* Cadrage unique sur un ensemble de points connus d'avance (rejeu d'un
-       espace déjà prêt). Le cadre est calculé ICI, en Mercator, sans demander
-       à la carte : `fitBounds` et `cameraForBounds` partent de la caméra
-       courante, et le rejeu les appelle pendant la plongée vers la commune,
-       à basse altitude de globe. Le calcul rendait alors un centre décalé
-       (Ambilly, projets sous le bandeau) ou un zoom bien trop large (Angers).
-       Un seul vol porte centre, zoom et inclinaison ; les marges réservent la
-       place du bandeau du haut et de l'établi du bas sans passer par
-       l'option `padding`, qui resterait collée à la carte pour la visite. */
+       espace déjà prêt), en deux temps.
+       1. Le vol : centre et zoom calculés ICI, en Mercator. `fitBounds` et
+          `cameraForBounds` partent de la caméra courante, et le rejeu les
+          appelle pendant la plongée vers la commune, à basse altitude de
+          globe : centre décalé (Ambilly) ou zoom bien trop large (Angers).
+       2. La correction : une fois posée, la caméra regarde où les points
+          tombent VRAIMENT à l'écran (`project` tient compte du relief et de
+          l'inclinaison) et se recale sur la zone libre entre le bandeau et
+          l'établi. Sans elle, une commune en altitude restait décalée :
+          MapLibre recale le centre sur le sol en fin de vol, et le sol à
+          420 m d'Ambilly, vu de biais, tombait 300 m plus au sud.
+       Les marges ne passent pas par l'option `padding`, qui resterait collée
+       à la carte pour la visite. */
     cadrer(points, duree = 2400) {
       if (!ok || !points?.length) return;
       reframePending = false;
       recentrePending = false;
       mode = 'focus';
+      const jeton = ++tourJeton;
       const coords = coeurDesPoints(points.map((p) => [p.lng, p.lat]));
       const vol = prefersReduced ? 0 : duree;
       const pitch = 36;
       const cible = coords.length === 1
         ? { center: coords[0], zoom: 15 }
-        : vueMercator(coords, map.getContainer(), { top: 180, bottom: 240, left: 140, right: 140 }, 15.4, pitch);
+        : vueMercator(coords, map.getContainer(), ZONE_LIBRE, 15.4);
       map.flyTo({
         ...cible, pitch, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 },
         duration: vol, curve: 1.3, essential: true,
+      });
+      if (prefersReduced) return;
+      map.once('moveend', () => {
+        if (jeton !== tourJeton) return;
+        try { corrigerCadre(coords, 15.4); } catch { /* carte détruite */ }
       });
     },
 
