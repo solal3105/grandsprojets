@@ -27,8 +27,8 @@
   /* Tout ce qui distingue les deux fonds tient dans cette table : le style,
      sa REPEINTURE en scène, le ciel, l'ombrage du relief, les bâtiments et le
      coeur des points de villes. Le reste de la scène est commun. Les deux
-     styles Carto embarquent la même source vectorielle « carto » : les
-     bâtiments 3D se lèvent au même zoom, jour et nuit. */
+     styles Carto partagent la même source vectorielle, retrouvée dans le
+     style au chargement : les bâtiments 3D se lèvent au même zoom, jour et nuit. */
   const THEMES = {
     light: {
       style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
@@ -59,7 +59,6 @@
         'hillshade-exaggeration': 0.5,
       },
       buildings: {
-        source: 'carto',
         minzoom: 13,
         color: '#cbc0af',
         opacity: 0.8,
@@ -100,7 +99,6 @@
         'hillshade-exaggeration': 0.55,
       },
       buildings: {
-        source: 'carto',
         minzoom: 13,
         color: '#28436f',
         opacity: 0.72,
@@ -208,6 +206,33 @@
      dézoomer tout le cadre, et la carte restait trop haute pour montrer les
      bâtiments. Les projets écartés restent posés, simplement hors du cadre
      de départ. */
+  /* Centre et zoom qui font tenir des points dans l'écran, marges déduites,
+     calculés en Mercator (tuiles de 512 px) : le résultat ne dépend pas de la
+     position de la caméra au moment de l'appel. L'inclinaison étire le bas de
+     l'écran, d'où un léger recul. Les marges asymétriques décalent le centre
+     au lieu d'être confiées à la carte. */
+  function vueMercator(coords, conteneur, marges, zoomMax, pitch = 0) {
+    const mx = (lng) => (lng + 180) / 360;
+    const my = (lat) => {
+      const s = Math.sin((Math.max(-85, Math.min(85, lat)) * Math.PI) / 180);
+      return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
+    };
+    const xs = coords.map((c) => mx(c[0]));
+    const ys = coords.map((c) => my(c[1]));
+    const x0 = Math.min(...xs), x1 = Math.max(...xs);
+    const y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const W = Math.max(200, conteneur.clientWidth - marges.left - marges.right);
+    const H = Math.max(160, conteneur.clientHeight - marges.top - marges.bottom);
+    const etendue = Math.min(W / Math.max(1e-9, (x1 - x0) * 512), H / Math.max(1e-9, (y1 - y0) * 512));
+    const zoom = Math.min(zoomMax, Math.log2(etendue) - (pitch ? 0.3 : 0));
+    const monde = 512 * 2 ** zoom;
+    const cx = (x0 + x1) / 2 + (marges.right - marges.left) / 2 / monde;
+    const cy = (y0 + y1) / 2 + (marges.bottom - marges.top) / 2 / monde;
+    const lng = cx * 360 - 180;
+    const lat = (Math.atan(Math.sinh(Math.PI * (1 - 2 * cy))) * 180) / Math.PI;
+    return { center: [lng, lat], zoom };
+  }
+
   function coeurDesPoints(coords) {
     if (coords.length < 4) return coords;
     const med = (v) => { const t = v.slice().sort((a, b) => a - b); return t[Math.floor(t.length / 2)]; };
@@ -351,25 +376,26 @@
 
     /* Bâtiments en 3D au niveau rue. La source vectorielle est retrouvée dans
        le style lui-même (celle qui dessine déjà les bâtiments à plat) : Carto
-       ne l'appelle plus « carto », et la couche échouait sans bruit, si bien
-       qu'aucun bâtiment ne se levait (relevé sur les captures du rejeu). */
+       a changé de schéma, et la couche échouait sans bruit, si bien qu'aucun
+       bâtiment ne se levait (relevé sur les captures du rejeu). */
     try {
       const style = map.getStyle();
       const firstSymbol = style.layers.find((l) => l.type === 'symbol')?.id;
-      const source = style.layers.find((l) => l['source-layer'] === 'building')?.source
-        || (style.sources[t.buildings.source] ? t.buildings.source : null)
-        || Object.keys(style.sources).find((k) => style.sources[k].type === 'vector');
-      if (!source) throw new Error('aucune source vectorielle');
+      /* Le style Carto actuel sert des tuiles Protomaps : source « protomaps »,
+         couche « buildings », hauteur dans `height`. L'ancien schéma disait
+         « carto », « building » et `render_height`. Les deux sont lus. */
+      const plate = style.layers.find((l) => /^buildings?$/.test(l['source-layer'] || ''));
+      if (!plate) throw new Error('aucune couche de bâtiments dans le style');
       map.addLayer({
         id: 'fx-3d-buildings',
         type: 'fill-extrusion',
-        source,
-        'source-layer': 'building',
+        source: plate.source,
+        'source-layer': plate['source-layer'],
         minzoom: t.buildings.minzoom,
         paint: {
           'fill-extrusion-color': t.buildings.color,
-          'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
-          'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+          'fill-extrusion-height': ['coalesce', ['get', 'render_height'], ['get', 'height'], 10],
+          'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0],
           'fill-extrusion-opacity': t.buildings.opacity,
         },
       }, firstSymbol);
@@ -681,11 +707,14 @@
     },
 
     /* Cadrage unique sur un ensemble de points connus d'avance (rejeu d'un
-       espace déjà prêt). Le cadre est posé À PLAT avec `fitBounds`, le seul
-       calcul juste en projection globe avec relief (`cameraForBounds` y
-       rendait un centre décalé ou un zoom bien trop large, relevé sur Ambilly
-       et Angers), puis la caméra s'incline doucement autour du même centre.
-       Les marges réservent la place du bandeau du haut et de l'établi du bas. */
+       espace déjà prêt). Le cadre est calculé ICI, en Mercator, sans demander
+       à la carte : `fitBounds` et `cameraForBounds` partent de la caméra
+       courante, et le rejeu les appelle pendant la plongée vers la commune,
+       à basse altitude de globe. Le calcul rendait alors un centre décalé
+       (Ambilly, projets sous le bandeau) ou un zoom bien trop large (Angers).
+       Un seul vol porte centre, zoom et inclinaison ; les marges réservent la
+       place du bandeau du haut et de l'établi du bas sans passer par
+       l'option `padding`, qui resterait collée à la carte pour la visite. */
     cadrer(points, duree = 2400) {
       if (!ok || !points?.length) return;
       reframePending = false;
@@ -693,18 +722,13 @@
       mode = 'focus';
       const coords = coeurDesPoints(points.map((p) => [p.lng, p.lat]));
       const vol = prefersReduced ? 0 : duree;
-      if (coords.length === 1) {
-        map.flyTo({ center: coords[0], zoom: 15, pitch: 40, bearing: 0, duration: vol, essential: true });
-        return;
-      }
-      map.fitBounds(boundsOf(coords), {
-        padding: { top: 180, bottom: 240, left: 140, right: 140 },
-        pitch: 0, bearing: 0, maxZoom: 15.4,
-        duration: vol, essential: true,
-      });
-      if (prefersReduced) return;
-      map.once('moveend', () => {
-        try { map.easeTo({ pitch: 36, duration: 1600, essential: true }); } catch { /* carte détruite */ }
+      const pitch = 36;
+      const cible = coords.length === 1
+        ? { center: coords[0], zoom: 15 }
+        : vueMercator(coords, map.getContainer(), { top: 180, bottom: 240, left: 140, right: 140 }, 15.4, pitch);
+      map.flyTo({
+        ...cible, pitch, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 },
+        duration: vol, curve: 1.3, essential: true,
       });
     },
 
