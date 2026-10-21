@@ -27,7 +27,7 @@
   <!-- Thème AVANT la feuille de style : l'attribut data-theme est posé avant
        le premier rendu, aucun éclair de mauvais thème -->
   <script src="theme.js?v=16"></script>
-  <link rel="stylesheet" href="demo.css?v=17" />
+  <link rel="stylesheet" href="demo.css?v=19" />
   <script defer src="/modules/analytics.js" data-op-space="demo"></script>
 </head>
 <body>
@@ -120,6 +120,10 @@
            poursuit, le visiteur est simplement prévenu de ce qui l'attend
            pendant qu'il reste des étapes à regarder. -->
       <p id="hud-notice" class="hud-notice" role="status" hidden></p>
+
+      <!-- Rejeu d'un espace déjà prêt : le visiteur pressé passe directement
+           à la suite. N'apparaît que pendant ce rejeu. -->
+      <button id="btn-passer" class="btn-passer" type="button" hidden>Passer l'animation</button>
 
     </section>
 
@@ -222,7 +226,7 @@
   </button>
 
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
-  <script src="map-fx.js?v=16"></script>
-  <script src="demo.js?v=18"></script>
+  <script src="map-fx.js?v=23"></script>
+  <script src="demo.js?v=20"></script>
 </body>
 </html>

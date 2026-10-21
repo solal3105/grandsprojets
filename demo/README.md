@@ -31,6 +31,23 @@ Les activités ne s'empilent jamais : la plus récente remplace celle qui
 attendait, donc une rafale de cinq pages ne fait clignoter qu'un titre. Un
 changement de phase vide le plateau : il parle toujours de la phase en cours.
 
+## Une commune déjà générée se reconstruit sous les yeux du visiteur
+
+Quand l'espace existe déjà, le serveur envoie, juste avant `done`, un
+événement `replay` : les fiches publiées (titre, point, emprise, illustration)
+lues dans `contribution_uploads` et leurs fichiers GeoJSON, plus le logo et la
+couleur de `city_branding` (`lireRejeu`, 6 s au plus). L'écran rejoue alors la
+construction avec les gestes de la génération : les cartes tombent dans la
+main, s'envolent vers leur point avec épingle ou emprise, reçoivent leur
+illustration, puis un court survol mène à l'écran de fin. Rien d'autre n'est
+rejoué : les sources et citations ne sont plus conservées une fois l'espace
+publié, et on ne les invente pas.
+
+La durée suit le nombre de projets : 15 s jusqu'à 2 projets, 18 s pour 10,
+30 s à partir de 40 (`dureeRejeu`). Le bouton « Passer l'animation »
+passe directement à l'écran de fin. Sans événement `replay` (lecture en échec,
+espace vide), l'écran de fin s'ouvre comme avant.
+
 ## Le site est exploré page par page
 
 C'est le cœur du système, et il a changé. On lisait auparavant un nombre fixe de
@@ -291,8 +308,8 @@ Suivi : `select followup_status, followup_reason, count(*) from demo_leads group
 
 ## Garde-fous
 
-- Idempotence : une commune déjà générée redirige vers l'espace existant, sauf
-  `regen=1` qui refait le recensement
+- Idempotence : une commune déjà générée rejoue la construction de l'espace
+  existant puis y mène, sauf `regen=1` qui refait le recensement
 - Quotas : 80 générations/jour au global, 15 par IP (constantes en tête de
   `netlify/functions/demo-generate.mjs`). Pour le salon : définir la variable
   d'env `DEMO_KIOSK_KEY` et ouvrir `/demo/?kiosk=1&k=<clé>` : le quota par IP

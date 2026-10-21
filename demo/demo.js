@@ -748,6 +748,7 @@
       }
       else if (msg.type === 'done') { es.close(); es = null; onDone(msg); }
       else if (msg.type === 'notice') showNotice(msg.message);
+      else if (msg.type === 'replay') rejeuEnAttente = msg;
       else if (msg.type === 'error') {
         es.close(); es = null;
         if (msg.retryable) tryResume(msg.debug);
@@ -802,6 +803,7 @@
     repriseCibleeTentee = false;
     startTime = Date.now();
     lastDone = null;
+    rejeuAnnuler();
     window.OPAnalytics?.capture('demo_generation_started', {
       municipality: commune.nom,
       municipality_insee: commune.code,
@@ -880,6 +882,7 @@
       projects_count: msg.projectsCount ?? null,
       duration_seconds: elapsed,
       existing: !!msg.existing,
+      replayed: Boolean(msg.existing && rejeuEnAttente?.items?.length),
       kiosk: KIOSK,
     });
     $('done-commune').textContent = msg.communeNom || currentCommune?.nom || '';
@@ -939,13 +942,165 @@
       try { $('lead-email').focus(); } catch { /* champ absent */ }
       armerFiletLead();
     };
-    if (hasFx && phares.length && !msg.existing) {
+    const rejeu = msg.existing ? rejeuEnAttente : null;
+    rejeuEnAttente = null;
+    if (rejeu?.items?.length) {
+      rejouer(rejeu, msg.communeNom || currentCommune?.nom || '', terminer);
+    } else if (hasFx && phares.length && !msg.existing) {
       window.MapFX.tour(phares, showFlyover, terminer);
     } else {
       if (hasFx) window.MapFX.finale();
       terminer();
     }
   }
+
+  /* ─── Rejeu d'un espace déjà prêt ───
+     Une commune déjà générée ne retombe plus directement sur l'écran de fin :
+     sa carte se reconstruit sous les yeux du visiteur avec les gestes de la
+     génération (les cartes tombent dans la main, s'envolent vers leur point,
+     reçoivent leur illustration, puis un court survol). Seul ce qui est vrai
+     est rejoué : les fiches publiées, leur emplacement et leur image, le logo
+     et la couleur de la mairie. Durée de 15 à 30 s selon le nombre de
+     projets ; un bouton permet de passer directement à la suite. */
+  let rejeuEnAttente = null;
+  let rejeuTimers = [];
+  let rejeuFin = null;
+
+  // 3 projets : 15 s ; 10 projets : 18 s ; 40 projets et plus : 30 s
+  function dureeRejeu(n) {
+    return Math.min(30000, Math.max(15000, 14000 + n * 400));
+  }
+
+  function rejeuPlus(ms, fn) {
+    rejeuTimers.push(setTimeout(fn, Math.max(0, Math.round(ms))));
+  }
+
+  function rejeuAnnuler() {
+    rejeuEnAttente = null;
+    rejeuTimers.forEach(clearTimeout);
+    rejeuTimers = [];
+    rejeuFin = null;
+    if (hasFx) window.MapFX.tourStop();
+    $('btn-passer').hidden = true;
+  }
+
+  // Fin du rejeu, qu'il soit allé à son terme ou que le visiteur l'ait passé
+  function rejeuTerminer(passe) {
+    const suite = rejeuFin;
+    if (!suite) return;
+    rejeuAnnuler();
+    finishStages();
+    setProgress(100);
+    if (passe) {
+      mainClear();
+      if (hasFx) window.MapFX.finale();
+    }
+    suite();
+  }
+
+  function rejouer(rejeu, nom, terminer) {
+    const items = rejeu.items.filter((p) => p && p.title && Number.isFinite(p.lat) && Number.isFinite(p.lng));
+    const n = items.length;
+    if (!n) { terminer(); return; }
+    rejeuTimers.forEach(clearTimeout);
+    rejeuTimers = [];
+    rejeuFin = terminer;
+
+    // L'écran repart d'une progression vierge : la construction se rejoue
+    resetStages();
+    progressPct = 0;
+    setProgress(4);
+    $('btn-passer').hidden = false;
+
+    if (rejeu.color) {
+      document.documentElement.style.setProperty('--accent', rejeu.color);
+      if (hasFx) window.MapFX.setAccent(rejeu.color);
+    }
+    if (rejeu.logo) {
+      const logo = $('hud-logo');
+      logo.onload = () => { logo.hidden = false; $('hud-commune').hidden = true; };
+      logo.onerror = () => { logo.hidden = true; $('hud-commune').hidden = false; };
+      logo.src = rejeu.logo;
+    }
+
+    /* Le calendrier tient dans la durée totale. Le survol a une longueur
+       fixe ; le reste est un DÉFILÉ : chaque carte tombe dans la main puis
+       s'envole un peu plus tard vers son point. La main ne tient ainsi que
+       trois ou quatre cartes à la fois, dont les titres restent lisibles,
+       même pour cinquante projets (constat sur la première version, où les
+       cartes tombaient toutes avant de partir et se recouvraient). */
+    const total = dureeRejeu(n);
+    const phares = items.slice()
+      // Les projets les plus parlants au survol : une emprise, puis une image
+      .sort((a, b) => ((b.geometry ? 2 : 0) + (b.cover ? 1 : 0)) - ((a.geometry ? 2 : 0) + (a.cover ? 1 : 0)))
+      .slice(0, n >= 6 ? 2 : 1);
+    const RYTHME = { pas: 3200, vol: 2600, fin: 1800, zoom: 15.6, pitch: 52 };
+    const survol = hasFx ? phares.length * RYTHME.pas + RYTHME.fin : 0;
+    const intro = 1800;
+    const reste = Math.max(4000, total - intro - survol);
+    const sejour = 1400; // temps passé par une carte dans la main
+    const defile = Math.max(1000, reste * 0.9 - sejour);
+    const pas = defile / n;
+    const pluriel = n > 1 ? 's' : '';
+    /* Au-delà d'une douzaine de projets, étiquettes et vignettes se
+       recouvraient en vue d'ensemble (constat sur Angers, 48 projets) :
+       elles se replient plus tôt et les vignettes arrivent réduites. */
+    const dense = n > 12;
+
+    setStage(0);
+    setPill('Espace déjà prêt', `${n} projet${pluriel} à replacer sur la carte`, false);
+    plateauActivite('mairie', `La carte de ${nom} existe déjà`, 'reconstruction sous vos yeux', rejeu.logo);
+
+    /* La caméra se pose UNE fois sur l'ensemble des projets, avant le premier
+       envol : recadrer à chaque épingle faisait bouger la carte sans arrêt et
+       la laissait décalée quand les mouvements se chevauchaient. */
+    rejeuPlus(intro * 0.5, () => {
+      if (hasFx) window.MapFX.cadrer(items, intro * 0.5 + Math.min(2400, sejour + pas * 2));
+    });
+
+    rejeuPlus(intro, () => {
+      setStage(2);
+      setProgress(20);
+      setPill('Localisation des projets', `0/${n}`, false);
+    });
+    items.forEach((p, i) => {
+      const chute = intro + i * pas;
+      rejeuPlus(chute, () => mainPoseCarte(p.title, null));
+      rejeuPlus(chute + sejour, () => {
+        setProgress(20 + Math.round(((i + 1) / n) * 65));
+        $('hud-detail').textContent = `${i + 1}/${n}`;
+        plateauActivite('pin', p.title, 'projet replacé sur la carte');
+        mainFly(p.title, p);
+        if (hasFx) {
+          window.MapFX.addProject({
+            lat: p.lat, lng: p.lng, geometry: p.geometry, precise: true, title: p.title,
+            cadrer: false, etiquetteMs: dense ? 2200 : 4000,
+          });
+        }
+      });
+      if (p.cover && hasFx) {
+        rejeuPlus(chute + sejour + 700, () => window.MapFX.attachPhoto(p.lat, p.lng, p.cover, { reduite: dense }));
+      }
+    });
+
+    const finDefile = intro + defile + sejour;
+    rejeuPlus(finDefile, () => {
+      setStage(3);
+      setPill('Illustrations', `${items.filter((p) => p.cover).length}/${n}`, true);
+    });
+    rejeuPlus(intro + reste, () => {
+      setStage(4);
+      setProgress(92);
+      setPill(`La carte de ${nom}`, 'Survol des projets', false);
+      if (hasFx) window.MapFX.tour(phares, showFlyover, () => rejeuTerminer(false), RYTHME);
+      else rejeuTerminer(false);
+    });
+  }
+
+  $('btn-passer').addEventListener('click', () => {
+    showFlyover(null);
+    rejeuTerminer(true);
+  });
 
   /* ─── Récupération de l'adresse en fin de parcours ─── */
 
@@ -1215,6 +1370,7 @@
   }
 
   function reset() {
+    rejeuAnnuler();
     clearTimeout(redirectTimer);
     clearTimeout(leadTimer);
     clearTimeout(saisieTimer);

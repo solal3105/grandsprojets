@@ -467,6 +467,91 @@ test.describe('Démo salon - cartes courtes', () => {
 });
 
 /**
+ * Une commune déjà générée ne retombe plus directement sur l'écran de fin : sa
+ * carte se reconstruit sous les yeux du visiteur (les cartes tombent dans la
+ * main puis s'envolent vers leur point), en 15 à 30 secondes selon le nombre de
+ * projets. Le rendu WebGL est coupé : la main de cartes, le bouton pour passer
+ * et l'enchaînement vers l'écran de fin ne dépendent pas de la carte.
+ *
+ * Section : 0.89 - Rejeu d'un espace déjà prêt
+ */
+test.describe('Démo salon - rejeu d\'un espace déjà prêt', () => {
+  const COMMUNE = { nom: 'Auray', code: '56007', population: 14000, centre: { type: 'Point', coordinates: [-2.99, 47.668] } };
+  const PROJETS = ['Ferme communale à Rostevel', 'Nouvelle cuisine municipale', 'Travaux à Athéna'];
+  const REJEU = {
+    type: 'replay',
+    color: '#4d8ec1',
+    logo: null,
+    items: PROJETS.map((title, i) => ({ title, lat: 47.66 + i * 0.004, lng: -2.99 + i * 0.006, geometry: null, cover: null })),
+  };
+  const DONE_EXISTANT = {
+    type: 'done', url: '/ville/essai-auray/carte', ville: 'essai-auray',
+    communeNom: 'Auray', communeInsee: '56007', existing: true,
+  };
+
+  async function lancer(page) {
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, ...args) {
+        return /webgl/i.test(String(type)) ? null : original.call(this, type, ...args);
+      };
+      class FauxEventSource {
+        constructor(url) { window.__sse = this; this.url = url; }
+        close() { /* le double ne tient aucune connexion */ }
+      }
+      window.EventSource = FauxEventSource;
+      window.__envoyer = (o) => window.__sse?.onmessage?.({ data: JSON.stringify(o) });
+    });
+    await page.route('**/geo.api.gouv.fr/**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(route.request().url().includes('communes?nom=') ? [COMMUNE] : COMMUNE),
+    }));
+    await page.route('**/api.qrserver.com/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: '' }));
+    await page.goto('/demo/', { waitUntil: 'domcontentloaded' });
+    await page.locator('#commune-input').fill('Auray');
+    await page.locator('#suggestions li').first().click();
+    await page.waitForFunction(() => window.__sse);
+  }
+
+  test('0.89.1 - les projets de l\'espace existant se rejouent avant l\'écran de fin', async ({ page }) => {
+    await lancer(page);
+    await page.evaluate(([r, d]) => { window.__envoyer(r); window.__envoyer(d); }, [REJEU, DONE_EXISTANT]);
+    // L'écran de fin attend : la construction se rejoue d'abord
+    await expect(page.locator('#screen-progress')).toHaveClass(/is-active/);
+    await expect(page.locator('#btn-passer')).toBeVisible();
+    await expect(page.locator('#hand .bench__card').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#stage-text')).toContainText('Auray');
+    // Puis les cartes quittent la main pour leur emplacement
+    await expect(page.locator('#hud-label')).toHaveText('Localisation des projets', { timeout: 10000 });
+    // Sans geste, l'écran de fin arrive seul, au bout d'une quinzaine de secondes
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/, { timeout: 25000 });
+    await expect(page.locator('#btn-passer')).toBeHidden();
+    await expect(page.locator('#hand .bench__card')).toHaveCount(0);
+  });
+
+  test('0.89.2 - le visiteur pressé passe directement à l\'écran de fin', async ({ page }) => {
+    await lancer(page);
+    await page.evaluate(([r, d]) => { window.__envoyer(r); window.__envoyer(d); }, [REJEU, DONE_EXISTANT]);
+    await expect(page.locator('#btn-passer')).toBeVisible();
+    await page.locator('#btn-passer').click();
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/);
+    await expect(page.locator('#btn-passer')).toBeHidden();
+    await expect(page.locator('#lead-form')).toBeVisible();
+    // Les étapes programmées du rejeu ne reviennent pas troubler l'écran de fin
+    await page.waitForTimeout(3000);
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/);
+  });
+
+  test('0.89.3 - sans liste de projets, un espace existant ouvre l\'écran de fin comme avant', async ({ page }) => {
+    await lancer(page);
+    await page.evaluate((d) => window.__envoyer(d), DONE_EXISTANT);
+    await expect(page.locator('#screen-done')).toHaveClass(/is-active/);
+    await expect(page.locator('#btn-passer')).toBeHidden();
+  });
+});
+
+/**
  * Le kiosque s'affiche en CLAIR par défaut (fond OSM standard) et le sombre
  * reste disponible derrière l'interrupteur de la page. Le choix est retenu par
  * écran (localStorage) : il survit au rechargement, ce qui compte pour un

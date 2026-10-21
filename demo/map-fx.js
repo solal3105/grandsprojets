@@ -27,8 +27,8 @@
   /* Tout ce qui distingue les deux fonds tient dans cette table : le style,
      sa REPEINTURE en scène, le ciel, l'ombrage du relief, les bâtiments et le
      coeur des points de villes. Le reste de la scène est commun. Les deux
-     styles Carto embarquent la même source vectorielle « carto » : les
-     bâtiments 3D se lèvent au même zoom, jour et nuit. */
+     styles Carto partagent la même source vectorielle, retrouvée dans le
+     style au chargement : les bâtiments 3D se lèvent au même zoom, jour et nuit. */
   const THEMES = {
     light: {
       style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
@@ -59,7 +59,6 @@
         'hillshade-exaggeration': 0.5,
       },
       buildings: {
-        source: 'carto',
         minzoom: 13,
         color: '#cbc0af',
         opacity: 0.8,
@@ -100,7 +99,6 @@
         'hillshade-exaggeration': 0.55,
       },
       buildings: {
-        source: 'carto',
         minzoom: 13,
         color: '#28436f',
         opacity: 0.72,
@@ -152,6 +150,8 @@
   // le centre de la commune en attendant.
   let sourceOrigin = null;
   let reframePending = false;
+  // Survol en cours : un nouveau jeton rend caduques les étapes déjà programmées
+  let tourJeton = 0;
   let recentrePending = false;
 
   /* Registre de la génération en cours, pour REJOUER la scène sur un style
@@ -198,6 +198,109 @@
       (acc, c) => [[Math.min(acc[0][0], c[0]), Math.min(acc[0][1], c[1])], [Math.max(acc[1][0], c[0]), Math.max(acc[1][1], c[1])]],
       [[Infinity, Infinity], [-Infinity, -Infinity]]
     );
+  }
+
+  /* Le coeur d'un nuage de points : ceux qui restent à moins de trois fois la
+     distance médiane du point médian. Un seul projet placé loin (une zone
+     d'activité en bord de commune, une adresse approximative) suffisait à
+     dézoomer tout le cadre, et la carte restait trop haute pour montrer les
+     bâtiments. Les projets écartés restent posés, simplement hors du cadre
+     de départ. */
+  /* Centre et zoom qui font tenir des points dans l'écran, marges déduites,
+     calculés en Mercator (tuiles de 512 px) : le résultat ne dépend pas de la
+     position de la caméra au moment de l'appel. Les marges asymétriques
+     décalent le centre au lieu d'être confiées à la carte. */
+/* Zone de l'écran laissée libre pendant le rejeu : le bandeau d'étapes
+     occupe le haut, la carte en main et l'établi occupent le bas. */
+  const ZONE_LIBRE = { top: 170, bottom: 200, left: 120, right: 120 };
+
+  /* Recale la caméra d'après la position réelle des points à l'écran : leur
+     boîte englobante doit remplir la zone libre, centrée. Un seul mouvement
+     court ; rien ne bouge si l'écart est déjà négligeable. */
+/* Le globe ne gère pas le relief au niveau du centre de la vue : MapLibre
+     y laisse l'altitude du centre à zéro. Dans une commune en hauteur, tout
+     ce qui est posé sur le sol s'affiche alors décalé vers le haut de
+     l'écran (Ambilly, 420 m : environ 250 px). Une fois la caméra descendue
+     sur la commune, où globe et carte plane se confondent à l'œil, la carte
+     passe en projection plane, qui gère le relief correctement. `reset`
+     remet le globe pour le retour à la France. */
+  function passerAPlat() {
+    try {
+      if (map.getProjection()?.type !== 'mercator') map.setProjection({ type: 'mercator' });
+    } catch { /* projection inchangée */ }
+  }
+
+    function corrigerCadre(coords, zoomMax, passes = 3, jeton = tourJeton) {
+    if (jeton !== tourJeton) return;
+    const conteneur = map.getContainer();
+    const W = conteneur.clientWidth, H = conteneur.clientHeight;
+    const z = ZONE_LIBRE;
+    const pts = coords.map((c) => map.project(c));
+    const x0 = Math.min(...pts.map((p) => p.x)), x1 = Math.max(...pts.map((p) => p.x));
+    const y0 = Math.min(...pts.map((p) => p.y)), y1 = Math.max(...pts.map((p) => p.y));
+    const libreW = Math.max(200, W - z.left - z.right);
+    const libreH = Math.max(160, H - z.top - z.bottom);
+    const echelle = Math.min(libreW / Math.max(1, x1 - x0), libreH / Math.max(1, y1 - y0));
+    const dz = Math.max(-2, Math.min(1.5, Math.log2(echelle)));
+    const zoom = Math.min(zoomMax, map.getZoom() + dz);
+    // Décalage entre le milieu des points et le milieu de la zone libre
+    const dx = (x0 + x1) / 2 - (z.left + (W - z.right)) / 2;
+    const dy = (y0 + y1) / 2 - (z.top + (H - z.bottom)) / 2;
+    if (Math.abs(dx) < 24 && Math.abs(dy) < 24 && Math.abs(zoom - map.getZoom()) < 0.15) return;
+    // Le milieu des points vient au milieu de la zone libre (`offset`), et
+    // le zoom se fait autour de lui.
+    const centre = map.unproject([(x0 + x1) / 2, (y0 + y1) / 2]);
+    const libreCx = (z.left + (W - z.right)) / 2 - W / 2;
+    const libreCy = (z.top + (H - z.bottom)) / 2 - H / 2;
+    map.easeTo({
+      center: centre, zoom, offset: [libreCx, libreCy],
+      duration: 1100, easing: (t) => t * (2 - t), freezeElevation: true, essential: true,
+    });
+    if (passes > 1) {
+      map.once('moveend', () => {
+        try { corrigerCadre(coords, zoomMax, passes - 1, jeton); } catch { /* carte détruite */ }
+      });
+    }
+  }
+
+    function vueMercator(coords, conteneur, marges, zoomMax) {
+    const mx = (lng) => (lng + 180) / 360;
+    const my = (lat) => {
+      const s = Math.sin((Math.max(-85, Math.min(85, lat)) * Math.PI) / 180);
+      return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
+    };
+    const xs = coords.map((c) => mx(c[0]));
+    const ys = coords.map((c) => my(c[1]));
+    const x0 = Math.min(...xs), x1 = Math.max(...xs);
+    const y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const W = Math.max(200, conteneur.clientWidth - marges.left - marges.right);
+    const H = Math.max(160, conteneur.clientHeight - marges.top - marges.bottom);
+    const etendue = Math.min(W / Math.max(1e-9, (x1 - x0) * 512), H / Math.max(1e-9, (y1 - y0) * 512));
+    const zoom = Math.min(zoomMax, Math.log2(etendue));
+    const monde = 512 * 2 ** zoom;
+    const cx = (x0 + x1) / 2 + (marges.right - marges.left) / 2 / monde;
+    const cy = (y0 + y1) / 2 + (marges.bottom - marges.top) / 2 / monde;
+    const lng = cx * 360 - 180;
+    const lat = (Math.atan(Math.sinh(Math.PI * (1 - 2 * cy))) * 180) / Math.PI;
+    return { center: [lng, lat], zoom };
+  }
+
+  /* Écarte d'un cadrage les projets isolés loin du reste (un point géocodé
+     dans la commune voisine). Le seuil ne descend pas sous 1 km environ :
+     les projets qui couvrent toute la commune (PLU, stationnement) tombent
+     tous au même point, ce qui écrasait la distance médiane. À Ambilly, le
+     cadre se resserrait alors sur ce seul point et laissait les autres sous
+     le bandeau. Un tri qui écarterait plus d'un quart des projets est
+     abandonné. */
+  function coeurDesPoints(coords) {
+    if (coords.length < 4) return coords;
+    const med = (v) => { const t = v.slice().sort((a, b) => a - b); return t[Math.floor(t.length / 2)]; };
+    const cx = med(coords.map((c) => c[0]));
+    const cy = med(coords.map((c) => c[1]));
+    const d = coords.map((c) => Math.hypot((c[0] - cx) * Math.cos((cy * Math.PI) / 180), c[1] - cy));
+    const limite = Math.max(med(d) * 3, 0.012);
+    const coeur = coords.filter((_, i) => d[i] <= limite);
+    return coeur.length >= Math.max(2, Math.ceil(coords.length * 0.75)) ? coeur : coords;
   }
 
   /* Faisceau vertical au-dessus d'un projet ponctuel. Un volume translucide
@@ -330,19 +433,28 @@
       map.addLayer({ id: 'fx-hillshade', type: 'hillshade', source: 'fx-dem', paint: t.hillshade });
     } catch { /* relief indisponible : carte plate */ }
 
-    // Bâtiments en 3D au niveau rue (source « carto » embarquée par le style)
+    /* Bâtiments en 3D au niveau rue. La source vectorielle est retrouvée dans
+       le style lui-même (celle qui dessine déjà les bâtiments à plat) : Carto
+       a changé de schéma, et la couche échouait sans bruit, si bien qu'aucun
+       bâtiment ne se levait (relevé sur les captures du rejeu). */
     try {
-      const firstSymbol = map.getStyle().layers.find((l) => l.type === 'symbol')?.id;
+      const style = map.getStyle();
+      const firstSymbol = style.layers.find((l) => l.type === 'symbol')?.id;
+      /* Le style Carto actuel sert des tuiles Protomaps : source « protomaps »,
+         couche « buildings », hauteur dans `height`. L'ancien schéma disait
+         « carto », « building » et `render_height`. Les deux sont lus. */
+      const plate = style.layers.find((l) => /^buildings?$/.test(l['source-layer'] || ''));
+      if (!plate) throw new Error('aucune couche de bâtiments dans le style');
       map.addLayer({
         id: 'fx-3d-buildings',
         type: 'fill-extrusion',
-        source: t.buildings.source,
-        'source-layer': 'building',
+        source: plate.source,
+        'source-layer': plate['source-layer'],
         minzoom: t.buildings.minzoom,
         paint: {
           'fill-extrusion-color': t.buildings.color,
-          'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
-          'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+          'fill-extrusion-height': ['coalesce', ['get', 'render_height'], ['get', 'height'], 10],
+          'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0],
           'fill-extrusion-opacity': t.buildings.opacity,
         },
       }, firstSymbol);
@@ -626,7 +738,7 @@
 
     // Un projet localisé : emprise embrasée, épingle étiquetée, et la caméra
     // vient le voir (file d'attente : un vol après l'autre)
-    addProject({ lat, lng, geometry, precise, title }) {
+    addProject({ lat, lng, geometry, precise, title, cadrer = true, etiquetteMs = 6000 }) {
       if (!ok) return;
       projectCoords.push([lng, lat]);
 
@@ -648,9 +760,50 @@
       // Même précaution que pour les vignettes : l'étiquette du projet est une
       // boîte de texte, elle se verrait en haut à gauche le temps d'une trame.
       requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
-      setTimeout(() => el.classList.add('is-collapsed'), 6000);
+      setTimeout(() => el.classList.add('is-collapsed'), etiquetteMs);
 
-      this.reframe();
+      if (cadrer) this.reframe();
+    },
+
+    /* Cadrage unique sur un ensemble de points connus d'avance (rejeu d'un
+       espace déjà prêt), en deux temps.
+       1. Le vol : centre et zoom calculés ICI, en Mercator. `fitBounds` et
+          `cameraForBounds` partent de la caméra courante, et le rejeu les
+          appelle pendant la plongée vers la commune, à basse altitude de
+          globe : centre décalé (Ambilly) ou zoom bien trop large (Angers).
+       2. La correction : une fois posée, la caméra regarde où les points
+          tombent VRAIMENT à l'écran (`project` tient compte du relief et de
+          l'inclinaison) et se recale sur la zone libre entre le bandeau et
+          l'établi. Sans elle, une commune en altitude restait décalée :
+          MapLibre recale le centre sur le sol en fin de vol, et le sol à
+          420 m d'Ambilly, vu de biais, tombait 300 m plus au sud.
+       Les marges ne passent pas par l'option `padding`, qui resterait collée
+       à la carte pour la visite. */
+    cadrer(points, duree = 2400) {
+      if (!ok || !points?.length) return;
+      reframePending = false;
+      recentrePending = false;
+      mode = 'focus';
+      const jeton = ++tourJeton;
+      const coords = coeurDesPoints(points.map((p) => [p.lng, p.lat]));
+      const vol = prefersReduced ? 0 : duree;
+      const pitch = 36;
+      const cible = coords.length === 1
+        ? { center: coords[0], zoom: 15 }
+        : vueMercator(coords, map.getContainer(), ZONE_LIBRE, 15.4);
+      map.flyTo({
+        ...cible, pitch, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 },
+        duration: vol, curve: 1.3, freezeElevation: true, essential: true,
+      });
+      if (prefersReduced) return;
+      map.once('moveend', () => {
+        if (jeton !== tourJeton) return;
+        passerAPlat();
+        // La projection change à la trame suivante : on mesure après elle
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          try { corrigerCadre(coords, 15.4, 3, jeton); } catch { /* carte détruite */ }
+        }));
+      });
     },
 
     // Recadrage continu : la carte se réajuste en permanence pour montrer TOUS
@@ -686,7 +839,7 @@
        ajouté au conteneur avant que sa transformation ne soit appliquée, et une
        image pas encore chargée n'a aucune dimension, ce qui provoquait un
        second saut au moment où elle arrivait. */
-    attachPhoto(lat, lng, url) {
+    attachPhoto(lat, lng, url, { reduite = false } = {}) {
       if (!ok || !url) return;
       const img = new Image();
       img.alt = '';
@@ -705,7 +858,9 @@
         // Deux trames : la première laisse la carte positionner le marqueur, la
         // seconde laisse le navigateur en tenir compte avant qu'on ne dévoile.
         requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
-        setTimeout(() => el.classList.add('is-small'), 6500);
+        // Carte dense : la vignette arrive déjà réduite, sinon elles se recouvrent
+        if (reduite) el.classList.add('is-small');
+        else setTimeout(() => el.classList.add('is-small'), 6500);
       };
       img.onerror = () => { /* photo indisponible : pas de vignette, c'est tout */ };
       img.src = String(url);
@@ -716,35 +871,44 @@
        tourne autour, puis remonte en vue d'ensemble. C'est le moment ou le
        visiteur sort son telephone. `onFocus` laisse l'ecran afficher le titre
        et la photo du projet survole. */
-    tour(points, onFocus, onDone) {
+    /* `rythme` raccourcit le survol du rejeu d'un espace déjà prêt, qui doit
+       tenir dans sa durée totale. `tourStop` l'interrompt quand le visiteur
+       passe l'animation : sans lui, l'étape suivante relançait la caméra
+       derrière l'écran de fin. */
+    tour(points, onFocus, onDone, rythme = {}) {
       if (!ok || !points?.length) { onDone?.(); return; }
       if (prefersReduced) { this.finale(); onDone?.(); return; }
+      const { pas = 4600, vol = 3200, fin = 2600, zoom = 16.2, pitch = 62 } = rythme;
       mode = 'focus';
       const etapes = points.slice(0, 3);
+      const jeton = ++tourJeton;
       let i = 0;
       const suivant = () => {
+        if (jeton !== tourJeton) return;
         if (i >= etapes.length) {
           onFocus?.(null);
           this.finale();
-          setTimeout(() => onDone?.(), 2600);
+          setTimeout(() => { if (jeton === tourJeton) onDone?.(); }, fin);
           return;
         }
         const p = etapes[i];
         onFocus?.(p);
         map.flyTo({
           center: [p.lng, p.lat],
-          zoom: 16.2,
-          pitch: 62,
+          zoom,
+          pitch,
           bearing: (i * 47) % 360,
-          duration: 3200,
+          duration: vol,
           curve: 1.5,
           essential: true,
         });
         i++;
-        setTimeout(suivant, 4600);
+        setTimeout(suivant, pas);
       };
       suivant();
     },
+
+    tourStop() { tourJeton++; },
 
     /* Recadrage final : vue d'ensemble sur tous les projets, VRAIMENT centrée.
 
@@ -778,6 +942,9 @@
     reset() {
       if (!ok) return;
       this.scanStop();
+      this.tourStop();
+      // Le rejeu a pu passer la carte à plat (voir passerAPlat)
+      try { if (map.getProjection()?.type !== 'globe') map.setProjection({ type: 'globe' }); } catch { /* projection inchangée */ }
       reframePending = false;
       recentrePending = false;
       markers.forEach((m) => m.remove());

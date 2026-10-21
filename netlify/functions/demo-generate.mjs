@@ -5264,6 +5264,69 @@ function articleDuProjet(articles, i) {
   return (articles || []).find((a) => a && a.index === i) || null;
 }
 
+/* ─── Rejeu d'un espace déjà prêt ───
+
+   Une commune déjà générée ouvrait directement l'écran de fin : le visiteur
+   tapait son nom et recevait une carte toute faite, sans rien voir se
+   construire. On lui rejoue désormais la construction avec ce qui est VRAI :
+   les fiches publiées, leur emplacement, leur tracé et leur illustration,
+   plus le logo et la couleur de la mairie. Aucune source ni citation n'est
+   rejouée : elles ne sont plus conservées une fois l'espace publié, et en
+   inventer serait mentir devant un élu.
+
+   Tout est borné (6 s au plus) et rien n'est bloquant : un rejeu manqué rend
+   simplement l'écran de fin d'avant. */
+const REJEU_BUDGET_MS = 6000;
+const LOGO_PAR_DEFAUT = /\/img\/logos\/classic_color\.png$/;
+
+/* Point affiché pour une fiche : son repère ponctuel s'il a été publié, sinon
+   le point de repère de son emprise, exactement comme à la génération. */
+function pointDuRejeu(fc) {
+  const features = (fc?.features || []).filter((f) => f?.geometry?.coordinates);
+  if (!features.length) return null;
+  const point = features.find((f) => f.geometry.type === 'Point');
+  const emprise = features.find((f) => f.geometry.type !== 'Point') || null;
+  const coords = point ? point.geometry.coordinates : pointDeRepere(emprise.geometry);
+  if (!coords || !Number.isFinite(coords[0]) || !Number.isFinite(coords[1])) return null;
+  return { lng: coords[0], lat: coords[1], geometry: emprise ? emprise.geometry : null };
+}
+
+async function lireRejeu(ville) {
+  const echeance = Date.now() + REJEU_BUDGET_MS;
+  const fiches = new URL(`${SUPABASE_URL}/rest/v1/contribution_uploads`);
+  fiches.searchParams.set('select', 'project_name,geojson_url,cover_url');
+  fiches.searchParams.set('ville', `eq.${ville}`);
+  fiches.searchParams.set('order', 'id.asc');
+  const marque = new URL(`${SUPABASE_URL}/rest/v1/city_branding`);
+  marque.searchParams.set('select', 'logo_url,primary_color');
+  marque.searchParams.set('ville', `eq.${ville}`);
+  const [rf, rb] = await Promise.all([
+    fetchWithTimeout(fiches.toString(), { headers: serviceHeaders() }, 4000),
+    fetchWithTimeout(marque.toString(), { headers: serviceHeaders() }, 4000).catch(() => null),
+  ]);
+  if (!rf.ok) return null;
+  const lignes = await lireJson(rf);
+  const branding = rb?.ok ? ((await lireJson(rb))[0] || null) : null;
+
+  // Les tracés sont des fichiers de notre propre stockage, rien d'autre n'est lu
+  const items = await inChunks(lignes, 8, async (l) => {
+    if (!l.geojson_url || !String(l.geojson_url).startsWith(`${SUPABASE_URL}/`)) return null;
+    try {
+      const r = await fetchWithTimeout(l.geojson_url, {}, 4000);
+      if (!r.ok) return null;
+      const point = pointDuRejeu(await lireJson(r));
+      if (!point) return null;
+      return { title: l.project_name, cover: l.cover_url || null, ...point };
+    } catch { return null; }
+  }, echeance);
+
+  return {
+    items: items.filter(Boolean),
+    logo: branding?.logo_url && !LOGO_PAR_DEFAUT.test(branding.logo_url) ? branding.logo_url : null,
+    color: branding?.primary_color || null,
+  };
+}
+
 /* ─── Phase CREATE : matérialisation du brouillon (invocation courte) ─── */
 
 async function runCreate(send, step, ville, runState) {
@@ -5682,7 +5745,12 @@ export default async (req, context) => {
 
           if (already?.status === 'ready' && !regen) {
             step('resolve', 'done', 'Commune reconnue', already.commune_nom);
-            step('exists', 'done', 'Espace déjà généré', 'On vous y emmène');
+            step('exists', 'done', 'Espace déjà généré', 'Reconstruction sous vos yeux');
+            const rejeu = await lireRejeu(already.ville).catch((e) => {
+              console.warn(`[demo-generate] rejeu indisponible pour ${already.ville} :: ${e?.message}`);
+              return null;
+            });
+            if (rejeu?.items.length) send({ type: 'replay', ...rejeu });
             send({
               type: 'done',
               url: `/?city=${already.ville}`,
@@ -5870,6 +5938,7 @@ export const _internals = {
   featuresDuProjet,
   tailleMinimaleVisible,
   pointDeRepere,
+  pointDuRejeu,
   REPERE_MIN_PX,
   arbitrerMarches,
   domainesAutorises,

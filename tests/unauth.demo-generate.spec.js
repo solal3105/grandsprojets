@@ -29,7 +29,7 @@ const {
   migrerEtatGeo, METHOD_LABELS, communeDuResultat,
   CARTE_COURTE, deLaCommune, messageSansProjet, messageCarteCourte,
   arbitrerMarches, domainesAutorises, featuresDuProjet, tailleMinimaleVisible, nomDistinctifEpci,
-  vueAerienneUrl, coverKey, oublierLesEchecs,
+  vueAerienneUrl, coverKey, oublierLesEchecs, pointDuRejeu,
 } = _internals;
 
 test.describe('0.64 - Démo : garde contre les requêtes vers le réseau interne', () => {
@@ -1700,5 +1700,34 @@ test.describe('0.85 - Démo : les documents officiels d\'une page', () => {
       .toBe('Réunion du 12 février à la mairie');
     expect(stripHtml('<p>&#233;cole &#xE9;lémentaire</p>')).toBe('école élémentaire');
     expect(stripHtml('<p>Travaux&nbsp;: voirie &amp; r&eacute;seaux</p>')).toBe('Travaux : voirie & réseaux');
+  });
+});
+
+/**
+ * Rejeu d'un espace déjà prêt : chaque fiche publiée est replacée sur l'écran
+ * de démo à partir de son fichier GeoJSON. Le point affiché doit être celui de
+ * la génération, sinon l'épingle du rejeu ne tomberait pas où la carte la met.
+ */
+test.describe('0.88 - Démo : le point de chaque fiche rejouée', () => {
+  test('0.88.1 - un repère ponctuel publié est repris tel quel, avec son emprise', () => {
+    const emprise = { type: 'Polygon', coordinates: [[[4.8, 45.7], [4.81, 45.7], [4.81, 45.71], [4.8, 45.71], [4.8, 45.7]]] };
+    const p = pointDuRejeu({ type: 'FeatureCollection', features: [
+      { type: 'Feature', geometry: emprise, properties: {} },
+      { type: 'Feature', geometry: { type: 'Point', coordinates: [4.805, 45.705] }, properties: {} },
+    ] });
+    expect(p).toEqual({ lng: 4.805, lat: 45.705, geometry: emprise });
+  });
+
+  test('0.88.2 - une emprise seule donne son point de repère, un point seul n\'a pas d\'emprise', () => {
+    const trace = { type: 'LineString', coordinates: [[4.8, 45.7], [4.81, 45.71], [4.82, 45.72]] };
+    expect(pointDuRejeu({ features: [{ geometry: trace }] })).toEqual({ lng: 4.81, lat: 45.71, geometry: trace });
+    expect(pointDuRejeu({ features: [{ geometry: { type: 'Point', coordinates: [2.3, 48.8] } }] }))
+      .toEqual({ lng: 2.3, lat: 48.8, geometry: null });
+  });
+
+  test('0.88.3 - un fichier vide ou illisible ne produit aucun point', () => {
+    expect(pointDuRejeu(null)).toBeNull();
+    expect(pointDuRejeu({ features: [] })).toBeNull();
+    expect(pointDuRejeu({ features: [{ geometry: null }] })).toBeNull();
   });
 });
