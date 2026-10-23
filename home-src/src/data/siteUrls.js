@@ -37,3 +37,7 @@ export const spaceUrl = (city, moduleKey = 'carte') =>
 
 // Espace de démonstration Métropole de Lyon, alimenté pour de vrai.
 export const MAP_LYON_URL = spaceUrl('metropole-lyon')
+
+/* Notre fiche éditeur au catalogue de l'UGAP : c'est là que la collectivité
+ * demande son devis, la commande passant par la centrale et non par nous. */
+export const UGAP_FICHE_URL = 'https://www.ugap.fr/editeurs-logiciels/vazy-f34665'
