@@ -478,6 +478,16 @@
               été attribuées par appel d'offres : en commandant Open Projets par elle, votre
               collectivité achète sans organiser sa propre consultation.
             </p>
+            <a
+              id="tarif-ugap-devis"
+              :href="UGAP_FICHE_URL" target="_blank" rel="noopener"
+              aria-label="Demander un devis à l'UGAP (nouvel onglet)"
+              class="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-white text-dark text-sm sm:text-[15px] font-medium px-5 sm:px-6 py-3.5 rounded-full hover:bg-gray-100 transition-colors"
+              @click="mesurer('pricing_ugap_quote_clicked')"
+            >
+              Demander un devis à l'UGAP
+              <ArrowUpRight class="w-4 h-4" aria-hidden="true" />
+            </a>
           </div>
 
           <div>
@@ -520,7 +530,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, Check, AlertTriangle, ShieldCheck, FileText, MapPin, Loader2, SlidersHorizontal, FileCheck, Scale, Clock, BadgeCheck } from 'lucide-vue-next'
+import { ArrowRight, ArrowUpRight, Check, AlertTriangle, ShieldCheck, FileText, MapPin, Loader2, SlidersHorizontal, FileCheck, Scale, Clock, BadgeCheck } from 'lucide-vue-next'
 import HeroGround from '../components/HeroGround.vue'
 import ContactBlock from '../components/ContactBlock.vue'
 import TerritoireRecherche from '../components/TerritoireRecherche.vue'
@@ -528,6 +538,7 @@ import ChantiersParcours from '../components/ChantiersParcours.vue'
 import { chargerTerritoire, cleValide } from '../data/territoires.mjs'
 import { chiffrerTerritoire, nomPresume } from '../data/voirie.mjs'
 import { modules, moduleByKey } from '../data/modules.js'
+import { UGAP_FICHE_URL } from '@/data/siteUrls.js'
 import {
   POPULATION, REPERES, ENGAGEMENTS, SEUILS, SOUS_LES_SEUILS, MISE_EN_SERVICE,
   estimer, estTarife, prixUnitaire, poidsDe, curseurVersPopulation, populationVersCurseur, borner,
