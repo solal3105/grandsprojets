@@ -405,56 +405,7 @@
       </div>
     </section>
 
-    <!-- Ce que dit la commande publique. Chaque phrase renvoie a un article
-         du code (voir data/tarification.mjs) : une collectivite lira cette
-         page avec son service des marches. -->
-    <section class="py-20 sm:py-28 bg-white">
-      <div class="max-w-container mx-auto px-6">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
-          <div>
-            <h2 class="font-heading font-bold text-3xl sm:text-4xl leading-[1.08] tracking-tight text-dark">
-              Ce que regarde la commande publique
-            </h2>
-            <p class="mt-6 text-gray-text text-base sm:text-lg leading-relaxed max-w-[520px]">
-              Votre collectivité n'apprécie pas un abonnement à son prix mensuel, mais à ce qu'il
-              lui coûtera en tout : le montant hors taxes sur toute la durée du marché, mise en
-              service et reconductions comprises. C'est ce total que l'estimation compare aux
-              seuils. Un marché sans terme, ou de plus de quatre ans, compte pour quarante-huit mois.
-            </p>
-            <p class="mt-5 text-gray-text text-base sm:text-lg leading-relaxed max-w-[520px]">
-              Elle y ajoute les services de même nature qu'elle achète par ailleurs dans l'année :
-              le seuil se juge sur son besoin, pas sur notre seule facture. Et dès 25 000 € HT, le
-              marché est écrit.
-            </p>
-            <p class="mt-5 text-xs text-gray-muted leading-relaxed max-w-[520px]">
-              Seuils en vigueur pour les collectivités depuis le 1er avril 2026 (décret 2025-1386,
-              articles R2121-1 à R2121-7, R2122-8 et R2131-12 du code de la commande publique) et
-              seuil européen 2026-2027. Ce n'est pas un conseil juridique : votre service des
-              marchés tranche.
-            </p>
-          </div>
-
-          <ol class="bg-gray-bg rounded-3xl border border-gray-border p-6 sm:p-8 flex flex-col gap-5">
-            <li class="flex gap-4">
-              <span class="w-3 h-3 mt-1.5 rounded-full bg-green shrink-0" aria-hidden="true" />
-              <span>
-                <span class="block font-heading font-bold text-base text-dark">Sous 60 000 € HT</span>
-                <span class="block mt-1 text-sm text-gray-text leading-relaxed">Commande sans publicité ni mise en concurrence préalables. La collectivité retient une offre pertinente, fait bon usage des deniers publics et ne contracte pas toujours avec le même fournisseur.</span>
-              </span>
-            </li>
-            <li v-for="s in SEUILS" :key="s.montant" class="flex gap-4">
-              <span class="w-3 h-3 mt-1.5 rounded-full shrink-0" :class="s.montant === SEUILS[SEUILS.length - 1].montant ? 'bg-primary' : 'bg-amber'" aria-hidden="true" />
-              <span>
-                <span class="block font-heading font-bold text-base text-dark">À partir de {{ s.court }} HT : {{ s.nom.toLowerCase() }}</span>
-                <span class="block mt-1 text-sm text-gray-text leading-relaxed">{{ s.texte }}</span>
-              </span>
-            </li>
-          </ol>
-        </div>
-      </div>
-    </section>
-
-    <!-- Le référencement UGAP répond aux seuils juste au-dessus : une commande
+    <!-- Le référencement UGAP répond aux seuils de l'estimation : une commande
          passée à une centrale d'achat vaut publicité et mise en concurrence,
          quel que soit le montant (article L2113-4 du code de la commande
          publique). Le référencement est au nom de l'éditeur, VAZY, dans le
@@ -545,7 +496,7 @@ const AVANTAGES_UGAP = [
   {
     icon: FileCheck,
     titre: "Vous n'avez pas d'appel d'offres à lancer",
-    texte: "Quel que soit le montant, une commande passée à une centrale d'achat vaut publicité et mise en concurrence. Les seuils présentés plus haut ne s'appliquent pas.",
+    texte: "Quel que soit le montant, une commande passée à une centrale d'achat vaut publicité et mise en concurrence. Les seuils de la commande publique ne s'appliquent pas à cette commande.",
   },
   {
     icon: Scale,

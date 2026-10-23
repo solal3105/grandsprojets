@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Suivez Open Projets sur LinkedIn</title>
+<!--
+  Affiche A4 : un QR code qui ouvre la page LinkedIn d’Open Projets.
+  Le PDF et l'aperçu PNG se fabriquent avec : node docs/affiches/build.mjs
+  Le QR code est régénéré à chaque fabrication depuis l'attribut data-qr :
+  changer l’adresse à cet endroit, et dans la ligne écrite en clair en bas.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  /* Couleurs de home-src/tailwind.config.js. Le texte blanc ne se pose que
+     sur des rouges qui tiennent au moins 4,5:1 (primary-ink : 6,2:1). */
+  :root {
+    --primary-ink: #C4002A;
+    --primary-glow: #E1002F;
+    --primary-deep: #A80024;
+    --dark: #111111;
+  }
+
+  @page { size: A4; margin: 0; }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background: #E6E6E6; /* aperçu à l'écran seulement */
+    color: #fff;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    hyphens: manual;
+  }
+
+  /* La feuille entière. Le cadre blanc de 10 mm absorbe les marges que les
+     imprimantes de bureau ne savent pas imprimer : aucun fond perdu à prévoir. */
+  .page {
+    width: 210mm;
+    height: 297mm;
+    margin: 12mm auto;
+    padding: 10mm;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.18);
+  }
+
+  @media print {
+    body { background: #fff; }
+    .page { margin: 0; box-shadow: none; }
+  }
+
+  .card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 15mm 16mm 13mm;
+    border-radius: 9mm;
+    /* Couleur de fond écrite en clair : c'est elle que lisent les contrôles
+       de contraste, les deux halos ne font que la nuancer. */
+    background-color: #C4002A;
+    background-image:
+      radial-gradient(95% 55% at 100% 0%, var(--primary-glow) 0%, rgba(225, 0, 47, 0) 100%),
+      radial-gradient(85% 50% at 0% 100%, var(--primary-deep) 0%, rgba(168, 0, 36, 0) 100%);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .logo {
+    display: block;
+    width: 26mm;
+    height: auto;
+  }
+
+  h1 {
+    margin: 14mm 0 0;
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-weight: 700;
+    font-size: 64pt;
+    line-height: 0.96;
+    letter-spacing: -0.035em;
+  }
+
+  .lead {
+    margin: 8mm 0 0;
+    max-width: 150mm;
+    font-size: 16.5pt;
+    line-height: 1.42;
+    text-wrap: pretty;
+  }
+
+  /* Le code et la marche à suivre, côte à côte. */
+  .scan {
+    margin-top: auto;
+    display: grid;
+    grid-template-columns: 84mm 1fr;
+    gap: 9mm;
+    align-items: center;
+  }
+
+  /* La tuile blanche contient la zone de silence du code (quatre modules). */
+  .qr {
+    width: 84mm;
+    height: 84mm;
+    border-radius: 5mm;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 16px 36px -14px rgba(0, 0, 0, 0.45);
+  }
+  .qr svg { display: block; width: 100%; height: 100%; }
+
+  .steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: etape;
+  }
+  .steps li {
+    display: grid;
+    grid-template-columns: 9mm 1fr;
+    column-gap: 4mm;
+    align-items: start;
+    font-size: 15pt;
+    line-height: 1.36;
+  }
+  .steps li + li { margin-top: 8mm; }
+  .steps li::before {
+    counter-increment: etape;
+    content: counter(etape);
+    width: 9mm;
+    height: 9mm;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--primary-ink);
+    font: 600 13pt/9mm Inter, sans-serif;
+    text-align: center;
+  }
+
+  .fallback {
+    margin: 8mm 0 0;
+    font-size: 11.5pt;
+    line-height: 1.4;
+  }
+  .fallback span { font-weight: 600; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<main class="page">
+  <div class="card">
+    <img class="logo" src="../../home-src/public/img/logos/square_white.png" alt="Open Projets" />
+
+    <h1>Suivez<br />Open Projets<br />sur LinkedIn</h1>
+
+    <p class="lead">
+      Vous y trouverez les nouveautés de nos outils et nos conseils pour informer
+      vos habitants des projets et des chantiers de votre territoire.
+    </p>
+
+    <section class="scan">
+      <div class="qr" data-qr="https://www.linkedin.com/showcase/openprojets/" role="img" aria-label="QR code vers la page LinkedIn d’Open Projets"><!-- qr:debut --><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41 41" shape-rendering="crispEdges" aria-hidden="true"><rect width="41" height="41" fill="#fff"/><path d="M4 4h7v1h-7zM12 4h1v1h-1zM15 4h1v1h-1zM17 4h2v1h-2zM20 4h1v1h-1zM22 4h2v1h-2zM26 4h2v1h-2zM30 4h7v1h-7zM4 5h1v1h-1zM10 5h1v1h-1zM13 5h1v1h-1zM16 5h1v1h-1zM18 5h1v1h-1zM20 5h1v1h-1zM25 5h1v1h-1zM27 5h1v1h-1zM30 5h1v1h-1zM36 5h1v1h-1zM4 6h1v1h-1zM6 6h3v1h-3zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h2v1h-2zM18 6h2v1h-2zM21 6h1v1h-1zM23 6h2v1h-2zM27 6h1v1h-1zM30 6h1v1h-1zM32 6h3v1h-3zM36 6h1v1h-1zM4 7h1v1h-1zM6 7h3v1h-3zM10 7h1v1h-1zM12 7h4v1h-4zM17 7h1v1h-1zM24 7h1v1h-1zM26 7h1v1h-1zM30 7h1v1h-1zM32 7h3v1h-3zM36 7h1v1h-1zM4 8h1v1h-1zM6 8h3v1h-3zM10 8h1v1h-1zM13 8h1v1h-1zM16 8h1v1h-1zM18 8h1v1h-1zM22 8h1v1h-1zM25 8h1v1h-1zM27 8h1v1h-1zM30 8h1v1h-1zM32 8h3v1h-3zM36 8h1v1h-1zM4 9h1v1h-1zM10 9h1v1h-1zM12 9h1v1h-1zM15 9h2v1h-2zM20 9h2v1h-2zM23 9h3v1h-3zM30 9h1v1h-1zM36 9h1v1h-1zM4 10h7v1h-7zM12 10h1v1h-1zM14 10h1v1h-1zM16 10h1v1h-1zM18 10h1v1h-1zM20 10h1v1h-1zM22 10h1v1h-1zM24 10h1v1h-1zM26 10h1v1h-1zM28 10h1v1h-1zM30 10h7v1h-7zM12 11h2v1h-2zM20 11h3v1h-3zM24 11h2v1h-2zM27 11h1v1h-1zM5 12h1v1h-1zM7 12h1v1h-1zM9 12h5v1h-5zM17 12h1v1h-1zM19 12h1v1h-1zM25 12h1v1h-1zM27 12h5v1h-5zM33 12h2v1h-2zM36 12h1v1h-1zM5 13h2v1h-2zM8 13h2v1h-2zM11 13h1v1h-1zM16 13h1v1h-1zM20 13h1v1h-1zM28 13h4v1h-4zM36 13h1v1h-1zM4 14h1v1h-1zM7 14h1v1h-1zM9 14h4v1h-4zM14 14h2v1h-2zM19 14h1v1h-1zM21 14h1v1h-1zM23 14h4v1h-4zM28 14h5v1h-5zM34 14h1v1h-1zM36 14h1v1h-1zM4 15h1v1h-1zM6 15h1v1h-1zM8 15h1v1h-1zM11 15h1v1h-1zM14 15h1v1h-1zM16 15h2v1h-2zM20 15h1v1h-1zM22 15h1v1h-1zM25 15h1v1h-1zM27 15h2v1h-2zM30 15h1v1h-1zM32 15h2v1h-2zM4 16h1v1h-1zM6 16h1v1h-1zM9 16h2v1h-2zM12 16h1v1h-1zM14 16h2v1h-2zM18 16h1v1h-1zM22 16h2v1h-2zM25 16h1v1h-1zM27 16h1v1h-1zM29 16h2v1h-2zM33 16h1v1h-1zM35 16h1v1h-1zM4 17h1v1h-1zM7 17h2v1h-2zM14 17h1v1h-1zM16 17h1v1h-1zM18 17h1v1h-1zM23 17h2v1h-2zM28 17h3v1h-3zM32 17h2v1h-2zM35 17h2v1h-2zM7 18h2v1h-2zM10 18h6v1h-6zM18 18h2v1h-2zM24 18h2v1h-2zM27 18h1v1h-1zM29 18h3v1h-3zM35 18h1v1h-1zM7 19h2v1h-2zM12 19h1v1h-1zM15 19h1v1h-1zM17 19h3v1h-3zM23 19h3v1h-3zM28 19h1v1h-1zM30 19h2v1h-2zM35 19h1v1h-1zM4 20h2v1h-2zM7 20h4v1h-4zM14 20h1v1h-1zM17 20h2v1h-2zM20 20h1v1h-1zM23 20h6v1h-6zM30 20h1v1h-1zM32 20h1v1h-1zM35 20h1v1h-1zM8 21h1v1h-1zM12 21h2v1h-2zM17 21h1v1h-1zM20 21h2v1h-2zM25 21h1v1h-1zM27 21h1v1h-1zM31 21h1v1h-1zM33 21h1v1h-1zM35 21h1v1h-1zM5 22h1v1h-1zM7 22h1v1h-1zM9 22h2v1h-2zM12 22h1v1h-1zM20 22h3v1h-3zM26 22h1v1h-1zM30 22h1v1h-1zM34 22h1v1h-1zM36 22h1v1h-1zM4 23h1v1h-1zM6 23h1v1h-1zM9 23h1v1h-1zM13 23h3v1h-3zM17 23h1v1h-1zM19 23h2v1h-2zM25 23h2v1h-2zM28 23h4v1h-4zM35 23h1v1h-1zM4 24h1v1h-1zM6 24h3v1h-3zM10 24h1v1h-1zM12 24h3v1h-3zM20 24h1v1h-1zM22 24h2v1h-2zM25 24h1v1h-1zM27 24h3v1h-3zM35 24h2v1h-2zM9 25h1v1h-1zM13 25h2v1h-2zM16 25h2v1h-2zM19 25h1v1h-1zM21 25h1v1h-1zM24 25h1v1h-1zM26 25h1v1h-1zM28 25h3v1h-3zM33 25h4v1h-4zM4 26h2v1h-2zM8 26h4v1h-4zM13 26h1v1h-1zM17 26h1v1h-1zM19 26h2v1h-2zM22 26h4v1h-4zM30 26h3v1h-3zM34 26h1v1h-1zM36 26h1v1h-1zM5 27h3v1h-3zM15 27h3v1h-3zM19 27h2v1h-2zM24 27h5v1h-5zM33 27h1v1h-1zM35 27h1v1h-1zM4 28h1v1h-1zM8 28h4v1h-4zM14 28h7v1h-7zM22 28h4v1h-4zM27 28h6v1h-6zM35 28h1v1h-1zM12 29h1v1h-1zM14 29h3v1h-3zM20 29h2v1h-2zM23 29h4v1h-4zM28 29h1v1h-1zM32 29h2v1h-2zM36 29h1v1h-1zM4 30h7v1h-7zM12 30h3v1h-3zM17 30h1v1h-1zM19 30h3v1h-3zM25 30h2v1h-2zM28 30h1v1h-1zM30 30h1v1h-1zM32 30h4v1h-4zM4 31h1v1h-1zM10 31h1v1h-1zM12 31h1v1h-1zM15 31h1v1h-1zM18 31h1v1h-1zM21 31h1v1h-1zM23 31h3v1h-3zM28 31h1v1h-1zM32 31h1v1h-1zM36 31h1v1h-1zM4 32h1v1h-1zM6 32h3v1h-3zM10 32h1v1h-1zM13 32h1v1h-1zM16 32h1v1h-1zM18 32h9v1h-9zM28 32h6v1h-6zM4 33h1v1h-1zM6 33h3v1h-3zM10 33h1v1h-1zM12 33h5v1h-5zM18 33h2v1h-2zM22 33h1v1h-1zM25 33h1v1h-1zM27 33h2v1h-2zM30 33h1v1h-1zM32 33h4v1h-4zM4 34h1v1h-1zM6 34h3v1h-3zM10 34h1v1h-1zM13 34h1v1h-1zM18 34h3v1h-3zM22 34h1v1h-1zM27 34h3v1h-3zM32 34h2v1h-2zM36 34h1v1h-1zM4 35h1v1h-1zM10 35h1v1h-1zM12 35h1v1h-1zM17 35h1v1h-1zM21 35h5v1h-5zM27 35h3v1h-3zM4 36h7v1h-7zM14 36h1v1h-1zM18 36h2v1h-2zM21 36h1v1h-1zM23 36h1v1h-1zM25 36h1v1h-1zM27 36h3v1h-3zM32 36h1v1h-1zM35 36h1v1h-1z" fill="#111"/></svg><!-- qr:fin --></div>
+
+      <ol class="steps">
+        <li>Flashez ce code avec l’appareil photo de votre téléphone.</li>
+        <li>Appuyez sur le lien qui s’affiche, puis sur «&nbsp;Suivre&nbsp;».</li>
+      </ol>
+    </section>
+
+    <p class="fallback">
+      Ou tapez l’adresse <span>linkedin.com/showcase/openprojets</span> dans votre navigateur.
+    </p>
+  </div>
+</main>
+
+</body>
+</html>

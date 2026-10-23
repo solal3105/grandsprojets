@@ -25,8 +25,8 @@ const MODULE_PAGES = {
     description: 'Chaque chantier affiche son emprise, ses dates et son avancement sur la carte de votre commune. Les riverains savent ce qui se passe sans appeler la mairie.',
   },
   chantiers: {
-    title: 'Chantiers et arrêtés de voirie en ligne | Open Projets',
-    description: "Les entreprises déposent leurs demandes en ligne, vos services instruisent dans un fil daté, et chaque chantier est suivi jusqu'à la réouverture de la rue.",
+    title: "Logiciel de permission de voirie et d'arrêtés | Open Projets",
+    description: 'Instruisez en ligne les permissions de voirie et les arrêtés de circulation de vos communes, avec les entreprises, dans un logiciel à essayer sans compte.',
   },
   participer: {
     title: 'Le signalement des habitants sur une carte | Open Projets',
