@@ -155,18 +155,16 @@
 }
 
 .gp-sidebar__label {
+  display: block;
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--text-tertiary);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 54px;
   text-align: center;
-  line-height: 1;
-  opacity: 0.8;
+  line-height: 1.1;
+  opacity: 0.9;
   transition: color 0.15s ease, opacity 0.15s ease;
   pointer-events: none;
 }
@@ -216,7 +214,7 @@
 }
 
 .gp-sidebar__btn--module .gp-sidebar__label {
-  font-size: 9px;
+  font-size: 10px;
   max-width: 56px;
 }
 
@@ -409,7 +407,6 @@
 
 /* Module buttons stagger entrance */
 .gp-sidebar__btn--module {
-  opacity: 0;
   animation: sidebarBtnIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
@@ -421,11 +418,9 @@
 
 @keyframes sidebarBtnIn {
   from {
-    opacity: 0;
     transform: scale(0.8) translateY(8px);
   }
   to {
-    opacity: 1;
     transform: scale(1) translateY(0);
   }
 }
@@ -570,20 +565,21 @@
 
   .gp-sidebar__btn--module {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
-    gap: 10px;
-    height: 48px;
-    padding: 0 20px;
+    justify-content: center;
+    gap: 6px;
+    min-width: 90px;
+    height: 64px;
+    padding: 10px 16px;
     background: rgba(255, 255, 255, 0.5);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 24px;
+    border-radius: 20px;
     cursor: pointer;
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all 0.3s ease;
     position: relative;
-    overflow: hidden;
     box-shadow: 
       0 4px 16px rgba(0, 0, 0, 0.08),
       inset 0 1px 0 rgba(255, 255, 255, 0.5);
@@ -597,29 +593,14 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
-  /* Gradient animé au hover */
-  .gp-sidebar__btn--module::before {
-    content: '';
-    position: absolute;
-    inset: -50%;
-    background: conic-gradient(
-      from 0deg at 50% 50%,
-      transparent 0deg,
-      color-mix(in srgb, var(--cat-color, var(--primary)) 15%, transparent) 90deg,
-      transparent 180deg
-    );
-    opacity: 0;
-    transition: opacity 0.6s ease, transform 0.6s ease;
-    animation: gradientRotate 3s linear infinite paused;
+  /* Hover simple */
+  .gp-sidebar__btn--module:hover {
+    background: rgba(255, 255, 255, 0.65);
+    border-color: rgba(255, 255, 255, 0.4);
   }
 
-  .gp-sidebar__btn--module:hover::before {
-    opacity: 1;
-    animation-play-state: running;
-  }
-
-  @keyframes gradientRotate {
-    to { transform: rotate(360deg); }
+  [data-theme="dark"] .gp-sidebar__btn--module:hover {
+    background: rgba(50, 50, 60, 0.7);
   }
 
   /* État actif - Pill remplie avec glow */
@@ -629,50 +610,43 @@
       color-mix(in srgb, var(--cat-color, var(--primary)) 85%, black));
     border-color: color-mix(in srgb, var(--cat-color, var(--primary)) 80%, white);
     box-shadow: 
-      0 8px 32px color-mix(in srgb, var(--cat-color, var(--primary)) 40%, transparent),
-      0 4px 16px color-mix(in srgb, var(--cat-color, var(--primary)) 25%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px) scale(1.05);
+      0 8px 32px color-mix(in srgb, var(--cat-color, var(--primary)) 35%, transparent),
+      0 4px 16px color-mix(in srgb, var(--cat-color, var(--primary)) 20%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
   }
 
-  .gp-sidebar__btn--module.active::before {
-    display: none;
-  }
 
-  /* Icône avec effet de rebond */
+  /* Icône - simple et claire */
   .gp-sidebar__btn--module i {
-    font-size: 1.15rem;
+    font-size: 1.4rem;
     color: var(--text-secondary);
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all 0.3s ease;
   }
 
   .gp-sidebar__btn--module:hover i {
     color: var(--text-primary);
-    transform: scale(1.15) rotate(-5deg);
   }
 
   .gp-sidebar__btn--module.active i {
     color: #fff;
-    transform: scale(1.2);
-    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
   }
 
-  /* Label avec typographie premium - bien visible sur mobile */
+  /* Label - bien visible et lisible */
   .gp-sidebar__btn--module .gp-sidebar__label {
-    display: block;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.2px;
     color: var(--text-primary);
-    transition: all 0.3s ease;
+    transition: color 0.3s ease;
     white-space: nowrap;
+    opacity: 1;
+    text-transform: none;
   }
 
   .gp-sidebar__btn--module.active .gp-sidebar__label {
     color: #fff;
     font-weight: 700;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   }
 
   /* Animation d'entrée échelonnée */
@@ -703,10 +677,6 @@
     width: 40px;
     height: 40px;
     border-radius: 12px;
-  }
-
-  .gp-sidebar__btn .gp-sidebar__label {
-    display: none;
   }
 
   .gp-sidebar__btn i {
