@@ -18,6 +18,7 @@ import { renderDock, updateLayerRow, renderLayersPanel, syncMapPanel } from './d
 import { handleSelection, refreshSelection, renderAnalysisPanel } from './diagnostic/analysis.js';
 import { openReportsHistory } from './diagnostic/report.js';
 import { renderDossierPage, destroyDossierPage } from './diagnostic/dossier/page.js';
+import { renderAssistantPage, destroyAssistantPage } from './diagnostic/assistant/page.js';
 
 // Jeton de génération : le routeur ré-utilise toujours le même conteneur
 // #adm-content, donc comparer les conteneurs ne détecte pas un re-render
@@ -43,6 +44,10 @@ export async function renderDiagnostic(container, params = {}) {
     return;
   }
 
+  if (params.id === 'demander') {
+    await renderAssistantPage(container, alive);
+    return;
+  }
   if (params.id) {
     await renderDossierPage(container, params.id, alive);
     return;
@@ -61,6 +66,9 @@ export async function renderDiagnostic(container, params = {}) {
           <p class="adm-page-subtitle">Ajoutez les données de votre territoire, tracez une zone, puis ouvrez son dossier.</p>
         </div>
         <div class="dg-header__actions">
+          <a href="/admin/diagnostic/demander/" class="adm-btn adm-btn--primary" data-section="diagnostic">
+            <i class="fa-solid fa-comments"></i> Poser une question
+          </a>
           <button type="button" class="adm-btn adm-btn--secondary" id="dg-history-btn">
             <i class="fa-solid fa-clock-rotate-left"></i> Dossiers enregistrés
           </button>
@@ -179,6 +187,7 @@ function _wireFullscreen(mapWrap) {
 export function destroyDiagnostic() {
   _epoch++; // interrompt les continuations async du rendu en cours
   destroyDossierPage();
+  destroyAssistantPage();
   // Le catalogue et l'assistant d'ajout s'y sont inscrits : ils se ferment
   // avec la section (un changement d'espace ne doit pas les laisser ouverts).
   for (const fn of dg.cleanupFns) {

@@ -1,0 +1,107 @@
+/* Diagnostic terrain - écran « Demander » : une conversation, une carte par réponse. */
+.dga {
+  --dga-ink: var(--text-primary);
+  --dga-muted: var(--text-secondary);
+  --dga-faint: var(--text-tertiary);
+  --dga-line: var(--border-light);
+  --dga-accent: #4E2BFF;
+  display: flex; gap: 20px; height: calc(100vh - 64px); min-height: 520px;
+  color: var(--dga-ink); font: 15px/1.65 Inter, system-ui, sans-serif;
+}
+.dga [hidden] { display: none; }
+.dga :is(button, a, textarea, summary):focus-visible { outline: 2px solid var(--color-info); outline-offset: 3px; }
+.dga-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Colonne des conversations */
+.dga-side {
+  width: 248px; flex: none; display: flex; flex-direction: column; gap: 8px; padding: 16px 12px;
+  background: var(--adm-panel-bg); border: 1px solid var(--adm-panel-border); border-radius: 20px;
+  box-shadow: var(--adm-shadow-sm), inset 0 1.5px 0 var(--adm-shimmer);
+  backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%);
+}
+.dga-back { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 13px; font-weight: 500; color: var(--dga-muted); text-decoration: none; }
+.dga-back:hover { color: var(--dga-ink); }
+.dga-new { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--dga-line); border-radius: 12px; background: var(--surface-base); color: var(--dga-ink); font: 600 14px Inter, sans-serif; cursor: pointer; transition: background 0.2s ease-in-out; }
+.dga-new:hover:not(:disabled) { background: var(--surface-raised); }
+.dga-new:disabled { opacity: 0.55; cursor: default; }
+.dga-convs { overflow: auto; flex: 1; margin-top: 10px; }
+.dga-convs h2 { font: 500 12px/1 Inter, sans-serif; color: var(--dga-faint); margin: 0 10px 8px; }
+.dga-convs button { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 0; border-radius: 10px; background: none; color: var(--dga-muted); font: 14px/1.35 Inter, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: background 0.2s ease-in-out; }
+.dga-convs button:hover { background: var(--black-alpha-04); }
+.dga-convs button.is-active { background: var(--black-alpha-06); color: var(--dga-ink); font-weight: 500; }
+
+/* Fil */
+.dga-main { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface-base); border: 1px solid var(--dga-line); border-radius: 20px; overflow: hidden; }
+.dga-thread { flex: 1; overflow: auto; }
+.dga-col { max-width: 780px; margin: 0 auto; padding: 8px 28px 32px; }
+.dga-user { display: flex; justify-content: flex-end; margin: 28px 0 20px; }
+.dga-user p { margin: 0; max-width: 78%; padding: 11px 18px; border-radius: 22px; background: color-mix(in srgb, var(--text-primary) 7%, transparent); white-space: pre-wrap; overflow-wrap: anywhere; }
+.dga-ai { margin-bottom: 36px; }
+
+/* Accueil */
+.dga-home { padding: 12vh 0 24px; text-align: center; }
+.dga-home h1 { font: 600 clamp(24px, 3vw, 30px)/1.25 'Space Grotesk', Inter, sans-serif; letter-spacing: -0.02em; margin: 0 0 12px; }
+.dga-home__lead { color: var(--dga-muted); max-width: 560px; margin: 0 auto 28px; }
+.dga-examples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; text-align: left; }
+.dga-examples button { padding: 14px 16px; border: 1px solid var(--dga-line); border-radius: 16px; background: var(--surface-base); color: var(--dga-ink); font: 14px/1.45 Inter, sans-serif; cursor: pointer; transition: background 0.2s ease-in-out, border-color 0.2s ease-in-out; }
+.dga-examples button:hover { background: var(--surface-raised); border-color: var(--border-medium); }
+.dga-home__data { margin: 24px 0 0; font-size: 13px; color: var(--dga-faint); }
+.dga-home__data a { color: var(--dga-accent); }
+
+/* Étapes */
+.dga-steps { font-size: 14px; color: var(--dga-faint); margin-bottom: 12px; }
+.dga-steps summary { cursor: pointer; width: max-content; }
+.dga-steps ol { margin: 8px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--dga-line); list-style: none; }
+.dga-steps li { padding: 2px 0 2px 10px; color: var(--dga-muted); }
+.dga-live { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--dga-muted); }
+.dga-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dga-accent); flex: none; animation: dga-pulse 1.2s ease-in-out infinite; }
+@keyframes dga-pulse { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .dga-dot { animation: none; } }
+
+/* Carte de la réponse */
+.dga-mapcard { position: relative; margin: 4px 0 8px; border: 1px solid var(--dga-line); border-radius: 16px; overflow: hidden; background: var(--surface-raised); }
+.dga-map { height: 320px; }
+.dga-map .maplibregl-popup { z-index: 3; }
+.dga-zone { position: absolute; left: 12px; top: 12px; z-index: 2; max-width: calc(100% - 80px); padding: 6px 11px; border-radius: 10px; background: var(--surface-base); color: var(--dga-ink); font-size: 13px; font-weight: 500; line-height: 1.35; box-shadow: 0 1px 4px rgba(0,0,0,0.1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dga-map-wake { display: block; width: 100%; height: 100%; border: 0; background: none; color: var(--dga-muted); font: 500 14px Inter, sans-serif; cursor: pointer; }
+.dga-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 16px; padding: 0 2px; list-style: none; font-size: 13px; color: var(--dga-muted); }
+.dga-legend li { display: inline-flex; align-items: center; gap: 7px; }
+.dga-legend i { width: 9px; height: 9px; border-radius: 50%; }
+.dga-legend b { color: var(--dga-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.dga-pin { width: 22px; height: 22px; padding: 0; border: 2px solid #fff; border-radius: 50%; color: #fff; font: 600 11px/18px Inter, sans-serif; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.25); cursor: pointer; transition: transform 0.2s ease-in-out; }
+.dga-pin.is-focus { transform: scale(1.3); }
+.dga-map .maplibregl-popup-content { background: var(--surface-base); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.14); }
+.dga-map .maplibregl-popup-tip { border-top-color: var(--surface-base); border-bottom-color: var(--surface-base); }
+.dga-pop small { display: block; margin-bottom: 4px; color: var(--dga-faint); font-size: 12px; }
+.dga-pop p { margin: 0; font: 13px/1.5 Inter, sans-serif; color: var(--dga-ink); }
+
+/* Texte de la réponse */
+.dga-answer p { margin: 0 0 14px; }
+.dga-answer ul { margin: 0 0 14px; padding-left: 22px; }
+.dga-answer li { margin: 0 0 8px; }
+.dga-answer strong { font-weight: 600; }
+.dga-ref { display: inline-block; min-width: 19px; height: 19px; padding: 0 5px; margin: 0 1px; border: 0; border-radius: 10px; color: #fff; font: 600 11px/19px Inter, sans-serif; text-align: center; vertical-align: 2px; cursor: pointer; }
+.dga-ref.is-focus { box-shadow: 0 0 0 3px var(--black-alpha-10); }
+.dga-sources { margin: 4px 0 0; font-size: 13px; color: var(--dga-faint); }
+.dga-error { padding: 14px 16px; border-radius: 14px; background: color-mix(in srgb, var(--color-danger) 8%, transparent); }
+.dga-error p { margin: 0 0 10px; }
+
+/* Saisie */
+.dga-composer { position: relative; max-width: 780px; width: calc(100% - 56px); margin: 0 auto; display: flex; align-items: flex-end; gap: 8px; padding: 10px 10px 10px 18px; border: 1px solid var(--border-medium); border-radius: 24px; background: var(--surface-base); box-shadow: var(--adm-shadow); }
+.dga-composer textarea { flex: 1; resize: none; border: 0; outline: 0; background: none; color: var(--dga-ink); font: 15px/1.5 Inter, sans-serif; padding: 7px 0; max-height: 200px; }
+.dga-composer textarea::placeholder { color: var(--dga-faint); }
+.dga-send { width: 38px; height: 38px; flex: none; border: 0; border-radius: 50%; background: var(--dga-ink); color: var(--surface-base); cursor: pointer; transition: transform 0.2s ease-in-out; }
+.dga-send:hover { transform: scale(1.06); }
+.dga-note { margin: 8px auto 12px; padding: 0 16px; text-align: center; font-size: 12px; color: var(--dga-faint); }
+
+@media (max-width: 900px) {
+  .dga { flex-direction: column; height: auto; min-height: calc(100vh - 80px); }
+  .dga-side { width: auto; }
+  .dga-convs { max-height: 160px; }
+  .dga-main { height: calc(100vh - 120px); min-height: 480px; }
+  .dga-col { padding: 8px 16px 24px; }
+  .dga-composer { width: calc(100% - 32px); }
+  .dga-examples { grid-template-columns: 1fr; }
+  .dga-home { padding-top: 4vh; }
+  .dga-map { height: 260px; }
+}
