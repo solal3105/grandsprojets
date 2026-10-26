@@ -163,4 +163,20 @@ test.describe('0.39 - Routes du site vitrine', () => {
     expect(texte.trim().length).toBeGreaterThan(50);
   });
 
+  // Non-régression : les pages modules partagent la même vue, Vue réutilisait
+  // le bloc en direct et le cadre gardait l'outil du premier module visité.
+  test('0.39.11 - Passer d\'un module à l\'autre change l\'outil affiché dans le cadre', async ({ page }) => {
+    await visiter(page, '/carte');
+    const cadre = page.locator('.live-iframe');
+    await page.locator('.live').scrollIntoViewIfNeeded();
+    await expect(cadre).toHaveAttribute('src', /\/carte$/, { timeout: 10000 });
+
+    // Navigation interne du routeur, sans rechargement de la page
+    await page.locator('a[href="/travaux"]').last().click();
+    await page.waitForFunction(() => location.pathname === '/travaux', null, { timeout: 10000 });
+    await page.locator('.live').scrollIntoViewIfNeeded();
+    await expect(cadre).toHaveAttribute('src', /\/travaux$/, { timeout: 10000 });
+    await expect(page.locator('.live-url')).toContainText('travaux');
+  });
+
 });

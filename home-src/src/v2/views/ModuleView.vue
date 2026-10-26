@@ -49,7 +49,7 @@
         </div>
 
         <div v-if="showcases[mod.showcase]" class="mt-14 sm:mt-16 max-w-[1040px] mx-auto">
-          <component :is="showcases[mod.showcase]" :module-key="mod.key" />
+          <component :is="showcases[mod.showcase]" :key="mod.key" :module-key="mod.key" />
         </div>
       </div>
     </section>
