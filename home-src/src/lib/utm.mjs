@@ -14,15 +14,10 @@
 // l'adresse courte deviendrait une redirection ouverte depuis notre domaine.
 export const DOMAINES = ['openprojets.com', 'openprojets-chantiers.com']
 
-// Nos sites hébergés sous un domaine partagé : seule l'adresse exacte est à
-// nous, jamais ses voisines (netlify.app appartient à tout le monde).
-// L'assistant de diagnostic terrain, ouvert en bêta à des clients.
-export const SITES = ['assistant-diagnostic-terrain.netlify.app']
-
 /** Le domaine fait-il partie des nôtres, sous-domaines compris ? */
 export function domaineConnu(hostname) {
   const h = String(hostname || '').toLowerCase()
-  return SITES.includes(h) || DOMAINES.some((d) => h === d || h.endsWith(`.${d}`))
+  return DOMAINES.some((d) => h === d || h.endsWith(`.${d}`))
 }
 
 /** « Salon des Maires 2026 ! » devient « salon-des-maires-2026 ». */
