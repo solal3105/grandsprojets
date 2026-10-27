@@ -168,6 +168,13 @@ test.describe('0.74 Fabrique de liens - ce que garde une adresse courte', () => 
     expect(url.toString()).toBe('https://openprojets.com/carte');
   });
 
+  test('0.74.13 le site de l\'assistant est accepté, pas ses voisins sur netlify.app', () => {
+    const { url } = validerCible('https://assistant-diagnostic-terrain.netlify.app/?territoire=mayotte');
+    expect(url?.searchParams.get('territoire')).toBe('mayotte');
+    expect(validerCible('https://autre-site.netlify.app/').url).toBeNull();
+    expect(validerCible('https://netlify.app/').url).toBeNull();
+  });
+
   test('0.74.12 le serveur refuse de raccourcir une page qui n\'est pas la nôtre', async ({ request }) => {
     const r = await request.post('/api/lien-court', {
       data: { code: 'essai-refus', target_url: 'https://exemple.fr/une-page' },
