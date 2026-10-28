@@ -165,7 +165,7 @@ const CHAMPS_PROJET = {
   description: { type: 'string', description: '2 à 4 phrases factuelles en français, dates si connues, aucun superlatif' },
   category_slug: { type: 'string', enum: Object.keys(CATEGORIES) },
   place: { type: 'string', description: 'Lieu géocodable le plus précis (rue, quartier, équipement), vide si inconnu' },
-  address: { type: 'string', description: 'Adresse postale EXACTE du projet SI elle figure telle quelle dans le texte (ex : "12 rue Voltaire" ou "avenue des Belges"). Recopie-la fidèlement. Chaîne vide si aucune adresse n\'est écrite - N\'INVENTE JAMAIS d\'adresse.' },
+  address: { type: 'string', description: 'Adresse postale EXACTE du projet SI elle figure telle quelle dans le texte (ex : "12 rue Voltaire" ou "avenue des Belges"). Recopie-la fidèlement. Chaîne vide si aucune adresse n\'est écrite - N\'INVENTE JAMAIS d\'adresse. L\'adresse où l\'on consulte le dossier, où se tient une enquête publique ou une permanence (mairie, services techniques) n\'est PAS celle du projet : laisse alors ce champ vide, sauf si le projet porte sur ce bâtiment lui-même.' },
   geo_query: { type: 'string', description: 'Requête qui permettra de trouver CE projet sur une carte OpenStreetMap de la commune. Par ordre de préférence : l\'adresse (n° + rue), sinon une VOIE citée dans le texte au sujet de ce projet (ex : "rue de Kerjolys"), sinon le nom EXACT d\'un équipement (ex : "Centre nautique Robert Sautin"). N\'utilise le nom d\'un secteur ou d\'un quartier ("secteur de l\'ancienne gare") QUE si le texte ne cite aucune voie ni aucun équipement : un nom de secteur ne figure sur aucune carte et le projet ne pourra pas être situé. Chaîne vide seulement si aucun lieu n\'est identifiable.' },
   evidence_quote: { type: 'string', description: 'Citation exacte copiée MOT POUR MOT depuis le texte fourni, une seule phrase, 200 caractères maximum. C\'est la preuve que le projet existe : si tu ne peux pas citer, ne retiens pas le projet.' },
   confidence: { type: 'string', enum: ['haute', 'moyenne', 'basse'] },
@@ -364,9 +364,12 @@ async function fetchCapped(url, opts = {}, ms = FETCH_TIMEOUT_MS, maxBytes = 500
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
 // Normalisation et vocabulaire generique, partages par le rattachement des
-// images, le dedoublonnage et la localisation
+// images, le dedoublonnage et la localisation.
+// Les TYPES d'equipement en font partie : « complexe sportif » ne designe
+// aucun equipement precis, et l'annuaire rend le premier venu (a Mazamet,
+// interroge sur « complexe sportif », il rend celui de la Chevaliere).
 const unaccentLower = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const GENERIC_PROJECT_WORDS = /^(projet|travaux|amenagement|renovation|construction|extension|rehabilitation|demolition|reconstruction|creation|requalification|vegetalisation|batiment|centre|espace|locaux|groupe|nouvelle|nouveau|commune|ville)$/;
+const GENERIC_PROJECT_WORDS = /^(projet|travaux|amenagement|renovation|construction|extension|rehabilitation|demolition|reconstruction|creation|requalification|vegetalisation|batiment|centre|espace|locaux|groupe|nouvelle|nouveau|commune|ville|complexe|sportif|sportive|gymnase|stade|equipement)$/;
 const communeHost = (u) => { try { return new URL(u).host; } catch { return 'la mairie'; } };
 
 
@@ -2473,17 +2476,26 @@ function featuresDuProjet(geometry, title, zoom, lat) {
    serait arbitraire. */
 const MOT_SIGNIFICATIF_MIN = 4;
 
-function motsSignificatifs(s) {
+/* Le NOM DE LA COMMUNE n'est pas un mot du lieu : c'est le cadre de la
+   recherche, que chaque requête porte déjà. Compté comme significatif, il
+   faisait passer n'importe quoi. Mesuré sur Mazamet : « complexe sportif de
+   Mazamet », débarrassé de son préfixe, devenait « Mazamet » et rendait
+   l'arrêt de bus « Mazamet » de l'avenue Charles Sabatié ; « RD 118 Mazamet »
+   rendait l'avenue du Maréchal Foch, que la départementale traverse, pour un
+   belvédère situé à deux kilomètres dans la montagne. Les deux résultats
+   portaient le mot « Mazamet », donc passaient le contrôle de pertinence. */
+function motsSignificatifs(s, communeNom = '') {
+  const motsDeLaCommune = new Set(unaccentLower(communeNom).split(/[^a-z0-9]+/));
   return new Set(
     unaccentLower(s).split(/[^a-z0-9]+/)
-      .filter((w) => w.length >= MOT_SIGNIFICATIF_MIN && !GENERIC_PROJECT_WORDS.test(w))
+      .filter((w) => w.length >= MOT_SIGNIFICATIF_MIN && !GENERIC_PROJECT_WORDS.test(w) && !motsDeLaCommune.has(w))
   );
 }
 
-function nomCoherent(requete, nomTrouve) {
-  const cherches = motsSignificatifs(requete);
+function nomCoherent(requete, nomTrouve, communeNom = '') {
+  const cherches = motsSignificatifs(requete, communeNom);
   if (!cherches.size) return true;
-  const trouves = motsSignificatifs(nomTrouve);
+  const trouves = motsSignificatifs(nomTrouve, communeNom);
   for (const mot of cherches) if (trouves.has(mot)) return true;
   return false;
 }
@@ -2505,7 +2517,7 @@ async function banGeocode(q, commune, bbox) {
          position fabriquee que tout le reste du systeme s'interdit. */
       const type = f?.properties?.type;
       if (f && type !== 'municipality' && f.properties?.score >= 0.6 && geometryInBbox(f.geometry, bbox)
-        && nomCoherent(q, f.properties.label || '')) {
+        && nomCoherent(q, f.properties.label || '', commune.nom)) {
         return { geometry: f.geometry, method: 'adresse' };
       }
     }
@@ -2546,6 +2558,9 @@ async function nominatimRespire() {
   nominatimProchainDepart = Math.max(Date.now(), nominatimProchainDepart) + 1100;
   if (attente > 0) await new Promise((r) => setTimeout(r, attente));
 }
+
+// « 42 boulevard Soult », « 3 bis rue Voltaire » : un numéro en tête de voie
+const AVEC_NUMERO_RE = /^\s*\d{1,4}\s*(?:bis|ter)?[\s,]/i;
 
 async function nominatimLookup(q, commune, bbox) {
   try {
@@ -2592,7 +2607,13 @@ async function nominatimLookup(q, commune, bbox) {
            Jaures ». On compare au NOM de l'objet et a son adresse, pas au
            display_name entier : celui-ci finit par le nom de la commune, du
            departement et du pays, ce qui ferait passer n'importe quoi. */
-        if (!nomCoherent(q, `${hit.name || ''} ${(hit.display_name || '').split(',').slice(0, 3).join(' ')}`)) continue;
+        if (!nomCoherent(q, `${hit.name || ''} ${(hit.display_name || '').split(',').slice(0, 3).join(' ')}`, commune.nom)) continue;
+        /* Une requête qui porte un NUMÉRO désigne un bâtiment, et Nominatim,
+           qui ignore souvent ce numéro, rend la rue entière. Accepté ici, ce
+           tracé passait avant la BAN, qui elle connaît le numéro : la maison
+           de santé du 42 boulevard Soult, à Mazamet, était dessinée comme le
+           boulevard sur toute sa longueur. On laisse donc la voie à la BAN. */
+        if (AVEC_NUMERO_RE.test(q) && hit.category === 'highway') continue;
         // Le contour de la commune coche toutes les cases precedentes : c'est
         // sa TAILLE qui le trahit, pas son nom ni sa position.
         if (!extentAcceptable(g, bbox)) continue;
@@ -2660,7 +2681,7 @@ async function askAiForPlaces(commune, projets) {
 
 Pour CHAQUE projet (index conservé), cherche dans l'extrait fourni une VOIE nommee - rue, avenue, boulevard, place, chemin, route, quai - et rends-la. C'est le seul type de lieu qu'un annuaire d'adresses connait a coup sur. A defaut de voie, rends le nom exact d'un equipement (« Centre nautique Robert Sautin »), puis seulement en dernier ressort un lieu-dit.
 
-Ne rends JAMAIS un nom de secteur, de quartier ou d'operation (« secteur de l'ancienne gare », « ecoquartier »): ces noms ne figurent sur aucune carte et la recherche echouera encore. Si l'extrait ne cite ni voie ni equipement, rends une chaine vide : une position fausse est pire qu'une absence.`;
+Ne rends JAMAIS un nom de secteur, de quartier ou d'operation (« secteur de l'ancienne gare », « ecoquartier »): ces noms ne figurent sur aucune carte et la recherche echouera encore. Ne rends jamais non plus l'adresse ou l'on consulte un dossier, ou se tient une enquete publique ou une permanence (mairie, services techniques) : c'est l'adresse d'un guichet, pas celle du projet. Si l'extrait ne cite ni voie ni equipement, rends une chaine vide : une position fausse est pire qu'une absence.`;
     const user = JSON.stringify(projets.map((p, i) => ({
       index: i,
       titre: p.title,
@@ -2690,7 +2711,7 @@ Ne rends JAMAIS un nom de secteur, de quartier ou d'operation (« secteur de l'a
    hasard, et l'étage Nominatim n'essaie QUE la première formulation de cette
    liste. C'est la position dans ce tableau qui a produit la punaise fausse de
    Conflans, pas le géocodeur. */
-function locationQueries(project) {
+function locationQueries(project, communeNom = '') {
   const fromTitle = String(project.title || '')
     .replace(/^(r[eé]am[eé]nagement|am[eé]nagement|construction|r[eé]novation|r[eé]habilitation|extension|d[eé]molition|reconstruction|cr[eé]ation|installation|requalification|v[eé]g[eé]talisation|ouverture|restructuration|renouvellement|modification|transfert|r[eé]fection)\s+(de\s+la|de\s+l['’]|du|des|de|d['’]|d'|un|une)?\s*/i, '')
     .trim();
@@ -2711,13 +2732,18 @@ function locationQueries(project) {
      le resultat honnete. On ne se rabat pas sur un lieu voisin. C'est a la
      LECTURE de la page de nommer un lieu geocodable, ce que sa consigne lui
      demande explicitement. */
-  const aUnLieuNomme = [project.address, project.geo_query, project.place]
-    .some((x) => motsSignificatifs(String(x || '')).size > 0);
+  const texte = project.source_excerpt;
+  const horsGuichet = (x) => (adresseDeGuichet(x, texte) ? '' : x);
+  const address = horsGuichet(project.address);
+  const geoQuery = horsGuichet(project.geo_query);
+  const place = horsGuichet(project.place);
+  const aUnLieuNomme = [address, geoQuery, place]
+    .some((x) => motsSignificatifs(String(x || ''), communeNom).size > 0);
   const candidats = [
-    project.address,
-    project.geo_query, sansPrefixeGenerique(project.geo_query),
-    project.place, sansPrefixeGenerique(project.place),
-    ...(aUnLieuNomme ? [] : odonymesDe(project.source_excerpt)),
+    address,
+    geoQuery, sansPrefixeGenerique(geoQuery),
+    place, sansPrefixeGenerique(place),
+    ...(aUnLieuNomme ? [] : odonymesDe(texte).filter((o) => !adresseDeGuichet(o, texte))),
     fromTitle, sansPrefixeGenerique(fromTitle),
   ];
   for (const q of candidats) {
@@ -2729,11 +2755,40 @@ function locationQueries(project) {
        de marche transformait « Ville de Gex » en « Ville de », qui partait en
        requete de rang 0 et posait le camping Les Genets sur l'ecole de musique.
        Le meme test protege de « travaux », « batiment communal », « la ville ». */
-    if (!motsSignificatifs(t).size) continue;
+    if (!motsSignificatifs(t, communeNom).size) continue;
     seen.add(t.toLowerCase());
     out.push(t);
   }
   return out;
+}
+
+/* L'adresse d'un GUICHET n'est pas celle d'un projet.
+
+   Une page d'enquêtes publiques dit où consulter le dossier, pas où se fait le
+   projet. Mesuré sur Mazamet : « aux services techniques, 63 rue des Cordes »
+   a servi d'emplacement à la centrale hydroélectrique de Gaillardou, à six
+   kilomètres de là dans la montagne, et la rue des Cordes à l'aire de
+   valorisation du patrimoine, qui couvre tout le centre ancien. Le premier
+   rendez-vous de démonstration se tenait justement avec le responsable de ce
+   centre technique.
+
+   Le test est étroit pour ne pas écarter un vrai lieu de chantier : l'adresse
+   doit suivre IMMÉDIATEMENT le nom du guichet (« en mairie, place Gambetta »,
+   « sise 1 place Georges Tournier »). « La mairie engage des travaux rue
+   Voltaire » reste un emplacement. Une adresse citée au moins une fois hors de
+   ce contexte est conservée. */
+const GUICHET_AVANT_RE = /(?:services? techniques?|services? municipaux|service de l'urbanisme|centre technique municipal|en mairie|a la mairie|hotel de ville|sise?|situee?s?|siege|permanences?|registres?|accueil)\W{0,4}(?:(?:au|a la|a l'|du|de la|le|la)\s+)?(?:\d{1,4}\s*(?:bis|ter)?\s+)?$/;
+
+function adresseDeGuichet(lieu, texte) {
+  const cible = unaccentLower(lieu).replace(/\s+/g, ' ').trim();
+  if (cible.length < 6) return false;
+  const t = unaccentLower(texte).replace(/\s+/g, ' ');
+  let vu = false;
+  for (let at = t.indexOf(cible); at >= 0; at = t.indexOf(cible, at + 1)) {
+    if (!GUICHET_AVANT_RE.test(t.slice(Math.max(0, at - 60), at))) return false;
+    vu = true;
+  }
+  return vu;
 }
 
 /* Lieux nommes lus directement dans le texte des sources. On n'essayait que
@@ -3499,6 +3554,8 @@ async function coreSources(send, step, insee, runState) {
     // suffisait à priver l'espace du logo de la commune.
     mairie: {
       host: mairie.host,
+      // Elle cadre la carte publiée : voir la création de l'espace
+      position: mairie.position || null,
       logoUrl: mairie.logoUrl,
       logoCandidats: (mairie.logoCandidats || []).slice(0, 4),
       iconeUrl: mairie.iconeUrl || null,
@@ -4459,7 +4516,7 @@ async function coreGeo(send, step, state) {
     code: state.commune.code,
     centre: { coordinates: [state.commune.lng, state.commune.lat] },
   };
-  const queries = projects.map(locationQueries);
+  const queries = projects.map((p) => locationQueries(p, state.commune.nom));
   if (process.env.DEMO_DUMP && !state.geo) {
     // Ce que le geocodeur va reellement chercher. Sans cette trace, un projet
     // non localise ne dit pas s'il manquait de lieu ou si l'annuaire a echoue.
@@ -4629,7 +4686,7 @@ async function coreGeo(send, step, state) {
         const propositions = restants.length ? await askAiForPlaces(state.commune, restants.map((i) => projects[i])) : [];
         geo.lieuxIa = restants
           .map((i, k) => ({ i, lieu: propositions[k] }))
-          .filter((x) => x.lieu && x.lieu.length >= 3);
+          .filter((x) => x.lieu && x.lieu.length >= 3 && !adresseDeGuichet(x.lieu, projects[x.i].source_excerpt));
         // BAN d'abord, en parallele et sans quota
         const trouves = await inChunks(geo.lieuxIa, 8, async ({ i, lieu }) => {
           const hit = await banGeocode(lieu, communeShim, bbox);
@@ -4698,7 +4755,7 @@ async function coreGeo(send, step, state) {
     geo.etape = 'nominatim';
     geo.curseur = 0;
     geo.reste = reserve.map((_, k) => depart + k);
-    geo.aTester = essaisNominatim(projects.map(locationQueries))
+    geo.aTester = essaisNominatim(projects.map((p) => locationQueries(p, state.commune.nom)))
       .filter(([i]) => i >= depart);
     geo.lieuxIa = null;
     step('geo', 'done', 'Localisation en cours', `${state.located.length} projet(s) situé(s), reprise sur les marchés publics`);
@@ -5542,8 +5599,15 @@ async function runCreate(send, step, ville, runState) {
     // région sur l'index /ville/
     insee: commune.code || null,
     logo_url: logoUrl || 'https://openprojets.com/home/img/logos/classic_color.png',
-    center_lat: commune.lat,
-    center_lng: commune.lng,
+    /* La carte s'ouvre sur la MAIRIE, pas sur le centre géométrique du
+       territoire. Sur une commune de montagne, les deux sont loin l'un de
+       l'autre : à Mazamet, le centre du territoire tombe à trois kilomètres
+       au sud, dans la Montagne Noire, et la ville n'apparaissait qu'en haut
+       de l'écran. La mairie est presque toujours au cœur du bourg, et c'est
+       déjà elle qui ancre le radar de l'écran de génération. Le centre
+       géométrique reste le repli quand l'annuaire ne la situe pas. */
+    center_lat: mairie.position?.lat ?? commune.lat,
+    center_lng: mairie.position?.lng ?? commune.lng,
     zoom,
     primary_color: mairie.themeColor || '#14AE5C',
     enabled_toggles: ['filters', 'basemap', 'theme', 'search', 'info'],
@@ -5958,6 +6022,8 @@ export const _internals = {
   nomCoherent,
   positionDansLaCommune,
   locationQueries,
+  adresseDeGuichet,
+  AVEC_NUMERO_RE,
   unescapeBoamp,
   odonymesDe,
   distinctiveWords,

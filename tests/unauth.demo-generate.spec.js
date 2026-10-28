@@ -29,7 +29,7 @@ const {
   migrerEtatGeo, METHOD_LABELS, communeDuResultat,
   CARTE_COURTE, deLaCommune, messageSansProjet, messageCarteCourte,
   arbitrerMarches, domainesAutorises, featuresDuProjet, tailleMinimaleVisible, nomDistinctifEpci,
-  vueAerienneUrl, coverKey, oublierLesEchecs, pointDuRejeu,
+  vueAerienneUrl, coverKey, oublierLesEchecs, pointDuRejeu, adresseDeGuichet, AVEC_NUMERO_RE,
 } = _internals;
 
 test.describe('0.64 - Démo : garde contre les requêtes vers le réseau interne', () => {
@@ -1729,5 +1729,53 @@ test.describe('0.88 - Démo : le point de chaque fiche rejouée', () => {
     expect(pointDuRejeu(null)).toBeNull();
     expect(pointDuRejeu({ features: [] })).toBeNull();
     expect(pointDuRejeu({ features: [{ geometry: null }] })).toBeNull();
+  });
+});
+
+
+test.describe('0.86 - Démo : les emplacements faux relevés sur Mazamet', () => {
+
+  // Extrait réel de la page « Enquêtes publiques » de ville-mazamet.com
+  const ENQUETES = 'un registre de concertation va être mise en place que les services tiendront aux services techniques ( 63 rue des Cordes ) avec l\'ensemble des planches cartographiques. '
+    + 'Avis d\'enquête publique pour l\'exploitation de la centrale hydroélectrique de Gaillardou sur la rivière Arnette. '
+    + 'L\'enquête publique a été conduite du lundi 13 Mars 2023 au vendredi 14 avril 2023 , aux services techniques, 63 rue des Cordes à Mazamet. '
+    + 'auprès de la ville de Mazamet, sise 1 place Georges Tournier, 81200 MAZAMET';
+
+  test('0.86.1 - Le nom de la commune ne suffit plus à faire un lieu', () => {
+    /* « complexe sportif de Mazamet », sans son préfixe, devenait « Mazamet »
+       et rendait l'arrêt de bus du même nom. */
+    expect(locationQueries({ title: 'Nouveau complexe sportif', geo_query: 'complexe sportif de Mazamet' }, 'Mazamet')).toEqual([]);
+    expect(locationQueries({ title: 'x', geo_query: 'RD 118 Mazamet' }, 'Mazamet')).not.toContain('RD 118 Mazamet');
+    expect(nomCoherent('Lapeyrouse Mazamet', 'Mazamet Avenue Charles Sabatié', 'Mazamet')).toBe(false);
+    // Un vrai lieu reste cherché
+    expect(locationQueries({ title: 'x', place: 'gymnase de Lapeyrouse' }, 'Mazamet')).toEqual(['gymnase de Lapeyrouse', 'Lapeyrouse']);
+  });
+
+  test('0.86.2 - L\'adresse où l\'on consulte un dossier n\'est pas celle du projet', () => {
+    expect(adresseDeGuichet('63 rue des Cordes', ENQUETES)).toBe(true);
+    expect(adresseDeGuichet('rue des Cordes', ENQUETES)).toBe(true);
+    expect(adresseDeGuichet('1 place Georges Tournier', ENQUETES)).toBe(true);
+    expect(adresseDeGuichet('Gaillardou', ENQUETES)).toBe(false);
+    const q = locationQueries({
+      title: 'Exploitation de la centrale hydroélectrique de Gaillardou',
+      address: '63 rue des Cordes',
+      place: 'Gaillardou',
+      source_excerpt: ENQUETES,
+    }, 'Mazamet');
+    expect(q.some((x) => /cordes/i.test(x))).toBe(false);
+    expect(q).toContain('Gaillardou');
+  });
+
+  test('0.86.3 - Un vrai chantier cité près de la mairie reste un emplacement', () => {
+    expect(adresseDeGuichet('rue Voltaire', 'La mairie engage des travaux rue Voltaire cet été.')).toBe(false);
+    // Cité une fois comme guichet et une fois comme chantier : on garde
+    expect(adresseDeGuichet('rue des Cordes', 'Réfection de la rue des Cordes en 2026. Dossier aux services techniques, 63 rue des Cordes.')).toBe(false);
+  });
+
+  test('0.86.4 - Une adresse numérotée est reconnue, pour laisser le numéro à la BAN', () => {
+    expect(AVEC_NUMERO_RE.test('42 boulevard Soult')).toBe(true);
+    expect(AVEC_NUMERO_RE.test('3 bis rue Voltaire')).toBe(true);
+    expect(AVEC_NUMERO_RE.test('boulevard Soult')).toBe(false);
+    expect(AVEC_NUMERO_RE.test('RD 118')).toBe(false);
   });
 });
