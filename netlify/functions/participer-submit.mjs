@@ -19,9 +19,18 @@
    Garde-fous : honeypot invisible (`website`), quotas journaliers par IP salée
    et par email (administrables dans participer_settings), photo bornée à 4 Mo
    après compression cliente, module activable/suspendable par ville.
+
+   Dépôt depuis le site d'une collectivité (module Sites) : l'origine du site
+   est acceptée en CORS si PARTICIPER_ORIGINES_SITES la rattache à la ville
+   du dépôt (lib/participer-sites.mjs), sinon le dépôt est refusé. Le champ
+   facultatif `retour` désigne la page de ce site où l'habitant suit son
+   signalement : les liens de suivi des emails y mènent au lieu de la carte.
+   Le dépôt part du navigateur du visiteur, l'IP comptée par les quotas reste
+   donc la sienne.
    ============================================================================ */
 
-import { isValidCityCode, getCorsHeaders, preflightResp } from './lib/http.mjs';
+import { isValidCityCode, isOwnOrigin, getCorsHeaders, preflightResp } from './lib/http.mjs';
+import { estSiteAutorise, siteDeLaVille, retourDuSite } from './lib/participer-sites.mjs';
 import {
   EMAIL_RE, PHOTO_MIMES, PHOTO_MAX_BYTES, BUCKET_PHOTOS, SITE,
   UUID_RE, LOT_FENETRE_MINUTES,
@@ -33,7 +42,13 @@ import {
 const DATA_URL_RE = /^data:(image\/(?:webp|jpeg|png));base64,([A-Za-z0-9+/=]+)$/;
 
 export default async (req, context) => {
-  const cors = { ...getCorsHeaders(req), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+  /* Le préflight ne porte pas le corps, donc pas la ville : il laisse passer
+     tout site autorisé, et le rattachement à la ville se vérifie au dépôt. */
+  const cors = {
+    ...getCorsHeaders(req, 'POST, OPTIONS', { autreOrigine: estSiteAutorise }),
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store',
+  };
   if (req.method === 'OPTIONS') return preflightResp(cors);
   if (req.method !== 'POST') return jsonResp(405, { error: 'Méthode non autorisée' }, cors);
 
@@ -53,6 +68,25 @@ export default async (req, context) => {
   // joignable ou non. C'est aussi ce qui rend le contrat testable sans clés.
   const ville = String(body?.ville || '').trim();
   if (!isValidCityCode(ville)) return jsonResp(400, { error: 'Paramètre ville invalide' }, cors);
+
+  /* Le site d'une collectivité ne dépose que dans sa ville. Les autres
+     origines restent traitées comme avant : les nôtres servent toutes les
+     villes, et une carte servie à une autre adresse (aperçu de déploiement,
+     autre port local) dépose depuis sa propre origine, que le CORS ne
+     concerne pas. */
+  const origin = req.headers.get('origin') || '';
+  if (!isOwnOrigin(origin) && estSiteAutorise(origin) && !siteDeLaVille(origin, ville)) {
+    return jsonResp(403, { error: 'Ce site n\'est pas rattaché à cette ville' }, cors);
+  }
+
+  // Facultatif. Présent, il doit désigner une page d'un site de cette ville :
+  // refusé franchement plutôt qu'ignoré, sinon les emails mèneraient ailleurs
+  // que prévu sans que personne ne le voie.
+  let retour = null;
+  if (body?.retour != null && String(body.retour).trim()) {
+    retour = retourDuSite(body.retour, ville);
+    if (!retour) return jsonResp(400, { error: 'Adresse de retour non autorisée pour cette ville' }, cors);
+  }
 
   const email = String(body?.email || '').trim().slice(0, 180);
   if (!EMAIL_RE.test(email)) return jsonResp(400, { error: 'Adresse e-mail invalide' }, cors);
@@ -157,6 +191,7 @@ export default async (req, context) => {
         email: emailNorm,
         ip_hash: ipHash,
         appareil_hash: appareilHash,
+        retour_url: retour,
       });
     } catch (e) {
       if (photoPath) await storageDelete(BUCKET_PHOTOS, [photoPath]);

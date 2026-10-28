@@ -19,17 +19,26 @@ const ALLOWED_ORIGINS = [
   'http://localhost:8888',
 ];
 
+export const isOwnOrigin = (origin) => ALLOWED_ORIGINS.includes(origin);
+
 /**
  * En-têtes CORS restreints aux origines du site.
  * @param {Request} req
  * @param {string} [methods] - méthodes annoncées au préflight
+ * @param {{autreOrigine?: (origin: string) => boolean}} [options] - origines
+ *   acceptées en plus de celles du site, pour la seule fonction qui le demande
+ *   (les sites des collectivités, pour participer-submit)
  */
-export function getCorsHeaders(req, methods = 'POST, OPTIONS') {
+export function getCorsHeaders(req, methods = 'POST, OPTIONS', { autreOrigine } = {}) {
   const origin = req.headers.get('origin') || '';
+  const accepte = isOwnOrigin(origin) || (Boolean(origin) && autreOrigine?.(origin) === true);
   return {
-    'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Origin': accepte ? origin : ALLOWED_ORIGINS[0],
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': methods,
+    // La réponse change avec l'origine : un cache intermédiaire ne doit pas
+    // servir à un site l'autorisation donnée à un autre
+    'Vary': 'Origin',
   };
 }
 

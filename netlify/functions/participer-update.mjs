@@ -39,7 +39,7 @@ async function notifyStatusChange(row, statutKey, message, settings) {
     reference: row.reference,
     statutLabel: st.label,
     message,
-    suiviUrl: suiviUrlOf(row.ville, row.suivi_token),
+    suiviUrl: suiviUrlOf(row.ville, row.suivi_token, row.retour_url),
     replyTo: settings?.notify_email || null,
   });
   return mail.status === 'envoye';
@@ -77,7 +77,7 @@ export default async (req) => {
 
   try {
     const [row] = await svcSelect('participer_signalements', {
-      select: 'id,ville,reference,statut_key,photo_path,photo_url,published,email,email_confirmed,suivi_token,doublon_de',
+      select: 'id,ville,reference,statut_key,photo_path,photo_url,published,email,email_confirmed,suivi_token,retour_url,doublon_de',
       id: `eq.${id}`,
       ville: `eq.${ville}`,
       limit: '1',

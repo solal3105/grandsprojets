@@ -57,6 +57,12 @@ sort JAMAIS vers le public (ni GeoJSON, ni détail, ni export CSV).
 - `participer_signalements.appareil_hash` : empreinte salée de l'identifiant
   que le navigateur tire au hasard (voir « Une confirmation par navigateur »).
   Aucun grant de lecture pour `authenticated`, effacée par l'anonymisation.
+- `participer_signalements.retour_url` : page du site de la collectivité où
+  l'habitant suit un dépôt fait depuis ce site (voir « Dépôt depuis le site
+  d'une collectivité »). Pas une donnée personnelle, donc gardée par
+  l'anonymisation ; aucun grant de lecture pour `authenticated`. Migration
+  `20261029120000_participer_retour_site.sql`, à appliquer avant de déployer
+  le code qui la lit.
 
 ## Une confirmation par navigateur
 
@@ -85,6 +91,140 @@ identifiant. L'adresse saisie n'est rappelée que le temps de l'onglet
 suivant d'un appareil partagé. Après chaque envoi, le panneau propose
 « Signaler un autre point ».
 
+## Dépôt depuis le site d'une collectivité
+
+Une collectivité qui a son propre site (module Sites, dépôt
+`openprojets-sites`) peut y placer un formulaire de signalement. Le site
+appelle les mêmes routes que la carte, depuis le navigateur du visiteur :
+l'IP comptée par les quotas reste donc celle du visiteur, et tous les
+garde-fous s'appliquent à l'identique (module actif, pause, quotas par IP et
+par adresse, piège à robots, double confirmation, photo bornée). Le
+signalement arrive dans la même file de traitement que ceux de la carte.
+
+### Autoriser un site
+
+La variable `PARTICIPER_ORIGINES_SITES` rattache chaque origine de site à une
+ville, en entrées `ville=origine` séparées par des virgules :
+
+```
+PARTICIPER_ORIGINES_SITES=pays-ozon=https://www.pays-ozon.fr,pays-ozon=https://pays-ozon.fr,saint-symphorien=https://www.saint-symphorien.fr
+```
+
+- Une origine est exacte : schéma, hôte et port, sans chemin ni barre finale
+  (la barre finale est tolérée). Un site qui répond à plusieurs adresses
+  (avec et sans `www`) a une entrée par adresse.
+- Hors développement, seules les origines `https` sont lues. Une entrée mal
+  écrite est ignorée et signalée une fois dans les journaux de la fonction
+  (`[participer-sites] entrée ignorée`), jamais devinée.
+- En développement local (`netlify dev`, qui pose `NETLIFY_DEV=true`), trois
+  formes de plus sont lues : une origine `http`, un motif d'un seul niveau de
+  sous-domaine (`http://*.localhost:3000`) et la ville `*` (toutes les
+  villes). Pour les sites locaux du module Sites :
+  `PARTICIPER_ORIGINES_SITES=*=http://*.localhost:3000` dans le `.env` local.
+  Partout ailleurs ces formes sont ignorées.
+- La liste est relue à chaque appel : la changer demande un redéploiement
+  sur Netlify (les variables y sont figées au déploiement), pas de code.
+
+Le choix d'une variable plutôt que d'une table : les adresses des sites
+vivent dans la base du module Sites (schéma `sites`, collection
+`collectivites`), que l'API PostgREST de grandsprojets ne sert pas et dont la
+forme suit les migrations de Payload. Une variable garde les deux projets
+indépendants, au prix d'une saisie en double à la mise en ligne d'un site.
+Si le nombre de sites grandit, la bonne suite est une vue publique en base
+(`ville`, `origine`) alimentée par le module Sites, lue ici à la place de la
+variable.
+
+Le rattachement est garanti pour les navigateurs : le préflight CORS répond à
+tout site de la liste (il ne porte pas le corps, donc pas la ville), puis le
+dépôt est refusé en 403 si l'origine est celle d'un site rattaché à une autre
+ville. Il ne protège pas d'un script qui forge son en-tête `Origin` : un tel
+appel pouvait déjà déposer dans n'importe quelle ville, et ce sont les quotas,
+le piège à robots et la confirmation par email qui l'arrêtent. Les origines
+d'Open Projets (`https://openprojets.com`, ports locaux 3001 et 8888) servent
+toutes les villes, comme avant.
+
+### Lire la configuration
+
+`GET /api/participer/config?ville=<ville>` (CORS ouvert) rend :
+
+```json
+{
+  "enabled": true,
+  "categories": [{ "category_key": "voirie", "label": "Voirie", "icon_class": "fa-solid fa-road",
+                   "color": "#2563EB", "help_text": "Texte d'aide", "sort_order": 1, "enabled": true }],
+  "statuts": [{ "statut_key": "nouveau", "label": "Nouveau", "color": "#6B7280", "sort_order": 1 }],
+  "settings": { "intro_text": null, "success_text": null, "paused": false,
+                "pause_message": null, "retention_mois": 12 }
+}
+```
+
+`{ "enabled": false }` quand le module n'est pas activé pour la ville : le
+site n'affiche alors pas le formulaire. `settings.paused` signale une pause,
+avec son message ; un dépôt fait pendant la pause est refusé. La mention
+légale du formulaire annonce `retention_mois`, jamais une durée écrite en dur.
+
+### Déposer
+
+`POST /api/participer/submit`, `Content-Type: application/json` :
+
+| Champ | Obligatoire | Contenu |
+|---|---|---|
+| `ville` | oui | code de l'espace (`city_branding.ville`), celui auquel le site est rattaché |
+| `email` | oui | adresse de l'habitant, 180 caractères au plus |
+| `category_key` | oui | une catégorie active de la configuration |
+| `lat`, `lng` | oui | position du point (nombres) |
+| `description` | non | 1 000 caractères au plus |
+| `adresse` | non | adresse lisible du point, 300 caractères au plus |
+| `photo` | non | data URL `image/webp`, `image/jpeg` ou `image/png`, 4 Mo au plus ; à ré-encoder dans le navigateur pour en retirer les EXIF, comme la carte |
+| `appareil` | non | UUID tiré au hasard par le navigateur et gardé dans son stockage local, pour la confirmation par navigateur (voir plus haut) |
+| `retour` | non | page du site où l'habitant suit son signalement (voir ci-dessous) |
+| `website` | non | piège à robots : champ caché, laissé vide |
+
+Réponses, toujours en JSON :
+
+| Statut | Corps | Sens |
+|---|---|---|
+| 200 | `{ ok: true, etat: 'a_confirmer' }` | email de confirmation envoyé |
+| 200 | `{ ok: true, etat: 'ajoute', en_attente: n }` | rejoint une série en attente, aucun email |
+| 200 | `{ ok: true, etat: 'transmis', reference }` | navigateur reconnu, transmis tout de suite |
+| 200 | `{ ok: true }` | piège à robots rempli, rien n'est enregistré |
+| 400 | `{ error }` | champ invalide, catégorie inconnue, adresse de retour refusée |
+| 403 | `{ error }` | site rattaché à une autre ville, ou dépôts suspendus (le message de pause est rendu) |
+| 404 | `{ error }` | module non actif pour la ville |
+| 429 | `{ error }` | quota du jour atteint (par IP ou par adresse) |
+| 502, 503, 500 | `{ error }` | email de confirmation impossible, service non configuré, erreur interne |
+
+Les messages `error` sont écrits pour l'habitant et peuvent être affichés
+tels quels.
+
+### Ramener l'habitant sur le site
+
+Le champ `retour` est l'adresse complète d'une page du site, par exemple
+`https://www.pays-ozon.fr/signaler/suivi`. Elle n'est acceptée que si son
+origine est celle d'un site rattaché à la ville du dépôt ; sinon le dépôt
+est refusé en 400, jamais redirigé ailleurs. Elle est gardée avec le
+signalement (`participer_signalements.retour_url`), fragment retiré.
+
+Le lien de confirmation passe toujours par
+`/api/participer/confirm?token=` (c'est lui qui prouve l'adresse), puis
+redirige vers la page de retour avec le jeton de suivi :
+`https://www.pays-ozon.fr/signaler/suivi?participer_suivi=<jeton>`. L'accusé
+de réception et les emails de changement de statut mènent à la même adresse.
+Si le module a été désactivé entre-temps, la redirection vise
+`<retour>?participer=module-inactif`. La page du site lit le jeton, le
+retire de sa barre d'adresse (c'est un porteur permanent) et affiche le suivi
+avec `GET /api/participer/detail?token=<jeton>` (CORS ouvert), qui rend
+`{ own, signalement, events }` sans aucune donnée personnelle.
+
+L'adresse gardée est revalidée à chaque email : un site retiré de
+`PARTICIPER_ORIGINES_SITES` ne reçoit plus de lien, l'habitant retombe sur la
+carte de la ville. Sans `retour`, rien ne change : les liens mènent à la
+carte.
+
+La demande de retrait (`POST /api/participer/retrait`) n'accepte pas encore
+l'origine des sites : un site qui affiche des signalements publiés renvoie
+vers la carte pour cette demande.
+
 ## Fonctions Netlify (routes `/api/participer/*`)
 
 | Fichier | Route | Accès |
@@ -92,7 +232,7 @@ suivant d'un appareil partagé. Après chaque envoi, le panneau propose
 | `participer-config.mjs` | GET `/config?ville=` | public (whitelist de réglages) |
 | `participer-geojson.mjs` | GET `/geojson?ville=` | public (signalements PUBLIÉS, props whitelistées) |
 | `participer-detail.mjs` | GET `/detail?token=` ou `?ville=&id=` | public (suivi personnel / détail publié) |
-| `participer-submit.mjs` | POST `/submit` | public (honeypot, quotas, photo 4 Mo max) |
+| `participer-submit.mjs` | POST `/submit` | public (honeypot, quotas, photo 4 Mo max) ; CORS : nos origines + sites de `PARTICIPER_ORIGINES_SITES` |
 | `participer-confirm.mjs` | GET `/confirm?token=` | public (double opt-in, transmet toute la série du navigateur, redirige vers le suivi) |
 | `participer-update.mjs` | POST `/update` | JWT + rôle revérifié serveur |
 | `participer-retrait.mjs` | POST `/retrait` | public (droit d'effacement, consigné + email mairie) |
@@ -100,6 +240,8 @@ suivant d'un appareil partagé. Après chaque envoi, le panneau propose
 
 Socle partagé : `lib/participer-common.mjs` (PostgREST/Storage clé service,
 contexte ville, événements, hash d'IP salé, emails du module),
+`lib/participer-sites.mjs` (origines des sites de collectivité, adresse de
+retour),
 `lib/http.mjs` (CORS, JWT - extrait de `ai-common.mjs`),
 `lib/mail.mjs` (transport Resend/Brevo - extrait de `demo-mail.mjs`).
 
@@ -163,6 +305,7 @@ Pour un hébergement européen des emails citoyens, configurer `BREVO_API_KEY`
 | `RESEND_API_KEY` ou `BREVO_API_KEY` | requis - sans clé, le dépôt est refusé (l'habitant attendrait un email qui ne part pas) |
 | `PARTICIPER_MAIL_FROM` | optionnel - expéditeur (défaut : `Open Projets <bonjour@openprojets.com>`) |
 | `PARTICIPER_IP_SALT` | optionnel - sel du hash d'IP (défaut : dérivé de la clé de service) |
+| `PARTICIPER_ORIGINES_SITES` | optionnel - sites de collectivité autorisés à déposer, `ville=origine` séparés par des virgules (voir « Dépôt depuis le site d'une collectivité ») |
 
 ## RGPD - engagements tenus par le code
 
@@ -187,6 +330,12 @@ Pour un hébergement européen des emails citoyens, configurer `BREVO_API_KEY`
   adresse gardée, trois écrans de fin), contrats des endpoints, **test de
   fuite** (geojson sans email ni jetons). Ville dédiée `test-e2e` (module
   activé + seed).
+- `tests/unauth.participer-sites.spec.js` (16.3) : dépôt depuis un site,
+  sans serveur ni base (fonctions importées, `fetch` simulé) : rattachement
+  d'une origine à sa ville, motifs réservés au développement, préflight,
+  refus avant tout appel à la base, adresse de retour refusée hors des sites
+  de la ville, retour gardé à l'insertion, accusé et redirection de
+  confirmation vers le site, repli sur la carte quand le site est retiré.
 - `tests/admin.participer.spec.js` (17.x) : file, réglages, CRUD catégories,
   édition statuts.
 - `tests/invited.participer.spec.js` (18.x) : gating contributeur.

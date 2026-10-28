@@ -10,13 +10,17 @@
    la page de suivi.
 
    Réponse en redirection : l'habitant arrive sur la carte, directement sur le
-   détail du signalement dont il a ouvert le lien.
+   détail du signalement dont il a ouvert le lien. Un dépôt fait depuis le site
+   d'une collectivité (`retour_url`, revalidée par suiviUrlOf) le ramène sur la
+   page de ce site, y compris quand le module a été désactivé entre-temps
+   (`?participer=module-inactif`).
    ============================================================================ */
 
 import {
   SITE, UUID_RE, jsonResp, hasServiceKey,
   svcSelect, loadContext, suiviUrlOf, transmettreDepots,
 } from './lib/participer-common.mjs';
+import { retourDuSite, avecParametre } from './lib/participer-sites.mjs';
 
 const redirect = (url) => new Response(null, { status: 302, headers: { Location: url, 'Cache-Control': 'no-store' } });
 
@@ -28,7 +32,7 @@ export default async (req) => {
 
   try {
     const [row] = await svcSelect('participer_signalements', {
-      select: 'id,ville,email,email_confirmed,suivi_token,appareil_hash',
+      select: 'id,ville,email,email_confirmed,suivi_token,appareil_hash,retour_url',
       confirm_token: `eq.${token}`,
       limit: '1',
     });
@@ -36,9 +40,12 @@ export default async (req) => {
 
     // Module désactivé entre-temps : ne pas confirmer vers un suivi qui répondra 404
     const ctx = await loadContext(row.ville);
-    if (!ctx.enabled) return redirect(`${SITE}/?participer=module-inactif`);
+    if (!ctx.enabled) {
+      const retour = row.retour_url ? retourDuSite(row.retour_url, row.ville) : null;
+      return redirect(retour ? avecParametre(retour, 'participer', 'module-inactif') : `${SITE}/?participer=module-inactif`);
+    }
 
-    const suiviUrl = suiviUrlOf(row.ville, row.suivi_token);
+    const suiviUrl = suiviUrlOf(row.ville, row.suivi_token, row.retour_url);
     if (row.email_confirmed) return redirect(suiviUrl);
 
     /* Le jeton n'est PAS renouvelé : le lien reçu par email doit continuer de

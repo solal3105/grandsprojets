@@ -13,6 +13,7 @@
 
 import { SUPABASE_URL, isValidCityCode } from './http.mjs';
 import { envoyerEmail, echapperHtml, EXPEDITEUR_DEFAUT } from './mail.mjs';
+import { retourDuSite, avecParametre, PARAM_SUIVI } from './participer-sites.mjs';
 
 export { echapperHtml };
 
@@ -336,7 +337,18 @@ export async function hashAppareil(appareil) {
 
 /* ─── Transmission des dépôts confirmés ─── */
 
-export const suiviUrlOf = (ville, suiviToken) => `${SITE}/ville/${ville}/participer?participer_suivi=${suiviToken}`;
+/**
+ * Lien de suivi d'un signalement. Par défaut la carte de la ville ; la page du
+ * site de la collectivité quand le dépôt en vient (`retour_url`). L'adresse
+ * enregistrée est revalidée ici, à chaque email : un site retiré de
+ * PARTICIPER_ORIGINES_SITES ne reçoit plus de lien, l'habitant retombe sur la
+ * carte.
+ */
+export function suiviUrlOf(ville, suiviToken, retourUrl = null) {
+  const retour = retourUrl ? retourDuSite(retourUrl, ville) : null;
+  if (retour) return avecParametre(retour, PARAM_SUIVI, suiviToken);
+  return `${SITE}/ville/${ville}/participer?${PARAM_SUIVI}=${suiviToken}`;
+}
 
 /**
  * Transmet à la collectivité un dépôt dont l'adresse est prouvée et, s'il
@@ -360,7 +372,7 @@ export async function transmettreDepots(row, ctx) {
   const transmis = await svcUpdate('participer_signalements', {
     ...lot,
     email_confirmed: 'eq.false',
-    select: 'id,ville,reference,category_key,adresse,suivi_token,created_at',
+    select: 'id,ville,reference,category_key,adresse,suivi_token,retour_url,created_at',
   }, {
     email_confirmed: true,
     confirmed_at: new Date().toISOString(),
@@ -377,7 +389,7 @@ export async function transmettreDepots(row, ctx) {
     reference: s.reference,
     categorie: categories.find((c) => c.category_key === s.category_key)?.label || s.category_key,
     adresse: s.adresse || null,
-    suiviUrl: suiviUrlOf(s.ville, s.suivi_token),
+    suiviUrl: suiviUrlOf(s.ville, s.suivi_token, s.retour_url),
   }));
 
   const notify = ctx.settings?.notify_email || null;
