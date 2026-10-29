@@ -142,12 +142,14 @@
 
 .gp-invite__cta {
   color: #fff;
-  background: var(--primary);
+  /* La couleur de la commune, assombrie : un texte blanc sur un orange ou un vert vif ne
+     tenait pas le contraste de 4,5:1 exigé par le RGAA. */
+  background: color-mix(in srgb, var(--primary) 78%, black);
   border: 1px solid transparent;
 }
 
 .gp-invite__cta:hover {
-  background: color-mix(in srgb, var(--color-primary) 88%, black);
+  background: color-mix(in srgb, var(--color-primary) 68%, black);
 }
 
 [data-theme='dark'] .gp-invite__cta:hover {

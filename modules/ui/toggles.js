@@ -199,6 +199,12 @@ class ToggleManager {
     if (!t?.config.hasCounter) return;
     const counter = t.element.querySelector(t.config.counterSelector);
     if (counter) { counter.textContent = count; counter.style.display = count > 0 ? 'flex' : 'none'; }
+    // Le nom du bouton commence par ce que l'œil voit, l'infobulle puis le chiffre : un lecteur
+    // d'écran entend la même chose (RGAA, critère 6.1 ; WCAG 2.5.3).
+    if (t.config.ariaLabel) {
+      const visible = [t.element.dataset.title, count > 0 ? `${count} affichés` : ''].filter(Boolean).join(' ')
+      t.element.setAttribute('aria-label', visible ? `${visible}, ${t.config.ariaLabel.toLowerCase()}` : t.config.ariaLabel);
+    }
   }
 
 

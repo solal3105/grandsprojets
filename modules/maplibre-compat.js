@@ -684,6 +684,16 @@
       if (map._mlMap) this._mlMarker.addTo(map._mlMap);
       else this._mlMarker.addTo(map);
 
+      // MapLibre pose aria-label="Map marker" sur un simple div, ce que le RGAA refuse (attribut
+      // interdit sans rôle) et qu'un lecteur d'écran lit en anglais. L'épingle s'ouvre au clic :
+      // c'est un bouton, nommé par son titre, qui répond aussi au clavier.
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-label', this.options.title || this.options.alt || 'Ouvrir la fiche de ce repère');
+      el.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); el.click(); }
+      });
+
       // Wire DOM events on the marker element to our EventEmitter
       const self = this;
       el.addEventListener('click', function(ev) {

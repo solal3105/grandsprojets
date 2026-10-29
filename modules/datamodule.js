@@ -516,26 +516,28 @@ window.DataModule = (function() {
 			style: feature => getFeatureStyle(feature, layerName),
 			pointToLayer: (feature, latlng) => {
 				const props = feature?.properties || {};
+				// Le nom que l'épingle donne aux lecteurs d'écran : celui du projet ou du chantier.
+				const title = props.project_name || props.name || props.nom || props.title || undefined;
 				
 				// 1. Travaux markers
 				if (window.LayerRegistry?.isTravauxLayer?.(layerName)) {
 					const icon = createCustomMarkerIcon(null, props.icon || 'fa-solid fa-helmet-safety', 'var(--color-warning)');
-					return L.marker(latlng, { icon });
+					return L.marker(latlng, { icon, title });
 				}
 				
 				// 2. Contribution markers
 				if (props.category) {
-					return L.marker(latlng, { icon: createContributionMarkerIcon(props.category) });
+					return L.marker(latlng, { icon: createContributionMarkerIcon(props.category), title });
 				}
 				
 				// 3. Layer icon
 				if (iconMap[layerName]) {
 					const icon = createSimpleMarkerIcon(iconMap[layerName], iconColorMap[layerName] || 'var(--primary)');
-					return L.marker(latlng, { icon });
+					return L.marker(latlng, { icon, title });
 				}
 				
 				// 4. Fallback
-				return L.marker(latlng, { icon: createCustomMarkerIcon() });
+				return L.marker(latlng, { icon: createCustomMarkerIcon(), title });
 			},
 			onEachFeature: (feature, layer) => {
 				bindFeatureEvents(layer, feature, geojsonLayer, layerName);
