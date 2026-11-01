@@ -1596,4 +1596,80 @@ test.describe('0.23 - Fiches ouvertes sur la carte', () => {
     await panel.locator('#detail-back-btn').click();
     await expect(panel).toBeHidden();
   });
+
+  // Le panneau sait ce qu'il affiche : un projet n'est pas re-rendu tant qu'il
+  // est à l'écran, mais il se rouvre dès que le panneau a montré autre chose.
+  // Avant, le garde vivait hors du panneau et bloquait ce nouveau clic.
+  test('0.23.10 - RÉGRESSION : un projet se rouvre après la fiche d\'un chantier', async ({ page }) => {
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    const panel = page.locator('#project-detail');
+
+    await openProjet(page, PROJET);
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+    await openChantier(page, { name: 'Chantier entre-temps', etat: 'Ouvert' });
+    await expect(panel.locator('.detail-title')).toHaveText('Chantier entre-temps');
+
+    await openProjet(page, PROJET);
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+
+    // Chantier fermé avant de recliquer : même chose
+    await openChantier(page, { name: 'Chantier fermé', etat: 'Ouvert' });
+    await panel.locator('#detail-close-btn').click();
+    await expect(panel).toBeHidden();
+    await openProjet(page, PROJET);
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+  });
+
+  test('0.23.11 - RÉGRESSION : un projet se rouvre après l\'ouverture d\'un autre panneau', async ({ page }) => {
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    const panel = page.locator('#project-detail');
+
+    await openProjet(page, PROJET);
+    await expect(panel).toBeVisible();
+    // Ouvrir les filtres cache la fiche
+    await page.evaluate(() => window.toggleManager.setState('filters', true));
+    await expect(panel).toBeHidden();
+
+    await openProjet(page, PROJET);
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+  });
+
+  test('0.23.12 - Fiche de signalement : même panneau, fermeture, puis projet rouvert', async ({ page }) => {
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    await page.route('**/api/participer/config*', (r) => r.fulfill({ json: { enabled: true, categories: [], statuts: [] } }));
+    await page.route('**/api/participer/detail*', (r) => r.fulfill({
+      json: {
+        own: false,
+        events: [],
+        signalement: {
+          id: 'sig-1', reference: 'LYO-2026-0001', category_label: 'Nid de poule', category_color: '#ff8800',
+          statut_label: 'Reçu', statut_color: '#2563eb', adresse: '3 rue témoin', description: 'Trou profond.',
+          created_at: '2026-10-01T10:00:00Z', photo_url: null,
+        },
+      },
+    }));
+    const panel = page.locator('#project-detail');
+
+    await openProjet(page, PROJET);
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+
+    await page.evaluate(() => window.ParticiperViews.openDetailById('metropole-lyon', 'sig-1'));
+    await expect(panel.locator('.detail-title')).toHaveText('Nid de poule');
+    await expect(panel.locator('.pt-statut-pill')).toHaveText('Reçu');
+    await expect(panel.locator('.detail-overlay-btns #detail-close-btn')).toBeVisible();
+    expect(await panel.evaluate((el) => el.style.getPropertyValue('--cat-color'))).toBe('#ff8800');
+
+    await panel.locator('#detail-close-btn').click();
+    await expect(panel).toBeHidden();
+    await expect(panel.locator('.pt-statut-pill')).toHaveCount(0);
+
+    await openProjet(page, PROJET);
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+  });
 });

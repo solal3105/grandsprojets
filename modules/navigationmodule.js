@@ -1,7 +1,5 @@
 // modules/NavigationModule.js
 const NavigationModule = (() => {
-  const projectDetailPanel = document.getElementById('project-detail');
-  
   // Fonction helper pour obtenir les catégories de contribution dynamiquement
   const getContributionLayers = () => {
     return (typeof window.getAllCategories === 'function') ? window.getAllCategories() : [];
@@ -222,8 +220,7 @@ const NavigationModule = (() => {
       : new Set();
 
     // Close project detail if open
-    if (projectDetailPanel) projectDetailPanel.style.display = 'none';
-    _lastShownProject = null;
+    window.DetailPanel.hide();
 
     // Remove all layers except targets (+ optionally travaux)
     const keep = new Set([...layers, ...travauxSet]);
@@ -340,8 +337,10 @@ const NavigationModule = (() => {
     }
   }
 
-  // Guard pour éviter les appels redondants (CRITIQUE pour performances)
-  let _lastShownProject = null;
+  // Recherche par identifiant en cours : un second clic pendant la requête ne
+  // la relance pas (CRITIQUE pour performances). Le projet déjà affiché, lui,
+  // est connu du panneau (DetailPanel.isShowing).
+  let _pendingProjectId = null;
 
   // ── Carte périmée ────────────────────────────────────────────────────────
   // Un onglet laissé ouvert pendant qu'un espace est régénéré (démo salon) ou
@@ -391,7 +390,6 @@ const NavigationModule = (() => {
   function renderProjectGone(panel, projectName) {
     if (!panel) return;
     const named = projectName ? ` « ${window.SecurityUtils.escapeHtml(String(projectName))} »` : '';
-    panel.style.display = 'flex';
     panel.innerHTML = `
       <div class="project-detail__gone">
         <i class="fas fa-rotate" aria-hidden="true"></i>
@@ -408,19 +406,17 @@ const NavigationModule = (() => {
    *   feature cliquée : le nom survit à une régénération, l'identifiant non.
    */
   async function showProjectDetailById(projectId, event, fallback = null) {
-    if (!projectId) return;
-    // Guard: éviter les appels redondants
-    const projectKey = `id::${projectId}`;
-    if (_lastShownProject === projectKey) return;
-    _lastShownProject = projectKey;
+    if (!projectId || _pendingProjectId === projectId) return;
+    _pendingProjectId = projectId;
     let contributionProject = null;
     try {
       contributionProject = await window.supabaseService.getContributionById(projectId);
     } catch (error) {
       console.debug('[NavigationModule] Error fetching project by ID:', error);
+    } finally {
+      _pendingProjectId = null;
     }
     if (!contributionProject) {
-      _lastShownProject = null;
       // La carte affiche un projet que le serveur ne connaît plus : on
       // resynchronise, puis on retente par le nom, qui lui a survécu.
       const resynced = await resyncStaleProjects();
@@ -428,7 +424,7 @@ const NavigationModule = (() => {
         await showProjectDetail(fallback.projectName, fallback.category, event);
         return;
       }
-      renderProjectGone(document.getElementById('project-detail'), fallback?.projectName);
+      renderProjectGone(window.DetailPanel.open(getCategoryStyle(fallback?.category).color), fallback?.projectName);
       return;
     }
     // Délègue au rendu complet avec toutes les données
@@ -542,8 +538,7 @@ const NavigationModule = (() => {
 
     // Garde : un même projet déjà affiché n'est pas re-rendu (rafales de clics)
     const projectKey = `${projectName}::${category}`;
-    if (_lastShownProject === projectKey) return;
-    _lastShownProject = projectKey;
+    if (window.DetailPanel.isShowing(projectKey)) return;
 
     // Consultation d'un projet : l'événement métier central de la carte publique.
     window.OPAnalytics?.capture('project_opened', {
@@ -551,14 +546,14 @@ const NavigationModule = (() => {
       category: category || null,
     });
 
-    const panel = window.DetailPanel.open(getCategoryStyle(category).color);
+    const panel = window.DetailPanel.open(getCategoryStyle(category).color, projectKey);
     if (!panel) return;
     panel.innerHTML = '<p style="padding:1em">Chargement…</p>';
 
     try {
       const project = await fetchProject(projectName, category, enrichedProps);
       if (!project) {
-        _lastShownProject = null; // allow re-click after dismissal
+        window.DetailPanel.forget(); // un nouveau clic retente
         // Le projet a disparu du serveur : la carte affiche encore ses points,
         // on la remet à jour avant de l'annoncer au visiteur. Le cooldown de
         // resyncStaleProjects évite d'enchaîner deux resynchronisations quand
@@ -587,6 +582,7 @@ const NavigationModule = (() => {
       panToProject(projectName, category);
     } catch (e) {
       console.error('[NavigationModule] Error in showProjectDetail:', e);
+      window.DetailPanel.forget(); // un nouveau clic retente
       panel.innerHTML = `<h3>${window.SecurityUtils.escapeHtml(projectName)}</h3><p>Aucun détail disponible.</p>`;
     }
 
@@ -623,8 +619,6 @@ const NavigationModule = (() => {
    */
   const resetToDefaultView = async (category, options = {}) => {
     const { preserveMapView = false, updateHistory = false } = options;
-
-    _lastShownProject = null;
 
     // État de la navigation lu AVANT la fermeture, qui peut la rouvrir
     const navState = window.NavPanel?.getState?.();
@@ -718,7 +712,8 @@ const NavigationModule = (() => {
     fitVisibleLayers,
     zoomOutOnLoadedLayers,
     resetToDefaultView,
-    _resetProjectGuard: () => { _lastShownProject = null; },
+    // Pour les tests : laisse re-rendre le projet affiché
+    _resetProjectGuard: () => window.DetailPanel.forget(),
     highlightProjectOnMap,
     panToProject,
     clearProjectHighlight,

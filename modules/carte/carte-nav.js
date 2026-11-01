@@ -182,10 +182,8 @@
 
     li.addEventListener('mouseleave', () => {
       if (focusTimer) { clearTimeout(focusTimer); focusTimer = null; }
-      const detailPanel = document.getElementById('project-detail');
-      if (!detailPanel || detailPanel.style.display !== 'block') {
-        win.NavigationModule?.clearProjectHighlight();
-      }
+      // Fiche ouverte : son projet reste en surbrillance
+      if (!win.DetailPanel?.isOpen()) win.NavigationModule?.clearProjectHighlight();
     });
 
     return li;
@@ -199,9 +197,7 @@
     const layersToDisplay = layersMap[category] || [category];
     const travauxLayerSet = new Set(layersMap['travaux'] || ['travaux']);
 
-    const detailPanel = document.getElementById('project-detail');
-    if (detailPanel) detailPanel.style.display = 'none';
-    win.NavigationModule?._resetProjectGuard?.();
+    win.DetailPanel?.hide();
 
     win.FilterModule?.resetAll?.();
 

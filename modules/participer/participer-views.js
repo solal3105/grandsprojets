@@ -557,17 +557,14 @@
    *   les étapes du suivi ; l'appelant le tient de la configuration en cache
    */
   function openParticiperModal({ own, signalement: s, events }, statuts) {
-    const panel = document.getElementById('project-detail');
+    const color = safeColor(s.category_color);
+    const panel = win.DetailPanel.open(color);
     if (!panel) return;
 
-    const color = safeColor(s.category_color);
     const date = s.created_at ? new Date(s.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
 
     panel.innerHTML = `
-      <div class="detail-overlay-btns">
-        <button id="detail-back-btn" class="detail-back-floating" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i></button>
-        <button id="detail-close-btn" class="detail-close-floating" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
-      </div>
+      ${win.DetailPanel.OVERLAY_BUTTONS}
       <div class="detail-scroll-body">
         <div class="detail-hero ${s.photo_url ? '' : 'detail-hero--participer'}" style="--pt-color:${color}">
           ${s.photo_url
@@ -610,17 +607,8 @@
         </div>
       </div>`;
 
-    panel.style.setProperty('--cat-color', color);
-    panel.style.display = 'flex';
-    win.NavPanel?.collapse?.();
-
-    const dismiss = () => {
-      panel.style.display = 'none';
-      panel.innerHTML = '';
-      if (win.NavPanel?.getState?.()?.level > 0) win.NavPanel.expand();
-    };
-    panel.querySelector('#detail-back-btn')?.addEventListener('click', dismiss);
-    panel.querySelector('#detail-close-btn')?.addEventListener('click', dismiss);
+    const dismiss = () => win.DetailPanel.close({ clear: true });
+    win.DetailPanel.bindButtons(panel, { onBack: dismiss, onClose: dismiss });
 
     panel.querySelector('#pt-retrait-toggle')?.addEventListener('click', () => {
       const form = panel.querySelector('#pt-retrait-form');

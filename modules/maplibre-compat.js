@@ -20,7 +20,7 @@
   // changement de style, calque déjà retiré…) : on continue, mais l'échec reste
   // visible en mode debug au lieu d'être avalé sans trace.
   function quiet(label, fn) {
-    try { return fn(); } catch (e) { console.debug(`[MapLibreCompat] ${label} ignoré :`, e); }
+    try { return fn(); } catch (e) { console.debug(`[MapLibreCompat] échec ignoré (${label}) :`, e); }
   }
 
   // Retire des calques puis leur source, chacun seulement s'il existe encore.
@@ -181,7 +181,7 @@
           _colorCache.set(color, result);
           return result;
         }
-      } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
+      } catch (e) { console.debug('[MapLibreCompat] échec ignoré (couleur non résolue par le navigateur) :', e); }
       // Fallback: probe returned same string (P3 display) - parse color(srgb …) directly
       const direct = _parseBrowserColor(raw);
       if (direct) {
@@ -353,10 +353,10 @@
       this._activeFilter = filterExpr;
       this._activeMlMap = mlMap;
       for (const pool of this._pools.values()) {
-        try {
+        quiet(`filtre du calque ${pool.layerId}`, () => {
           if (mlMap.getLayer(pool.layerId)) mlMap.setFilter(pool.layerId, filterExpr);
           if (pool.fillLayerId && mlMap.getLayer(pool.fillLayerId)) mlMap.setFilter(pool.fillLayerId, filterExpr);
-        } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
+        });
       }
     }
 
@@ -364,10 +364,10 @@
     _applyFilterToPool(pool) {
       if (!this._activeFilter || !this._activeMlMap) return;
       const mlMap = this._activeMlMap;
-      try {
+      quiet(`filtre du calque ${pool.layerId}`, () => {
         if (mlMap.getLayer(pool.layerId)) mlMap.setFilter(pool.layerId, this._activeFilter);
         if (pool.fillLayerId && mlMap.getLayer(pool.fillLayerId)) mlMap.setFilter(pool.fillLayerId, this._activeFilter);
-      } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
+      });
     }
 
     // Clear filters on all pool layers
@@ -378,7 +378,7 @@
     // Update line-width paint property on all pool layers (O(pools) instead of per-feature setStyle)
     setLineWidth(mlMap, width) {
       for (const pool of this._pools.values()) {
-        try {
+        quiet(`épaisseur du calque ${pool.layerId}`, () => {
           if (mlMap.getLayer(pool.layerId)) {
             mlMap.setPaintProperty(pool.layerId, 'line-width', [
               'case',
@@ -387,7 +387,7 @@
               width
             ]);
           }
-        } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
+        });
       }
     }
 
@@ -474,18 +474,18 @@
         const lineExpr = pool._hasPerFeatureColor ? ['coalesce', ['get', '_color'], newColor] : newColor;
         const fillExpr = pool._hasPerFeatureColor ? ['coalesce', ['get', '_color'], newFill] : newFill;
 
-        try {
+        quiet(`couleur du calque ${pool.layerId}`, () => {
           if (mlMap.getLayer(pool.layerId)) {
             mlMap.setPaintProperty(pool.layerId, 'line-color', lineExpr);
           }
-        } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
+        });
 
         if (pool.fillLayerId) {
-          try {
+          quiet(`remplissage du calque ${pool.fillLayerId}`, () => {
             if (mlMap.getLayer(pool.fillLayerId)) {
               mlMap.setPaintProperty(pool.fillLayerId, 'fill-color', fillExpr);
             }
-          } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
+          });
         }
       }
     }
@@ -1134,10 +1134,10 @@
       // Change cursor on hover
       this._cursorEnter = () => { mlMap.getCanvas().style.cursor = 'pointer'; };
       this._cursorLeave = () => { mlMap.getCanvas().style.cursor = ''; };
-      try {
+      quiet(`curseur au survol de ${targetLayerId}`, () => {
         mlMap.on('mouseenter', targetLayerId, this._cursorEnter);
         mlMap.on('mouseleave', targetLayerId, this._cursorLeave);
-      } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
+      });
     }
     _unbindMapEvents(mlMap) {
       if (!this._mlEventHandlers) return;
@@ -1145,10 +1145,10 @@
       Object.entries(this._mlEventHandlers).forEach(([ev, handler]) => {
         quiet(`fin d'écoute ${ev}`, () => mlMap.off(ev, targetLayerId, handler));
       });
-      try {
+      quiet(`fin du curseur au survol de ${targetLayerId}`, () => {
         if (this._cursorEnter) mlMap.off('mouseenter', targetLayerId, this._cursorEnter);
         if (this._cursorLeave) mlMap.off('mouseleave', targetLayerId, this._cursorLeave);
-      } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
+      });
     }
     getBounds() {
       const coords = this._getAllCoords();
@@ -1383,11 +1383,11 @@
     }
     _applyStyle() {
       const mlMap = this._map._mlMap || this._map;
-      try {
+      quiet(`style du tracé ${this._layerId}`, () => {
         if (this._style.fillColor) mlMap.setPaintProperty(this._fillLayerId, 'fill-color', resolveColor(this._style.fillColor));
         if (this._style.fillOpacity !== undefined) mlMap.setPaintProperty(this._fillLayerId, 'fill-opacity', this._style.fillOpacity);
         if (this._style.color) mlMap.setPaintProperty(this._layerId, 'line-color', resolveColor(this._style.color));
-      } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
+      });
     }
   }
 
@@ -1766,7 +1766,7 @@
           ? style(this._pathFeatures[0]) : (typeof style === 'object' ? style : {});
         for (const { layerIds } of this._directSourceIds) {
           for (const lid of layerIds) {
-            try {
+            quiet(`style du calque ${lid}`, () => {
               if (lid.endsWith('-fill')) {
                 if (s.fillColor || s.color) mlMap.setPaintProperty(lid, 'fill-color', resolveColor(s.fillColor || s.color));
                 if (s.fillOpacity !== undefined) mlMap.setPaintProperty(lid, 'fill-opacity', s.fillOpacity);
@@ -1775,7 +1775,7 @@
                 if (s.weight !== undefined) mlMap.setPaintProperty(lid, 'line-width', s.weight);
                 if (s.opacity !== undefined) mlMap.setPaintProperty(lid, 'line-opacity', s.opacity);
               }
-            } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
+            });
           }
         }
       }
@@ -2441,11 +2441,11 @@
       try {
         const src = mlMap.getSource(srcId);
         if (src) { src.setData(data); return; }
-      } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
-      try {
+      } catch (e) { console.debug("[MapLibreCompat] échec ignoré (mise à jour de l'aperçu de tracé) :", e); }
+      quiet("création de l'aperçu de tracé", () => {
         mlMap.addSource(srcId, { type: 'geojson', data: data });
         mlMap.addLayer({ id: layId, type: 'line', source: srcId, paint: { 'line-color': resolveColor(_defaultColor), 'line-width': 3, 'line-dasharray': [3, 3] }});
-      } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
+      });
     }
     _removePreview(mlMap) {
       removeLayersAndSource(mlMap, ['_draw_preview_layer'], '_draw_preview_src');
@@ -2521,14 +2521,14 @@
       try {
         const src = mlMap.getSource(srcId);
         if (src) { src.setData(data); return; }
-      } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
-      try {
+      } catch (e) { console.debug("[MapLibreCompat] échec ignoré (mise à jour de l'aperçu de tracé) :", e); }
+      quiet("création de l'aperçu de tracé", () => {
         mlMap.addSource(srcId, { type: 'geojson', data: data });
         if (geomType === 'Polygon') {
           mlMap.addLayer({ id: fillId, type: 'fill', source: srcId, paint: { 'fill-color': resolveColor(_defaultColor), 'fill-opacity': 0.15 }});
         }
         mlMap.addLayer({ id: layId, type: 'line', source: srcId, paint: { 'line-color': resolveColor(_defaultColor), 'line-width': 3, 'line-dasharray': [3, 3] }});
-      } catch (e) { console.debug('[MapLibreCompat] opération de carte ignorée :', e); }
+      });
     }
     _removePreview(mlMap) {
       removeLayersAndSource(mlMap, ['_draw_preview_layer', '_draw_preview_fill'], '_draw_preview_src');

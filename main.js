@@ -271,39 +271,39 @@
     if (MapModule?.map) {
       MapModule.map.setTerrain(mode3DState);
       MapModule.map.setBuildings3D(mode3DState);
-  }
-  win.toggleManager?.on('mode3d', (active) => {
-    if (MapModule?.map) {
-      MapModule.map.setTerrain(active);
-      MapModule.map.setBuildings3D(active);
     }
-  });
-  win.toggleManager?.markReady('mode3d');
+    win.toggleManager?.on('mode3d', (active) => {
+      if (MapModule?.map) {
+        MapModule.map.setTerrain(active);
+        MapModule.map.setBuildings3D(active);
+      }
+    });
+    win.toggleManager?.markReady('mode3d');
 
-  // Theme - delegate to ThemeManager (applyTheme → onThemeChanged handles all MapLibre updates)
-  win.toggleManager?.on('theme', () => {
-    win.ThemeManager?.toggle();
-    const dock = document.getElementById('toggle-dock');
-    if (dock) {
-      dock.classList.remove('toggle-dock--shimmer');
-      void dock.offsetWidth;
-      dock.classList.add('toggle-dock--shimmer');
-      dock.addEventListener('animationend', () => dock.classList.remove('toggle-dock--shimmer'), { once: true });
-    }
-    const sb = document.getElementById('gp-sidebar');
-    if (sb) {
-      sb.classList.remove('gp-sidebar--shimmer');
-      void sb.offsetWidth;
-      sb.classList.add('gp-sidebar--shimmer');
-      sb.addEventListener('animationend', () => sb.classList.remove('gp-sidebar--shimmer'), { once: true });
-    }
-  });
+    // Theme - delegate to ThemeManager (applyTheme → onThemeChanged handles all MapLibre updates)
+    win.toggleManager?.on('theme', () => {
+      win.ThemeManager?.toggle();
+      const dock = document.getElementById('toggle-dock');
+      if (dock) {
+        dock.classList.remove('toggle-dock--shimmer');
+        void dock.offsetWidth;
+        dock.classList.add('toggle-dock--shimmer');
+        dock.addEventListener('animationend', () => dock.classList.remove('toggle-dock--shimmer'), { once: true });
+      }
+      const sb = document.getElementById('gp-sidebar');
+      if (sb) {
+        sb.classList.remove('gp-sidebar--shimmer');
+        void sb.offsetWidth;
+        sb.classList.add('gp-sidebar--shimmer');
+        sb.addEventListener('animationend', () => sb.classList.remove('gp-sidebar--shimmer'), { once: true });
+      }
+    });
 
-  // Synchronisation automatique du thème avec l'OS
-  // (désactivé si la ville a un basemap configuré pour éviter les conflits)
-  if (!win._cityPreferredBasemap) {
-    win.ThemeManager?.startOSThemeSync();
-  }
+    // Synchronisation automatique du thème avec l'OS
+    // (désactivé si la ville a un basemap configuré pour éviter les conflits)
+    if (!win._cityPreferredBasemap) {
+      win.ThemeManager?.startOSThemeSync();
+    }
   }
 
   /**
@@ -434,43 +434,43 @@
       console.warn('[Main] Init terminée avec une erreur partielle - app utilisable.');
       try { markLoadComplete(); } catch { /* noop */ }
       return;
-  }
+    }
 
-  // Afficher un message d'erreur visible pour l'utilisateur
-  try {
-    // Éviter les doublons si déjà affiché
-    if (document.getElementById('init-error-message')) return;
-    const errorDiv = document.createElement('div');
-    errorDiv.id = 'init-error-message';
-    errorDiv.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: #ff4444;
-      color: white;
-      padding: 20px 30px;
-      border-radius: 10px;
-      z-index: 9999;
-      font-family: sans-serif;
-      text-align: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    `;
-    errorDiv.innerHTML = `
-      <h3 style="margin: 0 0 10px 0;">Erreur de chargement</h3>
-      <p style="margin: 0 0 15px 0;">L'application n'a pas pu se charger correctement.</p>
-      <button onclick="location.reload()" style="
-        background: white;
-        color: #ff4444;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-weight: bold;
-      ">Réessayer</button>
-    `;
-    document.body.appendChild(errorDiv);
-  } catch (e) { console.debug('[main] Failed to display init error message:', e); }
+    // Afficher un message d'erreur visible pour l'utilisateur
+    try {
+      // Éviter les doublons si déjà affiché
+      if (document.getElementById('init-error-message')) return;
+      const errorDiv = document.createElement('div');
+      errorDiv.id = 'init-error-message';
+      errorDiv.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #ff4444;
+        color: white;
+        padding: 20px 30px;
+        border-radius: 10px;
+        z-index: 9999;
+        font-family: sans-serif;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      `;
+      errorDiv.innerHTML = `
+        <h3 style="margin: 0 0 10px 0;">Erreur de chargement</h3>
+        <p style="margin: 0 0 15px 0;">L'application n'a pas pu se charger correctement.</p>
+        <button onclick="location.reload()" style="
+          background: white;
+          color: #ff4444;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-weight: bold;
+        ">Réessayer</button>
+      `;
+      document.body.appendChild(errorDiv);
+    } catch (e) { console.debug('[main] Failed to display init error message:', e); }
   }
 
   /**
