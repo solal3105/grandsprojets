@@ -631,7 +631,7 @@
 
       if (isTravaux(feature)) {
         this._spotlight(feature);
-        win.DataModule?.openTravauxModal?.(p);
+        win.TravauxViews?.openDetail?.(p);
       }
     },
 

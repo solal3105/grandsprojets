@@ -816,15 +816,15 @@ test.describe('0.16 - Routage clic feature', () => {
    */
   async function installRoutingStubs(page) {
     await page.evaluate(() => {
-      const calls = { openTravauxModal: 0, showDetailPanel: 0, showProjectDetail: 0, showProjectDetailById: 0, lastArgs: null };
+      const calls = { openTravauxDetail: 0, showDetailPanel: 0, showProjectDetail: 0, showProjectDetailById: 0, lastArgs: null };
       window.__routeCalls = calls;
       // Stub spotlight (ne pas toucher à la carte)
       if (window.FeatureInteractions) {
         window.FeatureInteractions._spotlight = () => {};
       }
       // Stub des destinations
-      window.DataModule = window.DataModule || {};
-      window.DataModule.openTravauxModal = (p) => { calls.openTravauxModal++; calls.lastArgs = { route: 'travaux', p }; };
+      window.TravauxViews = window.TravauxViews || {};
+      window.TravauxViews.openDetail = (p) => { calls.openTravauxDetail++; calls.lastArgs = { route: 'travaux', p }; };
       window.UIModule = window.UIModule || {};
       window.UIModule.showDetailPanel = (cat, feat) => { calls.showDetailPanel++; calls.lastArgs = { route: 'showDetailPanel', cat, feat }; };
       window.NavigationModule = window.NavigationModule || {};
@@ -846,7 +846,7 @@ test.describe('0.16 - Routage clic feature', () => {
       window.FeatureInteractions._openFeature(feature);
       return window.__routeCalls;
     });
-    expect(calls.openTravauxModal).toBe(0);
+    expect(calls.openTravauxDetail).toBe(0);
     // id présent → route par ID
     expect(calls.showProjectDetailById).toBe(1);
     expect(calls.lastArgs.id).toBe(123);
@@ -865,7 +865,7 @@ test.describe('0.16 - Routage clic feature', () => {
       window.FeatureInteractions._openFeature(feature);
       return window.__routeCalls;
     });
-    expect(calls.openTravauxModal).toBe(0);
+    expect(calls.openTravauxDetail).toBe(0);
     expect(calls.showDetailPanel).toBe(1);
     expect(calls.lastArgs.cat).toBe('urbanisme');
   });
@@ -891,7 +891,7 @@ test.describe('0.16 - Routage clic feature', () => {
       window.FeatureInteractions._openFeature(feature);
       return window.__routeCalls;
     });
-    expect(calls.openTravauxModal).toBe(0);
+    expect(calls.openTravauxDetail).toBe(0);
     expect(calls.showProjectDetailById).toBe(1);
   });
 
@@ -908,7 +908,7 @@ test.describe('0.16 - Routage clic feature', () => {
       window.FeatureInteractions._openFeature(feature);
       return window.__routeCalls;
     });
-    expect(calls.openTravauxModal).toBe(1);
+    expect(calls.openTravauxDetail).toBe(1);
     expect(calls.showProjectDetailById).toBe(0);
     expect(calls.showDetailPanel).toBe(0);
   });
@@ -926,7 +926,7 @@ test.describe('0.16 - Routage clic feature', () => {
       window.FeatureInteractions._openFeature(feature);
       return window.__routeCalls;
     });
-    expect(calls.openTravauxModal).toBe(0);
+    expect(calls.openTravauxDetail).toBe(0);
     expect(calls.showDetailPanel).toBe(0);
     expect(calls.showProjectDetail).toBe(0);
     expect(calls.showProjectDetailById).toBe(0);

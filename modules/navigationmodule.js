@@ -342,7 +342,6 @@ const NavigationModule = (() => {
 
   // Guard pour éviter les appels redondants (CRITIQUE pour performances)
   let _lastShownProject = null;
-  let _showProjectDebounceTimer = null;
 
   // ── Carte périmée ────────────────────────────────────────────────────────
   // Un onglet laissé ouvert pendant qu'un espace est régénéré (démo salon) ou
@@ -436,58 +435,8 @@ const NavigationModule = (() => {
     showProjectDetail(contributionProject.project_name, contributionProject.category, event, contributionProject);
   }
 
-  async function showProjectDetail(projectName, category, event, enrichedProps = null) {
-  if (event?.stopPropagation) {
-    event.stopPropagation();
-  }
-  
-  // GUARD: Éviter les appels redondants qui causent out of memory
-  const projectKey = `${projectName}::${category}`;
-  
-  if (_lastShownProject === projectKey) {
-    return; // Déjà affiché, skip
-  }
-  
-  // Debounce pour éviter les appels en rafale
-  if (_showProjectDebounceTimer) {
-    clearTimeout(_showProjectDebounceTimer);
-  }
-  
-  _showProjectDebounceTimer = setTimeout(() => {
-    _showProjectDebounceTimer = null;
-  }, 100);
-  
-  _lastShownProject = projectKey;
-
-  // Consultation d'un projet : l'événement métier central de la carte publique.
-  window.OPAnalytics?.capture('project_opened', {
-    project_name: projectName,
-    category: category || null,
-  });
-
-  // Stop any in-flight map animation (e.g. hover-triggered fitBounds) before
-  // starting our own sequence - otherwise the collapse easeTo will cancel it
-  // mid-flight, producing a visible zoom-out glitch.
-  try {
-    const mlMap = window.MapModule?.map?._mlMap;
-    if (mlMap?.stop) mlMap.stop();
-  } catch (e) { console.debug('[nav] stop map animation failed:', e); }
-
-  // Hide NavPanel if open - preserve state so it can be restored on back
-  window.NavPanel?.collapse();
-  // Reset any persistent map padding BEFORE fitBounds runs.
-  // In MapLibre GL v4, fitBounds ADDS its padding to the map's internal
-  // padding (set by easeTo). If we don't reset first, the two stack and
-  // the total can exceed the viewport - especially on mobile where
-  // bottom padding alone would be 2 × 62 vh ≈ 124 % of screen height.
-  try {
-    const mlMap = window.MapModule?.map?._mlMap;
-    if (mlMap && typeof mlMap.jumpTo === 'function') {
-      mlMap.jumpTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 } });
-    }
-  } catch (e) { console.debug('[nav] reset map padding failed:', e); }
-
-  const resolveAssetUrl = (u) => {
+  /** Adresse d'une image d'article : les chemins relatifs suivent la page. */
+  function resolveAssetUrl(u) {
     try {
       if (!u) return u;
       if (/^https?:\/\//i.test(u)) return u;
@@ -500,183 +449,156 @@ const NavigationModule = (() => {
       }
       return u;
     } catch (e) { console.debug('[nav] resolveAssetUrl failed:', e); return u; }
-  };
-
-  const panel = document.getElementById('project-detail');
-  panel.innerHTML = '<p style="padding:1em">Chargement…</p>';
-  panel.style.display = 'flex';
-  panel.style.removeProperty('max-height');
-  panel.style.removeProperty('overflow');
-
-  // Apply category color to the detail panel
-  const { color: catColor } = getCategoryStyle(category);
-  panel.style.setProperty('--cat-color', catColor);
-
-  // Debug: vérifier la couleur primaire
-  const computedPrimary = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
-  if (!computedPrimary || computedPrimary === '') {
-    console.debug('[NavigationModule] --color-primary not set, applying city branding...');
-    const currentCity = window.supabaseService?.getActiveCity?.();
-    if (currentCity && window.CityBrandingModule) {
-      await window.CityBrandingModule.loadAndApplyBranding(currentCity, true);
-    }
   }
 
-  try {
-    let contributionProject = null;
-    
-    if (enrichedProps) {
-      // Spread de tous les champs enrichis (id, project_name, category,
-      // cover_url, description, markdown_url, ville, official_url, tags…)
-      // pour que le rendu voie les mêmes données que la route par ID.
-      contributionProject = { ville: '', ...enrichedProps };
-    } else if (window.supabaseService?.fetchProjectByCategoryAndName) {
-      try {
-        contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(category, projectName);
-      } catch (error) {
-        console.debug('[NavigationModule] Error fetching project:', error);
-      }
+  /** Première image d'un article rendu, faute de couverture déclarée. */
+  function extractFirstImageSrc(markup) {
+    try {
+      if (!markup) return null;
+      const img = new DOMParser().parseFromString(markup, 'text/html').querySelector('img');
+      return img?.getAttribute('src') || img?.getAttribute('data-src') || null;
+    } catch (e) { console.debug('[nav] extractFirstImageSrc failed:', e); return null; }
+  }
+
+  /** Charge MarkdownUtils à la demande (la carte ne l'embarque pas au démarrage). */
+  async function ensureMarkdownUtils() {
+    if (!window.MarkdownUtils) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = '/modules/MarkdownUtils.js';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Échec du chargement de MarkdownUtils'));
+        document.head.appendChild(script);
+      });
     }
+    await window.MarkdownUtils.ensure();
+  }
 
-    // Vérifier si contributionProject existe avant d'accéder à ses propriétés
-    if (!contributionProject) {
-      _lastShownProject = null; // allow re-click after dismissal
-      // Le projet a disparu du serveur : la carte affiche encore ses points,
-      // on la remet à jour avant de l'annoncer au visiteur. Le cooldown de
-      // resyncStaleProjects évite d'enchaîner deux resynchronisations quand
-      // l'appel vient déjà de la route par identifiant.
-      await resyncStaleProjects();
-      renderProjectGone(panel, projectName);
-      return;
-    }
-
-    projectName = contributionProject.project_name;
-    category = contributionProject.category;
-    let cover_url = contributionProject.cover_url;
-    let description = contributionProject.description;
-    let markdown_url = contributionProject.markdown_url;
-
+  /**
+   * Ce qui complète la ligne du projet : l'en-tête de son article markdown
+   * (couverture, tracé, trafic, description) et la présence de dossiers de
+   * concertation, chargés en parallèle.
+   * @returns {Promise<{ attrs: Object, html: string, hasDossiers: boolean }>}
+   */
+  async function loadProjectExtras(project) {
     let markdown = null;
     let hasDossiers = false;
-
-    // Fetch markdown + check dossiers concurrently
     await Promise.all([
-      markdown_url
-        ? fetch(markdown_url)
+      project.markdown_url
+        ? fetch(project.markdown_url)
             .then(r => r.ok ? r.text() : null)
             .then(text => { markdown = text; })
             .catch(e => console.debug('[NavigationModule] Error fetching markdown:', e))
         : Promise.resolve(),
-      window.supabaseService?.getConsultationDossiersByProject?.(projectName)
+      window.supabaseService?.getConsultationDossiersByProject?.(project.project_name)
         .then(d => { hasDossiers = Array.isArray(d) && d.length > 0; })
         .catch(() => {})
     ]);
-    
-    let attrs = {};
-    let html = '';
-    if (markdown) {
-      // Charger MarkdownUtils si nécessaire, puis ses dépendances
-      if (!window.MarkdownUtils) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = '/modules/MarkdownUtils.js';
-          script.onload = resolve;
-          script.onerror = () => reject(new Error('Échec du chargement de MarkdownUtils'));
-          document.head.appendChild(script);
-        });
-      }
-      await window.MarkdownUtils.ensure();
-      ({ attrs, html } = window.MarkdownUtils.renderMarkdown(markdown));
-    }
-    
+    if (!markdown) return { attrs: {}, html: '', hasDossiers };
+    await ensureMarkdownUtils();
+    return { ...window.MarkdownUtils.renderMarkdown(markdown), hasDossiers };
+  }
 
-    const extractFirstImageSrc = (markup) => {
-      try {
-        if (!markup) return null;
-        const doc = new DOMParser().parseFromString(markup, 'text/html');
-        const img = doc.querySelector('img');
-        const src = img?.getAttribute('src') || img?.getAttribute('data-src');
-        return src || null;
-      } catch (e) { console.debug('[nav] extractFirstImageSrc failed:', e); return null; }
-    };
+  const CATEGORY_ICONS = { velo: 'fa-bicycle', mobilite: 'fa-train-tram', urbanisme: 'fa-building' };
 
-    // Utiliser les données de contribution_uploads en priorité
-    const coverCandidate = cover_url || attrs.cover || extractFirstImageSrc(html);
-    const icons = { velo: 'fa-bicycle', mobilite: 'fa-train-tram', urbanisme: 'fa-building' };
-    const safeName = window.SecurityUtils.escapeHtml(projectName);
+  /** Contenu HTML de la fiche projet (barre Retour / Fermer comprise). */
+  function projectDetailHTML(project, { attrs, html, hasDossiers }) {
+    const esc = window.SecurityUtils.escapeHtml;
+    const { project_name: name, category } = project;
+    const safeName = esc(name);
+    const cover = project.cover_url || attrs.cover || extractFirstImageSrc(html);
+    const description = project.description || attrs.description;
 
-    // Chips
-    const _esc = window.SecurityUtils.escapeHtml;
     const chips = [];
-    if (attrs.from || attrs.to) chips.push(`<span class="detail-chip"><i class="fa-solid fa-route"></i>${_esc(attrs.from || '')}${attrs.to ? ` → ${_esc(attrs.to)}` : ''}</span>`);
-    if (attrs.trafic) chips.push(`<span class="detail-chip"><i class="fa-solid fa-car"></i>${_esc(attrs.trafic)}</span>`);
+    if (attrs.from || attrs.to) chips.push(`<span class="detail-chip"><i class="fa-solid fa-route"></i>${esc(attrs.from || '')}${attrs.to ? ` → ${esc(attrs.to)}` : ''}</span>`);
+    if (attrs.trafic) chips.push(`<span class="detail-chip"><i class="fa-solid fa-car"></i>${esc(attrs.trafic)}</span>`);
 
-    // Description
-    description = description || attrs.description;
-
-    // Full page URL - format /fiche/{ville}/{category_slug}/{slug}
-    const currentCity = contributionProject?.ville || window.supabaseService?.getActiveCity?.() || '';
-    const fullPageUrl = (currentCity && contributionProject?.category_slug && contributionProject?.slug)
-      ? `/fiche/${encodeURIComponent(currentCity)}/${encodeURIComponent(contributionProject.category_slug)}/${encodeURIComponent(contributionProject.slug)}`
+    // Fiche complète : /fiche/{ville}/{category_slug}/{slug}
+    const city = project.ville || window.supabaseService?.getActiveCity?.() || '';
+    const fullPageUrl = (city && project.category_slug && project.slug)
+      ? `/fiche/${encodeURIComponent(city)}/${encodeURIComponent(project.category_slug)}/${encodeURIComponent(project.slug)}`
       : null;
+    const hasRichContent = !!(project.markdown_url || project.official_url || hasDossiers);
 
-    // Hero cover (expand btn only - back/close live in the permanent overlay bar)
-    const heroHTML = coverCandidate
-      ? `<div class="detail-hero"><img class="detail-hero__img" src="${_esc(resolveAssetUrl(coverCandidate))}" alt="${_esc(attrs.name || projectName || '')}" loading="eager"><div class="detail-hero__grad"></div><button class="detail-hero__expand" aria-label="Agrandir l'image" title="Agrandir"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button></div>`
+    const heroHTML = cover
+      ? `<div class="detail-hero"><img class="detail-hero__img" src="${esc(resolveAssetUrl(cover))}" alt="${esc(attrs.name || name || '')}" loading="eager"><div class="detail-hero__grad"></div><button class="detail-hero__expand" aria-label="Agrandir l'image" title="Agrandir"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button></div>`
       : '';
-
-    const hasRichContent = !!(contributionProject.markdown_url || contributionProject.official_url || hasDossiers);
     const footerHTML = (hasRichContent && fullPageUrl)
       ? `<div class="detail-footer"><button type="button" class="detail-fullpage-btn" data-fiche-url="${fullPageUrl}" data-fiche-name="${safeName}"><i class="fa-solid fa-newspaper"></i>Voir la fiche complète</button></div>`
       : '';
 
-    panel.innerHTML = `<div class="detail-overlay-btns"><button id="detail-back-btn" class="detail-back-floating" aria-label="Retour"><i class="fa-solid fa-arrow-left"></i></button><button id="detail-close-btn" class="detail-close-floating" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button></div><div class="detail-scroll-body${coverCandidate ? '' : ' detail-scroll-body--no-hero'}">${heroHTML}<div class="detail-content-wrap"><div class="detail-title-row"><span class="detail-cat-icon"><i class="fa-solid ${icons[category] || 'fa-map'}"></i></span><h3 class="detail-title">${safeName}</h3></div>${chips.length ? `<div class="detail-chips">${chips.join('')}</div>` : ''}${description ? `<p class="detail-description">${_esc(description)}</p>` : ''}</div></div>${footerHTML}`;
-    
+    return `${window.DetailPanel.OVERLAY_BUTTONS}<div class="detail-scroll-body${cover ? '' : ' detail-scroll-body--no-hero'}">${heroHTML}<div class="detail-content-wrap"><div class="detail-title-row"><span class="detail-cat-icon"><i class="fa-solid ${CATEGORY_ICONS[category] || 'fa-map'}"></i></span><h3 class="detail-title">${safeName}</h3></div>${chips.length ? `<div class="detail-chips">${chips.join('')}</div>` : ''}${description ? `<p class="detail-description">${esc(description)}</p>` : ''}</div></div>${footerHTML}`;
+  }
 
-    // Wire up Extend button in this panel
-    (function(){
-      const heroEl = panel.querySelector('.detail-hero');
-      if (!heroEl) return;
-      const btn = heroEl.querySelector('.detail-hero__expand');
-      const img = heroEl.querySelector('.detail-hero__img');
-      if (!btn || !img) return;
-      btn?.addEventListener('click', () => {
-        if (window.Lightbox) window.Lightbox.open(img.getAttribute('src'), img.getAttribute('alt'));
+  /** Ligne complète du projet : celle déjà connue, sinon relue par nom. */
+  async function fetchProject(projectName, category, enrichedProps) {
+    // Les champs enrichis (id, cover_url, description, markdown_url, ville,
+    // official_url, tags…) donnent le même rendu que la route par ID.
+    if (enrichedProps) return { ville: '', ...enrichedProps };
+    try {
+      return await window.supabaseService?.fetchProjectByCategoryAndName?.(category, projectName) || null;
+    } catch (error) {
+      console.debug('[NavigationModule] Error fetching project:', error);
+      return null;
+    }
+  }
+
+  async function showProjectDetail(projectName, category, event, enrichedProps = null) {
+    event?.stopPropagation?.();
+
+    // Garde : un même projet déjà affiché n'est pas re-rendu (rafales de clics)
+    const projectKey = `${projectName}::${category}`;
+    if (_lastShownProject === projectKey) return;
+    _lastShownProject = projectKey;
+
+    // Consultation d'un projet : l'événement métier central de la carte publique.
+    window.OPAnalytics?.capture('project_opened', {
+      project_name: projectName,
+      category: category || null,
+    });
+
+    const panel = window.DetailPanel.open(getCategoryStyle(category).color);
+    if (!panel) return;
+    panel.innerHTML = '<p style="padding:1em">Chargement…</p>';
+
+    try {
+      const project = await fetchProject(projectName, category, enrichedProps);
+      if (!project) {
+        _lastShownProject = null; // allow re-click after dismissal
+        // Le projet a disparu du serveur : la carte affiche encore ses points,
+        // on la remet à jour avant de l'annoncer au visiteur. Le cooldown de
+        // resyncStaleProjects évite d'enchaîner deux resynchronisations quand
+        // l'appel vient déjà de la route par identifiant.
+        await resyncStaleProjects();
+        renderProjectGone(panel, projectName);
+        return;
+      }
+      projectName = project.project_name;
+      category = project.category;
+
+      panel.innerHTML = projectDetailHTML(project, await loadProjectExtras(project));
+
+      const img = panel.querySelector('.detail-hero__img');
+      panel.querySelector('.detail-hero__expand')?.addEventListener('click', () => {
+        window.Lightbox?.open(img.getAttribute('src'), img.getAttribute('alt'));
       });
-    })();
+      window.DetailPanel.bindButtons(panel, {
+        // Retour : sous-menu de la catégorie ; Fermer : état initial (toutes les couches)
+        onBack: () => NavigationModule.resetToDefaultView(category, { preserveMapView: true, updateHistory: true }),
+        onClose: () => NavigationModule.resetToDefaultView(null, { updateHistory: true }),
+      });
 
-    // Bouton "Retour" : retour au submenu de la catégorie
-    const backButton = document.getElementById('detail-back-btn');
-    if (backButton) {
-      backButton.onclick = () => NavigationModule.resetToDefaultView(category, { preserveMapView: true, updateHistory: true });
+      // Highlight visuel + centrage caméra (deux responsabilités séparées)
+      highlightProjectOnMap(projectName, category);
+      panToProject(projectName, category);
+    } catch (e) {
+      console.error('[NavigationModule] Error in showProjectDetail:', e);
+      panel.innerHTML = `<h3>${window.SecurityUtils.escapeHtml(projectName)}</h3><p>Aucun détail disponible.</p>`;
     }
 
-    // Bouton "Fermer" (X) : retour à l'état initial (toutes les couches) via resetToDefaultView
-    const closeButton = document.getElementById('detail-close-btn');
-    if (closeButton) {
-      closeButton.onclick = () => {
-        NavigationModule.resetToDefaultView(null, { updateHistory: true });
-      };
-    }
-    
-    
-    // Highlight visuel + centrage caméra (deux responsabilités séparées)
-    highlightProjectOnMap(projectName, category);
-    panToProject(projectName, category);
-
-  }catch(e){
-    console.error('[NavigationModule] Error in showProjectDetail:', e);
-    const safeProjectName = window.SecurityUtils.escapeHtml(projectName);
-    panel.innerHTML=`<h3>${safeProjectName}</h3><p>Aucun détail disponible.</p>`;
+    // Stocker la catégorie pour le bouton retour
+    if (category) panel.dataset.filterLayer = normalizeCategoryName(category);
   }
-
-  // Stocker la catégorie pour le bouton retour
-  if (category) {
-    projectDetailPanel.dataset.filterLayer = normalizeCategoryName(category);
-  }
-
-}
-
 
   /**
    * Restaure l'opacité normale de tous les layers
@@ -710,20 +632,9 @@ const NavigationModule = (() => {
 
     _lastShownProject = null;
 
-    // ── Common: hide detail panel, restore nav bar, reset map padding ──
-    const projectDetail = document.getElementById('project-detail');
-    if (projectDetail) projectDetail.style.display = 'none';
-
-    // Restore NavPanel if it was collapsed when showing project detail
+    // État de la navigation lu AVANT la fermeture, qui peut la rouvrir
     const navState = window.NavPanel?.getState?.();
-    if (navState?.level > 0) {
-      window.NavPanel.expand();
-    } else {
-      try {
-        const mlMap = window.MapModule?.map?._mlMap;
-        if (mlMap?.easeTo) mlMap.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 300 });
-      } catch (e) { console.debug('[nav] reset padding failed:', e); }
-    }
+    window.DetailPanel.close();
 
     restoreAllLayerOpacity();
     window.FeatureInteractions?.clearSelection?.(true);
