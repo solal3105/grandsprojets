@@ -1,6 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
-import submit from '../netlify/functions/participer-submit.mjs';
+import submit, { lireSignalement } from '../netlify/functions/participer-submit.mjs';
 
 /**
  * Dépôt d'un signalement citoyen (/api/participer/submit) de bout en bout,
@@ -199,5 +199,21 @@ test.describe('0.91 - Dépôt d\'un signalement citoyen, de bout en bout', () =>
     const r = await depot({ ...BASE, category_key: 'eclairage' });
     expect(r.status).toBe(400);
     expect(await r.json()).toEqual({ error: 'Catégorie inconnue' });
+  });
+
+  test('0.91.12 - Lecture du dépôt : espaces retirés, textes bornés, adresse e-mail normalisée', () => {
+    const { depot } = /** @type {any} */ (lireSignalement({
+      ville: ' test-e2e ', email: ' Habitant@Example.org ', category_key: 'voirie', lat: '45.7', lng: '4.8',
+      description: `  ${'d'.repeat(1200)}  `, adresse: '   ',
+    }));
+    expect(depot).toMatchObject({
+      ville: 'test-e2e', email: 'Habitant@Example.org', emailNorm: 'habitant@example.org',
+      categoryKey: 'voirie', lat: 45.7, lng: 4.8, appareil: '', photo: null, adresse: null,
+    });
+    expect(depot.description).toHaveLength(1000);
+    expect(lireSignalement({ ...BASE, photo: `data:image/png;base64,${Buffer.alloc(4 * 1024 * 1024 + 1).toString('base64')}` }))
+      .toEqual({ error: 'Photo trop lourde (4 Mo max)' });
+    expect(lireSignalement({ ...BASE, photo: `data:image/webp;base64,${Buffer.from('w').toString('base64')}` }).depot.photo)
+      .toMatchObject({ mime: 'image/webp', ext: 'webp' });
   });
 });

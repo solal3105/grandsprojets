@@ -7,9 +7,9 @@
    public) et transmise à la mairie, qui doit répondre sous un mois.
    ============================================================================ */
 
-import { isValidCityCode, getCorsHeaders, preflightResp } from './lib/http.mjs';
+import { isValidCityCode } from './lib/http.mjs';
 import {
-  EMAIL_RE, UUID_RE, jsonResp, hasServiceKey, hashIp,
+  EMAIL_RE, UUID_RE, jsonResp, hasServiceKey, hashIp, lireDepotPublic,
   svcSelect, svcCount, insertEvent, loadContext, mailMairie,
 } from './lib/participer-common.mjs';
 
@@ -22,19 +22,9 @@ const MAX_PER_REPORT_PER_DAY = 5;
 const MAX_PER_IP_PER_DAY = 10;
 
 export default async (req, context) => {
-  const cors = { ...getCorsHeaders(req), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
-  if (req.method === 'OPTIONS') return preflightResp(cors);
-  if (req.method !== 'POST') return jsonResp(405, { error: 'Méthode non autorisée' }, cors);
-
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    return jsonResp(400, { error: 'Corps de requête invalide' }, cors);
-  }
-
-  // Honeypot : invisible pour un humain, rempli par un robot
-  if (String(body?.website || '').trim()) return jsonResp(200, { ok: true }, cors);
+  const depot = await lireDepotPublic(req);
+  if (depot.reponse) return depot.reponse;
+  const { cors, body } = depot;
 
   const ville = String(body?.ville || '').trim();
   const id = String(body?.id || '').trim();
