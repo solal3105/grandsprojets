@@ -189,6 +189,347 @@
     }
   }
 
+  /**
+   * Ouverture directe d'un module par l'adresse : le chemin
+   * /ville/{ville}/travaux d'abord, l'ancien ?module=travaux ensuite. Sert aux
+   * liens partagés et à l'intégration en iframe : sans ça, l'iframe atterrit
+   * sur le module par défaut et le visiteur doit chercher. La clé doit
+   * correspondre à un module réellement actif sur la ville, sinon elle est
+   * ignorée. `carte` est le module par défaut : rien à ouvrir.
+   */
+  function openModuleFromUrl() {
+    const fromPath = win.CityManager?.parseModuleFromPath?.() || '';
+    const asked = (fromPath && fromPath !== 'carte') ? fromPath : new URLSearchParams(location.search).get('module');
+    // Même grammaire que les codes ville : un seul validateur partagé
+    if (!asked || !win.SecurityUtils?.isValidCityCode?.(asked)) return;
+    const known = (win._cityModules || []).find((m) => m.module_key === asked.toLowerCase() && m.enabled);
+    if (!known) return;
+    // Passer par la barre latérale : elle allume le bouton du module puis
+    // délègue au panneau. Appeler NavPanel directement ouvrirait le panneau
+    // en laissant le bouton éteint.
+    if (win.SidebarModule?.openModule) win.SidebarModule.openModule(known.module_key);
+    else win.NavPanel?.openModule(known.module_key);
+  }
+
+  /** Panneau d'actions (mobile) : reprend les actions de la barre latérale. */
+  function populateActionsPanel() {
+    const actionsPanel = document.getElementById('actions-panel-body');
+    const sidebarActions = document.querySelector('.gp-sidebar__actions');
+    if (!actionsPanel || !sidebarActions) return;
+    sidebarActions.querySelectorAll('.gp-sidebar__btn').forEach(btn => {
+      const action = btn.dataset.action;
+      const label = btn.dataset.tooltip || btn.getAttribute('aria-label');
+      const icon = btn.querySelector('i')?.className || 'fas fa-circle';
+      const auth = btn.dataset.auth;
+
+      const item = document.createElement('button');
+      item.className = 'action-item';
+      item.dataset.action = action;
+      if (auth) item.dataset.auth = auth;
+      if (action === 'logout') item.classList.add('action-item--logout');
+      item.innerHTML = `
+        <div class="action-item__icon">
+          <i class="${icon}" aria-hidden="true"></i>
+        </div>
+        <span class="action-item__label">${label}</span>
+      `;
+      item.addEventListener('click', () => {
+        win.toggleManager?.setState('actions', false);
+        btn.click();
+      });
+      actionsPanel.appendChild(item);
+    });
+
+    const isConnected = win.AuthModule?.isAuthenticated?.() || false;
+    document.body.setAttribute('data-auth-state', isConnected ? 'connected' : 'disconnected');
+  }
+
+  /** Phase 2.5 : branding déjà chargé (couleur, favicon, toggles), sans nouvelle requête. */
+  function applyCityBranding() {
+    if (!win.CityBrandingModule) return;
+    try {
+      const branding = win.CityManager?.getBranding();
+      if (branding) {
+        win.CityBrandingModule.applyBranding(branding, false);
+      } else {
+        // Repli si le branding manque (ne devrait pas arriver)
+        win.CityBrandingModule.applyPrimaryColor('#14AE5C');
+        win.CityBrandingModule.applyFavicon(null);
+      }
+      // Écoute de l'authentification (une seule fois)
+      win.CityBrandingModule.init();
+    } catch (err) {
+      console.debug('[Main] Failed to apply city branding:', err);
+    }
+  }
+
+  /** Phase 7 : relief / bâtiments 3D, bascule de thème et synchronisation avec le système. */
+  function bindMapToggles(MapModule) {
+    // Mode 3D - apply saved state now that map is ready, listen for changes
+    // Active à la fois le relief et les bâtiments 3D
+    const mode3DState = win.toggleManager?.getState('mode3d');
+    if (MapModule?.map) {
+      MapModule.map.setTerrain(mode3DState);
+      MapModule.map.setBuildings3D(mode3DState);
+  }
+  win.toggleManager?.on('mode3d', (active) => {
+    if (MapModule?.map) {
+      MapModule.map.setTerrain(active);
+      MapModule.map.setBuildings3D(active);
+    }
+  });
+  win.toggleManager?.markReady('mode3d');
+
+  // Theme - delegate to ThemeManager (applyTheme → onThemeChanged handles all MapLibre updates)
+  win.toggleManager?.on('theme', () => {
+    win.ThemeManager?.toggle();
+    const dock = document.getElementById('toggle-dock');
+    if (dock) {
+      dock.classList.remove('toggle-dock--shimmer');
+      void dock.offsetWidth;
+      dock.classList.add('toggle-dock--shimmer');
+      dock.addEventListener('animationend', () => dock.classList.remove('toggle-dock--shimmer'), { once: true });
+    }
+    const sb = document.getElementById('gp-sidebar');
+    if (sb) {
+      sb.classList.remove('gp-sidebar--shimmer');
+      void sb.offsetWidth;
+      sb.classList.add('gp-sidebar--shimmer');
+      sb.addEventListener('animationend', () => sb.classList.remove('gp-sidebar--shimmer'), { once: true });
+    }
+  });
+
+  // Synchronisation automatique du thème avec l'OS
+  // (désactivé si la ville a un basemap configuré pour éviter les conflits)
+  if (!win._cityPreferredBasemap) {
+    win.ThemeManager?.startOSThemeSync();
+  }
+  }
+
+  /**
+   * Parse l'état de l'URL (?cat=...&project=...)
+   */
+  function parseUrlState() {
+    try {
+      const sp = new URLSearchParams(location.search);
+      const cat = String(sp.get('cat') || '').toLowerCase().trim();
+      const project = String(sp.get('project') || '').trim();
+      return (cat && project) ? { cat, project } : null;
+    } catch (e) {
+      console.debug('[main] Failed to parse URL state:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Affiche un projet depuis l'état de l'URL
+   */
+  async function showFromUrlState({ cat, project }) {
+    if (!cat || !project) return false;
+    
+    // Utiliser directement le système contribution_uploads
+    try {
+      if (window.supabaseService?.fetchProjectByCategoryAndName) {
+        const contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(cat, project);
+        if (contributionProject && window.NavigationModule?.showProjectDetailById) {
+          window.NavigationModule.showProjectDetailById(contributionProject.id, null, {
+            projectName: contributionProject.project_name,
+            category: contributionProject.category,
+          });
+          return true;
+        }
+      }
+    } catch (e) {
+      console.debug('[Main] Erreur showFromUrlState:', e);
+    }
+    
+    return false;
+  }
+
+  /** Boutons précédent / suivant du navigateur (pas les pushState de l'application). */
+  function bindHistoryNavigation() {
+    /**
+     * Gestion de la navigation (boutons précédent/suivant du navigateur)
+     * IMPORTANT: Ne pas réagir aux pushState programmatiques, seulement aux vrais back/forward
+     */
+    let _isManualNavigation = false;
+  
+    window.addEventListener('popstate', async (e) => {
+      // GUARD: Ignorer les popstate déclenchés par nos propres pushState
+      if (_isManualNavigation) {
+        return;
+      }
+    
+      try {
+        const nextCity = win.CityManager?.resolveActiveCity();
+        const currentCity = win.CityManager?.getActiveCity();
+        if (nextCity && nextCity !== currentCity) {
+          if (win.CityManager) win.CityManager._activeCity = nextCity;
+          win.CityManager?.persistCity(nextCity);
+          // La super-propriété `city` est persistante : sans cette mise à
+          // jour, les événements suivants resteraient sur l'ancienne ville.
+          win.OPAnalytics?.setCity(nextCity);
+          try { win.__syncInvite?.(nextCity); } catch { /* no-op */ }
+          await win.CityManager?.updateLogoForCity(nextCity);
+          try {
+            await win.FilterManager?.init();
+          } catch (e) { console.debug('[main] Failed to reinit FilterManager on city change:', e); }
+        }
+        let state = e && e.state ? e.state : null;
+        if (!state) {
+          try {
+            const sp = new URLSearchParams(location.search);
+            const cat = String(sp.get('cat') || '').toLowerCase().trim();
+            const project = String(sp.get('project') || '').trim();
+            if (cat) {
+              state = { cat, project: project || null };
+            }
+          } catch (e) { console.debug('[main] Failed to parse URL params on popstate:', e); }
+        }
+
+        if (state && state.cat && state.project) {
+          await showFromUrlState({ cat: state.cat, project: state.project });
+        } else if (state && state.cat && !state.project) {
+          if (window.NavigationModule?.resetToDefaultView) {
+            window.NavigationModule.resetToDefaultView(state.cat, { preserveMapView: true, updateHistory: false });
+          }
+        } else if (window.NavigationModule?.resetToDefaultView) {
+          window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true, updateHistory: false });
+        }
+      } catch (e) { console.debug('[main] Failed to handle popstate navigation:', e); }
+    });
+  
+    // Exposer le flag pour que uimodule.js puisse le contrôler
+    win._setManualNavigation = (value) => {
+      _isManualNavigation = value;
+    };
+  }
+
+  /** Phase 9 : un bouton « fiche complète » ouvre la fiche dans un nouvel onglet. */
+  function openFicheLink(e) {
+    const btn = e.target.closest('[data-fiche-url]');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(btn.dataset.ficheUrl, '_blank', 'noopener');
+  }
+
+  /**
+   * Erreur non rattrapée pendant le démarrage. Le bandeau n'apparaît que si la
+   * carte est VRAIMENT inutilisable (pas de module carte ou pas de canvas) :
+   * une phase secondaire en panne (filtres, sidebar, géoloc…) laisse la carte
+   * utilisable.
+   */
+  function handleInitError(err) {
+    console.error('[Main] Erreur lors de l\'initialisation:', err);
+  
+    // N'afficher le banner que si l'app est VRAIMENT inutilisable :
+    // - Le module carte n'a pas pu être créé, OU
+    // - Le conteneur #map n'a jamais reçu de canvas MapLibre
+    // Sinon, l'utilisateur peut continuer à utiliser la carte même si
+    // une phase secondaire (filtres, sidebar, géoloc…) a échoué.
+    const mapReady = !!(win.MapModule?.map && document.querySelector('#map canvas'));
+    if (mapReady) {
+      // App utilisable → pas de banner, juste un log + marquer la fin
+      console.warn('[Main] Init terminée avec une erreur partielle - app utilisable.');
+      try { markLoadComplete(); } catch { /* noop */ }
+      return;
+  }
+
+  // Afficher un message d'erreur visible pour l'utilisateur
+  try {
+    // Éviter les doublons si déjà affiché
+    if (document.getElementById('init-error-message')) return;
+    const errorDiv = document.createElement('div');
+    errorDiv.id = 'init-error-message';
+    errorDiv.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #ff4444;
+      color: white;
+      padding: 20px 30px;
+      border-radius: 10px;
+      z-index: 9999;
+      font-family: sans-serif;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    `;
+    errorDiv.innerHTML = `
+      <h3 style="margin: 0 0 10px 0;">Erreur de chargement</h3>
+      <p style="margin: 0 0 15px 0;">L'application n'a pas pu se charger correctement.</p>
+      <button onclick="location.reload()" style="
+        background: white;
+        color: #ff4444;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+      ">Réessayer</button>
+    `;
+    document.body.appendChild(errorDiv);
+  } catch (e) { console.debug('[main] Failed to display init error message:', e); }
+  }
+
+  /**
+   * Phase 5.5 : chaque couche est dessinée dès que SES données arrivent, sans
+   * barrière commune : la carte se peuple progressivement au lieu d'attendre la
+   * plus lente. Rien n'est dessiné si l'utilisateur a ouvert un module
+   * entre-temps : c'est alors le module qui pilote ses couches.
+   * Les catégories de contributions sortent toutes du même agrégat : elles
+   * attendent son préchargement (sinon `fetchLayerData` retombe sur le repli
+   * N+1). Les couches URL/WFS ne dépendent de rien et partent tout de suite.
+   */
+  async function loadInitialLayers(DataModule, { urlLayers, contribCategories }, contribPreloadPromise) {
+    const drawIfIdle = (layer) => (data) => {
+      if (!data || win.NavPanel?.isOpen()) return;
+      try { DataModule.createGeoJsonLayer(layer, data); }
+      catch (e) { console.debug(`[main] Failed to create GeoJSON layer "${layer}":`, e); }
+    };
+    const loadAndDraw = (layer) => DataModule.preloadLayer(layer)
+      .then(drawIfIdle(layer))
+      .catch(err => { console.error(`[Main] Erreur chargement layer "${layer}":`, err); });
+    try {
+      await Promise.all([
+        ...urlLayers.map(loadAndDraw),
+        contribPreloadPromise.then(() => Promise.all(contribCategories.map(loadAndDraw))),
+      ]);
+    } catch (err) {
+      console.error('[Main] Erreur lors du chargement des layers:', err);
+    }
+  }
+
+  /** Phase 6 : modules d'interface, une fois la carte et ses couches en place. */
+  function initUiModules({ activeCity, basemaps, layersToLoad, DataModule }) {
+    // Config participer préchargée : le lien de suivi et l'ouverture du module
+    // n'attendent alors plus le réseau
+    if ((win._cityModules || []).some(m => m.module_key === 'participer' && m.enabled)) {
+      win.ParticiperViews?.loadConfig?.(activeCity)?.catch?.(() => {});
+    }
+    if (window.UIModule?.init) {
+      safePhase('UIModule.init', () => {
+        window.UIModule.init({ basemaps });
+        win.toggleManager?.markReady('basemap');
+        win.toggleManager?.markReady('theme');
+      });
+    }
+    // markReady('location') est appelé dans GeolocationModule.init()
+    if (window.GeolocationModule) {
+      safePhase('GeolocationModule.init', () => window.GeolocationModule.init(window.MapModule?.map));
+    }
+    // Système unifié d'interactions (clic contributions + travaux + sélection)
+    if (window.FeatureInteractions && window.MapModule?.map?._mlMap) {
+      safePhase('FeatureInteractions.init', () => {
+        window.FeatureInteractions.init(window.MapModule.map._mlMap);
+        // Images de couverture préchargées en arrière-plan
+        const allFeatures = layersToLoad.flatMap(l => DataModule.layerData[l]?.features || []);
+        window.FeatureInteractions.preloadCovers(allFeatures);
+      });
+    }
+  }
+
   // Diagnostic : le contrôle de santé du stockage, appelable à la main
   // (les tests vérifient qu'il ne supprime pas une ville valide)
   win._storageHealthCheck = performStorageHealthCheck;
@@ -226,10 +567,10 @@
         city = win.CityManager?.initializeActiveCity();
       } catch (err) { console.error('[Main] Phase "CityManager.initializeActiveCity" en erreur:', err); }
       
-      // Forcer metropole-lyon si city est vide ou null
+      // Ville vide ou nulle : ville par défaut
       if (!city) {
-        console.debug('[Main] Ville vide ou null, forçage à metropole-lyon');
-        city = 'metropole-lyon';
+        console.debug('[Main] Ville vide ou null, ville par défaut');
+        city = supabaseService.DEFAULT_CITY;
         if (win.CityManager) win.CityManager._activeCity = city;
       }
 
@@ -252,24 +593,7 @@
         .then(() => win.toggleManager?.markReady('city'));
 
       // PHASE 2.5 : Appliquer le branding (couleur, favicon, toggles) sans re-fetcher
-      if (win.CityBrandingModule) {
-        try {
-          // Appliquer le branding déjà chargé (pas de fetch supplémentaire)
-          const branding = win.CityManager?.getBranding();
-          if (branding) {
-            win.CityBrandingModule.applyBranding(branding, false);
-          } else {
-            // Fallback si branding absent (ne devrait pas arriver)
-            win.CityBrandingModule.applyPrimaryColor('#14AE5C');
-            win.CityBrandingModule.applyFavicon(null);
-          }
-          
-          // Initialiser le listener auth (une seule fois)
-          win.CityBrandingModule.init();
-        } catch (err) {
-          console.debug('[Main] Failed to apply city branding:', err);
-        }
-      }
+      applyCityBranding();
 
       await yieldToMain();
 
@@ -277,40 +601,23 @@
       // `initAllData` utilise déjà `Promise.allSettled` → ne throw jamais.
       // On ajoute une relance en cas de résultat anormalement vide (panne
       // réseau ponctuelle au démarrage → basemaps/layers absents = map vide).
+      const { CarteConfig } = win;
       let phase3 = await supabaseService.initAllData(city);
-      const isEmpty = (v) => !v || (Array.isArray(v) && v.length === 0);
-      if (isEmpty(phase3?.basemaps) && isEmpty(phase3?.layersConfig)) {
+      if (CarteConfig.isEmptyInitData(phase3)) {
         console.warn('[Main] initAllData retourne vide, nouvelle tentative dans 600ms…');
         await new Promise(r => setTimeout(r, 600));
         try { phase3 = await supabaseService.initAllData(city); }
         catch (err) { console.error('[Main] initAllData retry failed:', err); }
       }
-
-      const {
-        layersConfig: _layersConfigRaw,
-        filtersConfig: _filtersConfig,
-        basemaps: _remoteBasemapsRaw,
-        categoryIcons: _initCategoryIconsRaw,
-        cityModules: _initCityModulesRaw
-      } = phase3 || {};
-
-      // Normaliser : chaque phase utilise `forEach`/`.length` sur ces tableaux,
-      // un `undefined` ici ferait crasher l'init et afficher le banner rouge.
-      const layersConfig = Array.isArray(_layersConfigRaw) ? _layersConfigRaw : [];
-      const remoteBasemaps = Array.isArray(_remoteBasemapsRaw) ? _remoteBasemapsRaw : [];
-      const initCategoryIcons = Array.isArray(_initCategoryIconsRaw) ? _initCategoryIconsRaw : [];
-      const initCityModules = Array.isArray(_initCityModulesRaw) ? _initCityModulesRaw : [];
+      const { layersConfig, basemaps: basemapsForCity, categoryIcons: initCategoryIcons, cityModules } =
+        CarteConfig.normalizeInitData(phase3);
 
       // PHASE 4 : Carte et couches
       window.dataConfig = window.dataConfig || {};
 
-      // Les basemaps ne sont PAS filtrées par ville (disponibles partout)
-      const basemapsForCity = remoteBasemaps || [];
-      
-      // Définir le basemap préféré de la ville (source unique de vérité)
-      // Cette variable est utilisée par MapModule, UIModule et ThemeManager
-      const cityBranding = win.CityManager?.getBranding();
-      win._cityPreferredBasemap = cityBranding?.default_basemap || null;
+      // Basemap préféré de la ville (source unique de vérité pour MapModule,
+      // UIModule et ThemeManager). Les basemaps ne sont pas filtrées par ville.
+      win._cityPreferredBasemap = win.CityManager?.getBranding()?.default_basemap || null;
 
       if (window.UIModule?.updateBasemaps) {
         try { window.UIModule.updateBasemaps(basemapsForCity); }
@@ -324,63 +631,12 @@
       await safePhase('CityManager.applyCityInitialView', () => win.CityManager?.applyCityInitialView(city));
       
       const { DataModule, MapModule } = win;
-      const urlMap        = {};
-      const styleMap      = {};
-      const iconMap       = {};
-      const iconColorMap  = {};
-      const defaultLayers = [];
-      
-      layersConfig.forEach(({ name, url, style, is_default, ville, icon, icon_color }) => {
-        // Ignorer les layers sans ville (legacy avec ville = NULL ou vide)
-        if (!ville) {
-          return;
-        }
-        
-        // Uniquement les couches de la ville active (city est toujours défini maintenant)
-        if (ville !== city) return;
-        
-        if (url) urlMap[name] = url;
-        if (style) styleMap[name] = style;
-        if (icon) iconMap[name] = icon;
-        if (icon_color) iconColorMap[name] = icon_color;
-        
-        if (is_default) defaultLayers.push(name);
-      });
-      
-      // Fusionner les styles des catégories depuis category_icons (déjà chargés par initAllData)
+      const { urlMap, styleMap, iconMap, iconColorMap, defaultLayers } = CarteConfig.buildLayerMaps(layersConfig, city);
+      // Styles des catégories (category_icons) : ils écrasent ceux des couches
       if (window.supabaseService?.buildCategoryStylesMap) {
-        const categoryIconsData = initCategoryIcons || [];
-        const categoryStylesFromDB = window.supabaseService.buildCategoryStylesMap(categoryIconsData);
-        
-        // Appliquer les styles de catégorie (ils écrasent les styles de couche si présents)
-        Object.keys(categoryStylesFromDB).forEach(category => {
-          const categoryStyle = categoryStylesFromDB[category];
-          if (categoryStyle && Object.keys(categoryStyle).length > 0) {
-            // Fusionner avec le style existant (si présent) ou créer un nouveau
-            styleMap[category] = {
-              ...styleMap[category],
-              ...categoryStyle
-            };
-            
-            // Appliquer aussi le style aux couches associées (layers_to_display)
-            const categoryIcon = categoryIconsData.find(icon => icon.category === category);
-            if (categoryIcon && Array.isArray(categoryIcon.layers_to_display)) {
-              categoryIcon.layers_to_display.forEach(layerName => {
-                // Ne pas écraser si la couche a déjà un style spécifique
-                // Mais fusionner avec le style de catégorie comme base
-                if (layerName !== category) {
-                  styleMap[layerName] = {
-                    ...categoryStyle,
-                    ...styleMap[layerName]
-                  };
-                }
-              });
-            }
-          }
-        });
+        CarteConfig.mergeCategoryStyles(styleMap, window.supabaseService.buildCategoryStylesMap(initCategoryIcons), initCategoryIcons);
       }
-      
-      
+
       win.defaultLayers = defaultLayers;
       win.iconMap = iconMap;
       win.iconColorMap = iconColorMap;
@@ -391,7 +647,7 @@
 
       // PHASE 5 : Menus dynamiques (AVANT les layers)
       // Lancer le préchargement des GeoJSON dès maintenant (parallèle avec le reste de Phase 5)
-      const activeCity = win.CityManager?.getActiveCity() || 'metropole-lyon';
+      const activeCity = supabaseService.getActiveCity();
       const contribPreloadPromise = DataModule.preloadAllContributions(activeCity);
 
       // fetchAllProjects consomme le prefetch (pas de re-fetch réseau)
@@ -406,49 +662,13 @@
         console.error('[Main] Erreur fetchAllProjects:', err);
       }
 
-      const allCategoryIconsFromDB = initCategoryIcons || [];
-      const cityModules = initCityModules || [];
-
-      // Stocker les modules de la ville
+      // Modules de la ville
       win._cityModules = cityModules;
 
-      const categoriesWithData = [...new Set(allContributions.map(c => c.category).filter(Boolean))];
-
-      /* Une catégorie peut n'exister que par ses COUCHES (réseau de transport
-         en commun, open data...) : elle a sa place au panneau même sans fiche.
-         Sans cette union, une catégorie de couches restait invisible. */
-      const categoriesWithLayers = allCategoryIconsFromDB
-        .filter((icon) => Array.isArray(icon.layers_to_display) && icon.layers_to_display.length)
-        .map((icon) => icon.category);
-
-      const categoriesFiltered = [...new Set([...categoriesWithData, ...categoriesWithLayers])]
-        .filter(cat => cat !== 'travaux');
-
-      const activeCategoryIcons = categoriesFiltered.map((category, index) => {
-        const existingIcon = allCategoryIconsFromDB.find(icon => icon.category === category);
-        return existingIcon || {
-          category: category,
-          icon_class: 'fa-solid fa-layer-group',
-          display_order: 100 + index
-        };
-      });
-      
-      activeCategoryIcons.sort((a, b) => a.display_order - b.display_order);
-      win.categoryIcons = activeCategoryIcons;
-      
-      // Construire le mapping catégorie → layers depuis la DB
-      win.categoryLayersMap = window.supabaseService.buildCategoryLayersMap(activeCategoryIcons);
-      
-      // Ajouter le mapping pour les modules qui ont des layers_to_display
-      cityModules.forEach(mod => {
-        if (mod.config?.layers_to_display?.length) {
-          win.categoryLayersMap[mod.module_key] = mod.config.layers_to_display;
-        }
-      });
-      // Fallback : toujours un mapping 'travaux'
-      if (!win.categoryLayersMap['travaux']) {
-        win.categoryLayersMap['travaux'] = ['travaux'];
-      }
+      const { categories: categoriesFiltered, activeIcons } = CarteConfig.buildActiveCategories(allContributions, initCategoryIcons);
+      win.categoryIcons = activeIcons;
+      // Mapping catégorie → couches depuis la base, complété par les modules
+      win.categoryLayersMap = CarteConfig.addModuleLayers(window.supabaseService.buildCategoryLayersMap(activeIcons), cityModules);
 
       win.getAllCategories = () => (win.categoryIcons || []).map(c => c.category);
       win.getCategoryLayers = (category) => win.categoryLayersMap?.[category] || [];
@@ -467,82 +687,15 @@
         });
       }
 
-      // Ouverture directe d'un module par l'adresse : le chemin
-      // /ville/{ville}/travaux d'abord, l'ancien ?module=travaux ensuite. Sert
-      // aux liens partages et a l'integration en iframe : sans ca, l'iframe
-      // atterrit sur le module par defaut et le visiteur doit chercher.
-      // La cle n'est jamais passee telle quelle : elle doit correspondre a un
-      // module reellement actif sur la ville, sinon on l'ignore. `carte` est
-      // le module par defaut : rien a ouvrir.
-      if (win.SidebarModule || win.NavPanel) {
-        safePhase('openModuleFromUrl', () => {
-          const fromPath = win.CityManager?.parseModuleFromPath?.() || '';
-          const asked = (fromPath && fromPath !== 'carte') ? fromPath : new URLSearchParams(location.search).get('module');
-          // Meme grammaire que les codes ville : un seul validateur partage
-          if (!asked || !win.SecurityUtils?.isValidCityCode?.(asked)) return;
-          const known = (win._cityModules || []).find(
-            (m) => m.module_key === asked.toLowerCase() && m.enabled
-          );
-          if (!known) return;
-          // Passer par la barre laterale : elle allume le bouton du module
-          // puis delegue au panneau. Appeler NavPanel directement ouvrirait
-          // le panneau en laissant le bouton eteint.
-          if (win.SidebarModule?.openModule) win.SidebarModule.openModule(known.module_key);
-          else win.NavPanel?.openModule(known.module_key);
-        });
-      }
-      const contributionsByCategory = {};
-      allContributions.forEach(contrib => {
-        const cat = contrib.category;
-        if (cat && categoriesFiltered.includes(cat)) {
-          if (!contributionsByCategory[cat]) {
-            contributionsByCategory[cat] = [];
-          }
-          contributionsByCategory[cat].push(contrib);
-        }
-      });
-      
-      // Stocker les contributions par catégorie (nécessaire avant le chargement)
-      Object.entries(contributionsByCategory).forEach(([category, contribs]) => {
-        if (contribs.length > 0) {
-          win[`contributions_${category}`] = contribs;
-        }
-      });
+      if (win.SidebarModule || win.NavPanel) safePhase('openModuleFromUrl', openModuleFromUrl);
+
+      // Contributions par catégorie, stockées avant le chargement des couches
+      const { byCategory, layersToLoad, contribCategories, urlLayers } =
+        CarteConfig.planLayerLoading(allContributions, categoriesFiltered, defaultLayers);
+      Object.entries(byCategory).forEach(([category, contribs]) => { win[`contributions_${category}`] = contribs; });
 
       // PHASE 5.5 : Charger les layers par défaut + toutes les contributions
-      const categoryLayers = Object.keys(contributionsByCategory).filter(cat => contributionsByCategory[cat].length > 0);
-      
-      const layersToLoad = [...new Set([...defaultLayers, ...categoryLayers])];
-      
-      // Chaque couche est dessinée dès que SES données arrivent, sans barrière
-      // commune : la carte se peuple progressivement au lieu d'attendre la plus
-      // lente. L'affichage n'a lieu que si l'utilisateur n'a pas ouvert un module
-      // entre-temps - dans ce cas c'est le module qui pilote ses propres couches.
-      const drawIfIdle = (layer) => (data) => {
-        if (!data || win.NavPanel?.isOpen()) return;
-        try { DataModule.createGeoJsonLayer(layer, data); }
-        catch (e) { console.debug(`[main] Failed to create GeoJSON layer "${layer}":`, e); }
-      };
-
-      const loadAndDraw = (layer) => DataModule.preloadLayer(layer)
-        .then(drawIfIdle(layer))
-        .catch(err => { console.error(`[Main] Erreur chargement layer "${layer}":`, err); });
-
-      // Les catégories de contributions sortent toutes du même agrégat : il faut
-      // que son préchargement soit résolu avant, sinon `fetchLayerData` retombe
-      // sur le repli N+1. Les couches URL/WFS ne dépendent de rien et partent
-      // immédiatement, au lieu d'attendre l'agrégat comme auparavant.
-      const contribCategories = layersToLoad.filter(l => categoryLayers.includes(l));
-      const urlLayers = layersToLoad.filter(l => !categoryLayers.includes(l));
-
-      try {
-        await Promise.all([
-          ...urlLayers.map(loadAndDraw),
-          contribPreloadPromise.then(() => Promise.all(contribCategories.map(loadAndDraw))),
-        ]);
-      } catch (err) {
-        console.error('[Main] Erreur lors du chargement des layers:', err);
-      }
+      await loadInitialLayers(DataModule, { urlLayers, contribCategories }, contribPreloadPromise);
 
       await yieldToMain();
 
@@ -579,36 +732,8 @@
       // effet du retrait est que le premier affichage d'une couche lourde attend
       // son téléchargement, ce qui était déjà le cas sur un cache froid.
 
-      // Précharger la config participer (le deep-link de suivi et l'ouverture
-      // du module n'attendent alors plus le réseau)
-      if ((win._cityModules || []).some(m => m.module_key === 'participer' && m.enabled)) {
-        win.ParticiperViews?.loadConfig?.(activeCity)?.catch?.(() => {});
-      }
-      
-      
-      if (window.UIModule?.init) {
-        safePhase('UIModule.init', () => {
-          window.UIModule.init({ basemaps: basemapsForCity });
-          win.toggleManager?.markReady('basemap');
-          win.toggleManager?.markReady('theme');
-        });
-      }
-      
-      if (window.GeolocationModule) {
-        safePhase('GeolocationModule.init', () => window.GeolocationModule.init(window.MapModule?.map));
-        // markReady('location') is called inside GeolocationModule.init()
-      }
-      
-      // Système unifié d'interactions (click contributions + travaux + sélection)
-      if (window.FeatureInteractions && window.MapModule?.map?._mlMap) {
-        safePhase('FeatureInteractions.init', () => {
-          window.FeatureInteractions.init(window.MapModule.map._mlMap);
-          // Précharger les images cover en arrière-plan
-          const allFeatures = layersToLoad.flatMap(l => DataModule.layerData[l]?.features || []);
-          window.FeatureInteractions.preloadCovers(allFeatures);
-        });
-      }
-      
+      initUiModules({ activeCity, basemaps: basemapsForCity, layersToLoad, DataModule });
+
       await yieldToMain();
 
       // PHASE 7 : Unified toggle actions (all through ToggleManager)
@@ -621,134 +746,18 @@
       // Basemap - ToggleManager toggles .active on #basemap-menu via menuSelector
       // (no extra logic needed, UIModule.init already rendered basemap tiles)
 
-      // About close button → close through ToggleManager
-      const aboutClose = document.getElementById('about-close');
-      if (aboutClose) {
-        aboutClose.addEventListener('click', (e) => {
-          e.stopPropagation();
-          win.toggleManager?.setState('info', false);
-        });
-      }
+      document.getElementById('about-close')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        win.toggleManager?.setState('info', false);
+      });
 
-      // Actions panel (mobile only) - populate with sidebar actions
-      const actionsPanel = document.getElementById('actions-panel-body');
-      const sidebarActions = document.querySelector('.gp-sidebar__actions');
-      if (actionsPanel && sidebarActions) {
-        const actions = sidebarActions.querySelectorAll('.gp-sidebar__btn');
-        actions.forEach(btn => {
-          const action = btn.dataset.action;
-          const label = btn.dataset.tooltip || btn.getAttribute('aria-label');
-          const icon = btn.querySelector('i')?.className || 'fas fa-circle';
-          const auth = btn.dataset.auth;
-          
-          const item = document.createElement('button');
-          item.className = 'action-item';
-          item.dataset.action = action;
-          if (auth) item.dataset.auth = auth;
-          if (action === 'logout') item.classList.add('action-item--logout');
-          
-          item.innerHTML = `
-            <div class="action-item__icon">
-              <i class="${icon}" aria-hidden="true"></i>
-            </div>
-            <span class="action-item__label">${label}</span>
-          `;
-          
-          item.addEventListener('click', () => {
-            win.toggleManager?.setState('actions', false);
-            btn.click();
-          });
-          
-          actionsPanel.appendChild(item);
-        });
-        
-        const isConnected = win.AuthModule?.isAuthenticated?.() || false;
-        document.body.setAttribute('data-auth-state', isConnected ? 'connected' : 'disconnected');
-      }
+      populateActionsPanel();
       win.toggleManager?.markReady('actions');
 
-      // Mode 3D - apply saved state now that map is ready, listen for changes
-      // Active à la fois le relief et les bâtiments 3D
-      const mode3DState = win.toggleManager?.getState('mode3d');
-      if (MapModule?.map) {
-        MapModule.map.setTerrain(mode3DState);
-        MapModule.map.setBuildings3D(mode3DState);
-      }
-      win.toggleManager?.on('mode3d', (active) => {
-        if (MapModule?.map) {
-          MapModule.map.setTerrain(active);
-          MapModule.map.setBuildings3D(active);
-        }
-      });
-      win.toggleManager?.markReady('mode3d');
-
-      // Theme - delegate to ThemeManager (applyTheme → onThemeChanged handles all MapLibre updates)
-      win.toggleManager?.on('theme', () => {
-        win.ThemeManager?.toggle();
-        const dock = document.getElementById('toggle-dock');
-        if (dock) {
-          dock.classList.remove('toggle-dock--shimmer');
-          void dock.offsetWidth;
-          dock.classList.add('toggle-dock--shimmer');
-          dock.addEventListener('animationend', () => dock.classList.remove('toggle-dock--shimmer'), { once: true });
-        }
-        const sb = document.getElementById('gp-sidebar');
-        if (sb) {
-          sb.classList.remove('gp-sidebar--shimmer');
-          void sb.offsetWidth;
-          sb.classList.add('gp-sidebar--shimmer');
-          sb.addEventListener('animationend', () => sb.classList.remove('gp-sidebar--shimmer'), { once: true });
-        }
-      });
-
-      // Synchronisation automatique du thème avec l'OS
-      // (désactivé si la ville a un basemap configuré pour éviter les conflits)
-      if (!win._cityPreferredBasemap) {
-        win.ThemeManager?.startOSThemeSync();
-      }
+      bindMapToggles(MapModule);
 
       // PHASE 8 : Gestion du routing et de l'historique
 
-      /**
-       * Parse l'état de l'URL (?cat=...&project=...)
-       */
-      function parseUrlState() {
-        try {
-          const sp = new URLSearchParams(location.search);
-          const cat = String(sp.get('cat') || '').toLowerCase().trim();
-          const project = String(sp.get('project') || '').trim();
-          return (cat && project) ? { cat, project } : null;
-        } catch (e) {
-          console.debug('[main] Failed to parse URL state:', e);
-          return null;
-        }
-      }
-
-      /**
-       * Affiche un projet depuis l'état de l'URL
-       */
-      async function showFromUrlState({ cat, project }) {
-        if (!cat || !project) return false;
-        
-        // Utiliser directement le système contribution_uploads
-        try {
-          if (window.supabaseService?.fetchProjectByCategoryAndName) {
-            const contributionProject = await window.supabaseService.fetchProjectByCategoryAndName(cat, project);
-            if (contributionProject && window.NavigationModule?.showProjectDetailById) {
-              window.NavigationModule.showProjectDetailById(contributionProject.id, null, {
-                projectName: contributionProject.project_name,
-                category: contributionProject.category,
-              });
-              return true;
-            }
-          }
-        } catch (e) {
-          console.debug('[Main] Erreur showFromUrlState:', e);
-        }
-        
-        return false;
-      }
-      
       // Afficher le projet initial si présent dans l'URL
       try {
         const initial = parseUrlState();
@@ -764,125 +773,16 @@
       // participer-views.js au chargement
       win.ParticiperViews?.handleUrlParams?.();
 
-      /**
-       * Gestion de la navigation (boutons précédent/suivant du navigateur)
-       * IMPORTANT: Ne pas réagir aux pushState programmatiques, seulement aux vrais back/forward
-       */
-      let _isManualNavigation = false;
-      
-      window.addEventListener('popstate', async (e) => {
-        // GUARD: Ignorer les popstate déclenchés par nos propres pushState
-        if (_isManualNavigation) {
-          return;
-        }
-        
-        try {
-          const nextCity = win.CityManager?.resolveActiveCity();
-          const currentCity = win.CityManager?.getActiveCity();
-          if (nextCity && nextCity !== currentCity) {
-            if (win.CityManager) win.CityManager._activeCity = nextCity;
-            win.CityManager?.persistCity(nextCity);
-            // La super-propriété `city` est persistante : sans cette mise à
-            // jour, les événements suivants resteraient sur l'ancienne ville.
-            win.OPAnalytics?.setCity(nextCity);
-            try { win.__syncInvite?.(nextCity); } catch { /* no-op */ }
-            await win.CityManager?.updateLogoForCity(nextCity);
-            try {
-              await win.FilterManager?.init();
-            } catch (e) { console.debug('[main] Failed to reinit FilterManager on city change:', e); }
-          }
-          let state = e && e.state ? e.state : null;
-          if (!state) {
-            try {
-              const sp = new URLSearchParams(location.search);
-              const cat = String(sp.get('cat') || '').toLowerCase().trim();
-              const project = String(sp.get('project') || '').trim();
-              if (cat) {
-                state = { cat, project: project || null };
-              }
-            } catch (e) { console.debug('[main] Failed to parse URL params on popstate:', e); }
-          }
+      bindHistoryNavigation();
 
-          if (state && state.cat && state.project) {
-            await showFromUrlState({ cat: state.cat, project: state.project });
-          } else if (state && state.cat && !state.project) {
-            if (window.NavigationModule?.resetToDefaultView) {
-              window.NavigationModule.resetToDefaultView(state.cat, { preserveMapView: true, updateHistory: false });
-            }
-          } else if (window.NavigationModule?.resetToDefaultView) {
-            window.NavigationModule.resetToDefaultView(undefined, { preserveMapView: true, updateHistory: false });
-          }
-        } catch (e) { console.debug('[main] Failed to handle popstate navigation:', e); }
-      });
-      
-      // Exposer le flag pour que uimodule.js puisse le contrôler
-      win._setManualNavigation = (value) => {
-        _isManualNavigation = value;
-      };
-      
       // PHASE 9 : Fiche → ouvrir dans un nouvel onglet
-      document.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-fiche-url]');
-        if (!btn) return;
-        e.preventDefault();
-        e.stopPropagation();
-        window.open(btn.dataset.ficheUrl, '_blank', 'noopener');
-      });
+      document.addEventListener('click', openFicheLink);
 
       // Marquer le chargement comme terminé (pour la détection de blocage)
       markLoadComplete();
       
     } catch (err) {
-      console.error('[Main] Erreur lors de l\'initialisation:', err);
-      
-      // N'afficher le banner que si l'app est VRAIMENT inutilisable :
-      // - Le module carte n'a pas pu être créé, OU
-      // - Le conteneur #map n'a jamais reçu de canvas MapLibre
-      // Sinon, l'utilisateur peut continuer à utiliser la carte même si
-      // une phase secondaire (filtres, sidebar, géoloc…) a échoué.
-      const mapReady = !!(win.MapModule?.map && document.querySelector('#map canvas'));
-      if (mapReady) {
-        // App utilisable → pas de banner, juste un log + marquer la fin
-        console.warn('[Main] Init terminée avec une erreur partielle - app utilisable.');
-        try { markLoadComplete(); } catch { /* noop */ }
-        return;
-      }
-
-      // Afficher un message d'erreur visible pour l'utilisateur
-      try {
-        // Éviter les doublons si déjà affiché
-        if (document.getElementById('init-error-message')) return;
-        const errorDiv = document.createElement('div');
-        errorDiv.id = 'init-error-message';
-        errorDiv.style.cssText = `
-          position: fixed;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          background: #ff4444;
-          color: white;
-          padding: 20px 30px;
-          border-radius: 10px;
-          z-index: 9999;
-          font-family: sans-serif;
-          text-align: center;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-        `;
-        errorDiv.innerHTML = `
-          <h3 style="margin: 0 0 10px 0;">Erreur de chargement</h3>
-          <p style="margin: 0 0 15px 0;">L'application n'a pas pu se charger correctement.</p>
-          <button onclick="location.reload()" style="
-            background: white;
-            color: #ff4444;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-          ">Réessayer</button>
-        `;
-        document.body.appendChild(errorDiv);
-      } catch (e) { console.debug('[main] Failed to display init error message:', e); }
+      handleInitError(err);
     }
   }
 

@@ -225,7 +225,7 @@ window.DataModule = (function() {
 				const normalizeTravaux = (data, sourceTag) =>
 					window.TravauxModule?.normalizeGeoJSON?.(data, sourceTag)
 						|| { type: 'FeatureCollection', features: Array.isArray(data?.features) ? data.features : [] };
-				const activeCity = window.CityManager?.getActiveCity() || 'metropole-lyon';
+				const activeCity = window.supabaseService.getActiveCity();
 				// Use cached config from _cityModules, fallback to Supabase query.
 				// Mêmes défauts que getTravauxConfig/travaux-nav : un config jsonb vide
 				// (ville fraîchement créée) doit retomber sur city_travaux, pas sur rien.
@@ -629,7 +629,7 @@ window.DataModule = (function() {
 	 * @param {string} [ville]
 	 */
 	async function resyncContributions(ville) {
-		const city = ville || window.CityManager?.getActiveCity?.() || 'metropole-lyon';
+		const city = ville || window.supabaseService.getActiveCity();
 		const categories = (typeof window.getAllCategories === 'function') ? window.getAllCategories() : [];
 		const isTravaux = (name) => !!window.LayerRegistry?.isTravauxLayer?.(name);
 		const displayed = Object.keys(MapModule?.layers || {})
