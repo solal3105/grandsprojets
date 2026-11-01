@@ -435,20 +435,14 @@ const NavigationModule = (() => {
     showProjectDetail(contributionProject.project_name, contributionProject.category, event, contributionProject);
   }
 
-  /** Adresse d'une image d'article : les chemins relatifs suivent la page. */
+  /**
+   * Adresse d'une image d'article. Une adresse qui commence par « / » part de
+   * la racine du site : la carte vit sous /ville/{ville}/carte, la faire suivre
+   * le chemin de la page la cassait.
+   */
   function resolveAssetUrl(u) {
-    try {
-      if (!u) return u;
-      if (/^https?:\/\//i.test(u)) return u;
-      if (location.protocol === 'file:' && u.startsWith('/')) {
-        return '.' + u;
-      }
-      if (u.startsWith('/')) {
-        const baseDir = location.pathname.replace(/[^/]*$/, '');
-        return (baseDir.endsWith('/') ? baseDir.slice(0, -1) : baseDir) + u;
-      }
-      return u;
-    } catch (e) { console.debug('[nav] resolveAssetUrl failed:', e); return u; }
+    if (u && location.protocol === 'file:' && u.startsWith('/')) return '.' + u;
+    return u;
   }
 
   /** Première image d'un article rendu, faute de couverture déclarée. */
@@ -465,7 +459,7 @@ const NavigationModule = (() => {
     if (!window.MarkdownUtils) {
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = '/modules/MarkdownUtils.js';
+        script.src = '/modules/markdownutils.js';
         script.onload = resolve;
         script.onerror = () => reject(new Error('Échec du chargement de MarkdownUtils'));
         document.head.appendChild(script);

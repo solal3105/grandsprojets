@@ -1484,6 +1484,19 @@ test.describe('0.23 - Fiches ouvertes sur la carte', () => {
     await expect(panel.locator('.detail-hero__img')).toHaveAttribute('src', 'https://example.org/article.jpg');
   });
 
+  test('0.23.3b - RÉGRESSION : une image d\'article en chemin absolu part de la racine du site', async ({ page }) => {
+    // La carte vit sous /ville/{ville}/carte : « /img/x.jpg » devenait
+    // « /ville/metropole-lyon/img/x.jpg », une image introuvable.
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    await page.route('**/filet-0-23/article-racine.md', (route) => route.fulfill({
+      status: 200, contentType: 'text/markdown', body: '---\ncover: /img/og/carte.jpg\n---\n# Corps\n',
+    }));
+    const origin = new URL(page.url()).origin;
+    await openProjet(page, { ...PROJET, cover_url: null, markdown_url: `${origin}/filet-0-23/article-racine.md` });
+    await expect(page.locator('#project-detail .detail-hero__img')).toHaveAttribute('src', '/img/og/carte.jpg');
+  });
+
   test('0.23.4 - Fermer la fiche projet cache le panneau et rouvre la navigation', async ({ page }) => {
     await waitForMapBoot(page);
     await stubDossiers(page);
