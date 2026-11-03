@@ -104,6 +104,10 @@
     return win.SecurityUtils.isValidCityCode(v) ? v : '';
   }
 
+  // Ville par défaut de la carte : seule définition, partagée par CityManager
+  // et par les repli de chaque page (carte, admin, fiche).
+  const DEFAULT_CITY = 'metropole-lyon';
+
   // Helper: get active city (toujours une ville, jamais null/vide)
   const getActiveCity = () => {
     try {
@@ -119,11 +123,11 @@
       }
       
       // Dernier fallback
-      console.debug('[supabaseService] getActiveCity: aucune source disponible, fallback metropole-lyon');
-      return 'metropole-lyon';
+      console.debug('[supabaseService] getActiveCity: aucune source disponible, ville par défaut');
+      return DEFAULT_CITY;
     } catch {
-      console.debug('[supabaseService] getActiveCity: Erreur, fallback metropole-lyon');
-      return 'metropole-lyon';
+      console.debug('[supabaseService] getActiveCity: Erreur, ville par défaut');
+      return DEFAULT_CITY;
     }
   };
 
@@ -166,6 +170,7 @@
   };
 
   win.supabaseService = {
+    DEFAULT_CITY,
     getActiveCity: getActiveCity,
     compressImage: compressImage,
 

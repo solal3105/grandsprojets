@@ -125,8 +125,7 @@
     },
 
     getDefaultCity() {
-      // Ville par défaut : metropole-lyon
-      return 'metropole-lyon';
+      return win.supabaseService.DEFAULT_CITY;
     },
 
     resolveActiveCity() {
@@ -136,8 +135,7 @@
       if (queryCity) return queryCity;
       const saved = this.restoreCity();
       if (saved) return saved;
-      // Aucune ville trouvée : retourner metropole-lyon par défaut
-      return 'metropole-lyon';
+      return this.getDefaultCity();
     },
 
     // Branding (logos, favicon)
@@ -386,46 +384,30 @@
 
     /**
      * Initialise et résout la ville active avec gestion de la persistance
-     * Utilise metropole-lyon par défaut si aucune ville valide
+     * Utilise la ville par défaut si aucune ville valide
      * @returns {string} Ville active résolue (toujours une ville, jamais null)
      */
     initializeActiveCity() {
       const rawQueryCity = this.getRawCityFromQueryParam();
       const rawPathCity = this.getRawCityFromPath();
       
-      // Si pas de villes valides chargées, utiliser metropole-lyon par défaut
-      if (!this.VALID_CITIES || this.VALID_CITIES.size === 0) {
-        console.debug('[CityManager] Aucune ville valide chargée → Utilisation de metropole-lyon');
-        this._activeCity = 'metropole-lyon';
+      // Repli sur la ville par défaut ; une ville invalide venue de l'adresse
+      // ou du stockage est aussi oubliée pour ne pas revenir au prochain chargement.
+      const fallback = (reason, forget) => {
+        console.debug(`[CityManager] ${reason} → ville par défaut`);
+        if (forget) this.clearPersistedCity();
+        this._activeCity = this.getDefaultCity();
         return this._activeCity;
-      }
-
-      // Si ville invalide dans l'URL, utiliser metropole-lyon
-      if (rawQueryCity && !this.isValidCity(rawQueryCity)) {
-        console.debug('[CityManager] Ville invalide détectée:', rawQueryCity, '→ Utilisation de metropole-lyon');
-        this.clearPersistedCity();
-        this._activeCity = 'metropole-lyon';
-        return this._activeCity;
-      }
-      
-      if (rawPathCity && !this.isValidCity(rawPathCity)) {
-        console.debug('[CityManager] Ville invalide dans le path:', rawPathCity, '→ Utilisation de metropole-lyon');
-        this.clearPersistedCity();
-        this._activeCity = 'metropole-lyon';
-        return this._activeCity;
-      }
+      };
+      if (!this.VALID_CITIES || this.VALID_CITIES.size === 0) return fallback('Aucune ville valide chargée', false);
+      if (rawQueryCity && !this.isValidCity(rawQueryCity)) return fallback(`Ville invalide dans l'adresse : ${rawQueryCity}`, true);
+      if (rawPathCity && !this.isValidCity(rawPathCity)) return fallback(`Ville invalide dans le chemin : ${rawPathCity}`, true);
 
       // Résolution normale
       const city = this.resolveActiveCity();
       
-      // Si ville résolue mais invalide, utiliser metropole-lyon
-      if (city && !this.isValidCity(city)) {
-        console.debug('[CityManager] Ville résolue invalide:', city, '→ Utilisation de metropole-lyon');
-        this.clearPersistedCity();
-        this._activeCity = 'metropole-lyon';
-        return this._activeCity;
-      }
-      
+      if (city && !this.isValidCity(city)) return fallback(`Ville résolue invalide : ${city}`, true);
+
       this._activeCity = city;
       
       // Gérer la persistance

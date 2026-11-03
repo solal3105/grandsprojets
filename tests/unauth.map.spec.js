@@ -816,15 +816,15 @@ test.describe('0.16 - Routage clic feature', () => {
    */
   async function installRoutingStubs(page) {
     await page.evaluate(() => {
-      const calls = { openTravauxModal: 0, showDetailPanel: 0, showProjectDetail: 0, showProjectDetailById: 0, lastArgs: null };
+      const calls = { openTravauxDetail: 0, showDetailPanel: 0, showProjectDetail: 0, showProjectDetailById: 0, lastArgs: null };
       window.__routeCalls = calls;
       // Stub spotlight (ne pas toucher à la carte)
       if (window.FeatureInteractions) {
         window.FeatureInteractions._spotlight = () => {};
       }
       // Stub des destinations
-      window.DataModule = window.DataModule || {};
-      window.DataModule.openTravauxModal = (p) => { calls.openTravauxModal++; calls.lastArgs = { route: 'travaux', p }; };
+      window.TravauxViews = window.TravauxViews || {};
+      window.TravauxViews.openDetail = (p) => { calls.openTravauxDetail++; calls.lastArgs = { route: 'travaux', p }; };
       window.UIModule = window.UIModule || {};
       window.UIModule.showDetailPanel = (cat, feat) => { calls.showDetailPanel++; calls.lastArgs = { route: 'showDetailPanel', cat, feat }; };
       window.NavigationModule = window.NavigationModule || {};
@@ -846,7 +846,7 @@ test.describe('0.16 - Routage clic feature', () => {
       window.FeatureInteractions._openFeature(feature);
       return window.__routeCalls;
     });
-    expect(calls.openTravauxModal).toBe(0);
+    expect(calls.openTravauxDetail).toBe(0);
     // id présent → route par ID
     expect(calls.showProjectDetailById).toBe(1);
     expect(calls.lastArgs.id).toBe(123);
@@ -865,7 +865,7 @@ test.describe('0.16 - Routage clic feature', () => {
       window.FeatureInteractions._openFeature(feature);
       return window.__routeCalls;
     });
-    expect(calls.openTravauxModal).toBe(0);
+    expect(calls.openTravauxDetail).toBe(0);
     expect(calls.showDetailPanel).toBe(1);
     expect(calls.lastArgs.cat).toBe('urbanisme');
   });
@@ -891,7 +891,7 @@ test.describe('0.16 - Routage clic feature', () => {
       window.FeatureInteractions._openFeature(feature);
       return window.__routeCalls;
     });
-    expect(calls.openTravauxModal).toBe(0);
+    expect(calls.openTravauxDetail).toBe(0);
     expect(calls.showProjectDetailById).toBe(1);
   });
 
@@ -908,7 +908,7 @@ test.describe('0.16 - Routage clic feature', () => {
       window.FeatureInteractions._openFeature(feature);
       return window.__routeCalls;
     });
-    expect(calls.openTravauxModal).toBe(1);
+    expect(calls.openTravauxDetail).toBe(1);
     expect(calls.showProjectDetailById).toBe(0);
     expect(calls.showDetailPanel).toBe(0);
   });
@@ -926,7 +926,7 @@ test.describe('0.16 - Routage clic feature', () => {
       window.FeatureInteractions._openFeature(feature);
       return window.__routeCalls;
     });
-    expect(calls.openTravauxModal).toBe(0);
+    expect(calls.openTravauxDetail).toBe(0);
     expect(calls.showDetailPanel).toBe(0);
     expect(calls.showProjectDetail).toBe(0);
     expect(calls.showProjectDetailById).toBe(0);
@@ -1402,5 +1402,287 @@ test.describe('0.22 - Projet disparu de la carte', () => {
     });
 
     expect(calls.resync).toBe(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────
+// 0.23 - Contenu des fiches ouvertes sur la carte
+// ─────────────────────────────────────────────────────────
+// Filet posé avant de regrouper l'ouverture et la fermeture du panneau
+// (fiche projet et fiche chantier) : ce que le visiteur voit et ce que font
+// les boutons Retour et Fermer.
+test.describe('0.23 - Fiches ouvertes sur la carte', () => {
+
+  const PROJET = {
+    id: 9001, project_name: 'Projet témoin', category: 'velo',
+    description: 'Une description lisible.', cover_url: 'https://example.org/couverture.jpg',
+    markdown_url: null, official_url: 'https://example.org/officiel', ville: 'metropole-lyon',
+    category_slug: 'velo', slug: 'projet-temoin', tags: null,
+  };
+
+  async function stubDossiers(page) {
+    await page.evaluate(() => {
+      window.supabaseService.getConsultationDossiersByProject = async () => [];
+    });
+  }
+
+  /** Ouvre la fiche par le chemin d'un clic sur la carte (route par identifiant). */
+  async function openProjet(page, projet) {
+    await page.evaluate(async (p) => {
+      window.supabaseService.getContributionById = async () => p;
+      await window.NavigationModule.showProjectDetailById(p.id, null);
+    }, projet);
+  }
+
+  /**
+   * Ouvre la fiche par son nom (recherche, contribution sans identifiant). Le
+   * garde anti-rafale ne bloquait que ce chemin : la route par identifiant
+   * posait un verrou aussitôt remplacé.
+   */
+  async function openProjetParNom(page, projet) {
+    await page.evaluate(async (p) => {
+      const { id: _id, ...sansId } = p;
+      await window.NavigationModule.showSpecificContribution(p.project_name, p.category, sansId);
+    }, projet);
+  }
+
+  test('0.23.1 - Fiche projet : titre, description, couverture et lien vers la fiche complète', async ({ page }) => {
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    await openProjet(page, PROJET);
+
+    const panel = page.locator('#project-detail');
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+    await expect(panel.locator('.detail-description')).toHaveText('Une description lisible.');
+    await expect(panel.locator('.detail-hero__img')).toHaveAttribute('src', 'https://example.org/couverture.jpg');
+    await expect(panel.locator('.detail-cat-icon i')).toHaveClass(/fa-bicycle/);
+    await expect(panel.locator('.detail-fullpage-btn')).toHaveAttribute('data-fiche-url', '/fiche/metropole-lyon/velo/projet-temoin');
+    await expect(panel.locator('#detail-back-btn')).toBeVisible();
+    await expect(panel.locator('#detail-close-btn')).toBeVisible();
+  });
+
+  test('0.23.2 - Fiche projet sans couverture ni contenu riche : pas d\'image, pas de lien', async ({ page }) => {
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    await openProjet(page, { ...PROJET, cover_url: null, official_url: null });
+
+    const panel = page.locator('#project-detail');
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+    await expect(panel.locator('.detail-hero')).toHaveCount(0);
+    await expect(panel.locator('.detail-scroll-body--no-hero')).toHaveCount(1);
+    await expect(panel.locator('.detail-fullpage-btn')).toHaveCount(0);
+  });
+
+  test('0.23.3 - Fiche projet avec article : l\'en-tête de l\'article complète la fiche', async ({ page }) => {
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    await page.route('**/filet-0-23/article.md', (route) => route.fulfill({
+      status: 200,
+      contentType: 'text/markdown',
+      body: '---\ncover: https://example.org/article.jpg\nfrom: Gare\nto: Mairie\ntrafic: 12 000 vehicules par jour\ndescription: Texte venu de l\'article.\n---\n# Corps\n',
+    }));
+    const origin = new URL(page.url()).origin;
+    await openProjet(page, {
+      ...PROJET, cover_url: null, description: null,
+      markdown_url: `${origin}/filet-0-23/article.md`,
+    });
+
+    const panel = page.locator('#project-detail');
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+    await expect(panel.locator('.detail-chips')).toContainText('Gare → Mairie');
+    await expect(panel.locator('.detail-chips')).toContainText('12 000 vehicules par jour');
+    await expect(panel.locator('.detail-description')).toHaveText('Texte venu de l\'article.');
+    await expect(panel.locator('.detail-hero__img')).toHaveAttribute('src', 'https://example.org/article.jpg');
+  });
+
+  test('0.23.3b - RÉGRESSION : une image d\'article en chemin absolu part de la racine du site', async ({ page }) => {
+    // La carte vit sous /ville/{ville}/carte : « /img/x.jpg » devenait
+    // « /ville/metropole-lyon/img/x.jpg », une image introuvable.
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    await page.route('**/filet-0-23/article-racine.md', (route) => route.fulfill({
+      status: 200, contentType: 'text/markdown', body: '---\ncover: /img/og/carte.jpg\n---\n# Corps\n',
+    }));
+    const origin = new URL(page.url()).origin;
+    await openProjet(page, { ...PROJET, cover_url: null, markdown_url: `${origin}/filet-0-23/article-racine.md` });
+    await expect(page.locator('#project-detail .detail-hero__img')).toHaveAttribute('src', '/img/og/carte.jpg');
+  });
+
+  test('0.23.4 - Fermer la fiche projet cache le panneau et rouvre la navigation', async ({ page }) => {
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    await openProjet(page, PROJET);
+    const panel = page.locator('#project-detail');
+    await expect(panel).toBeVisible();
+
+    await panel.locator('#detail-close-btn').click();
+    await expect(panel).toBeHidden();
+    // La même fiche peut être rouverte juste après
+    await openProjet(page, PROJET);
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+  });
+
+  test('0.23.5 - Retour depuis la fiche projet cache le panneau', async ({ page }) => {
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    await openProjet(page, PROJET);
+    const panel = page.locator('#project-detail');
+    await expect(panel).toBeVisible();
+    await panel.locator('#detail-back-btn').click();
+    await expect(panel).toBeHidden();
+  });
+
+  test('0.23.6 - Une erreur pendant le rendu laisse un message, pas un panneau vide', async ({ page }) => {
+    await waitForMapBoot(page);
+    await page.evaluate(() => {
+      window.supabaseService.getConsultationDossiersByProject = () => { throw new Error('panne'); };
+    });
+    await openProjet(page, { id: 9002, project_name: 'Projet en panne', category: 'velo', ville: 'metropole-lyon' });
+    const panel = page.locator('#project-detail');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('Projet en panne');
+  });
+
+  async function openChantier(page, props) {
+    await page.evaluate((p) => {
+      window.FeatureInteractions._spotlight = () => {};
+      window.FeatureInteractions._openFeature({
+        type: 'Feature', source: 'travaux',
+        properties: { chantier_key: 'travaux-url:test:AUTO:1', ...p },
+        geometry: { type: 'Point', coordinates: [4.85, 45.75] },
+      });
+    }, props);
+  }
+
+  test('0.23.7 - Fiche chantier : titre, commune, état, dates et adresses', async ({ page }) => {
+    await waitForMapBoot(page);
+    await openChantier(page, {
+      name: 'Réfection rue témoin', etat: 'Ouvert', commune: 'Villeurbanne',
+      date_debut: '2026-01-01', date_fin: '2027-01-01',
+      nature_chantier: 'Voirie', nature_travaux: 'Enrobé',
+      description: 'Travaux de nuit.',
+      adresse: '1 rue A\n2 rue B\n3 rue C\n4 rue D\n5 rue E\n6 rue F',
+    });
+
+    const panel = page.locator('#project-detail');
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.detail-title')).toHaveText('Réfection rue témoin');
+    await expect(panel).toContainText('Villeurbanne');
+    await expect(panel.locator('.etat-pill')).toHaveText('Ouvert');
+    await expect(panel.locator('.etat-pill')).toHaveClass(/etat--ouvert/);
+    await expect(panel.locator('.detail-chips')).toContainText('Voirie');
+    await expect(panel.locator('.detail-chips')).toContainText('Enrobé');
+    await expect(panel.locator('.tw-detail-timeline')).toBeVisible();
+    await expect(panel.locator('.tw-detail-addresses__list li')).toHaveCount(6);
+    await expect(panel.locator('.tw-detail-addresses__list')).toHaveClass(/collapsed/);
+    await panel.locator('.toggle-addresses').click();
+    await expect(panel.locator('.tw-detail-addresses__list')).not.toHaveClass(/collapsed/);
+    await expect(panel.locator('.toggle-addresses')).toHaveText('Voir moins');
+    await expect(panel.locator('.tw-detail-pending-banner')).toHaveCount(0);
+  });
+
+  test('0.23.8 - Fiche chantier en attente : bandeau de validation, état neutre', async ({ page }) => {
+    await waitForMapBoot(page);
+    await openChantier(page, { nature_travaux: 'Branchement', approved: false });
+
+    const panel = page.locator('#project-detail');
+    await expect(panel.locator('.detail-title')).toHaveText('Branchement');
+    await expect(panel.locator('.tw-detail-pending-banner')).toBeVisible();
+    await expect(panel.locator('.etat-pill')).toHaveClass(/etat--neutre/);
+  });
+
+  test('0.23.9 - Fermer et retour sur la fiche chantier cachent le panneau', async ({ page }) => {
+    await waitForMapBoot(page);
+    const panel = page.locator('#project-detail');
+
+    await openChantier(page, { name: 'Chantier A', etat: 'Prochainement' });
+    await expect(panel.locator('.etat-pill')).toHaveClass(/etat--prochain/);
+    await panel.locator('#detail-close-btn').click();
+    await expect(panel).toBeHidden();
+
+    await openChantier(page, { name: 'Chantier B', etat: 'Terminé' });
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.etat-pill')).toHaveClass(/etat--termine/);
+    await panel.locator('#detail-back-btn').click();
+    await expect(panel).toBeHidden();
+  });
+
+  // Le panneau sait ce qu'il affiche : un projet n'est pas re-rendu tant qu'il
+  // est à l'écran, mais il se rouvre dès que le panneau a montré autre chose.
+  // Avant, le garde vivait hors du panneau et bloquait ce nouveau clic quand
+  // le projet s'ouvrait par son nom (la route par identifiant y échappait).
+  test('0.23.10 - RÉGRESSION : un projet se rouvre après la fiche d\'un chantier', async ({ page }) => {
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    const panel = page.locator('#project-detail');
+
+    await openProjetParNom(page, PROJET);
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+    await openChantier(page, { name: 'Chantier entre-temps', etat: 'Ouvert' });
+    await expect(panel.locator('.detail-title')).toHaveText('Chantier entre-temps');
+
+    await openProjetParNom(page, PROJET);
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+
+    // Chantier fermé avant de recliquer : même chose
+    await openChantier(page, { name: 'Chantier fermé', etat: 'Ouvert' });
+    await panel.locator('#detail-close-btn').click();
+    await expect(panel).toBeHidden();
+    await openProjetParNom(page, PROJET);
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+  });
+
+  test('0.23.11 - RÉGRESSION : un projet se rouvre après l\'ouverture d\'un autre panneau', async ({ page }) => {
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    const panel = page.locator('#project-detail');
+
+    await openProjetParNom(page, PROJET);
+    await expect(panel).toBeVisible();
+    // Ouvrir les filtres cache la fiche
+    await page.evaluate(() => window.toggleManager.setState('filters', true));
+    await expect(panel).toBeHidden();
+
+    await openProjetParNom(page, PROJET);
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+  });
+
+  test('0.23.12 - Fiche de signalement : même panneau, fermeture, puis projet rouvert', async ({ page }) => {
+    await waitForMapBoot(page);
+    await stubDossiers(page);
+    await page.route('**/api/participer/config*', (r) => r.fulfill({ json: { enabled: true, categories: [], statuts: [] } }));
+    await page.route('**/api/participer/detail*', (r) => r.fulfill({
+      json: {
+        own: false,
+        events: [],
+        signalement: {
+          id: 'sig-1', reference: 'LYO-2026-0001', category_label: 'Nid de poule', category_color: '#ff8800',
+          statut_label: 'Reçu', statut_color: '#2563eb', adresse: '3 rue témoin', description: 'Trou profond.',
+          created_at: '2026-10-01T10:00:00Z', photo_url: null,
+        },
+      },
+    }));
+    const panel = page.locator('#project-detail');
+
+    await openProjetParNom(page, PROJET);
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
+
+    await page.evaluate(() => window.ParticiperViews.openDetailById('metropole-lyon', 'sig-1'));
+    await expect(panel.locator('.detail-title')).toHaveText('Nid de poule');
+    await expect(panel.locator('.pt-statut-pill')).toHaveText('Reçu');
+    await expect(panel.locator('.detail-overlay-btns #detail-close-btn')).toBeVisible();
+    expect(await panel.evaluate((el) => el.style.getPropertyValue('--cat-color'))).toBe('#ff8800');
+
+    await panel.locator('#detail-close-btn').click();
+    await expect(panel).toBeHidden();
+    await expect(panel.locator('.pt-statut-pill')).toHaveCount(0);
+
+    await openProjetParNom(page, PROJET);
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
   });
 });

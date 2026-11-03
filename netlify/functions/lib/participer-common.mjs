@@ -11,7 +11,7 @@
    et l'email du signaleur ne sort JAMAIS vers le public.
    ============================================================================ */
 
-import { SUPABASE_URL, isValidCityCode } from './http.mjs';
+import { SUPABASE_URL, isValidCityCode, getCorsHeaders, preflightResp } from './http.mjs';
 import { envoyerEmail, echapperHtml, EXPEDITEUR_DEFAUT } from './mail.mjs';
 
 export { echapperHtml };
@@ -76,6 +76,28 @@ export const PUBLIC_GET_CORS = {
 
 export function jsonResp(status, body, headers = PUBLIC_GET_CORS) {
   return new Response(JSON.stringify(body), { status, headers });
+}
+
+/**
+ * Début commun des dépôts publics sans compte (submit, retrait) : CORS,
+ * méthode POST, corps JSON et champ piège. Un humain ne voit pas le champ
+ * `website`, un robot le remplit : on lui répond comme si tout allait bien,
+ * sans rien enregistrer.
+ * @returns {Promise<{ reponse: Response } | { cors: Object, body: Object }>}
+ *   `reponse` quand la requête s'arrête là
+ */
+export async function lireDepotPublic(req) {
+  const cors = { ...getCorsHeaders(req), 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+  if (req.method === 'OPTIONS') return { reponse: preflightResp(cors) };
+  if (req.method !== 'POST') return { reponse: jsonResp(405, { error: 'Méthode non autorisée' }, cors) };
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return { reponse: jsonResp(400, { error: 'Corps de requête invalide' }, cors) };
+  }
+  if (String(body?.website || '').trim()) return { reponse: jsonResp(200, { ok: true }, cors) };
+  return { cors, body };
 }
 
 /* ─── Clé de service ─── */

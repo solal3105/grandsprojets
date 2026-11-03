@@ -472,6 +472,128 @@
     });
   }
 
-  win.TravauxViews = { buildTimeline, buildFilters, buildAdmin, buildContributor, bindListActions };
+  /**
+   * Fiche d'un chantier (HTML complet, barre Retour / Fermer comprise).
+   * @param {Object} props - propriétés de la feature travaux
+   */
+  function chantierDetailHTML(props) {
+    const titre       = props.project_name || props.name || props.nature_travaux || props.nature || props.nature_chantier || 'Chantier';
+    const etat        = props.etat || '-';
+    const etatLow     = etat.toLowerCase();
+    const etatClass   = etatLow.includes('ouver') ? 'etat--ouvert'
+                      : etatLow.includes('prochain') ? 'etat--prochain'
+                      : etatLow.includes('termin') ? 'etat--termine' : 'etat--neutre';
+    const commune     = props.commune || props.ville || props.COMMUNE || '';
+    const chantierIcon = props.icon || 'fa-solid fa-helmet-safety';
+    const description = props.description || '';
+    const adrs        = (props.adresse || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
+
+    const progressPct  = win.TravauxModule.calcProgress(props.date_debut, props.date_fin);
+    const gradientBg   = win.TravauxModule.calcGradient(progressPct);
+    const debut        = win.TravauxModule.safeDate(props.date_debut);
+    const fin          = win.TravauxModule.safeDate(props.date_fin);
+    const now          = new Date();
+    const dateFmt      = (d) => d ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+    const durationDays = (debut && fin && fin > debut) ? Math.max(1, Math.round((fin - debut) / 86400000)) : null;
+    const todayPct     = (debut && fin && fin > debut) ? Math.max(0, Math.min(100, ((now - debut) / (fin - debut)) * 100)) : 0;
+    const todayColor   = progressPct <= 50
+                       ? (progressPct < 25 ? 'var(--danger)' : 'var(--warning)')
+                       : (progressPct < 75 ? 'var(--warning)' : 'var(--success)');
+
+    const isPending = props.approved === false;
+
+    // Même structure que la fiche projet
+    const natures = [props.nature_chantier, props.nature_travaux].filter(Boolean);
+
+    return `
+      ${win.DetailPanel.OVERLAY_BUTTONS}
+      <div class="detail-scroll-body">
+      <div class="detail-hero detail-hero--travaux" style="--travaux-color: var(--color-warning)">
+        <div class="detail-hero__grad"></div>
+        <div class="detail-hero__travaux-icon"><i class="${esc(chantierIcon)}"></i></div>
+      </div>
+      <div class="detail-content-wrap">
+        ${isPending ? `
+        <div class="tw-detail-pending-banner">
+          <i class="fa-solid fa-clock"></i>
+          <span>En attente de validation par un administrateur</span>
+        </div>` : ''}
+        <div class="detail-title-row">
+          <span class="detail-cat-icon" style="--cat-color: var(--color-warning)"><i class="${esc(chantierIcon)}"></i></span>
+          <div style="flex:1;min-width:0">
+            <h3 class="detail-title">${esc(titre)}</h3>
+            ${commune ? `<div class="detail-description" style="margin:4px 0 0">${esc(commune)}</div>` : ''}
+          </div>
+          <span class="etat-pill ${etatClass}" style="flex-shrink:0">${esc(etat)}</span>
+        </div>
+
+        ${natures.length ? `<div class="detail-chips">${natures.map(n => `<span class="detail-chip"><i class="fa-solid fa-hammer"></i>${esc(n)}</span>`).join('')}</div>` : ''}
+
+        <div class="tw-detail-timeline">
+          <div class="tw-detail-timeline__bar" role="progressbar"
+            aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPct}">
+            <div class="tw-detail-timeline__fill" data-target="${progressPct}"
+              style="width:0%;background:${gradientBg}"></div>
+            <div class="tw-detail-timeline__today" style="left:${todayPct}%;background:${todayColor}"></div>
+          </div>
+          <div class="tw-detail-timeline__meta">
+            <span>${dateFmt(debut)}</span>
+            <span class="tw-detail-timeline__pct">${progressPct}%${durationDays ? ` · ${durationDays} j` : ''}</span>
+            <span>${dateFmt(fin)}</span>
+          </div>
+        </div>
+
+        ${description ? `<p class="detail-description" style="margin-top:14px">${esc(description)}</p>` : ''}
+
+        ${adrs.length ? `
+        <div class="tw-detail-addresses">
+          <div class="tw-detail-addresses__label"><i class="fa-solid fa-location-dot"></i> Localisation</div>
+          <ul class="tw-detail-addresses__list addresses ${adrs.length > 5 ? 'collapsed' : ''}">
+            ${adrs.map(a => `<li>${esc(a)}</li>`).join('')}
+          </ul>
+          ${adrs.length > 5 ? `<button class="toggle-addresses" style="margin-top:6px;font-size:.8rem;background:none;border:none;color:var(--primary);cursor:pointer;padding:2px 0">Voir plus</button>` : ''}
+        </div>` : ''}
+
+
+      </div>
+      </div>`;
+  }
+
+  /**
+   * Ouvre la fiche d'un chantier dans le panneau de fiche de la carte.
+   * @param {Object} props - propriétés de la feature travaux
+   */
+  function openDetail(props) {
+    try {
+      const panel = win.DetailPanel.open('var(--color-warning)');
+      if (!panel) return;
+      panel.innerHTML = chantierDetailHTML(props);
+
+      const dismiss = () => {
+        win.DetailPanel.close({ clear: true });
+        win.FeatureInteractions?.clearSelection?.();
+      };
+      win.DetailPanel.bindButtons(panel, { onBack: dismiss, onClose: dismiss });
+
+      // Barre d'avancement animée depuis zéro
+      const fill = panel.querySelector('.tw-detail-timeline__fill');
+      const target = Number(fill?.getAttribute('data-target') || 0);
+      if (fill) requestAnimationFrame(() => { fill.style.width = '0%'; setTimeout(() => { fill.style.width = `${target}%`; }, 40); });
+
+      // Plus de cinq adresses : liste repliée, bouton Voir plus / Voir moins
+      const toggleBtn = panel.querySelector('.toggle-addresses');
+      if (toggleBtn) {
+        const ul = panel.querySelector('.tw-detail-addresses__list');
+        toggleBtn.addEventListener('click', () => {
+          ul?.classList.toggle('collapsed');
+          toggleBtn.textContent = ul?.classList.contains('collapsed') ? 'Voir plus' : 'Voir moins';
+        });
+      }
+    } catch (e) {
+      console.error('[TravauxViews] Erreur ouverture détail chantier:', e);
+    }
+  }
+
+  win.TravauxViews = { buildTimeline, buildFilters, buildAdmin, buildContributor, bindListActions, chantierDetailHTML, openDetail };
 
 })(window);
