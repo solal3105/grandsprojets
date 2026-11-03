@@ -1434,6 +1434,18 @@ test.describe('0.23 - Fiches ouvertes sur la carte', () => {
     }, projet);
   }
 
+  /**
+   * Ouvre la fiche par son nom (recherche, contribution sans identifiant). Le
+   * garde anti-rafale ne bloquait que ce chemin : la route par identifiant
+   * posait un verrou aussitôt remplacé.
+   */
+  async function openProjetParNom(page, projet) {
+    await page.evaluate(async (p) => {
+      const { id: _id, ...sansId } = p;
+      await window.NavigationModule.showSpecificContribution(p.project_name, p.category, sansId);
+    }, projet);
+  }
+
   test('0.23.1 - Fiche projet : titre, description, couverture et lien vers la fiche complète', async ({ page }) => {
     await waitForMapBoot(page);
     await stubDossiers(page);
@@ -1599,25 +1611,26 @@ test.describe('0.23 - Fiches ouvertes sur la carte', () => {
 
   // Le panneau sait ce qu'il affiche : un projet n'est pas re-rendu tant qu'il
   // est à l'écran, mais il se rouvre dès que le panneau a montré autre chose.
-  // Avant, le garde vivait hors du panneau et bloquait ce nouveau clic.
+  // Avant, le garde vivait hors du panneau et bloquait ce nouveau clic quand
+  // le projet s'ouvrait par son nom (la route par identifiant y échappait).
   test('0.23.10 - RÉGRESSION : un projet se rouvre après la fiche d\'un chantier', async ({ page }) => {
     await waitForMapBoot(page);
     await stubDossiers(page);
     const panel = page.locator('#project-detail');
 
-    await openProjet(page, PROJET);
+    await openProjetParNom(page, PROJET);
     await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
     await openChantier(page, { name: 'Chantier entre-temps', etat: 'Ouvert' });
     await expect(panel.locator('.detail-title')).toHaveText('Chantier entre-temps');
 
-    await openProjet(page, PROJET);
+    await openProjetParNom(page, PROJET);
     await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
 
     // Chantier fermé avant de recliquer : même chose
     await openChantier(page, { name: 'Chantier fermé', etat: 'Ouvert' });
     await panel.locator('#detail-close-btn').click();
     await expect(panel).toBeHidden();
-    await openProjet(page, PROJET);
+    await openProjetParNom(page, PROJET);
     await expect(panel).toBeVisible();
     await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
   });
@@ -1627,13 +1640,13 @@ test.describe('0.23 - Fiches ouvertes sur la carte', () => {
     await stubDossiers(page);
     const panel = page.locator('#project-detail');
 
-    await openProjet(page, PROJET);
+    await openProjetParNom(page, PROJET);
     await expect(panel).toBeVisible();
     // Ouvrir les filtres cache la fiche
     await page.evaluate(() => window.toggleManager.setState('filters', true));
     await expect(panel).toBeHidden();
 
-    await openProjet(page, PROJET);
+    await openProjetParNom(page, PROJET);
     await expect(panel).toBeVisible();
     await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
   });
@@ -1655,7 +1668,7 @@ test.describe('0.23 - Fiches ouvertes sur la carte', () => {
     }));
     const panel = page.locator('#project-detail');
 
-    await openProjet(page, PROJET);
+    await openProjetParNom(page, PROJET);
     await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
 
     await page.evaluate(() => window.ParticiperViews.openDetailById('metropole-lyon', 'sig-1'));
@@ -1668,7 +1681,7 @@ test.describe('0.23 - Fiches ouvertes sur la carte', () => {
     await expect(panel).toBeHidden();
     await expect(panel.locator('.pt-statut-pill')).toHaveCount(0);
 
-    await openProjet(page, PROJET);
+    await openProjetParNom(page, PROJET);
     await expect(panel).toBeVisible();
     await expect(panel.locator('.detail-title')).toHaveText('Projet témoin');
   });
