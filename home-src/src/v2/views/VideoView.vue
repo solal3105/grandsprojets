@@ -179,6 +179,8 @@
           sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals"
           @load="cadreCharge"
         />
+        <!-- Les films des modules : le choix, puis le film choisi. -->
+        <SalonFilms v-else-if="ouverte.liens === 'films'" ref="ecranFilms" @etat="suivreFilms" @geste="toucher" />
         <!-- Un module sans démonstration publique montre la reproduction de sa
              vitrine, sans la page qui l'entoure. -->
         <div v-else class="absolute inset-0 overflow-y-auto text-dark">
@@ -231,11 +233,12 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent, markRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Calculator, Loader, MapPinned, Maximize, Minimize, Pause, Play, Stamp, Volume2, VolumeX } from 'lucide-vue-next'
+import { ArrowLeft, Calculator, Clapperboard, Loader, MapPinned, Maximize, Minimize, Pause, Play, Stamp, Volume2, VolumeX } from 'lucide-vue-next'
 import { modules, ARRETE_URL, ARRETE_STAND_URL } from '../data/modules.js'
 import { lotsRoue } from '../data/roue.js'
 import { videoAvantApres } from '../data/videoAvantApres.js'
 import { KIOSK_URL, SALON_COMMUNES_PATH, SITE_URL } from '@/data/siteUrls.js'
+import SalonFilms from '../components/SalonFilms.vue'
 
 /* ---- Les écrans ----
  *
@@ -243,7 +246,8 @@ import { KIOSK_URL, SALON_COMMUNES_PATH, SITE_URL } from '@/data/siteUrls.js'
  * montre le cadre, `lien` l'adresse du lien pour qui l'ouvre dans un nouvel
  * onglet. `liens` dit ce que le cadre laisse suivre : `outil` garde la
  * navigation de l'outil dans son cadre, `page` n'accepte que la page
- * elle-même, `communes` laisse l'écran des communes tenir les siens. `fond` est
+ * elle-même, `communes` laisse l'écran des communes tenir les siens, `films`
+ * montre les films des modules, sans cadre. `fond` est
  * la couleur sous le cadre pendant qu'il se charge. */
 
 const vuesModules = modules.map((m) => ({
@@ -271,7 +275,13 @@ const commune = {
   url: cleStand ? `${SALON_COMMUNES_PATH}&k=${encodeURIComponent(cleStand)}` : SALON_COMMUNES_PATH,
   lien: KIOSK_URL, liens: 'communes', fond: 'sombre',
 }
+const films = {
+  key: 'films', court: 'Films', titre: "Regarder le film d'un module", icone: Clapperboard, teinte: 'text-primary',
+  lien: '/video', liens: 'films', fond: 'sombre',
+  consigne: 'Touchez un module pour lancer son film, avec le son.',
+}
 const vuesStand = [
+  films,
   commune,
   {
     key: 'arretes', court: 'Arrêtés', titre: 'Générer un arrêté de circulation ou de voirie', icone: Stamp, teinte: 'text-mod-chantiers',
@@ -295,6 +305,7 @@ const quartiersRoue = Array.from({ length: 8 }, (_, i) => {
 
 const video = ref(null)
 const cadre = ref(null)
+const ecranFilms = ref(null)
 const boutonRetour = ref(null)
 
 /* ---- La lecture ---- */
@@ -474,7 +485,13 @@ function envoyer(type) {
 function reculer() {
   toucher()
   if (ouverte.value?.liens === 'communes' && etape.value.niveau > 0) envoyer('salon:retour')
+  else if (ouverte.value?.liens === 'films' && ecranFilms.value?.revenir()) return
   else fermer('bouton')
+}
+// Les films disent où ils en sont : le choix, ou le film d'un module.
+function suivreFilms(e) {
+  etape.value = { niveau: e.niveau, titre: e.titre || null, retour: e.retour || null }
+  toucher()
 }
 function agir() {
   toucher()

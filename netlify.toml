@@ -245,6 +245,25 @@
   [headers.values]
     Cache-Control = "public, max-age=2592000"
 
+# Les films des modules (icône Films de la page /video), rangés dans
+# /video/modules/ : mêmes règles, et les sous-titres avec leur type.
+[[headers]]
+  for = "/video/modules/*.mp4"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
+    Accept-Ranges = "bytes"
+
+[[headers]]
+  for = "/video/modules/*.webp"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
+
+[[headers]]
+  for = "/video/modules/*.vtt"
+  [headers.values]
+    Content-Type = "text/vtt; charset=utf-8"
+    Cache-Control = "public, max-age=86400"
+
 # ============================================
 # Le code de l'application doit revalider
 # ============================================
