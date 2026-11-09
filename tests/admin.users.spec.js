@@ -280,3 +280,95 @@ test.describe('4.4 - Changement de rôle', () => {
   });
 
 });
+
+// ─────────────────────────────────────────────────────────
+// 4.5 - Invitation : ce que la console annonce est ce qui est arrivé
+//
+// Le 3/11/2026, la fonction invite-user répondait 200 alors que l'e-mail
+// n'était pas parti, et la console affichait « Invitation envoyée ». Les
+// tests 4.5.1 à 4.5.3 simulent la réponse de la fonction ; 4.5.4 appelle la
+// vraie fonction déployée et vérifie qu'un e-mail est réellement remis à
+// Resend (adresse de test delivered@resend.dev, qui accepte tout sans rien
+// livrer à personne).
+// ─────────────────────────────────────────────────────────
+test.describe('4.5 - Invitation de bout en bout', () => {
+
+  const fonction = '**/functions/v1/invite-user';
+  const repondre = (route, status, body) => route.fulfill({
+    status, contentType: 'application/json',
+    headers: { 'Access-Control-Allow-Origin': '*' },
+    body: JSON.stringify(body),
+  });
+  /** Laisse passer le préflight CORS, répond au POST. */
+  const simuler = (page, status, body) => page.route(fonction, (route) => (
+    route.request().method() === 'OPTIONS' ? repondre(route, 200, {}) : repondre(route, status, body)
+  ));
+
+  async function inviterDepuisLeFormulaire(page, email) {
+    await page.click('#users-invite-btn');
+    await page.fill('#invite-email', email);
+    await page.click('#invite-submit');
+  }
+
+  test('4.5.1 - Envoi refusé par le serveur : toast d\'erreur, jamais « Invitation envoyée »', async ({ page }) => {
+    await simuler(page, 502, {
+      error: "L'e-mail d'invitation n'a pas pu partir. Aucun compte n'a été ouvert, vous pouvez réessayer.",
+      detail: 'Signups not allowed for this instance',
+    });
+    await goToUsers(page);
+    await inviterDepuisLeFormulaire(page, 'agent.test@exemple-collectivite.fr');
+    await expect(page.locator('.adm-toast--error').filter({ hasText: "n'a pas pu partir" })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.adm-toast--success')).toHaveCount(0);
+    // Le formulaire reste ouvert, avec l'adresse, pour réessayer
+    await expect(page.locator('#users-invite-card')).toBeVisible();
+    await expect(page.locator('#invite-email')).toHaveValue('agent.test@exemple-collectivite.fr');
+  });
+
+  test('4.5.2 - Réponse 200 sans statut (ancienne fonction) : traitée comme un échec', async ({ page }) => {
+    await simuler(page, 200, { message: 'User invited successfully' });
+    await goToUsers(page);
+    await inviterDepuisLeFormulaire(page, 'agent.test@exemple-collectivite.fr');
+    await expect(page.locator('.adm-toast--error')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.adm-toast--success')).toHaveCount(0);
+  });
+
+  test('4.5.3 - Compte jamais ouvert : badge, bouton « Renvoyer l\'invitation », toasts de relance', async ({ page }) => {
+    // Tous les comptes de la liste passent pour jamais connectés
+    await page.route('**/rest/v1/rpc/profils_etat_acces*', async (route) => {
+      const vraie = await route.fetch();
+      const lignes = await vraie.json();
+      await route.fulfill({ response: vraie, json: (Array.isArray(lignes) ? lignes : []).map((l) => ({ ...l, last_sign_in_at: null })) });
+    });
+    await simuler(page, 200, { statut: 'relance', email: 'teste2e+invited@openprojets.com', role: 'invited', roleDemande: 'invited', envoi: { id: 'faux' } });
+    await goToUsers(page);
+
+    const ligne = page.locator('.adm-user-row', { hasText: 'teste2e+invited' });
+    await expect(ligne.locator('.adm-badge--warning')).toContainText('Jamais connecté');
+    const bouton = ligne.locator('[data-action="resend-invite"]');
+    await expect(bouton).toContainText("Renvoyer l'invitation");
+
+    const appel = page.waitForRequest((r) => r.url().includes('/functions/v1/invite-user') && r.method() === 'POST');
+    await bouton.click();
+    const corps = (await appel).postDataJSON();
+    expect(corps.email).toBe('teste2e+invited@openprojets.com');
+    expect(corps.ville).toBe('test-e2e');
+    await expect(page.locator('.adm-toast--success').filter({ hasText: 'une nouvelle invitation vient de partir' })).toBeVisible({ timeout: 10000 });
+  });
+
+  test('4.5.4 - Vraie fonction : l\'e-mail est remis au fournisseur', async ({ page }) => {
+    // Adresse fixe : la première exécution crée le compte (invitation), les
+    // suivantes le relancent (il n'est jamais ouvert). Les deux chemins
+    // passent par Supabase Auth et par Resend, comme une vraie invitation.
+    const email = 'delivered+invitation-e2e@resend.dev';
+    await goToUsers(page);
+    const reponse = page.waitForResponse((r) => r.url().includes('/functions/v1/invite-user') && r.request().method() === 'POST', { timeout: 30000 });
+    await inviterDepuisLeFormulaire(page, email);
+    const r = await reponse;
+    const corps = await r.json();
+    expect(r.status(), JSON.stringify(corps)).toBe(200);
+    expect(['invite', 'relance']).toContain(corps.statut);
+    expect(corps.envoi?.id, 'identifiant Resend du message').toBeTruthy();
+    await expect(page.locator('.adm-toast--success').filter({ hasText: email })).toBeVisible({ timeout: 10000 });
+  });
+
+});

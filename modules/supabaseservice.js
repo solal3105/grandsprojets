@@ -1759,12 +1759,21 @@
         }
         
         // Les emails sont déjà dans les données depuis la vue profiles_with_email
+        // État d'accès de chaque compte (jamais connecté ?) : sans lui, la
+        // console affiche la liste sans le signaler plutôt que de ne rien montrer.
+        const acces = new Map();
+        const { data: etats, error: etatsError } = await supabaseClient.rpc('profils_etat_acces');
+        if (etatsError) console.warn('[supabaseService] getVisibleUsers: état des accès indisponible', etatsError);
+        (etats || []).forEach(e => acces.set(e.id, e));
+
         const result = visibleUsers.map(u => ({
           id: u.id,
           email: u.email || `User ${u.id.substring(0, 8)}...`,
           role: u.role,
           ville: u.ville,
-          created_at: u.created_at
+          created_at: u.created_at,
+          // undefined = inconnu (état indisponible), null = jamais connecté
+          last_sign_in_at: acces.has(u.id) ? acces.get(u.id).last_sign_in_at : undefined
         }));
         
         return result;
@@ -1928,98 +1937,38 @@
     },
 
     /**
-     * Invite un nouvel utilisateur
-     * @param {string} email - Email de l'utilisateur à inviter
-     * @param {Array<string>} villes - Liste des villes à assigner
-     * @param {string} role - Rôle de l'utilisateur ('admin' ou 'invited')
-     * @returns {Promise<Object>} Résultat de l'invitation
+     * Invite quelqu'un dans un espace, ou lui renvoie son invitation.
+     * Tout se décide côté serveur (supabase/functions/invite-user) : compte à
+     * créer, compte jamais ouvert à relancer, compte existant à qui ajouter
+     * l'espace. Une réponse qui n'est pas 2xx est toujours un échec : rien ne
+     * doit afficher « invitation envoyée » si l'e-mail n'est pas parti.
+     * @param {string} email - Adresse de la personne
+     * @param {Array<string>} villes - Espace concerné (le premier est retenu)
+     * @param {string} role - Rôle d'un nouveau compte ('admin' ou 'invited')
+     * @returns {Promise<{statut: 'invite'|'relance'|'ajoute'|'deja-membre', email: string, role: string, roleDemande?: string}>}
      */
     async inviteUser(email, villes, role = 'invited') {
-      try {
-        // Utiliser fetch directement pour avoir le détail complet des erreurs
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (!session) {
-          throw new Error('Not authenticated');
-        }
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) throw new Error('Session expirée : reconnectez-vous.');
 
-        // Récupérer le domaine actuel pour l'inclure dans l'email
-        const currentDomain = window.location.origin;
+      const response = await fetch(`${supabaseClient.supabaseUrl}/functions/v1/invite-user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'apikey': supabaseClient.supabaseKey
+        },
+        body: JSON.stringify({ email, ville: villes?.[0], role, redirectUrl: window.location.origin })
+      });
 
-        const response = await fetch(`${supabaseClient.supabaseUrl}/functions/v1/invite-user`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-            'apikey': supabaseClient.supabaseKey
-          },
-          body: JSON.stringify({ email, villes, role, redirectUrl: currentDomain })
-        });
+      let data = null;
+      try { data = await response.json(); } catch { /* corps vide ou illisible */ }
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          const errorMessage = data.error || data.details || `HTTP ${response.status}: ${response.statusText}`;
-
-          // Si l'utilisateur existe déjà → ajouter la ville à son profil
-          const isAlreadyExists = /already.*(exist|registered)|duplicate/i.test(errorMessage);
-          if (isAlreadyExists && villes && villes.length > 0) {
-            return await this._addVilleToExistingUser(email, villes);
-          }
-
-          throw new Error(errorMessage);
-        }
-
-        if (data.error) {
-          throw new Error(data.error);
-        }
-
-        return data;
-      } catch (e) {
-        console.error('[supabaseService] inviteUser exception:', e);
-        throw e;
+      if (!response.ok || !data?.statut) {
+        if (data?.detail) console.error('[supabaseService] inviteUser:', data.detail);
+        throw new Error(data?.error || `L'invitation a échoué (erreur ${response.status}). Rien n'a été envoyé.`);
       }
-    },
-
-    /**
-     * Ajoute une/des ville(s) au profil d'un utilisateur existant (trouvé par email).
-     * @param {string} email
-     * @param {Array<string>} newVilles
-     * @returns {Promise<Object>}
-     */
-    async _addVilleToExistingUser(email, newVilles) {
-      // Trouver l'utilisateur via la RPC qui remonte les emails
-      const { data: allProfiles, error: rpcErr } = await supabaseClient
-        .rpc('get_profiles_with_email');
-      if (rpcErr) throw new Error('Impossible de rechercher l\'utilisateur existant');
-
-      const normalised = email.trim().toLowerCase();
-      const existing = (allProfiles || []).find(
-        p => (p.email || '').toLowerCase() === normalised
-      );
-      if (!existing) throw new Error('Utilisateur introuvable dans les profils');
-
-      const currentVilles = parseVilleArray(existing.ville);
-
-      // Fusionner sans doublons
-      const merged = [...new Set([...currentVilles, ...newVilles])];
-
-      // Vérifier s'il y a vraiment quelque chose à ajouter
-      if (merged.length === currentVilles.length) {
-        return { message: 'Cet utilisateur a déjà accès à cette structure', alreadyMember: true };
-      }
-
-      // Mettre à jour le profil
-      const { error: updateErr } = await supabaseClient
-        .from('profiles')
-        .update({ ville: merged })
-        .eq('id', existing.id);
-
-      if (updateErr) {
-        console.error('[supabaseService] _addVilleToExistingUser update error:', updateErr);
-        throw new Error('Erreur lors de l\'ajout de la structure à l\'utilisateur');
-      }
-
-      return { message: 'Utilisateur existant ajouté à cette structure', addedToCity: true };
+      return data;
     },
 
     // CITIES MANAGEMENT (Admin Global only)

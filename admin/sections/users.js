@@ -55,7 +55,7 @@ export async function renderUsers(container) {
                   </button>
                 </div>
                 <input type="hidden" id="invite-role-value" value="invited">
-                <p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> Les contributeurs peuvent ajouter du contenu. Les admins peuvent aussi gérer les utilisateurs et la structure.</p>
+                <p class="cw-field__tip"><i class="fa-solid fa-lightbulb"></i> Les contributeurs peuvent ajouter du contenu. Les admins peuvent aussi gérer les utilisateurs et la structure, et ouvrir le diagnostic terrain.</p>
               </div>
             </div>
           </div>
@@ -137,13 +137,7 @@ function _bindEvents(container) {
 
     try {
       const result = await api.inviteUser(email, role);
-      if (result?.alreadyMember) {
-        toast(`${email} a déjà accès à cette structure`, 'info');
-      } else if (result?.addedToCity) {
-        toast(`${email} ajouté à la structure ${esc(store.city)}`, 'success');
-      } else {
-        toast(`Invitation envoyée à ${email}`, 'success');
-      }
+      _toastInvitation(result);
       inviteCard.hidden = true;
       inviteForm.reset();
       inviteCard.querySelectorAll('[data-invite-role]').forEach(t => t.classList.remove('active'));
@@ -218,6 +212,22 @@ function _renderUsers(container, users) {
 
   listBody.innerHTML = users.map(_renderUserRow).join('');
 
+  // Renvoyer l'invitation d'un compte jamais ouvert
+  listBody.querySelectorAll('[data-action="resend-invite"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const user = _allUsers.find(u => u.id === btn.dataset.userId);
+      if (!user) return;
+      btn.disabled = true;
+      try {
+        _toastInvitation(await api.inviteUser(user.email, user.role));
+        await _loadUsers(container);
+      } catch (err) {
+        toast(err.message, 'error');
+        btn.disabled = false;
+      }
+    });
+  });
+
   // Bind role change
   listBody.querySelectorAll('[data-action="toggle-role"]').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -249,6 +259,24 @@ function _renderUsers(container, users) {
   });
 }
 
+/** Message de la console après une invitation : il dit ce qui est réellement arrivé. */
+function _toastInvitation(result) {
+  const email = result.email;
+  if (result.statut === 'invite') {
+    toast(`Invitation envoyée à ${email}`, 'success');
+  } else if (result.statut === 'relance') {
+    toast(`${email} n'avait jamais ouvert son accès : une nouvelle invitation vient de partir`, 'success');
+    if (result.roleDemande && result.roleDemande !== result.role) {
+      const actuel = result.role === 'admin' ? 'Admin' : 'Contributeur';
+      toast(`${email} garde son rôle ${actuel}. Pour le changer, utilisez le bouton Promouvoir ou Rétrograder de sa ligne.`, 'info');
+    }
+  } else if (result.statut === 'ajoute') {
+    toast(`${email} a maintenant accès à la structure ${store.city}`, 'success');
+  } else {
+    toast(`${email} a déjà accès à cette structure`, 'info');
+  }
+}
+
 function _renderUserRow(user) {
   const roleIcon = user.role === 'admin' ? 'fa-shield-halved' : 'fa-user';
   const roleBadge = user.role === 'admin'
@@ -257,6 +285,9 @@ function _renderUserRow(user) {
 
   const villes = Array.isArray(user.ville) ? user.ville.filter(v => v !== 'global') : [];
   const villesBadges = villes.map(v => `<span class="adm-badge adm-badge--neutral" style="font-size:11px;">${esc(v)}</span>`).join(' ');
+
+  // null = aucune connexion ; undefined = état inconnu, on ne signale rien
+  const jamaisConnecte = user.last_sign_in_at === null;
 
   const toggleLabel = user.role === 'admin' ? 'Rétrograder' : 'Promouvoir';
   const toggleIcon = user.role === 'admin' ? 'fa-arrow-down' : 'fa-arrow-up';
@@ -272,9 +303,13 @@ function _renderUserRow(user) {
           ${roleBadge}
           ${villesBadges}
           <span>· ${formatDate(user.created_at)}</span>
+          ${jamaisConnecte ? '<span class="adm-badge adm-badge--warning" title="Cette personne n\'a jamais ouvert le lien de son invitation">Jamais connecté</span>' : ''}
         </div>
       </div>
       <div class="adm-user-row__actions">
+        ${jamaisConnecte ? `<button class="adm-btn adm-btn--secondary adm-btn--sm" data-action="resend-invite" data-user-id="${user.id}">
+          <i class="fa-solid fa-paper-plane"></i> Renvoyer l'invitation
+        </button>` : ''}
         <button class="adm-btn adm-btn--secondary adm-btn--sm" data-action="toggle-role" data-user-id="${user.id}" title="${toggleLabel}">
           <i class="fa-solid ${toggleIcon}"></i> ${toggleLabel}
         </button>
