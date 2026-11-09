@@ -5,9 +5,9 @@
  * viennent de data/modules.js : ici, seulement ce qui est propre au film.
  * `duree` est en secondes, pour l'affichage avant le chargement. */
 export const filmsModules = {
-  carte: { fichier: '/video/modules/carte.mp4', affiche: '/video/modules/carte.webp', sousTitres: '/video/modules/carte.vtt', duree: 98 },
-  travaux: { fichier: '/video/modules/travaux.mp4', affiche: '/video/modules/travaux.webp', sousTitres: '/video/modules/travaux.vtt', duree: 67 },
-  chantiers: { fichier: '/video/modules/chantiers.mp4', affiche: '/video/modules/chantiers.webp', sousTitres: '/video/modules/chantiers.vtt', duree: 154 },
-  participer: { fichier: '/video/modules/participer.mp4', affiche: '/video/modules/participer.webp', sousTitres: '/video/modules/participer.vtt', duree: 115 },
+  carte: { fichier: '/video/modules/carte.mp4', affiche: '/video/modules/carte.webp', sousTitres: '/video/modules/carte.vtt', duree: 113 },
+  travaux: { fichier: '/video/modules/travaux.mp4', affiche: '/video/modules/travaux.webp', sousTitres: '/video/modules/travaux.vtt', duree: 80 },
+  chantiers: { fichier: '/video/modules/chantiers.mp4', affiche: '/video/modules/chantiers.webp', sousTitres: '/video/modules/chantiers.vtt', duree: 168 },
+  participer: { fichier: '/video/modules/participer.mp4', affiche: '/video/modules/participer.webp', sousTitres: '/video/modules/participer.vtt', duree: 124 },
   diagnostic: { fichier: '/video/modules/diagnostic.mp4', affiche: '/video/modules/diagnostic.webp', sousTitres: '/video/modules/diagnostic.vtt', duree: 116 },
 }

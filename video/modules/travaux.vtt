@@ -1,0 +1,92 @@
+WEBVTT
+
+1
+00:00:00.560 --> 00:00:04.523
+Quand une rue ferme, les riverains
+cherchent sur internet jusqu’à quand. La
+
+2
+00:00:04.563 --> 00:00:07.230
+plupart du temps, ils ne
+trouvent aucune réponse.
+
+3
+00:00:07.270 --> 00:00:10.990
+Alors ils téléphonent à la mairie,
+ou ils s’en plaignent en ligne.
+
+4
+00:00:13.319 --> 00:00:17.158
+Travaux met vos chantiers sur une carte
+publique, chacun avec son emprise,
+
+5
+00:00:17.198 --> 00:00:18.751
+ses dates et sa nature.
+
+6
+00:00:18.791 --> 00:00:23.071
+La couleur de chaque emprise suit le temps
+écoulé entre sa date de début et sa date
+
+7
+00:00:23.111 --> 00:00:23.760
+de fin.
+
+8
+00:00:24.361 --> 00:00:28.630
+Sa fiche montre le temps déjà écoulé,
+et la date à laquelle il doit se terminer.
+
+9
+00:00:28.760 --> 00:00:32.670
+Avec la chronologie, chacun
+voit ce qui est ouvert tel jour,
+
+10
+00:00:32.710 --> 00:00:34.640
+et trie les chantiers par nature.
+
+11
+00:00:34.770 --> 00:00:39.650
+Vos agents dessinent un chantier sur le
+plan : un point, une ligne ou une zone,
+
+12
+00:00:39.690 --> 00:00:40.750
+avec ses dates.
+
+13
+00:00:42.841 --> 00:00:46.881
+Si vous publiez déjà vos chantiers en
+données ouvertes, au format GeoJSON,
+
+14
+00:00:46.921 --> 00:00:49.680
+la carte peut lire ce flux
+à la place de la saisie.
+
+15
+00:00:50.358 --> 00:00:54.440
+La page des travaux a sa propre adresse,
+préparée pour les moteurs de recherche.
+
+16
+00:00:54.760 --> 00:00:57.220
+Et elle peut s’afficher
+dans une page de votre site,
+
+17
+00:00:57.260 --> 00:00:59.840
+pour donner la date de fin
+à ceux qui la cherchent.
+
+18
+00:01:00.760 --> 00:01:03.840
+Les commerçants savent jusqu’à
+quand leur rue reste fermée,
+
+19
+00:01:03.880 --> 00:01:05.500
+et peuvent le dire à leurs clients.
+

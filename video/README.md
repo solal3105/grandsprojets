@@ -19,6 +19,17 @@ dans le dépôt.
   hors dépôt. Elle tourne en boucle sur la page `/video` (écran de salon,
   hors des moteurs, `home-src/src/v2/views/VideoView.vue`).
 - `open-projets-avant-apres.webp` : son affiche, l'écran titre à 4,2 s.
+- `modules/` : les films des cinq modules (voix de Victoria, septembre 2026),
+  ouverts par l'icône Films de la page `/video`
+  (`home-src/src/v2/components/SalonFilms.vue`, données dans
+  `home-src/src/v2/data/filmsModules.js`). Un fichier par module, nommé par sa
+  clé (`carte`, `travaux`, `chantiers`, `participer`, `diagnostic`) :
+  `.mp4` (H.264 1080p à 30 i/s, crf 23 plafonné à 2,5 Mbit/s, son AAC
+  128 kbit/s, en-tête en tête de fichier), `.webp` (l'affiche, vignette du
+  film en 960 x 540) et `.vtt` (les sous-titres, convertis du `.srt`). Les
+  sources sont les versions `-Victoria-web.mp4` de
+  `~/Documents/__VIDEOS/Open Projets/Films finis/`, tournées dans l'atelier
+  `~/Developer/Open-Projets/open-projets-videos/films-modules/`, hors dépôt.
 
 La page qui l'embarque (bloc d'accueil du site) porte les données
 structurées VideoObject et la transcription intégrale, dans

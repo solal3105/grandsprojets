@@ -130,6 +130,7 @@ test.describe("0.76 Écran de salon - la page /video", () => {
     await expect(page.getByRole('link', { name: 'Arrêtés' })).toHaveAttribute('href', 'https://openprojets-chantiers.com/arrete/');
     await expect(page.getByRole('link', { name: 'Roue des lots' })).toHaveAttribute('href', '/roue');
     await expect(page.getByRole('link', { name: 'Tarification' })).toHaveAttribute('href', '/tarification');
+    await expect(page.getByRole('link', { name: 'Films' })).toHaveAttribute('href', '/video');
   });
 
   test("0.76.5 un clic sur l'image met en pause sans passer en plein écran", async ({ page }) => {
@@ -398,6 +399,67 @@ test.describe("0.76 Écran de salon - la page /video", () => {
     await page.goBack();
     await expect(page).toHaveURL(/\/video$/);
     await expect(page.locator('video')).toBeVisible();
+  });
+});
+
+test.describe("0.76 Écran de salon - les films des modules", () => {
+  test.beforeEach(async ({ page }) => {
+    // Les films ne se téléchargent pas pendant les essais : un fichier vide suffit
+    await page.route('**/video/modules/*.mp4', (route) => route.fulfill({ status: 200, contentType: 'video/mp4', body: '' }));
+    await page.goto('/video', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('video')).toBeVisible();
+  });
+
+  test("0.76.21 l'icône Films ouvre le choix des cinq films, dans l'ordre et aux noms des modules", async ({ page }) => {
+    const video = page.locator('.lecteur video');
+    await expect.poll(() => video.evaluate((v) => v.paused)).toBe(false);
+    await page.getByRole('link', { name: 'Films' }).click();
+    const ecran = page.getByRole('dialog', { name: "Regarder le film d'un module" });
+    await expect(ecran).toBeVisible();
+    await expect(page).toHaveURL(/\/video\?ecran=films$/);
+    expect(await video.evaluate((v) => v.paused)).toBe(true);
+    await expect(ecran.locator('iframe')).toHaveCount(0);
+    await expect(ecran.locator('.carte-film__nom')).toHaveText([
+      'Carte des projets urbains', 'Travaux du quotidien', 'Chantiers et arrêtés', 'Signalement', 'Diagnostic terrain',
+    ]);
+    // Chaque carte montre l'affiche de son film et sa durée
+    await expect(ecran.locator('.carte-film img').first()).toHaveAttribute('src', '/video/modules/carte.webp');
+    await expect(ecran.locator('.carte-film__duree').nth(1)).toHaveText('1 min 20');
+    await expect(retour(page)).toHaveText('Revenir à la vidéo');
+  });
+
+  test("0.76.22 un film choisi prend l'écran avec ses sous-titres, et le retour remonte d'un cran", async ({ page }) => {
+    await page.getByRole('link', { name: 'Films' }).click();
+    const ecran = barre(page);
+    await ecran.getByRole('button', { name: /Travaux du quotidien/ }).click();
+    const film = ecran.locator('video');
+    await expect(film).toHaveAttribute('src', '/video/modules/travaux.mp4');
+    await expect(film.locator('track')).toHaveAttribute('src', '/video/modules/travaux.vtt');
+    await expect(page.locator('#titre-vue')).toHaveText('Travaux du quotidien');
+    await expect(retour(page)).toHaveText('Revenir aux films');
+    // Premier cran : retour au choix des films
+    await retour(page).click();
+    await expect(ecran.locator('.carte-film')).toHaveCount(5);
+    await expect(page.locator('#titre-vue')).toHaveText("Regarder le film d'un module");
+    // Second cran : retour à la vidéo, qui repart
+    await retour(page).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect.poll(() => page.locator('video').evaluate((v) => v.paused)).toBe(false);
+  });
+
+  test("0.76.23 à la fin d'un film, l'écran revient au choix ; Échap aussi remonte d'un cran", async ({ page }) => {
+    await page.getByRole('link', { name: 'Films' }).click();
+    const ecran = barre(page);
+    await ecran.getByRole('button', { name: /Signalement/ }).click();
+    await expect(ecran.locator('video')).toHaveAttribute('src', '/video/modules/participer.mp4');
+    await ecran.locator('video').evaluate((v) => v.dispatchEvent(new Event('ended')));
+    await expect(ecran.locator('.carte-film')).toHaveCount(5);
+    await ecran.getByRole('button', { name: /Diagnostic terrain/ }).click();
+    await expect(ecran.locator('video')).toHaveAttribute('src', '/video/modules/diagnostic.mp4');
+    await page.keyboard.press('Escape');
+    await expect(ecran.locator('.carte-film')).toHaveCount(5);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 });
 
