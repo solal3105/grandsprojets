@@ -372,3 +372,77 @@ test.describe('4.5 - Invitation de bout en bout', () => {
   });
 
 });
+
+// ─────────────────────────────────────────────────────────
+// 4.6 - Les droits d'un compte sont gardés par la base
+//
+// Audit de sécurité du 9/11/2026 : tout administrateur pouvait écrire dans
+// n'importe quel profil, le sien compris, et se donner 'global' (super
+// administrateur). La règle vit désormais en base (garde profiles_rights_guard,
+// porte set_profile_role), essayée cas par cas dans
+// supabase/tests/profils-droits.sql. Ici, on vérifie depuis le navigateur que
+// la porte est fermée et que la console passe par la bonne.
+//
+// Aucun de ces tests ne peut modifier un compte : les deux écritures tentées
+// redonnent au compte de test le rôle qu'il a déjà.
+// ─────────────────────────────────────────────────────────
+test.describe('4.6 - Droits gardés par la base', () => {
+
+  test('4.6.1 - Écriture directe de son propre profil : refusée', async ({ page }) => {
+    await goToUsers(page);
+    const resultat = await page.evaluate(async () => {
+      const client = window.__supabaseClient;
+      const { data: { user } } = await client.auth.getUser();
+      const { data, error } = await client.from('profiles').update({ role: 'admin' }).eq('id', user.id).select();
+      return { lignes: (data || []).length, erreur: error?.message || null };
+    });
+    expect(resultat.erreur, 'la base doit refuser, pas ignorer en silence').toBeTruthy();
+    expect(resultat.lignes).toBe(0);
+  });
+
+  test('4.6.2 - Par la porte de la console, son propre rôle : refusé avec une phrase lisible', async ({ page }) => {
+    await goToUsers(page);
+    const erreur = await page.evaluate(async () => {
+      const client = window.__supabaseClient;
+      const { data: { user } } = await client.auth.getUser();
+      const { error } = await client.rpc('set_profile_role', { p_profile: user.id, p_role: 'admin' });
+      return error?.message || null;
+    });
+    expect(erreur).toContain('Vous ne pouvez pas changer vos propres droits');
+  });
+
+  test('4.6.3 - La console passe par set_profile_role et montre le refus de la base tel quel', async ({ page }) => {
+    const refus = 'Ce compte a aussi accès à un espace que vous n\'administrez pas : seul un super administrateur peut changer son rôle.';
+    let ecritureDirecte = false;
+    await page.route('**/rest/v1/profiles*', (route) => {
+      if (route.request().method() !== 'GET') ecritureDirecte = true;
+      return route.continue();
+    });
+    // Le préflight CORS passe, le POST reçoit le refus que renverrait la base.
+    await page.route('**/rest/v1/rpc/set_profile_role', (route) => (
+      route.request().method() === 'OPTIONS'
+        ? route.continue()
+        : route.fulfill({
+          status: 403, contentType: 'application/json',
+          headers: { 'Access-Control-Allow-Origin': '*' },
+          body: JSON.stringify({ code: '42501', message: refus, details: null, hint: null }),
+        })
+    ));
+
+    await goToUsers(page);
+    const ligne = page.locator('.adm-user-row', { hasText: 'teste2e+invited' });
+    await expect(ligne).toBeVisible({ timeout: 5000 });
+    const appel = page.waitForRequest((r) => r.url().includes('/rest/v1/rpc/set_profile_role') && r.method() === 'POST');
+    await ligne.locator('[data-action="toggle-role"]').click();
+    await page.click('#adm-dialog-confirm');
+
+    const corps = (await appel).postDataJSON();
+    expect(corps.p_role).toBe('admin');
+    expect(corps.p_profile).toMatch(/^[0-9a-f-]{36}$/);
+    await expect(page.locator('.adm-toast--error').filter({ hasText: refus })).toBeVisible({ timeout: 10000 });
+    expect(ecritureDirecte, 'aucune écriture directe dans profiles').toBe(false);
+    // Le bouton est rendu : la personne peut réessayer ou passer à autre chose.
+    await expect(ligne.locator('[data-action="toggle-role"]')).toBeEnabled();
+  });
+
+});

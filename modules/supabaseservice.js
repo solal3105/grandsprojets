@@ -1784,89 +1784,26 @@
     },
 
     /**
-     * Modifie le rôle d'un utilisateur (admin ↔ invited)
+     * Modifie le rôle d'un utilisateur (admin ↔ invited).
+     *
+     * C'est la base qui décide (garde profiles_rights_guard, migration
+     * 20261110100000) : la règle « qui peut changer le rôle de qui » n'est
+     * écrite que là, et le message d'un refus vient d'elle, prêt à être montré.
+     * Le navigateur n'écrit plus dans profiles.
      * @param {string} targetUserId - ID de l'utilisateur cible
      * @param {string} newRole - Nouveau rôle ('admin' ou 'invited')
      * @returns {Promise<boolean>} True si succès
      */
     async updateUserRole(targetUserId, newRole) {
-      try {
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        if (!user) {
-          throw new Error('Not authenticated');
-        }
-        
-        if (!['admin', 'invited'].includes(newRole)) {
-          throw new Error('Invalid role: must be admin or invited');
-        }
-        
-        // Empêcher l'auto-modification
-        if (user.id === targetUserId) {
-          throw new Error('Cannot modify your own role');
-        }
-        
-        // Récupérer le profil de l'admin
-        const { data: adminProfile, error: adminError } = await supabaseClient
-          .from('profiles')
-          .select('role, ville')
-          .eq('id', user.id)
-          .single();
-        
-        if (adminError || !adminProfile || adminProfile.role !== 'admin') {
-          throw new Error('Unauthorized: caller is not admin');
-        }
-        
-        const adminVilles = parseVilleArray(adminProfile.ville);
-        const isGlobalAdmin = adminVilles.includes('global');
-        
-        // Récupérer le profil de la cible
-        const { data: targetProfile, error: targetError } = await supabaseClient
-          .from('profiles')
-          .select('role, ville')
-          .eq('id', targetUserId)
-          .single();
-        
-        if (targetError || !targetProfile) {
-          throw new Error('Target user not found');
-        }
-        
-        // Si le rôle est déjà celui demandé, ne rien faire
-        if (targetProfile.role === newRole) {
-          return true;
-        }
-        
-        // Si admin global, autoriser directement
-        if (!isGlobalAdmin) {
-          // Admin ville : vérifier qu'il y a au moins une ville commune
-          if (!targetProfile.ville) {
-            throw new Error('Target user has no cities assigned');
-          }
-          
-          const targetVilles = parseVilleArray(targetProfile.ville);
-          
-          const hasSharedCity = adminVilles.some(adminCity => targetVilles.includes(adminCity));
-          
-          if (!hasSharedCity) {
-            throw new Error('Unauthorized: no shared cities with target user');
-          }
-        }
-        
-        // Mettre à jour le rôle
-        const { error: updateError } = await supabaseClient
-          .from('profiles')
-          .update({ role: newRole })
-          .eq('id', targetUserId);
-        
-        if (updateError) {
-          console.error('[supabaseService] updateUserRole error:', updateError);
-          throw new Error(updateError.message);
-        }
-        
-        return true;
-      } catch (e) {
-        console.error('[supabaseService] updateUserRole exception:', e);
-        throw e;
+      const { error } = await supabaseClient
+        .rpc('set_profile_role', { p_profile: targetUserId, p_role: newRole });
+
+      if (error) {
+        console.error('[supabaseService] updateUserRole error:', error);
+        throw new Error(error.message);
       }
+
+      return true;
     },
 
     // USER INVITATION (Admin only)
