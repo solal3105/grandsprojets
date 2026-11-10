@@ -2873,6 +2873,12 @@ const ARTICLE_SCHEMA = {
  *   l'extraction rende à chacune les passages qui la concernent
  * @returns {Promise<{markdown: string, description: string}>}
  */
+/* Les reperes des faits (F11, F25...) servent au redacteur a citer ses
+   preuves ; ils ne doivent pas paraitre dans le texte publie. Le modele les
+   ecrit seuls, en liste, ou suivis de la date de leur source : « (F11, 12
+   janvier 2026; F25, 9 septembre 2026) », forme vue a Vienne le 10/11/2026. */
+const MARQUEURS_DE_FAITS = /\s*\((?:\s*(?:et\s+)?F\d+(?:\s*,\s*[^;,()]*\d{4})?\s*[,;]?)+\s*\)/g;
+
 async function redigerArticle(commune, projet, tousLesPdfs, autres = []) {
   const aujourdhui = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
   const sources = await sourcesDuProjet(projet, tousLesPdfs);
@@ -2910,7 +2916,7 @@ ${JSON.stringify(liste, null, 1)}`;
     'article_projet', ARTICLE_SCHEMA, ARTICLE_MAX_TOKENS, ARTICLE_TIMEOUT_MS, 0.3, REDACTION_MODEL, 2);
   /* Les identifiants de faits n'ont rien à faire sous les yeux d'un habitant ;
      le rédacteur en sème parfois entre parenthèses malgré la consigne. */
-  const markdown = retirerLesLiens(String(out.markdown || '').replace(/\s*\((?:F\d+[,;\s]*(?:et\s*)?)+\)/g, '').trim());
+  const markdown = retirerLesLiens(String(out.markdown || '').replace(MARQUEURS_DE_FAITS, '').trim());
   if (!markdown) throw new Error('Article vide');
 
   /* Les sources citées sous l'article sont celles des faits employés, pages
@@ -2928,7 +2934,7 @@ ${JSON.stringify(liste, null, 1)}`;
   const blocDossier = dossiers.length
     ? `\n\n## ${dossiers.length > 1 ? 'Les documents officiels sont en ligne' : 'Le document officiel est en ligne'}\n\n${dossiers.map((d) => `- [${d.titre || nomDeFichier(d.url)}](${d.url})`).join('\n')}\n`
     : '';
-  const description = retirerLesLiens(String(out.description || '').replace(/\s*\((?:F\d+[,;\s]*(?:et\s*)?)+\)/g, '').trim());
+  const description = retirerLesLiens(String(out.description || '').replace(MARQUEURS_DE_FAITS, '').trim());
   return { markdown: `${markdown}${blocDossier}${blocSources(citees)}`, description, etat: String(out.etat_aujourdhui || '').trim() };
 }
 
