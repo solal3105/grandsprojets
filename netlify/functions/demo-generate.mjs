@@ -2194,8 +2194,184 @@ function texteEtCitations(data) {
   return { texte: texte.trim(), annotations };
 }
 
+
+/* ─── Relecture des chiffres d'un article ──────────────────────────────────
+
+   Le redacteur invente parfois un chiffre ou le reprend de travers. Mesure sur
+   le banc d'essai du 10/11/2026 : « fin aout 2024 » pour une etape de 2026 a
+   Vienne, « 1 000 logements » pour un quartier qui en compte 1 350 a
+   Saint-Genis-Laval, soit une fiche fausse sur trente environ. Une seule suffit
+   a faire douter de toute la carte.
+
+   Chaque chiffre et chaque date de l'article est donc relu contre les sources
+   du projet : l'extrait de la page d'origine et le texte des pages citees.
+   1. Un chiffre qui ne figure dans AUCUNE source est refuse d'office.
+   2. Pour les autres, un modele doit recopier mot pour mot le passage qui
+      l'atteste pour la meme chose ; le code verifie que ce passage existe dans
+      les sources et contient bien le chiffre. « 1 000 ans avant notre ere »
+      n'atteste pas « 1 000 logements ».
+   La phrase qui porte un chiffre refuse est retiree de l'article. Trois lignes
+   exactes valent mieux que quinze lignes plausibles. */
+const MOIS_FR = 'janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre';
+const SOURCES_RELUES_MAX = 6;
+const SOURCE_RELUE_CHARS = 60000;
+const _textesDeSources = new Map();
+
+const pourChiffres = (t) => unaccentLower(String(t || '')).replace(/[   ]/g, ' ').replace(/\s+/g, ' ');
+// 1 350 -> 1350, 30,5 -> 30.5 : deux ecritures du meme nombre doivent se rejoindre
+const nombresCompactes = (t) => t.replace(/(?<=\d)[ .](?=\d{3}(?!\d))/g, '').replace(/(?<=\d),(?=\d)/g, '.');
+
+function chiffresDe(texte) {
+  const n = pourChiffres(texte);
+  const out = new Set();
+  for (const m of n.matchAll(new RegExp(`\\b(\\d{1,2})(?:er)? (${MOIS_FR})\\b`, 'g'))) out.add(`${m[1]} ${m[2]}`);
+  // Un chiffre isole (« 2 classes ») est trop courant pour etre recherche seul
+  for (const m of nombresCompactes(n).matchAll(/\d+(?:\.\d+)?/g)) if (m[0].replace('.', '').length >= 2) out.add(m[0]);
+  return [...out];
+}
+
+function positionsDuChiffre(fait, corpus) {
+  const re = /^\d{1,2} [a-z]+$/.test(fait)
+    ? new RegExp(`\\b0?${fait.split(' ')[0]}(?:er)? ${fait.split(' ')[1]}\\b`, 'g')
+    : new RegExp(`(?<![\\d.])${fait.replace('.', '\\.')}(?!\\d)`, 'g');
+  return [...corpus.matchAll(re)].map((m) => m.index);
+}
+
+async function texteDeSource(url) {
+  if (_textesDeSources.has(url)) return _textesDeSources.get(url);
+  let texte = '';
+  try {
+    if (isSafePublicUrl(url)) {
+      const r = await fetchCapped(url, { headers: UA }, 6000, 800000);
+      if (r?.data) texte = stripHtml(r.data).slice(0, SOURCE_RELUE_CHARS);
+    }
+  } catch { /* source illisible : elle n'atteste rien */ }
+  _textesDeSources.set(url, texte);
+  return texte;
+}
+
+const RELECTURE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    attestations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer' },
+          citation: { type: 'string', description: 'Passage des extraits, recopié mot pour mot, qui atteste ce chiffre pour la même chose. Chaîne vide si aucun passage ne le dit.' },
+        },
+        required: ['index', 'citation'],
+      },
+    },
+  },
+  required: ['attestations'],
+};
+
+// Decoupe un article en unites qu'on peut retirer une a une : intertitre, ligne de liste, phrase
+function unitesDeLArticle(markdown) {
+  const unites = [];
+  String(markdown || '').split('\n').forEach((ligne, n) => {
+    if (/^\s*#{1,6}\s/.test(ligne)) unites.push({ n, type: 'titre', texte: ligne });
+    else if (!ligne.trim() || /^\s*(?:[-*]|\d+[.)])\s/.test(ligne)) unites.push({ n, type: 'ligne', texte: ligne });
+    else for (const phrase of ligne.split(/(?<=[.!?…»])\s+(?=[A-ZÀ-ÖØ-Þ«])/)) unites.push({ n, type: 'phrase', texte: phrase });
+  });
+  return unites;
+}
+
+function recomposerLArticle(unites) {
+  // Un intertitre refuse emporte sa section ; un intertitre reste sans texte disparait
+  let sectionRetiree = false;
+  const gardees = [];
+  for (const u of unites) {
+    if (u.type === 'titre') sectionRetiree = Boolean(u.retiree);
+    if (u.retiree || (sectionRetiree && u.type !== 'titre')) continue;
+    gardees.push(u);
+  }
+  const lignes = [];
+  for (const u of gardees) {
+    const derniere = lignes[lignes.length - 1];
+    if (u.type === 'phrase' && derniere && derniere.n === u.n && derniere.type === 'phrase') derniere.texte += ` ${u.texte}`;
+    else lignes.push({ ...u });
+  }
+  const out = [];
+  lignes.forEach((l, i) => {
+    if (l.type === 'titre') {
+      const suite = lignes.slice(i + 1);
+      const fin = suite.findIndex((x) => x.type === 'titre');
+      const corps = (fin < 0 ? suite : suite.slice(0, fin)).some((x) => x.texte.trim());
+      if (!corps) return;
+    }
+    out.push(l.texte);
+  });
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+async function relireLesChiffres(markdown, projet, urlsCitees) {
+  const unites = unitesDeLArticle(markdown);
+  /* Un nombre qui figure dans le NOM du projet ou de son lieu (« RD41 »,
+     « 38 bis avenue Leclerc », « Hil 3 ») est un nom, pas un fait a verifier. */
+  const noms = new Set(chiffresDe(`${projet.title} ${projet.place || ''} ${projet.address || ''} ${projet.geo_query || ''}`));
+  const aRelire = [];
+  for (const u of unites) for (const fait of chiffresDe(u.texte)) if (!noms.has(fait)) aRelire.push({ u, fait });
+  if (!aRelire.length) return { markdown, retires: [] };
+
+  const urls = [...new Set([projet.source_url, ...(projet.sources || []).map((x) => x.url), ...urlsCitees].filter(Boolean))].slice(0, SOURCES_RELUES_MAX);
+  // Un PDF n'est pas relu ici : son texte n'est pas lisible sans extraction,
+  // et ce qu'il est seul a dire n'est donc pas tenu pour atteste.
+  const textes = await Promise.all(urls.map((u) => (/\.pdf(\?|#|$)/i.test(u) ? '' : texteDeSource(u))));
+  const corpus = nombresCompactes(pourChiffres([projet.title, projet.description, projet.evidence_quote, projet.source_excerpt, projet.marcheDate, ...textes].filter(Boolean).join(' \n ')));
+
+  const refuses = [];
+  const douteux = [];
+  for (const x of aRelire) {
+    const positions = positionsDuChiffre(x.fait, corpus);
+    if (!positions.length) refuses.push({ ...x, motif: 'absent des sources' });
+    else {
+      /* Les passages soumis au relecteur sont ceux qui RESSEMBLENT le plus a
+         la phrase : « 2027 » figure dix fois dans les sources, et les trois
+         premieres occurrences sont rarement celles qui parlent de la meme
+         chose. */
+      const mots = new Set(pourChiffres(x.u.texte).match(/[a-z]{4,}/g) || []);
+      const extraits = positions.map((i) => corpus.slice(Math.max(0, i - 220), i + 220))
+        .map((e) => ({ e, score: [...mots].filter((m) => e.includes(m)).length }))
+        .sort((a, b) => b.score - a.score).slice(0, 3).map((o) => o.e);
+      douteux.push({ ...x, extraits });
+    }
+  }
+
+  if (douteux.length) {
+    try {
+      const system = `Tu vérifies les chiffres d'un article sur un projet d'aménagement (« ${projet.title} »). Pour chaque affirmation, on te donne la phrase de l'article, le chiffre ou la date à vérifier, et des extraits des sources où ce chiffre apparaît (texte en minuscules sans accents, nombres écrits sans espace). Recopie MOT POUR MOT le passage d'un extrait qui atteste ce chiffre POUR LA MÊME CHOSE que la phrase : même objet, même grandeur, même événement. « 1000 ans avant notre ere » n'atteste pas « 1 000 logements » ; « ouverture en 2027 » n'atteste pas « travaux lancés en 2027 ». Si aucun extrait ne dit la même chose, rends une citation vide.`;
+      const user = JSON.stringify(douteux.map((x, i) => ({ index: i, phrase: x.u.texte.slice(0, 400), chiffre: x.fait, extraits: x.extraits })));
+      const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
+        'relecture_chiffres', RELECTURE_SCHEMA, 1800, 30000, 0, OPENAI_MODEL_LIGHT, 2);
+      const parIndex = new Map((out.attestations || []).map((a) => [a.index, a.citation]));
+      douteux.forEach((x, i) => {
+        const citation = nombresCompactes(pourChiffres(parIndex.get(i) || ''));
+        const tenue = citation.length >= 6 && corpus.includes(citation) && positionsDuChiffre(x.fait, citation).length > 0;
+        if (!tenue) refuses.push({ ...x, motif: 'aucune source ne le dit pour la même chose' });
+      });
+    } catch (e) {
+      console.warn(`[demo-generate] relecture des chiffres indisponible pour "${projet.title}" :: ${e?.message}`);
+    }
+  }
+  if (!refuses.length) return { markdown, retires: [] };
+  for (const r of refuses) r.u.retiree = true;
+  return { markdown: recomposerLArticle(unites), retires: refuses.map((r) => `${r.fait} (${r.motif})`) };
+}
+
 async function redigerArticle(commune, projet, tousLesPdfs, mairieHost) {
-  const system = promptArticle({ commune: commune.nom, stricte: true });
+  const system = promptArticle({
+    commune: commune.nom,
+    stricte: true,
+    /* Sans la date du jour, le redacteur date lui-meme ce que la source ne
+       date pas : mesure sur Vienne, « des la fin du mois d'aout » devenait
+       « fin aout 2024 » trois fois sur dix, pour un chantier de 2026. */
+    aujourdhui: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+  });
   const domaines = domainesAutorises(projet, mairieHost);
   /* Les dossiers trouves sur les PAGES SOURCES de ce projet, et eux seuls. Un
      document retenu sur la page d'un autre chantier n'a rien a faire ici : le
@@ -2215,7 +2391,7 @@ DESCRIPTION ÉTABLIE : ${projet.description || '(aucune)'}
 EXTRAIT DES SOURCES OFFICIELLES :
 ${projet.source_excerpt || '(aucun extrait : reste sur la description, sans ajouter aucun détail)'}
 
-DOCUMENTS OFFICIELS DISPONIBLES (recopie l'intitulé exact de celui qui porte sur CE projet, dans le champ prévu, et ne le cite jamais dans le corps du texte) :
+DOCUMENTS OFFICIELS DISPONIBLES (recopie dans le champ prévu l'intitulé exact de chacun de ceux qui portent sur CE projet, et ne les cite jamais dans le corps du texte) :
 ${documents}
 
 Consulte les pages des sources de ce projet pour compléter ce que l'extrait ne dit pas, puis rédige l'article.`;
@@ -2249,12 +2425,14 @@ Consulte les pages des sources de ce projet pour compléter ce que l'extrait ne 
                intitulé : le modèle ne recopie jamais une adresse fidèlement, et
                le nettoyage des liens supprimerait de toute façon celle qu'il
                aurait écrite dans le corps du texte. */
-            document: {
-              type: 'string',
-              description: "Intitulé EXACT, recopié de la liste fournie, du document officiel qui porte sur CE projet précis. Chaîne vide si aucun document de la liste ne le concerne clairement.",
+            documents: {
+              type: 'array',
+              maxItems: 5,
+              items: { type: 'string' },
+              description: "Intitulés EXACTS, recopiés de la liste fournie, des documents officiels qui portent sur CE projet précis. Tableau vide si aucun document de la liste ne le concerne clairement.",
             },
           },
-          required: ['markdown', 'document'],
+          required: ['markdown', 'documents'],
         },
       },
     },
@@ -2275,11 +2453,11 @@ Consulte les pages des sources de ce projet pour compléter ce que l'extrait ne 
   const { texte, annotations } = texteEtCitations(data);
   if (!texte) throw new Error('Article vide');
   let markdown = '';
-  let document = '';
+  let retenus = [];
   try {
     const sortie = JSON.parse(texte);
     markdown = String(sortie.markdown || '').trim();
-    document = String(sortie.document || '').trim();
+    retenus = (Array.isArray(sortie.documents) ? sortie.documents : []).map((x) => String(x || '').trim());
   } catch { markdown = ''; }
   // Un article illisible ou vide est un MANQUE, pas une panne : la fiche existe
   // quand même, avec sa description et son illustration.
@@ -2295,9 +2473,14 @@ Consulte les pages des sources de ce projet pour compléter ce que l'extrait ne 
   /* Le dossier officiel qui porte sur ce projet, rattache par son intitule.
      C'est ce qu'un elu ouvre en premier : la deliberation ou la concertation
      qui fonde l'operation. */
-  const dossier = pdfs.find((d) => d.label && d.label.trim() === document);
-  const blocDossier = dossier ? `\n\n## Document officiel\n\n- [${dossier.label}](${dossier.url})\n` : '';
-  return `${retirerLesLiens(markdown)}${blocDossier}${blocSources(citees)}`;
+  const dossiers = pdfs.filter((d) => d.label && retenus.includes(d.label.trim()));
+  const blocDossier = dossiers.length
+    ? `\n\n## ${dossiers.length > 1 ? 'Les documents officiels sont en ligne' : 'Le document officiel est en ligne'}\n\n${dossiers.map((d) => `- [${d.label}](${d.url})`).join('\n')}\n`
+    : '';
+  const relu = await relireLesChiffres(retirerLesLiens(markdown), projet, citees.map((c) => c.url));
+  if (relu.retires.length) console.log(`[demo-relecture] "${projet.title}" : ${relu.retires.length} chiffre(s) retiré(s) :: ${relu.retires.join(' ; ')}`);
+  if (relu.markdown.length < ARTICLE_MIN_CHARS) throw new Error('Article trop court après relecture des chiffres');
+  return `${relu.markdown}${blocDossier}${blocSources(citees)}`;
 }
 
 // Formats rejetes par la vision gpt-4o : un seul suffit a faire echouer TOUT
@@ -5059,6 +5242,16 @@ async function coreMedia(send, step, state) {
    sable des fonctions rompt ses connexions sortantes au-delà. */
 const ARTICLES_CONCURRENCE = 3;
 
+// Tiret cadratin ou demi-cadratin entre deux mots : une virgule ; en tete de ligne : rien
+function sansTiretLong(texte) {
+  if (typeof texte !== 'string') return texte;
+  return texte
+    .replace(/(\d)[ \t]*[\u2013\u2014][ \t]*(\d)/g, '$1-$2')
+    .replace(/^([ \t]*)[\u2013\u2014][ \t]*/gm, '$1')
+    .replace(/[ \t]*[\u2013\u2014][ \t]*/g, ', ')
+    .replace(/,\s*,/g, ',');
+}
+
 async function coreRedact(send, step, state) {
   const located = state.located;
   const redac = state.redac || (state.redac = { curseur: 0, tours: 0 });
@@ -5103,6 +5296,16 @@ async function coreRedact(send, step, state) {
   }
   delete state.__continue;
 
+  /* Les titres et descriptions viennent des pages lues, les articles du
+     modele : les uns comme les autres portent des tirets longs (« Avenue
+     General Leclerc – Tranche 3 »), que la charte d'ecriture des fiches
+     exclut. Un tiret entre deux mots devient une virgule, partout ou le texte
+     est publie. */
+  for (const p of located) {
+    p.title = sansTiretLong(p.title);
+    p.description = sansTiretLong(p.description);
+  }
+  for (const a of state.articles) a.markdown = sansTiretLong(a.markdown);
   console.log(`[demo-generate] articles : ${state.articles.length}/${located.length} (${redac.tours} tranche(s))`);
   step('articles', state.articles.length ? 'done' : 'skip', 'Articles rédigés', `${state.articles.length} article(s) de présentation`);
   state.redac = null;
@@ -6025,6 +6228,8 @@ export const config = { path: '/api/demo-generate' };
  * génération complète, donc jamais vérifiés. Rien d'autre ne les importe.
  */
 export const _internals = {
+  relireLesChiffres,
+  chiffresDe,
   INSEE_RE,
   findSiteLogo,
   attributHtml,

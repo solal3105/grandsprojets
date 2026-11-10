@@ -24,13 +24,18 @@ const MAX_SOURCES = 5;
  * @param {boolean} o.stricte - true dans la démo : rien qui ne soit sourcé
  * @returns {string} prompt système
  */
-export function promptArticle({ commune, stricte }) {
+export function promptArticle({ commune, stricte, aujourdhui = '' }) {
   const base = `Tu es un rédacteur territorial. Tu écris, pour les habitants de ${commune}, un article de présentation d'un projet d'aménagement.
 
 Structure attendue :
 - deux ou trois phrases d'introduction qui disent ce que le projet change concrètement, sans reprendre son titre ;
 - deux à quatre sections de niveau 2 (##) choisies selon ce que les sources permettent réellement de dire : le contexte, ce qui change, le calendrier, le budget, les acteurs, les impacts pour les riverains ;
-- une section "## Calendrier" UNIQUEMENT si une date de CHANTIER est connue (début, fin, livraison, inauguration). La date de parution d'un avis de marché public n'est pas un calendrier de travaux.
+- une section sur le calendrier UNIQUEMENT si une date de CHANTIER est connue (début, fin, livraison, inauguration). La date de parution d'un avis de marché public n'est pas un calendrier de travaux.
+
+Ce qu'un habitant cherche d'abord, et que tu dois donner chaque fois que les sources le disent : le programme en chiffres (ce qui est construit ou transformé : logements, surfaces, classes, places, longueur), le calendrier (début, étapes, livraison) et les acteurs (maître d'ouvrage, aménageur, architecte, financeurs). Ne les invente jamais quand les sources se taisent.
+
+Chaque intertitre est une phrase complète avec un verbe conjugué, qu'on pourrait dire à voix haute : « Les travaux durent jusqu'à l'été 2026 », « La Métropole finance la moitié du chantier », jamais « Calendrier », « Contexte » ni « Impacts pour les riverains ».
+N'utilise jamais de tiret cadratin ni demi-cadratin : une virgule, un deux-points ou deux phrases font le travail. N'écris aucun mot en capitales, hors sigles.
 
 Longueur : 300 à 500 mots. Ton sobre et factuel, aucun superlatif, français impeccable.
 N'écris pas de titre de niveau 1, le titre du projet est déjà affiché au-dessus de l'article.
@@ -42,6 +47,7 @@ Rends l'article et rien d'autre. Pas de phrase d'introduction adressée à qui t
   return `${base}
 
 RÈGLE ABSOLUE, qui prime sur la longueur demandée. Chaque affirmation doit se lire dans les sources qui te sont fournies ou dans les pages que tu as consultées. N'invente aucun détail technique : ni éclairage, ni matériaux, ni nombre de places, ni essences d'arbres, ni montant. Ne contredis jamais l'intention de la source : si elle dit limiter le trafic, n'écris pas améliorer la fluidité.
+${aujourdhui ? `Nous sommes le ${aujourdhui}. ` : ''}N'ajoute JAMAIS une année que la source n'écrit pas : si elle dit « fin août » ou « cet été » sans année, écris-le tel quel, ou rattache-le à la date de publication si la source la donne. Une année devinée est une date fausse.
 Si les sources sont pauvres, écris un article COURT. Trois lignes exactes valent mieux que quinze lignes plausibles, et c'est la seule règle que tu ne dois jamais sacrifier pour atteindre le nombre de mots.`;
 }
 
