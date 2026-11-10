@@ -2390,6 +2390,18 @@ function dateDePublication(html) {
   return d && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '';
 }
 
+/* Date de dernière mise à jour déclarée par la page. Une page de rubrique
+   (« Finances et marchés », « Travaux en cours ») est publiée une fois et
+   complétée pendant des années : sa date de publication seule la ferait passer
+   pour ancienne (Noyal, publiée en 2022, mise à jour en septembre 2026). */
+function dateDeMiseAJour(html) {
+  const m = /property=["']article:modified_time["'][^>]*content=["']([^"']+)/i.exec(html)
+    || /content=["']([^"']+)["'][^>]*property=["']article:modified_time/i.exec(html)
+    || /"dateModified"\s*:\s*"([^"]+)"/i.exec(html);
+  const d = m ? new Date(m[1]) : null;
+  return d && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '';
+}
+
 // Titre de la page : le <h1> d'abord, qui nomme l'article et non le site
 function titreDeLaPage(html) {
   const h1 = /<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
@@ -2460,7 +2472,7 @@ async function lirePageSource(url) {
   const principal = /<main[\s>][\s\S]*?<\/main>/i.exec(html)?.[0] || html;
   const texte = stripHtml(principal);
   if (!texte || looksLikeCode(texte)) return null;
-  return { texte, publiee: dateDePublication(html), titre: titreDeLaPage(html), pdfs: collectPdfLinks(principal, r.url || url) };
+  return { texte, publiee: dateDePublication(html), modifiee: dateDeMiseAJour(html), titre: titreDeLaPage(html), pdfs: collectPdfLinks(principal, r.url || url) };
 }
 
 // Une lecture par adresse et par invocation, partagée entre les projets qui citent la même page
@@ -2479,13 +2491,24 @@ function lireSource(url) {
    d'abord). Couper chaque source au même nombre de signes amputait les longues
    alors que le paquet restait à moitié vide. */
 function repartirLaPlace(sources, total) {
+  /* Partage équitable : chaque source reçoit sa part, celles qui en demandent
+     moins la rendent, et ce qui est rendu se partage à nouveau entre les
+     sources encore coupées, à parts égales. Le reliquat allait auparavant à la
+     première source longue de la liste : sur l'accueil de loisirs de Noyal, la
+     maquette du budget 2026 (290 000 signes de tableaux) en prenait 62 000, et
+     la note de présentation qui dit l'équipement ouvert le 4 février 2026 n'en
+     gardait que 7 000. */
+  for (const s of sources) s.place = 0;
   let reste = total;
-  const part = Math.floor(total / Math.max(1, sources.length));
-  for (const s of sources) { s.place = Math.min(s.texte.length, part); reste -= s.place; }
-  for (const s of sources) {
-    if (reste <= 0) break;
-    const plus = Math.min(reste, s.texte.length - s.place);
-    s.place += plus; reste -= plus;
+  let ouvertes = sources.filter((s) => s.texte.length > 0);
+  while (reste > 0 && ouvertes.length) {
+    const part = Math.floor(reste / ouvertes.length);
+    if (part < 1) break;
+    for (const s of ouvertes) {
+      const plus = Math.min(part, s.texte.length - s.place);
+      s.place += plus; reste -= plus;
+    }
+    ouvertes = ouvertes.filter((s) => s.place < s.texte.length);
   }
   for (const s of sources) s.lu = s.texte.slice(0, s.place);
 }
@@ -2522,60 +2545,208 @@ async function sourcesDuProjet(projet, tousLesPdfs) {
   return sources;
 }
 
-const FAITS_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    faits: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          /* Nommer l'objet du passage avant de le ranger : une page de la
-             Ville sur le cours Brillier parle aussi du monument aux morts et de
-             la halte fluviale, que l'extracteur versait au cours Brillier tant
-             qu'il n'avait pas à dire de quoi parlait chaque passage. */
-          objet: { type: 'string', description: 'Le chantier, l\'équipement ou le lieu dont parle ce passage.' },
-          porte_sur_le_projet: { type: 'boolean', description: 'true si ce passage parle du projet demandé lui-même, false s\'il parle d\'un autre chantier.' },
-          rubrique: { type: 'string', enum: RUBRIQUES },
-          citation: { type: 'string', description: 'Passage de la source recopié mot pour mot, qui porte ce fait.' },
-          source: { type: 'string', description: 'Identifiant de la source (S1, S2...).' },
-        },
-        required: ['objet', 'porte_sur_le_projet', 'rubrique', 'citation', 'source'],
-      },
-    },
-    documents: {
-      type: 'array',
-      items: { type: 'string' },
-      description: 'Identifiants des sources PDF qui portent sur ce projet précis.',
-    },
-    /* L'intitulé affiché sous l'article. Le <h1> des pages porte souvent des
-       capitales et des crochets (« [TRAVAUX] Fermeture du pont »), que la
-       charte d'écriture exclut ; le modèle les récrit sans toucher au sens. */
-    titres: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: { source: { type: 'string' }, titre: { type: 'string' } },
-        required: ['source', 'titre'],
-      },
-      description: 'Pour chaque source, son intitulé court en typographie courante : majuscule initiale et noms propres seulement, sans crochets ni capitales.',
-    },
-  },
-  required: ['faits', 'documents', 'titres'],
-};
+/* ATTRIBUTION D'UN PASSAGE. Mesure du banc du 10/11/2026 : l'extracteur
+   répondait à « ce passage porte-t-il sur le projet ? » par oui presque
+   toujours, puisqu'on venait de lui demander des faits sur ce projet. La fiche
+   de l'école Le Chat Perché à Noyal recevait ainsi 947 570 € du budget 2026
+   qui vont à l'accueil de loisirs d'une autre école, la cantine et l'entretien
+   des espaces verts ; celle de la vidéoprotection, la mutuelle des agents. Un
+   budget, un procès-verbal ou un bulletin liste des lignes voisines, et rien
+   dans une question à une seule réponse ne les en distinguait.
 
-// « il y a 3 ans », « il y a 5 mois » : l'écart entre la publication d'une source et aujourd'hui
+   L'extracteur reçoit donc les autres opérations de la carte, et dit pour
+   chaque passage à laquelle il se rapporte : le projet demandé, une autre
+   opération nommée, ou aucune. Une ligne de budget qui nomme l'accueil de
+   loisirs a désormais une place où aller. Seuls les passages rendus au projet
+   demandé sont gardés. */
+function schemaDesFaits(nAutres) {
+  const operations = ['P', 'aucune', ...Array.from({ length: nAutres }, (_, k) => `O${k + 1}`)];
+  return {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      faits: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            citation: { type: 'string', description: 'Passage de la source recopié mot pour mot, qui porte ce fait.' },
+            source: { type: 'string', description: 'Identifiant de la source (S1, S2...).' },
+            /* Nommer l'objet du passage avant de le ranger : une page de la
+               Ville sur le cours Brillier parle aussi du monument aux morts et
+               de la halte fluviale, que l'extracteur versait au cours Brillier
+               tant qu'il n'avait pas à dire de quoi parlait chaque passage. */
+            objet: { type: 'string', description: 'Les mots de la source qui nomment ce dont parle le passage (le chantier, l\'équipement, le lieu, l\'intitulé de la ligne ou du point), recopiés tels quels depuis le passage ou depuis le titre de la section où il se trouve. Vide si rien ne le nomme.' },
+            operation: { type: 'string', enum: operations, description: '« P » si le passage parle du projet demandé, « O1 », « O2 »... s\'il parle d\'une autre opération de la liste, « aucune » s\'il parle d\'autre chose.' },
+            rubrique: { type: 'string', enum: RUBRIQUES },
+          },
+          required: ['citation', 'source', 'objet', 'operation', 'rubrique'],
+        },
+      },
+      documents: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Identifiants des sources PDF qui portent sur ce projet précis.',
+      },
+      /* L'intitulé et la date de chaque source. Le <h1> des pages porte souvent
+         des capitales et des crochets (« [TRAVAUX] Fermeture du pont »), que la
+         charte d'écriture exclut ; le modèle les récrit sans toucher au sens.
+         La date est celle que le document écrit pour lui-même : la date de
+         dépôt d'un PDF n'est pas celle de la séance qu'il rapporte (Faugères :
+         les délibérations du 20 août 2026, déposées en octobre, étaient dites
+         « d'octobre 2026 »). */
+      sources: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            source: { type: 'string' },
+            titre: { type: 'string', description: 'Intitulé court en typographie courante : majuscule initiale et noms propres seulement, sans crochets ni capitales.' },
+            date_ecrite: { type: 'string', description: 'La date que le document se donne à lui-même, recopiée mot pour mot depuis son texte : date de la séance d\'un procès-verbal ou d\'une délibération, date d\'un article, date d\'un budget, d\'un bulletin ou d\'un plan. Vide si son texte n\'en écrit pas.' },
+            date_iso: { type: 'string', description: 'Cette même date sous la forme AAAA-MM-JJ, AAAA-MM ou AAAA. Vide si date_ecrite est vide.' },
+          },
+          required: ['source', 'titre', 'date_ecrite', 'date_iso'],
+        },
+      },
+    },
+    required: ['faits', 'documents', 'sources'],
+  };
+}
+
+/* Une date partielle (AAAA, AAAA-MM) ou complète, lue sans fuseau. Rendue
+   vide si elle n'a pas cette forme. */
+function dateIso(iso) {
+  const m = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(String(iso || '').trim());
+  if (!m || Number(m[2] || 1) > 12 || Number(m[3] || 1) > 31) return null;
+  return { annee: m[1], mois: m[2] || '', jour: m[3] || '' };
+}
+
+/* La date écrite par le document est-elle bien la sienne ? Elle doit figurer
+   dans son texte, et la forme AAAA-MM-JJ que le modèle en donne doit en
+   reprendre l'année et le jour : un modèle qui lit « séance du 20 août » dans
+   un PV de 2026 ne peut pas rendre 2025-10-01. */
+function dateDeLaSourceVerifiee(s, d) {
+  const iso = dateIso(d?.date_iso);
+  const ecrite = String(d?.date_ecrite || '').trim();
+  if (!iso || !ecrite || !citationRetrouvee(ecrite, s.normalisee)) return '';
+  const chiffres = ecrite.match(/\d+/g) || [];
+  if (!chiffres.includes(iso.annee)) return '';
+  if (iso.jour && !chiffres.some((c) => Number(c) === Number(iso.jour))) return '';
+  return [iso.annee, iso.mois, iso.jour].filter(Boolean).join('-');
+}
+
+// « il y a 3 ans », « il y a 5 mois » : l'écart entre la date d'une source et aujourd'hui
 function ancienneteDe(iso) {
-  const mois = Math.round((Date.now() - new Date(`${iso}T12:00:00Z`).getTime()) / (30.44 * 86400000));
+  const d = dateIso(iso);
+  if (!d) return '';
+  const ref = new Date(`${d.annee}-${d.mois || '07'}-${d.jour || '15'}T12:00:00Z`);
+  const mois = Math.round((Date.now() - ref.getTime()) / (30.44 * 86400000));
   if (mois < 1) return 'moins d\'un mois';
   if (mois < 24) return `${mois} mois`;
   return `${Math.floor(mois / 12)} ans`;
 }
 
-const dateLisible = (iso) => (iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+// 2026-08-20 → « 20 août 2026 », 2026-08 → « août 2026 », 2026 → « 2026 »
+function dateLisible(iso) {
+  const d = dateIso(iso);
+  if (!d) return '';
+  const date = new Date(`${d.annee}-${d.mois || '01'}-${d.jour || '01'}T12:00:00Z`);
+  if (d.jour) return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  if (d.mois) return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  return d.annee;
+}
+
+/* La date d'une source telle qu'on peut la présenter : celle que le document
+   écrit pour lui-même, sinon, pour une page, sa date de publication déclarée.
+   La date de création d'un fichier PDF n'est jamais retenue : c'est le jour de
+   son dépôt, pas celui de ce qu'il rapporte. */
+const dateDeLaSource = (s) => s?.datee || (s?.nature === 'page' ? s.publiee || '' : '');
+
+/* VÉRIFICATION DU RATTACHEMENT, par un second regard.
+
+   Mesure du 10/11/2026 sur l'école Le Chat Perché de Noyal, après que
+   l'extracteur a reçu la liste des autres opérations : il rangeait encore au
+   projet la ligne « ALSH CONSTRUCTION ALSH ESPACE VIE SOCIALE ET 2 CLASSES »
+   du budget, l'opération voisine pourtant dans sa liste, et les totaux de la
+   section d'investissement. Chargé de trouver des faits sur un projet, un
+   modèle trouve que tout en parle. La question est donc reposée à part, à un
+   modèle qui n'a rien à remplir : chaque passage gardé, avec ce qui l'entoure
+   dans sa source, se rapporte-t-il au projet, à une autre opération de la
+   carte, ou à rien de tout cela ? */
+const RATTACHEMENT_FAITS_LOT = 60;
+const CONTEXTE_AVANT = 400;
+const CONTEXTE_APRES = 200;
+function contexteDuPassage(s, citation) {
+  const t = s?.texte || '';
+  const debut = String(citation || '').slice(0, 30);
+  let at = debut ? t.indexOf(debut) : -1;
+  if (at < 0) {
+    // Apostrophes et espaces changés par le modèle : on cherche dans la forme normalisée
+    const n = s?.normalisee || '';
+    const k = n.indexOf(pourCitation(citation).slice(0, 30));
+    return k < 0 ? '' : n.slice(Math.max(0, k - CONTEXTE_AVANT), k + pourCitation(citation).length + CONTEXTE_APRES);
+  }
+  return t.slice(Math.max(0, at - CONTEXTE_AVANT), at + String(citation).length + CONTEXTE_APRES);
+}
+
+async function verifierLeRattachement(commune, projet, faits, parId, autres) {
+  if (!faits.length) return faits;
+  const codes = ['P', 'aucune', ...autres.map((_, k) => `O${k + 1}`)];
+  const schema = {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      passages: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            id: { type: 'string' },
+            ce_qu_il_nomme: { type: 'string', description: 'Ce que le passage et son contexte désignent, en quelques mots.' },
+            operation: { type: 'string', enum: codes },
+          },
+          required: ['id', 'ce_qu_il_nomme', 'operation'],
+        },
+      },
+    },
+    required: ['passages'],
+  };
+  const listeAutres = autres.map((o, k) => `O${k + 1} : ${o.title}${o.place ? ` (${o.place})` : ''}`).join('\n');
+  const system = `Tu vérifies une fiche de la carte des projets de ${commune.nom}. La fiche porte sur UN projet, désigné P : « ${projet.title} »${projet.place ? ` (${projet.place})` : ''}${projet.description ? `. ${String(projet.description).slice(0, 400)}` : ''}
+
+Les autres opérations de la commune ont chacune leur fiche :
+${listeAutres || '(aucune)'}
+
+On a relevé pour la fiche P les passages qui suivent, chacun avec son contexte dans sa source. Pour chacun, dis à quoi il se rapporte vraiment, d'après ce qu'il nomme et ce qui l'entoure : « P » s'il parle du projet P lui-même ; le code d'une autre opération s'il parle d'elle ; « aucune » s'il parle d'autre chose (le budget ou le fonctionnement de toute la commune, ses totaux, le personnel, un service, un chantier hors de la liste).
+
+Tu n'as pas à remplir la fiche : un passage qui ne parle pas de P doit en sortir. Dans un budget, un procès-verbal ou un bulletin, une ligne ou un paragraphe se rapporte à l'opération qu'il nomme ou à celle de la section où il se trouve, pas à P parce qu'il est voisin d'une ligne qui le nomme. Un même groupe scolaire, une même rue ou un même quartier peuvent porter deux opérations distinctes.`;
+  const lots = [];
+  for (let k = 0; k < faits.length; k += RATTACHEMENT_FAITS_LOT) lots.push(faits.slice(k, k + RATTACHEMENT_FAITS_LOT));
+  const verdicts = new Map();
+  await Promise.all(lots.map(async (lot) => {
+    const user = JSON.stringify(lot.map((f) => {
+      const src = parId.get(f.source);
+      return { id: f.id, source: src?.titre || hostOf(src?.url || ''), passage: f.citation, contexte: contexteDuPassage(src, f.citation) };
+    }));
+    try {
+      const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
+        'rattachement_faits', schema, 400 + 60 * lot.length, FAITS_TIMEOUT_MS, 0, FAITS_MODEL, 2);
+      for (const v of out.passages || []) verdicts.set(v.id, v);
+    } catch (e) {
+      // Sans second regard, les passages gardent le rattachement de l'extracteur
+      console.warn(`[demo-generate] verification du rattachement impossible pour "${projet.title}" :: ${e?.message}`);
+    }
+  }));
+  const nomDe = (code) => (code === 'aucune' ? 'aucune opération de la carte' : autres[Number(String(code).slice(1)) - 1]?.title || code);
+  for (const f of faits) {
+    const v = verdicts.get(f.id);
+    if (v && v.operation !== 'P') f.motif = `rattachement refusé : ${nomDe(v.operation)} (${String(v.ce_qu_il_nomme || '').slice(0, 60)})`;
+  }
+  return faits;
+}
 
 /* Les faits d'un projet, chacun retrouvé dans sa source.
    Un fait est une citation : il est gardé si elle figure dans le texte de la
@@ -2584,40 +2755,56 @@ const dateLisible = (iso) => (iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateStr
    de Noyal, 5 km de liaison qui « permettent » déjà de rejoindre Rennes
    devenaient 5 km qui « vont être aménagés ») ; la contrôler par ses nombres
    rejetait 8 faits justes sur 28 au boulevard du Rhône, dont tout le plan de
-   financement. Sans elle, la sortie est aussi deux fois plus courte. */
-async function extraireLesFaits(commune, projet, sources, aujourdhui) {
+   financement. Sans elle, la sortie est aussi deux fois plus courte.
+   @param {Array<Object>} autres - les autres opérations de la carte, qui ont leur propre fiche */
+async function extraireLesFaits(commune, projet, sources, aujourdhui, autres = []) {
+  const listeAutres = autres.map((o, k) => `O${k + 1} : ${o.title}${o.place ? ` (${o.place})` : ''}`).join('\n');
   const system = `Tu relèves, pour les habitants de ${commune.nom}, tout ce que les sources fournies établissent sur UN projet : « ${projet.title} »${projet.place ? ` (${projet.place})` : ''}.
 
-Relève TOUS les faits utiles, sans en omettre aucun, un fait par élément d'information. Parcours chaque source phrase par phrase : chaque phrase qui dit quelque chose du projet donne au moins un fait.
+Relève TOUS les faits utiles sur ce projet, sans en omettre aucun, un fait par élément d'information. Parcours chaque source phrase par phrase : chaque phrase qui dit quelque chose du projet donne au moins un fait.
 - programme : ce qui est construit, transformé ou installé, avec ses chiffres (logements, surfaces, longueurs, places, classes, équipements, matériaux annoncés), et les rues, lieux et itinéraires concernés ;
 - calendrier : chaque date ou période (études, concertation, début et fin de chantier, phases, livraison, inauguration), recopiée comme la source l'écrit ;
 - acteurs : maître d'ouvrage, aménageur, architecte, bureau d'études, entreprises, financeurs, et chaque montant avec ce qu'il finance exactement (coût total, part de chaque financeur, poste concerné) ;
 - etat : où en est le projet à la date de la source (à l'étude, en concertation, en travaux, livré, inauguré, abandonné), et ce qui reste à faire ;
 - effets : ce qui change pour les habitants (fermetures, déviations, ce qui reste ouvert, horaires, stationnement, nouveaux usages).
 
-Chaque fait est une citation recopiée mot pour mot, d'un seul tenant, dans la source indiquée : une phrase ou un morceau de phrase qui contient tout le fait, assez longue pour qu'on comprenne de quoi elle parle et sans rien y changer. Indique dans « objet » le chantier ou l'équipement dont elle parle.
-Une page parle souvent d'autre chose aussi : menus, cookies, autres actualités, « lire aussi », et d'autres chantiers de la commune. Ne relève que ce qui concerne CE projet : un autre chantier cité sur la même page, même voisin, n'en fait pas partie. Un document budgétaire de toute la commune (budget primitif, maquette, compte administratif, note de présentation) ne fournit que les lignes qui nomment ce projet : ses totaux et ses sections portent sur la commune, pas sur le projet. Si une source corrige une annonce précédente, relève les deux faits.
+Chaque fait est une citation recopiée mot pour mot, d'un seul tenant, dans la source indiquée : une phrase ou un morceau de phrase qui contient tout le fait, assez longue pour qu'on comprenne de quoi elle parle et sans rien y changer.
+
+Pour chaque fait, recopie d'abord dans « objet » les mots de la source qui nomment ce dont il parle, tels qu'ils sont écrits dans le passage ou dans le titre de sa section (« ACCUEIL LOISIRS SUD EXT ECOLE LPP ALSH », « Restauration de l'église », « Point 4 : vidéoprotection »), jamais le nom du projet demandé s'il n'y figure pas ; puis dis dans « operation » à quelle opération ces mots se rapportent : « P » pour le projet demandé, le code d'une autre opération de la commune s'il parle d'elle, « aucune » s'il parle d'autre chose (le fonctionnement de la commune, le personnel, un service, un chantier qui n'est pas dans la liste). ${listeAutres ? `Les autres opérations de la commune, qui ont chacune leur fiche :\n${listeAutres}\n` : ''}
+Une page, un procès-verbal, un budget ou un bulletin parlent de beaucoup de choses à la fois. Un passage ne se rapporte au projet demandé que s'il en parle lui-même : il nomme son équipement, son lieu ou l'opération, ou il continue sans ambiguïté un paragraphe qui les nomme. La ligne voisine d'un budget, le point suivant d'un ordre du jour, l'article d'à côté d'un bulletin se rapportent à ce qu'ils nomment, même dans le même chapitre ou pour le même quartier. Les totaux et les sections d'un document budgétaire de toute la commune portent sur la commune, jamais sur le projet. Si une source corrige une annonce précédente, relève les deux faits.
+
 Dans « documents », donne les identifiants des PDF qui portent sur ce projet précis.
+Dans « sources », donne pour chaque source son intitulé et la date qu'elle se donne à elle-même : la date de séance d'un procès-verbal ou d'une délibération, la date d'un article, d'un budget, d'un bulletin ou d'un plan, recopiée telle que son texte l'écrit. La date de publication d'une page en ligne n'est pas à recopier : laisse vide si le texte n'écrit pas de date pour lui-même.
 Nous sommes le ${aujourdhui}.`;
 
   const parId = new Map(sources.map((s) => [s.id, s]));
   const lots = lotsDeSources(sources);
+  const schema = schemaDesFaits(autres.length);
   const sorties = await Promise.all(lots.map((lot) => openAIStructured([
     { role: 'system', content: system },
-    { role: 'user', content: lot.map((s) => `=== ${s.id} : ${s.nature === 'pdf' ? 'document PDF' : 'page'}${s.titre ? ` « ${s.titre} »` : ''}${s.publiee ? `, publiée le ${dateLisible(s.publiee)}` : ''}\n${s.lu}`).join('\n\n') },
-  ], 'faits_projet', FAITS_SCHEMA, FAITS_MAX_TOKENS, FAITS_TIMEOUT_MS, 0, FAITS_MODEL, 2).catch((e) => {
+    { role: 'user', content: lot.map((s) => `=== ${s.id} : ${s.nature === 'pdf' ? 'document PDF' : 'page'}${s.titre ? ` « ${s.titre} »` : ''}${s.nature === 'page' && s.publiee ? `, publiée en ligne le ${dateLisible(s.publiee)}` : ''}\n${s.lu}`).join('\n\n') },
+  ], 'faits_projet', schema, FAITS_MAX_TOKENS, FAITS_TIMEOUT_MS, 0, FAITS_MODEL, 2).catch((e) => {
     // Un lot perdu coûte ses faits, pas l'article : les autres lots suffisent souvent
     console.warn(`[demo-generate] extraction perdue pour "${projet.title}" (${lot.map((x) => x.id).join(', ')}) :: ${e?.message}`);
-    return { faits: [], documents: [], titres: [] };
+    return { faits: [], documents: [], sources: [] };
   })));
 
+  for (const d of sorties.flatMap((o) => o.sources || [])) {
+    const s = parId.get(d.source);
+    if (!s) continue;
+    if (String(d.titre || '').trim()) s.titre = String(d.titre).trim().slice(0, 140);
+    const datee = dateDeLaSourceVerifiee(s, d);
+    if (datee) { s.datee = datee; s.datee_ecrite = String(d.date_ecrite).trim(); }
+  }
+
+  const nomDe = (code) => (code === 'aucune' ? 'aucune opération de la carte' : autres[Number(String(code).slice(1)) - 1]?.title || code);
   const gardes = [];
   const rejetes = [];
   const vues = [];
   for (const f of sorties.flatMap((o) => o.faits || [])) {
     const s = parId.get(f.source);
     const forme = pourCitation(f.citation);
-    const motif = !f.porte_sur_le_projet ? 'autre chantier'
+    const motif = f.operation !== 'P' ? `autre opération (${nomDe(f.operation)})`
       : !s ? 'source inconnue'
         : !citationRetrouvee(f.citation, s.normalisee) ? 'citation introuvable'
           // La même phrase reprise d'une page à l'autre ne fait qu'un fait
@@ -2626,11 +2813,20 @@ Nous sommes le ${aujourdhui}.`;
     if (motif) rejetes.push({ ...f, motif });
     else { gardes.push({ ...f, id: `F${gardes.length + 1}` }); vues.push(forme); }
   }
-  const documents = sorties.flatMap((o) => o.documents || []).map((id) => parId.get(id)).filter((s) => s?.nature === 'pdf');
-  for (const t of sorties.flatMap((o) => o.titres || [])) {
-    const s = parId.get(t.source);
-    if (s && String(t.titre || '').trim()) s.titre = String(t.titre).trim().slice(0, 140);
-  }
+  /* Second regard sur le rattachement des passages gardés (voir
+     verifierLeRattachement), puis renumérotation des faits restants. */
+  await verifierLeRattachement(commune, projet, gardes, parId, autres);
+  for (const f of gardes.filter((x) => x.motif)) rejetes.push(f);
+  const retenus = gardes.filter((x) => !x.motif).map((f, k) => ({ ...f, id: `F${k + 1}` }));
+  gardes.length = 0;
+  gardes.push(...retenus);
+  /* Un document officiel listé sous l'article est un PDF que l'extracteur
+     rattache au projet ET qui porte au moins un fait gardé : le budget de toute
+     la commune n'est plus présenté comme le dossier d'une école parce qu'une de
+     ses lignes a été lue pour elle. */
+  const avecFaits = new Set(gardes.map((f) => f.source));
+  const documents = sorties.flatMap((o) => o.documents || []).map((id) => parId.get(id))
+    .filter((s) => s?.nature === 'pdf' && avecFaits.has(s.id));
   return { faits: gardes, rejetes: rejetes.filter((r) => r.motif !== 'doublon'), documents: [...new Set(documents)] };
 }
 
@@ -2656,41 +2852,58 @@ const ARTICLE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
+    /* L'état du projet à la date du jour, établi AVANT d'écrire. Mesure du banc
+       du 10/11/2026 : l'accueil de loisirs de Noyal, livré et ouvert le 4
+       février 2026, était raconté au futur depuis les pages de son chantier ;
+       un projet de 2018 l'était au présent. */
+    etat_aujourdhui: { type: 'string', description: 'Où en est le projet aujourd\'hui, en une phrase, d\'après le fait le plus récent qui le dit, avec son identifiant et sa date.' },
     markdown: {
       type: 'string',
       description: "L'article en markdown, et lui seul : aucun préambule, aucune phrase adressée au lecteur de la consigne.",
     },
+    description: { type: 'string', description: 'Deux ou trois phrases pour la fiche du projet sur la carte : ce qu\'est le projet et où il en est aujourd\'hui, au temps juste, tirées des faits.' },
     faits_utilises: { type: 'array', items: { type: 'string' }, description: 'Identifiants (F1, F2...) des faits employés dans l\'article.' },
   },
-  required: ['markdown', 'faits_utilises'],
+  required: ['etat_aujourdhui', 'markdown', 'description', 'faits_utilises'],
 };
 
-async function redigerArticle(commune, projet, tousLesPdfs) {
+/**
+ * Article d'un projet, écrit à partir des faits relevés dans ses sources.
+ * @param {Array<Object>} autres - les autres opérations de la carte, pour que
+ *   l'extraction rende à chacune les passages qui la concernent
+ * @returns {Promise<{markdown: string, description: string}>}
+ */
+async function redigerArticle(commune, projet, tousLesPdfs, autres = []) {
   const aujourdhui = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
   const sources = await sourcesDuProjet(projet, tousLesPdfs);
   if (!sources.length) throw new Error('aucune source lisible');
-  const { faits, rejetes, documents } = await extraireLesFaits(commune, projet, sources, aujourdhui);
+  const { faits, rejetes, documents } = await extraireLesFaits(commune, projet, sources, aujourdhui, autres);
   console.log(`[demo-faits] "${projet.title}" : ${sources.length} source(s), ${faits.length} fait(s) gardé(s), ${rejetes.length} rejeté(s)${rejetes.length ? ` :: ${rejetes.map((r) => `${r.motif} « ${String(r.citation).slice(0, 80)} »`).join(' ; ')}` : ''}`);
-  if (process.env.DEMO_FAITS_DETAIL) console.log(`[demo-faits-detail] ${JSON.stringify({ sources: sources.map((s) => ({ id: s.id, url: s.url, publiee: s.publiee, chars: s.texte.length, lu: s.lu.length })), faits, rejetes })}`);
+  if (process.env.DEMO_FAITS_DETAIL) console.log(`[demo-faits-detail] ${JSON.stringify({ projet: projet.title, sources: sources.map((s) => ({ id: s.id, url: s.url, publiee: s.publiee, datee: s.datee || '', datee_ecrite: s.datee_ecrite || '', chars: s.texte.length, lu: s.lu.length })), faits, rejetes })}`);
   // Sans fait retrouvé dans une source, il n'y a rien à écrire que la description ne dise déjà
   if (!faits.length) throw new Error('aucun fait retrouvé dans les sources');
 
   const parId = new Map(sources.map((s) => [s.id, s]));
   /* L'âge de la source est calculé ici plutôt que laissé au rédacteur : mesure
      du 10/11/2026, une page de novembre 2023 qui annonçait des aménagements « à
-     venir » était racontée au présent, « le projet est en cours ». */
-  const liste = faits.map((f) => {
-    const s = parId.get(f.source);
+     venir » était racontée au présent, « le projet est en cours ». La date est
+     celle que la source écrit pour elle-même (séance, article), jamais celle du
+     dépôt d'un fichier. Les faits sont donnés du plus ancien au plus récent :
+     le dernier dit où en est le projet. */
+  const datee = (f) => dateDeLaSource(parId.get(f.source));
+  const ordonnes = [...faits].sort((x, y) => (datee(x) || '9999').localeCompare(datee(y) || '9999'));
+  const liste = ordonnes.map((f) => {
+    const d = datee(f);
     return {
       id: f.id, objet: f.objet, rubrique: f.rubrique, la_source_dit: f.citation,
-      source_publiee_le: s?.publiee ? dateLisible(s.publiee) : 'date inconnue',
-      ...(s?.publiee ? { anciennete_de_la_source: ancienneteDe(s.publiee) } : {}),
+      source_datee_du: d ? dateLisible(d) : 'date inconnue',
+      ...(d ? { anciennete_de_la_source: ancienneteDe(d) } : {}),
     };
   });
   const system = promptArticle({ commune: commune.nom, aujourdhui });
   const user = `PROJET : ${projet.title}
 ${projet.place ? `LIEU : ${projet.place}\n` : ''}COMMUNE : ${commune.nom}
-FAITS VÉRIFIÉS (${faits.length}) :
+FAITS VÉRIFIÉS (${faits.length}), du plus ancien au plus récent, les faits sans date à la fin :
 ${JSON.stringify(liste, null, 1)}`;
 
   const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
@@ -2715,7 +2928,8 @@ ${JSON.stringify(liste, null, 1)}`;
   const blocDossier = dossiers.length
     ? `\n\n## ${dossiers.length > 1 ? 'Les documents officiels sont en ligne' : 'Le document officiel est en ligne'}\n\n${dossiers.map((d) => `- [${d.titre || nomDeFichier(d.url)}](${d.url})`).join('\n')}\n`
     : '';
-  return `${markdown}${blocDossier}${blocSources(citees)}`;
+  const description = retirerLesLiens(String(out.description || '').replace(/\s*\((?:F\d+[,;\s]*(?:et\s*)?)+\)/g, '').trim());
+  return { markdown: `${markdown}${blocDossier}${blocSources(citees)}`, description, etat: String(out.etat_aujourdhui || '').trim() };
 }
 
 // Formats rejetes par la vision gpt-4o : un seul suffit a faire echouer TOUT
@@ -5166,6 +5380,8 @@ async function coreExplore(send, step, state) {
         // le lecteur de la fiche voit d'ou elle vient.
         p.sources = [{ url: p.source_url, type: 'intercommunalite' }];
       }
+      // Les dates de la page, relevees pendant qu'on l'a en main : la selection en a besoin
+      if (r.page?.data) { p.page_publiee = dateDePublication(r.page.data); p.page_modifiee = dateDeMiseAJour(r.page.data); }
       explo.bruts.push(p);
       send({ type: 'ai-item', phase: 'ai1', title: p.title, quote: (p.evidence_quote || '').slice(0, 220), domain: hostOf(p.source_url) });
     }
@@ -5603,7 +5819,21 @@ async function jugerLeRapprochement(commune, projets) {
   if (anomalies.doubles || anomalies.oublies || anomalies.horsListe) {
     console.warn(`[demo-generate] rapprochement : reponse corrigee sur ${n} descriptions (${anomalies.doubles} rangee(s) deux fois, ${anomalies.oublies} oubliee(s), ${anomalies.horsListe} index hors liste)`);
   }
-  return { projets: groupes.map((g) => fondre(g.membres, { titre: g.titre, principal: g.principal })), ecartes };
+  /* Chaque opération garde la trace de TOUTES ses descriptions, avec la page
+     et la date de chacune : la sélection qui suit juge l'opération sur ce que
+     disent ses pages, la plus récente comprise, et non sur la seule description
+     retenue par la fusion (la plus longue, souvent la plus ancienne). */
+  const lues = (p) => p.descriptions_lues || [{
+    titre: p.title || '', description: p.description || '', page: p.source_url || '',
+    publiee: p.page_publiee || '', modifiee: p.page_modifiee || '', avis_du: p.marcheDate || '',
+  }];
+  return {
+    projets: groupes.map((g) => ({
+      ...fondre(g.membres, { titre: g.titre, principal: g.principal }),
+      descriptions_lues: g.membres.flatMap(lues),
+    })),
+    ecartes,
+  };
 }
 
 /**
@@ -5628,6 +5858,286 @@ async function rapprocherLesDescriptions(commune, projets) {
   return { projets: second.projets, ecartes: [...ecartes, ...second.ecartes] };
 }
 
+/* DATES DES PAGES, pour la sélection.
+
+   La lecture relève la date de publication et de mise à jour de chaque page
+   qu'elle a en main ; il reste les pages de la presse, et les descriptions
+   reprises d'un état enregistré avant ce relevé. Leur page est relue ici, une
+   fois (la lecture est partagée avec la rédaction), dans un temps borné : une
+   page qui ne répond pas laisse sa description sans date, ce que la sélection
+   sait traiter. Les PDF ne sont pas relus : leur date de fichier n'est pas
+   celle de leur contenu, qui l'écrit lui-même. */
+const DATATION_BUDGET_MS = 10000;
+async function daterLesPages(projets) {
+  const aDater = [...new Set(projets
+    .filter((p) => !p.page_publiee && !p.page_modifiee && p.origine !== 'marche' && /^https?:\/\//.test(p.source_url || '') && !estUnPdf(p.source_url))
+    .map((p) => p.source_url))];
+  if (!aDater.length) return;
+  const dates = new Map();
+  await inChunks(aDater, 8, async (url) => {
+    const lu = await Promise.race([lireSource(url), new Promise((ok) => setTimeout(() => ok(null), 8000))]);
+    if (lu) dates.set(url, lu);
+  }, Date.now() + DATATION_BUDGET_MS);
+  for (const p of projets) {
+    const lu = dates.get(p.source_url);
+    if (lu && !p.page_publiee && !p.page_modifiee) { p.page_publiee = lu.publiee || ''; p.page_modifiee = lu.modifiee || ''; }
+  }
+}
+
+/* SÉLECTION DES PROJETS DE LA CARTE.
+
+   Le rapprochement range les descriptions par opération ; il ne dit pas si
+   l'opération a sa place sur la carte. Mesure du banc du 10/11/2026 (quatre
+   communes, juges stricts) : environ une fiche sur deux était du remplissage.
+   Cinq micro-fiches découpées dans une page de petits travaux de l'été 2025 à
+   Saint-Genis-Laval (coussins berlinois, fosses d'arbres, un passage piéton),
+   des pages de présentation de parcs (un city-stade rénové en 2024, des vignes
+   plantées en 2013, un parcours santé de 2022), l'aire d'accueil des gens du
+   voyage de Noyal ouverte en 2010, les moulins de Faugères restaurés en 1998.
+
+   L'IA juge donc chaque opération sur trois questions, dans cet ordre : où en
+   est-elle aujourd'hui (d'après la plus récente de ses pages, avec sa date),
+   quelle est son ampleur à l'échelle de CETTE commune, et un habitant
+   l'appellerait-il un projet de sa commune. Le code ne juge rien : il vérifie
+   que chaque opération reçoit un verdict, garde celles qui n'en ont pas, et
+   classe les gardées par ampleur. Pas de plafond : une ville qui mène trente
+   projets réels les montre tous, un village qui en a trois les garde. */
+const SELECTION_MODEL = process.env.DEMO_SELECTION_MODEL || RAPPROCHEMENT_MODEL;
+const VERDICTS = {
+  garder: 'projet de la commune',
+  ancienne: 'opération achevée depuis longtemps',
+  existant: 'présentation d\'un lieu qui existe',
+  entretien: 'entretien ou réparation',
+  ponctuelle: 'intervention ponctuelle sans suite',
+  proposition: 'proposition sans décision',
+  dispositif: 'dispositif ou service, pas un aménagement',
+  recapitulatif: 'liste d\'opérations sans aménagement propre',
+};
+const AMPLEURS = ['structurante', 'notable', 'modeste', 'minime'];
+const SELECTION_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    operations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer' },
+          meme_operation_que: { type: 'integer', description: 'Index d\'une AUTRE opération de la liste qui désigne manifestement le même objet au même endroit, ou -1.' },
+          derniere_etape: { type: 'string', description: 'La plus récente étape que les descriptions rapportent, avec sa date telle qu\'elles l\'écrivent ou, à défaut, la date de la page ou du document qui la rapporte. Vide si rien n\'est daté.' },
+          date_iso: { type: 'string', description: 'La date de cette étape sous la forme AAAA-MM-JJ, AAAA-MM ou AAAA. Vide si elle n\'est pas datée.' },
+          etat: { type: 'string', enum: ['a_l_etude', 'annoncee', 'en_travaux', 'livree', 'abandonnee', 'inconnu'], description: 'Où en est l\'opération AUJOURD\'HUI.' },
+          achevement_constate: { type: 'boolean', description: 'true si une description dit que l\'opération est achevée, livrée, ouverte ou inaugurée.' },
+          suite_annoncee: { type: 'boolean', description: 'true si une description annonce une suite : une tranche, une phase, un équipement de plus.' },
+          operation_d_ensemble: { type: 'boolean', description: 'true pour une opération d\'ensemble menée par tranches sur dix ans et plus (zone d\'aménagement, quartier en renouvellement urbain) ; false pour un bâtiment, une voie, une place, un parc.' },
+          ampleur: { type: 'string', enum: AMPLEURS },
+          /* La justification vient AVANT le verdict : écrite après, elle ne
+             faisait que l'habiller ; écrite avant, elle l'oblige à appliquer
+             la consigne (l'étape, sa date face aux bornes, la nature de
+             l'opération) de la même façon pour toutes. */
+          precision: { type: 'string', description: 'Une phrase qui applique la consigne : l\'étape retenue, sa date comparée aux dates repères, la nature de l\'opération.' },
+          verdict: { type: 'string', enum: Object.keys(VERDICTS) },
+        },
+        required: ['index', 'meme_operation_que', 'derniere_etape', 'date_iso', 'etat', 'achevement_constate', 'suite_annoncee', 'operation_d_ensemble', 'ampleur', 'precision', 'verdict'],
+      },
+    },
+  },
+  required: ['operations'],
+};
+
+function consigneSelection(commune, aujourdhui) {
+  const habitants = commune.population ? ` (${commune.population.toLocaleString('fr-FR')} habitants)` : '';
+  /* Les bornes sont des dates calculées ici : comparer deux dates est sûr,
+     compter des mois ne l'est pas (mesure sur Noyal : des travaux de novembre
+     2024 donnés pour « 12 mois » en novembre 2026). */
+  const ilYa = (mois) => { const d = new Date(); d.setMonth(d.getMonth() - mois); return d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }); };
+  const [dixHuit, deux] = [ilYa(18), ilYa(24)];
+  return `Nous sommes le ${aujourdhui}. Tu choisis les opérations qui figureront sur la carte des projets de ${commune.nom}${habitants}. Un élu qui ouvre cette carte doit y reconnaître les projets de sa commune : ce qu'un habitant appellerait un projet de sa commune, en préparation, en cours ou tout juste livré. Une carte encombrée d'opérations finies depuis longtemps, de présentations d'équipements ou de petits travaux de quelques jours cache les vrais projets.
+
+Chaque opération t'est donnée avec toutes les descriptions relevées à son sujet, chacune avec sa page et, quand on la connaît, la date de publication de cette page, la date de sa dernière modification, la date de parution de l'avis de marché, et les documents PDF que porte la page (intitulé et adresse). Rends un verdict pour CHACUNE des opérations, de l'index 0 au dernier, sans en sauter aucune. Juge chaque opération dans l'ordre des champs.
+
+meme_operation_que : le rapprochement qui a formé cette liste laisse parfois le même objet en deux opérations (un équipement nommé par son nom propre et « la construction d'un nouvel équipement » au même endroit). Si une autre opération de la liste désigne manifestement le même objet au même endroit, donne son index ; sinon -1. Deux objets voisins, ou une opération et la rue qui la dessert, restent distincts.
+
+derniere_etape : la plus récente étape que les descriptions rapportent, datée. La date qui compte est celle que la description écrit ; à défaut, la date de publication d'une actualité, ou celle d'un document qui porte sur l'opération (souvent écrite dans son adresse, par exemple « /2022/06/ » pour juin 2022). Une page décrit SON présent, pas le nôtre : ce qu'une page de 2023 annonçait « pour juin » est passé, et une date écrite sans année se lit par rapport à la date de sa page. La date de modification d'une page dit seulement quand la page a été retouchée : une rubrique (finances, travaux, marchés) complétée cette année garde des informations anciennes, et cette date ne date jamais ce que la page décrit.
+
+date_iso : la date de cette étape, sous la forme AAAA-MM-JJ, AAAA-MM ou AAAA (« rentrée 2025 » donne 2025-09, « été 2024 » 2024-07).
+
+etat : où en est l'opération aujourd'hui, d'après cette étape.
+
+achevement_constate, suite_annoncee, operation_d_ensemble : ce que disent les descriptions, sans rien supposer.
+
+ampleur, à l'échelle de cette commune :
+- structurante : elle transforme un quartier ou dote la commune d'un équipement majeur (zone d'aménagement, programme de renouvellement urbain, ligne de transport, nouveau groupe scolaire, grand équipement) ;
+- notable : un bâtiment construit, agrandi ou rénové en profondeur, une rue, une place ou un parc réaménagé ;
+- modeste : un aménagement durable mais limité (aire de jeux, borne de recharge, plateau ralentisseur, réfection d'une rue, rénovation d'un équipement sportif) ;
+- minime : une intervention de quelques jours qui ne change pas durablement le lieu.
+Dans un village de quelques centaines d'habitants, la réfection d'une rue ou une borne de recharge est notable ; dans une ville de plusieurs dizaines de milliers d'habitants, elle est modeste.
+
+precision : une phrase qui applique la règle du verdict, en comparant la date de l'étape aux dates repères ci-dessous.
+
+verdict :
+- garder : un projet en préparation, en cours, ou livré il y a un an environ, c'est-à-dire en ${dixHuit} ou après, ou un projet livré dont une suite est annoncée ;
+- ancienne : l'opération a été livrée avant ${dixHuit} et rien n'est annoncé après ; ou bien sa plus récente information est si ancienne que, compte tenu de la durée habituelle de ses études et de ses travaux, une opération de cette nature est forcément achevée depuis plus d'un an : quelques semaines de travaux annoncées avant ${deux}, un plan de financement, une demande de subvention ou un avis de marché de tels travaux daté d'avant ${deux}, un bâtiment dont les études étaient en cours il y a cinq ans ou plus. Ces documents sont datés : leur date suffit à juger. Seule une opération d'ensemble menée par tranches sur dix ans et plus (zone d'aménagement, quartier en renouvellement urbain, programme de renouvellement urbain) ne se tient pour achevée que si une description le dit (livraison, inauguration, clôture), car son échéance annoncée glisse souvent et un programme « jusqu'en 2024 » peut se poursuivre ; un bâtiment, même grand, n'en est pas une ;
+- existant : la description présente un lieu ou un équipement qui existe déjà (son histoire, ses usages, son fonctionnement) sans travaux en préparation, en cours ou récents ;
+- entretien : de l'entretien courant ou une réparation qui remet un lieu en état sans le transformer, et qu'un habitant de cette commune ne citerait pas comme un projet ;
+- ponctuelle : une intervention de quelques jours sans suite (déplacer un ralentisseur, poser des bornes, fermer une rue une journée), même faite par la commune ;
+- proposition : une idée soumise au vote ou à l'avis des habitants dont rien ne dit qu'elle a été retenue, ou un souhait sans décision. Une page qui soumet des idées au vote ne dit pas lesquelles l'ont emporté : si une autre description annonce les lauréats, seules celles-là sont des projets ;
+- dispositif : une aide, un accompagnement, une campagne auprès des propriétaires, un service ou une démarche qui n'aménage aucun lieu précis ;
+- recapitulatif : la description ne fait qu'énumérer des opérations distinctes (programme d'investissement, bilan de mandat, budget) sans décrire un aménagement à elle.
+
+Applique la même mesure à toutes les opérations : deux opérations livrées à la même date reçoivent le même verdict. Une petite commune n'a parfois que trois projets, tous modestes : ce sont ses projets, garde-les. N'écarte une opération pour son âge que si une date le montre : sans date, garde-la. Dans le doute entre garder et écarter, garde.`;
+}
+
+/* VÉRIFICATION DE L'ÂGE PAR LE CALCUL.
+
+   L'IA date la dernière étape de chaque opération et dit ce que les
+   descriptions constatent ; comparer cette date à celle du jour est un calcul,
+   et le code le refait. Mesure du banc du 10/11/2026, sur des consignes qui
+   donnaient pourtant les dates repères en clair : l'école Jean Moulin de
+   Vienne, livrée à la rentrée 2025, écartée comme ancienne ; un city-stade
+   rénové au printemps 2024 gardé ; le renouvellement urbain de la Vallée de
+   Gère écarté sur l'échéance « jusqu'en 2024 » d'une page de 2024, alors
+   qu'aucune page ne le dit achevé. Le verdict de l'IA est corrigé dans ces
+   seuls cas, où il contredit la règle qu'elle a reçue :
+   - une opération d'ensemble n'est jamais tenue pour achevée sur une échéance,
+     seulement sur un achèvement constaté ;
+   - une opération dont la dernière étape a moins de FENETRE_LIVRAISON_MOIS
+     n'est pas ancienne ;
+   - une opération livrée, constatée achevée, sans suite annoncée, dont la
+     livraison a plus de FENETRE_LIVRAISON_MOIS, est ancienne.
+   Une date partielle se lit à la fin de sa période (« 2025 » vaut décembre
+   2025) : dans le doute, l'opération paraît plus récente, donc gardée.
+
+   La fenêtre traduit le « livré depuis un an environ » du propriétaire : un
+   an, et six mois de marge pour l'« environ », ce qui garde une école livrée à
+   la rentrée de l'an dernier. */
+const FENETRE_LIVRAISON_MOIS = 18;
+function ageEnMois(iso) {
+  const d = dateIso(iso);
+  if (!d) return null;
+  const fin = new Date(Date.UTC(Number(d.annee), d.mois ? Number(d.mois) - 1 : 11, d.jour ? Number(d.jour) : 28, 12));
+  return (Date.now() - fin.getTime()) / (30.44 * 86400000);
+}
+function verifierLAge(sel) {
+  const age = ageEnMois(sel.date_iso);
+  if (sel.verdict === 'ancienne' && sel.operation_d_ensemble && !sel.achevement_constate) {
+    sel.verdict = 'garder'; sel.corrige = 'opération d\'ensemble dont aucune description ne constate l\'achèvement';
+  } else if (sel.verdict === 'ancienne' && age !== null && age <= FENETRE_LIVRAISON_MOIS) {
+    sel.verdict = 'garder'; sel.corrige = `dernière étape datée de ${Math.round(age)} mois`;
+  } else if (sel.verdict === 'garder' && sel.etat === 'livree' && sel.achevement_constate && !sel.suite_annoncee
+    && !sel.operation_d_ensemble && age !== null && age > FENETRE_LIVRAISON_MOIS) {
+    sel.verdict = 'ancienne'; sel.corrige = `livrée il y a ${Math.round(age)} mois, sans suite annoncée`;
+  }
+}
+
+/**
+ * Juge chaque opération : actualité, ampleur, et place sur la carte.
+ * @param {Array<{url: string, label: string, page: string}>} pdfs - documents retenus par la lecture, avec leur page
+ * @returns {Promise<{gardees: Array<Object>, ecartees: Array<Object>}>}
+ */
+async function selectionnerLesProjets(commune, operations, pdfs = []) {
+  if (!operations.length) return { gardees: [], ecartees: [] };
+  const aujourdhui = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const dateDe = (iso) => (iso ? dateLisible(iso) : '');
+  const documentsDe = new Map();
+  for (const d of pdfs) {
+    const cle = normaliserUrl(d.page || '');
+    if (!documentsDe.has(cle)) documentsDe.set(cle, []);
+    documentsDe.get(cle).push({ intitule: d.label || nomDeFichier(d.url), adresse: d.url });
+  }
+  const fiche = (p, i) => ({
+    index: i,
+    titre: p.title || '',
+    lieu: p.place || p.geo_query || '',
+    descriptions: (p.descriptions_lues || [{ titre: p.title, description: p.description, page: p.source_url }]).map((d) => ({
+      titre: d.titre || '',
+      description: d.description || '',
+      page: d.page || '',
+      ...(d.avis_du ? { avis_de_marche_paru_le: d.avis_du } : {}),
+      ...(d.publiee ? { page_publiee_le: dateDe(d.publiee) } : {}),
+      ...(d.modifiee && d.modifiee !== d.publiee ? { page_modifiee_le: dateDe(d.modifiee) } : {}),
+      ...(documentsDe.get(normaliserUrl(d.page || ''))?.length ? { documents_de_la_page: documentsDe.get(normaliserUrl(d.page || '')).slice(0, 10) } : {}),
+    })),
+  });
+  const juger = (indices) => openAIStructured(
+    [{ role: 'system', content: consigneSelection(commune, aujourdhui) }, { role: 'user', content: JSON.stringify(indices.map((i) => fiche(operations[i], i))) }],
+    'selection_projets', SELECTION_SCHEMA, 800 + 150 * indices.length, 150000, 0, SELECTION_MODEL, 3
+  );
+  const verdicts = new Map();
+  const ranger = (out, attendus) => {
+    for (const v of out?.operations || []) {
+      if (attendus.has(v.index) && !verdicts.has(v.index)) verdicts.set(v.index, v);
+    }
+  };
+  const tous = operations.map((_, i) => i);
+  try {
+    ranger(await juger(tous), new Set(tous));
+    /* Une longue liste revient parfois incomplète (mesure sur Noyal : 37
+       verdicts pour 46 opérations, les neuf dernières sautées). Les oubliées
+       sont jugées une seconde fois, seules, plutôt que gardées d'office. */
+    const oubliees = tous.filter((i) => !verdicts.has(i));
+    if (oubliees.length) ranger(await juger(oubliees), new Set(oubliees));
+  } catch (e) {
+    // Sans jugement, ce qui n'en a pas reçu est gardé : une fiche de trop se voit, une fiche perdue ne se voit pas
+    console.warn(`[demo-generate] selection incomplete, ${operations.length - verdicts.size} operation(s) gardees sans verdict :: ${e?.message}`);
+  }
+  operations.forEach((p, i) => {
+    const v = verdicts.get(i);
+    p.selection = v
+      ? {
+        etat: v.etat, ampleur: v.ampleur, derniere_etape: String(v.derniere_etape || '').trim(), date_iso: String(v.date_iso || '').trim(),
+        achevement_constate: Boolean(v.achevement_constate), suite_annoncee: Boolean(v.suite_annoncee), operation_d_ensemble: Boolean(v.operation_d_ensemble),
+        verdict: VERDICTS[v.verdict] ? v.verdict : 'garder', precision: String(v.precision || '').trim(),
+      }
+      : { verdict: 'garder', precision: 'opération sans verdict, gardée' };
+    verifierLAge(p.selection);
+  });
+  const rang = (p) => { const k = AMPLEURS.indexOf(p.selection.ampleur); return k < 0 ? AMPLEURS.length : k; };
+
+  /* Les doublons signalés sont fondus, chaque groupe sous l'opération lue la
+     première. L'opération fondue est gardée si l'un de ses membres l'est, avec
+     la plus grande ampleur de ses membres gardés : une description ancienne du
+     même équipement n'efface pas sa description actuelle. */
+  const chef = operations.map((_, i) => i);
+  const racine = (i) => (chef[i] === i ? i : (chef[i] = racine(chef[i])));
+  for (const [i, v] of verdicts) {
+    const j = v.meme_operation_que;
+    if (Number.isInteger(j) && j >= 0 && j < operations.length && j !== i) {
+      const [a, b] = [racine(i), racine(j)].sort((x, y) => x - y);
+      chef[b] = a;
+    }
+  }
+  const groupes = new Map();
+  operations.forEach((p, i) => {
+    const r = racine(i);
+    if (!groupes.has(r)) groupes.set(r, []);
+    groupes.get(r).push(p);
+  });
+  const fondues = [...groupes.values()].map((g) => {
+    if (g.length === 1) return g[0];
+    const gardes = g.filter((p) => p.selection.verdict === 'garder');
+    const porteur = g[0];
+    const op = fondre(g, { titre: porteur.title, principal: porteur });
+    op.descriptions_lues = g.flatMap((p) => p.descriptions_lues || []);
+    op.selection = gardes.length
+      ? { ...[...gardes].sort((a, b) => rang(a) - rang(b))[0].selection, fondue_avec: g.slice(1).map((p) => p.title) }
+      : { ...porteur.selection, fondue_avec: g.slice(1).map((p) => p.title) };
+    return op;
+  });
+  const nFondues = operations.length - fondues.length;
+  if (nFondues) console.log(`[demo-generate] selection : ${nFondues} doublon(s) fondu(s) :: ${fondues.filter((p) => p.selection.fondue_avec).map((p) => `${p.title} <- ${p.selection.fondue_avec.join(' ; ')}`).join(' | ')}`);
+  const gardees = fondues.filter((p) => p.selection.verdict === 'garder');
+  const ecartees = fondues.filter((p) => p.selection.verdict !== 'garder');
+  if (verdicts.size < operations.length) console.warn(`[demo-generate] selection : ${operations.length - verdicts.size} operation(s) sans verdict, gardees`);
+  /* Les plus structurantes d'abord : la localisation et l'illustration
+     travaillent dans l'ordre de la liste, et une carte se lit par ses grands
+     projets. À ampleur égale, l'ordre de la lecture est gardé. */
+  gardees.sort((a, b) => rang(a) - rang(b));
+  return { gardees, ecartees };
+}
+
 async function coreAi(send, step, state) {
   const { commune, mairie, news, boamp } = state;
 
@@ -5648,8 +6158,12 @@ async function coreAi(send, step, state) {
 
   step('ai2', 'start', 'Rapprochement et vérification', 'Un même chantier décrit par plusieurs pages ne fait qu\'une fiche');
 
-  // Les avis de marches, en un appel : liste compacte, aucun risque de volume
-  const avis = await depouillerLesAvis(commune, boamp);
+  /* Les avis de marches, en un appel : liste compacte, aucun risque de volume.
+     Pendant ce temps, les pages encore sans date sont datees pour la selection. */
+  const [avis] = await Promise.all([
+    depouillerLesAvis(commune, boamp),
+    daterLesPages([...(state.explo?.bruts || []), ...(state.presseProjets || [])]),
+  ]);
   if (avis.length) console.log(`[demo-generate] avis de marches depouilles : ${avis.length} projet(s)`);
 
   const bruts = [...(state.explo?.bruts || []), ...avis, ...(state.presseProjets || [])];
@@ -5682,6 +6196,21 @@ async function coreAi(send, step, state) {
   if (nonRetenus.length) {
     console.log(`[demo-generate] descriptions ecartees : ${nonRetenus.map((e) => `${e.projet.title} (${e.precision || RAISONS_D_ECART[e.raison]})`).join(' | ')}`);
   }
+
+  /* SELECTION : ce qu'un habitant appellerait un projet de sa commune, actuel
+     et significatif (voir selectionnerLesProjets). Elle passe avant
+     l'arbitrage des marches, pour que la reserve d'avis qui peut regarnir une
+     carte courte ne contienne que des operations retenues. */
+  const { gardees, ecartees: horsCarte } = await selectionnerLesProjets(commune, projects, mairie.pdfs || []);
+  projects = gardees;
+  console.log(`[demo-generate] selection : ${gardees.length} operation(s) gardee(s), ${horsCarte.length} ecartee(s)`);
+  for (const p of horsCarte) console.log(`[demo-selection] ecartee (${VERDICTS[p.selection.verdict]}, ${p.selection.ampleur || '?'}) ${p.title} :: ${p.selection.derniere_etape} :: ${p.selection.precision}${p.selection.corrige ? ` :: corrigé : ${p.selection.corrige}` : ''}`);
+  for (const p of gardees) console.log(`[demo-selection] gardee (${p.selection.etat || '?'}, ${p.selection.ampleur || '?'}) ${p.title} :: ${p.selection.derniere_etape}${p.selection.corrige ? ` :: corrigé : ${p.selection.corrige}` : ''}`);
+  state.stats.selection = {
+    gardees: gardees.length,
+    ecartees: horsCarte.map((p) => ({ titre: p.title, verdict: p.selection.verdict, ampleur: p.selection.ampleur, derniere_etape: p.selection.derniere_etape, precision: p.selection.precision, ...(p.selection.corrige ? { corrige: p.selection.corrige } : {}) })),
+  };
+  for (const p of [...gardees, ...horsCarte]) delete p.descriptions_lues;
 
   /* La matiere de l'article : l'extrait de la page qui presente le mieux
      l'operation, suivi des citations relevees mot pour mot sur ses autres
@@ -6609,16 +7138,26 @@ async function coreRedact(send, step, state) {
       const i = redac.curseur++;
       let a = null;
       try {
-        const markdown = await redigerArticle(state.commune, located[i], pdfs);
+        /* Les autres fiches de la carte partent avec le projet : l'extraction
+           rend à chacune les passages qui la concernent (voir extraireLesFaits). */
+        const autres = located.filter((_, k) => k !== i);
+        const { markdown, description, etat } = await redigerArticle(state.commune, located[i], pdfs, autres);
         send({ type: 'article-item', title: located[i].title });
-        a = { index: i, title: located[i].title, markdown };
+        a = { index: i, title: located[i].title, markdown, description, etat };
       } catch (e) {
         // Un article manquant est un manque, pas une panne : la fiche existe
         // quand même, avec sa description et sa photo.
         console.error(`[demo-generate] article "${located[i].title}" :`, e.message);
       }
       // Un rejeu de tranche ne doit pas creer de doublon
-      if (a && !state.articles.some((x) => x.index === a.index)) state.articles.push(a);
+      if (!a || state.articles.some((x) => x.index === a.index)) continue;
+      /* La description de la fiche venait de la page lue a l'exploration, au
+         temps de cette page (« ouverture prevue en 2025 » pour un equipement
+         ouvert en fevrier 2026). Celle du redacteur est ecrite depuis les faits
+         verifies, a la date du jour : elle la remplace. */
+      if (a.description) { located[a.index].description_lue = located[a.index].description; located[a.index].description = a.description; }
+      delete a.description;
+      state.articles.push(a);
     }
   }));
   // Les articles arrivent dans l'ordre ou ils finissent : rangés par projet
@@ -7570,6 +8109,12 @@ export const config = { path: '/api/demo-generate' };
 export const _internals = {
   coreAi,
   rapprocherLesDescriptions,
+  daterLesPages,
+  selectionnerLesProjets,
+  verifierLAge,
+  ageEnMois,
+  dateDeLaSourceVerifiee,
+  repartirLaPlace,
   lotsParPage,
   affinerLesEmprises,
   perimetreDeZac,
