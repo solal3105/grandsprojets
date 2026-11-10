@@ -390,16 +390,8 @@
           throw new Error('No city selected');
         }
 
-        if (search && search.trim()) {
-          const s = search.trim();
-          // OR ilike on multiple text columns
-          const orExpr = [
-            `project_name.ilike.%${s}%`,
-            `meta.ilike.%${s}%`,
-            `description.ilike.%${s}%`
-          ].join(',');
-          query = query.or(orExpr);
-        }
+        const searchFilter = win.SecurityUtils.ilikeAny(['project_name', 'meta', 'description'], search);
+        if (searchFilter) query = query.or(searchFilter);
 
         // Logique de filtrage selon le rôle
         try {
@@ -2867,15 +2859,9 @@
           .order('created_at', { ascending: false })
           .range((page - 1) * pageSize, page * pageSize - 1);
         if (Array.isArray(statutKeys) && statutKeys.length) query = query.in('statut_key', statutKeys);
-        /* La virgule et les parenthèses sont la grammaire de `.or()` : sans ce
-           nettoyage, une adresse française (« 12, rue... ») casse la requête et
-           une saisie hostile réécrit le prédicat. On les remplace par le joker
-           `%` et non par une espace, sinon « 12, rue » ne retrouverait plus
-           « 12, rue de la Paix ». */
-        const terme = String(search).replace(/[,()"\\%_]/g, '%').trim();
-        if (terme && terme.replace(/%/g, '')) {
-          query = query.or(`reference.ilike."%${terme}%",description.ilike."%${terme}%",adresse.ilike."%${terme}%"`);
-        }
+        // Le texte saisi devient un motif, jamais de la grammaire de filtre
+        const searchFilter = win.SecurityUtils.ilikeAny(['reference', 'description', 'adresse'], search);
+        if (searchFilter) query = query.or(searchFilter);
         const { data, error, count } = await query;
         /* On lève au lieu de rendre une liste vide : sous le régime de
            privilèges par colonne, une erreur de droits ressemblerait sinon à

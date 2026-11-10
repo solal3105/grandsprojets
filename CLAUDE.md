@@ -200,6 +200,8 @@ L'outil est installé par poste : `.claude/` n'est pas suivi par git. S'il manqu
 - **Affichage dans un cadre** : la console et la connexion ne s'affichent que sur notre site et dans Phaos (`frame-ancestors` de `_headers` sur `/admin` et `/login`, origines https de `PHAOS_ORIGINS`, tenues identiques par le test 0.58.1). La carte, les fiches et les cartes des communes restent intégrables partout. Depuis la carte, un lien vers une page de compte passe par `SecurityUtils.openAccountPage()` : sur place sur notre site et dans Phaos, dans un nouvel onglet quand la carte est intégrée ailleurs. Essais : `tests/unauth.phaos-securite.spec.js` (0.58) et `tests/unauth.security-utils.spec.js` (0.8.9, 0.8.10).
 - `SecurityUtils.escapeHtml()` pour toute injection DOM de contenu utilisateur
 - `SecurityUtils.sanitizeUrl()` pour les liens externes (bloque `javascript:`, `data:text/html`)
+- `SecurityUtils.ilikeAny()` pour tout filtre de recherche envoyé à la base par `.or()`, `SecurityUtils.csvCell()` pour toute cellule d'un export CSV : un texte saisi par quelqu'un d'autre n'y devient ni grammaire de filtre, ni formule de tableur (essais 0.8.11 à 0.8.13)
+- Une fonction serveur ne télécharge l'adresse lue dans une ligne de la base que si elle désigne un fichier public de notre stockage (`isStoredFile` de `lib/geojson-aggregate.mjs`), et sa réponse publique ne recopie pas le texte d'une erreur de la base (essais `tests/unauth.geojson-agregat.spec.js`)
 - Valider les codes ville : `/^[a-z0-9-]+$/i`
 - Refresh token proactif toutes les 4 min, graceful degradation après 3 échecs
 - SSO Phaos : ne jamais élargir `PHAOS_ORIGINS` sans validation - c'est l'unique barrière contre les postMessage forgés

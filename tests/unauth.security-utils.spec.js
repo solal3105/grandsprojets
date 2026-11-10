@@ -491,6 +491,75 @@ test.describe('0.8 - Échappement : pas de repli fail-open', () => {
 
     expect(onglets).toEqual([]);
   });
+
+  /**
+   * Deux sorties où un texte saisi par quelqu'un d'autre est relu par une
+   * machine : le filtre de recherche envoyé à la base, et le fichier CSV ouvert
+   * dans un tableur. Les deux règles vivent dans security-utils.js.
+   */
+  const outils = async (page) => {
+    await deuxSites(page);
+    await page.goto('https://carte.test/carte');
+    await page.waitForFunction(() => !!window.SecurityUtils);
+  };
+
+  test('0.8.11 le texte d’une recherche devient un motif, jamais de la grammaire de filtre', async ({ page }) => {
+    await outils(page);
+    const r = await page.evaluate(() => {
+      const f = (texte) => window.SecurityUtils.ilikeAny(['description', 'adresse'], texte);
+      return {
+        adresse: f('12, rue de la Paix'),
+        hostile: f('x%",id.gt.0,adresse.ilike."'),
+        parentheses: f('and(id.gt.0)'),
+        soulignement: f('rue_x'),
+        espaces: f('   nid de poule  '),
+        vide: [f(''), f('   '), f('%'), f(',()'), f(undefined), f(null)],
+      };
+    });
+    // La virgule devient un joker : « 12, rue » retrouve toujours « 12, rue de la Paix »
+    expect(r.adresse).toBe('description.ilike."%12% rue de la Paix%",adresse.ilike."%12% rue de la Paix%"');
+    // Une saisie hostile ne ferme pas la valeur et n'ajoute aucune condition
+    expect(r.hostile).toBe('description.ilike."%x%%%id.gt.0%adresse.ilike.%%",adresse.ilike."%x%%%id.gt.0%adresse.ilike.%%"');
+    // Deux colonnes : deux valeurs entre guillemets, une seule virgule entre elles
+    expect(r.hostile.match(/"/g)).toHaveLength(4);
+    expect(r.hostile.match(/,/g)).toHaveLength(1);
+    expect(r.parentheses).toBe('description.ilike."%and%id.gt.0%%",adresse.ilike."%and%id.gt.0%%"');
+    expect(r.soulignement).toBe('description.ilike."%rue%x%",adresse.ilike."%rue%x%"');
+    expect(r.espaces).toBe('description.ilike."%nid de poule%",adresse.ilike."%nid de poule%"');
+    // Rien à chercher : pas de filtre du tout
+    expect(r.vide).toEqual(['', '', '', '', '', '']);
+  });
+
+  test('0.8.12 une cellule de CSV qui commence comme une formule est lue comme du texte', async ({ page }) => {
+    await outils(page);
+    const r = await page.evaluate(() => [
+      '=HYPERLINK("https://exemple.invalid";"Cliquez")', '+33 6 12 34 56 78', '-2+3', '@SUM(A1)', '\t=1+1', '- nid de poule',
+      '-1.553621', -1.553621, '+47,2', 47.218, 'rue = 3', 'dit "bonjour"', '', null, undefined,
+    ].map((v) => window.SecurityUtils.csvCell(v)));
+    expect(r).toEqual([
+      `"'=HYPERLINK(""https://exemple.invalid"";""Cliquez"")"`, `"'+33 6 12 34 56 78"`, `"'-2+3"`, `"'@SUM(A1)"`, `"'\t=1+1"`, `"'- nid de poule"`,
+      // Un simple nombre reste un nombre : les longitudes de l'ouest sont négatives
+      '"-1.553621"', '"-1.553621"', '"+47,2"', '"47.218"', '"rue = 3"', '"dit ""bonjour"""', '""', '""', '""',
+    ]);
+  });
+
+  test('0.8.13 aucune recherche ni aucun export ne réécrit sa propre règle', async () => {
+    // Test structurel, sur les fichiers du dépôt : un filtre `ilike` bâti à la
+    // main avec le texte saisi, ou une cellule de CSV faite sur place.
+    const dossiers = ['modules', 'admin'];
+    const fichiers = dossiers.flatMap((d) => fs.readdirSync(d, { recursive: true })
+      .filter((f) => String(f).endsWith('.js'))
+      .map((f) => `${d}/${f}`))
+      .filter((f) => f !== 'modules/security-utils.js');
+    expect(fichiers.length).toBeGreaterThan(50);
+    for (const fichier of fichiers) {
+      const src = fs.readFileSync(fichier, 'utf8');
+      expect(src, `${fichier} bâtit un filtre ilike avec une variable`).not.toMatch(/ilike\.["%*]*\$\{/);
+      if (/text\/csv/.test(src)) expect(src, `${fichier} écrit un CSV sans csvCell`).toContain('SecurityUtils.csvCell');
+    }
+    const service = fs.readFileSync('modules/supabaseservice.js', 'utf8');
+    expect(service.match(/SecurityUtils\.ilikeAny\(/g)).toHaveLength(2);
+  });
 });
 
 /**
