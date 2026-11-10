@@ -32,7 +32,7 @@ import {
 // ouvrir, rapprochement des projets decrits par plusieurs pages.
 import {
   FileExploration, empreinteGabarit, retirerGabaritConnu, GABARIT_RESTE_MIN,
-  regrouper, fondre, normaliserUrl,
+  regrouper, fondre, normaliserUrl, estUnPdf,
 } from './lib/demo-exploration.mjs';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
@@ -106,6 +106,20 @@ const SOURCE_EXCERPT_CHARS = 1800;
 // retient pour tout le site. Le tri, lui, appartient a la lecture de la page.
 const PDF_PAR_PAGE_MAX = 20;
 const PDF_TOTAL_MAX = 40;
+/* LECTURE des PDF de la mairie. Une petite commune ne decrit souvent ses
+   projets que dans les proces-verbaux du conseil et son bulletin : mesure sur
+   faugeres34.fr, aucune page du site ne parle de la rehabilitation de l'ancienne
+   mairie, de la borne de recharge ni de la centrale solaire, que les PV de 2025
+   et 2026 detaillent avec leur plan de financement. Quand le site est epuise
+   sans avoir reuni assez de matiere, UN jugement choisit parmi tous les PDF
+   croises ceux qui valent d'etre lus ; ils entrent en file comme des pages, et
+   leur texte est lu par tranches. Bornes : nombre de documents, poids du
+   fichier, nombre de tranches. Une ville dont le site suffit ne lit aucun PDF. */
+const PDF_LUS_MAX = 12;
+const DOCS_VUS_MAX = 240;
+const DOCS_PAR_PAGE_VUS = 60;
+const PDF_OCTETS_MAX = 30000000;
+const PDF_TRANCHES_MAX = 4;
 // Plafond de telechargement d'une illustration. Au-dela on ABANDONNE l'image :
 // fetchCapped tronque, et une image tronquee s'affiche amputee.
 const COVER_MAX_BYTES = 8000000;
@@ -708,7 +722,7 @@ async function findMairie(insee, bbox = null) {
  * Les seuls refus faits ici sont structurels : ce n'est pas une adresse, ce
  * n'est pas du web, ou c'est deja releve.
  */
-function collectPdfLinks(html, baseUrl) {
+function collectPdfLinks(html, baseUrl, max = PDF_PAR_PAGE_MAX) {
   /* Le lien d'abord, son intitule ensuite, et jamais l'inverse : un bouton de
      telechargement enveloppe souvent son libelle dans une icone, un cartouche
      et le poids du fichier. Exiger la balise fermante dans la meme expression
@@ -718,7 +732,7 @@ function collectPdfLinks(html, baseUrl) {
   const re = /<a\b[^>]*href=["']([^"'\s]+\.pdf(?:\?[^"']*)?)["'][^>]*>/gi;
   const out = [];
   let m;
-  while ((m = re.exec(html)) !== null && out.length < PDF_PAR_PAGE_MAX) {
+  while ((m = re.exec(html)) !== null && out.length < max) {
     try {
       const abs = new URL(m[1], baseUrl);
       if (!/^https?:$/.test(abs.protocol)) continue;
@@ -1857,7 +1871,9 @@ function consignePage(communeNom, cadre = 'mairie') {
     ? `Tu dépouilles UN article de presse en ligne pour y trouver les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES situés dans la commune de ${communeNom}.
 
 L'article peut couvrir plusieurs communes ou toute une agglomération : ne retiens QUE les opérations situées à ${communeNom}. La presse rapporte aussi des intentions, des polémiques et des promesses : ne retiens que les opérations DÉCIDÉES, financées ou engagées, jamais une piste à l'étude ni une promesse de campagne.`
-    : `Tu dépouilles UNE page du site officiel de ${communeNom} pour y trouver les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES qui concernent cette commune.`;
+    : cadre === 'document'
+      ? `Tu dépouilles un document PDF publié par la commune de ${communeNom} (procès-verbal du conseil municipal, bulletin municipal, dossier de projet...) pour y trouver les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES qui concernent cette commune. Une délibération qui approuve des travaux, leur plan de financement ou une demande de subvention pour une opération précise décrit un projet. Ne retiens QUE ce qui se construit, se rénove ou s'aménage à un endroit que le document nomme (une rue, un bâtiment, un lieu-dit, un quartier) : un acte purement juridique ou financier n'est pas un projet, même s'il porte sur un terrain. Une acquisition ou une cession de parcelle, un avenant à un contrat ou à une concession, une convention, une servitude, un périmètre de protection, une garantie d'emprunt, un tarif, une décision de personnel ou une subvention à une association ne se retiennent pas.`
+      : `Tu dépouilles UNE page du site officiel de ${communeNom} pour y trouver les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES qui concernent cette commune.`;
   return `${entete}
 
 Retiens un projet UNIQUEMENT si cette page le décrit vraiment, et si tu peux en recopier une phrase mot pour mot. Une simple mention en passant, un lien de menu ou un titre de rubrique ne sont pas une description : dans ce cas, rends une liste vide, ce qui est le cas le plus fréquent et ne pose aucun problème.
@@ -1934,7 +1950,9 @@ async function ecarterLesHorsSujet(communeNom, liens) {
 
   const system = `Tu prepares le recensement des operations d'amenagement de la commune de ${communeNom} a partir de son site officiel. On va OUVRIR toutes les pages que tu ne rejettes pas : ton travail est uniquement d'ecarter celles dont l'intitule prouve deja qu'elles n'ont rien a voir.
 
-ECARTE : demarches administratives, etat civil, inscriptions scolaires, menus de cantine, agenda culturel, vie associative, sport et loisirs, annuaire, contacts, recrutement, mentions legales, comptes rendus de conseil, elus et instances (adjoints, commissions, groupes politiques, organigramme), pages de compte ou de connexion, articles de vie quotidienne sans rapport avec un chantier.
+ECARTE : demarches administratives, etat civil, inscriptions scolaires, menus de cantine, agenda culturel, vie associative, sport et loisirs, annuaire, contacts, recrutement, mentions legales, elus et instances (adjoints, commissions, groupes politiques, organigramme), pages de compte ou de connexion, articles de vie quotidienne sans rapport avec un chantier.
+
+N'ecarte PAS les pages qui publient les proces-verbaux ou comptes rendus du conseil municipal, le bulletin municipal ou les deliberations : leurs documents seront lus, et dans une petite commune ce sont souvent les seuls a decrire les projets.
 
 N'ECARTE PAS une page dont l'intitule est vague, generique ou peu clair : dans le doute on ouvre, cela ne coute presque rien, alors qu'une page ecartee a tort fait disparaitre un projet de la carte. N'ecarte jamais une actualite, un sommaire, une rubrique de travaux, d'urbanisme, de cadre de vie ou de projets.
 
@@ -1985,6 +2003,91 @@ function nomDeFichier(u) {
     const chemin = decodeURIComponent(new URL(u).pathname);
     return chemin.slice(chemin.lastIndexOf('/') + 1);
   } catch { return ''; }
+}
+
+const DOCS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    lire: { type: 'array', maxItems: PDF_LUS_MAX, items: { type: 'integer' }, description: 'Index des documents à lire, du plus utile au moins utile.' },
+  },
+  required: ['lire'],
+};
+
+/* Parmi tous les PDF croises sur le site, lesquels lire pour connaitre les
+   projets de la commune ? Jugement confie au grand modele : c'est un tri sur
+   des intitules et des noms de fichiers dates, une seule fois par generation. */
+async function choisirLesDocumentsALire(commune, docs, dejaTrouves = []) {
+  if (!docs.length) return [];
+  try {
+    const aujourdhui = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    const system = `Nous sommes le ${aujourdhui}. Voici les documents PDF publiés sur le site officiel de ${commune.nom}, chacun avec son intitulé, son nom de fichier et la page qui le présente. On va lire en entier ceux que tu désignes pour y trouver les projets d'aménagement, de travaux ou d'équipement de la commune.
+
+Désigne les documents qui racontent ce que la commune décide et construit EN CE MOMENT : procès-verbaux et comptes rendus du conseil municipal, bulletins et magazines municipaux, dossiers de présentation, de concertation ou d'enquête publique d'un projet. Ne retiens que les plus récents, datés des deux dernières années d'après leur intitulé ou leur nom de fichier, les plus récents d'abord, ${PDF_LUS_MAX} au plus.
+
+Tu reçois aussi la liste des projets que les pages du site ont déjà permis de repérer. Si elle est courte, les procès-verbaux du conseil sont souvent la seule source : désigne-les largement. Si elle est déjà longue, ne désigne que les documents qui apporteront des opérations absentes de cette liste ou le dossier complet d'une opération qui y figure (bulletin municipal récent, dossier de création ou de concertation, étude) : une décision ou une délibération isolée, une liste de délibérations, un procès-verbal de plus n'apprendront rien, ne les désigne pas.
+
+Ne désigne jamais un règlement, un formulaire, un document d'urbanisme réglementaire (PLU, zonage, servitudes, annexes sanitaires), un arrêté de circulation, un tarif, un menu, un document budgétaire sans description de projets. Si rien ne convient, rends une liste vide.`;
+    const user = `PROJETS DÉJÀ REPÉRÉS SUR LE SITE (${dejaTrouves.length}) :
+${dejaTrouves.slice(0, 120).map((t) => `- ${t}`).join('\n') || '(aucun)'}
+
+DOCUMENTS :
+${docs.map((d, i) => `${i}. ${d.label || '(sans intitulé)'} [fichier : ${nomDeFichier(d.url)}] (page : ${d.page || '?'})`).join('\n')}`;
+    const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
+      'documents_a_lire', DOCS_SCHEMA, 400, 40000, 0.1);
+    return [...new Set(out.lire || [])].filter((i) => Number.isInteger(i) && i >= 0 && i < docs.length).slice(0, PDF_LUS_MAX).map((i) => docs[i]);
+  } catch (e) {
+    console.warn(`[demo-generate] choix des documents indisponible :: ${e?.message}`);
+    return [];
+  }
+}
+
+/* Texte d'un PDF, ou null s'il est illisible (scan sans texte, fichier trop
+   lourd, extraction indisponible). La bibliotheque n'est chargee qu'au premier
+   document : une generation sans PDF a lire n'en paie pas le cout. */
+async function texteDuPdf(url) {
+  const r = await fetchCapped(url, { headers: UA }, 20000, PDF_OCTETS_MAX, true);
+  if (!r?.data || r.data.byteLength >= PDF_OCTETS_MAX) return null;
+  const octets = new Uint8Array(r.data);
+  if (String.fromCharCode(...octets.slice(0, 5)) !== '%PDF-') return null;
+  try {
+    const { extractText, getDocumentProxy } = await import('unpdf');
+    const pdf = await getDocumentProxy(octets);
+    const { text } = await extractText(pdf, { mergePages: true });
+    const propre = String(text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    return propre.length >= GABARIT_RESTE_MIN ? propre : null;
+  } catch (e) {
+    console.warn(`[demo-generate] PDF illisible : ${url} :: ${e?.message}`);
+    return null;
+  }
+}
+
+/* Lecture d'un PDF par tranches de la taille d'une page : chaque tranche passe
+   par la meme lecture qu'une page du site, et les projets s'additionnent. Le
+   document devient le dossier des projets qu'il decrit. */
+async function lirePdf(commune, candidate) {
+  const texte = await texteDuPdf(candidate.url);
+  if (!texte) return null;
+  const titre = candidate.label || nomDeFichier(candidate.url);
+  const tranches = [];
+  for (let i = 0; i < texte.length && tranches.length < PDF_TRANCHES_MAX; i += PAGE_TEXTE_LU_MAX) {
+    tranches.push(texte.slice(i, i + PAGE_TEXTE_LU_MAX));
+  }
+  const lus = await Promise.all(tranches.map((t, k) => lirePage(commune, {
+    url: candidate.url,
+    title: tranches.length > 1 ? `${titre} (partie ${k + 1} sur ${tranches.length})` : titre,
+    text: t,
+  }, [], 'document').catch(() => ({ projets: [], suivants: [], dossiers: [], interet: 'nulle' }))));
+  const projets = lus.flatMap((l) => l.projets);
+  // L'extrait a ete pris dans la tranche : on le recentre sur le texte entier
+  for (const p of projets) p.page_excerpt = extraitAutourDe(texte, p.evidence_quote);
+  return {
+    projets,
+    suivants: [],
+    dossiers: projets.length ? [{ url: candidate.url, label: titre, page: candidate.url }] : [],
+    interet: lus.some((l) => l.interet === 'forte') ? 'forte' : lus.some((l) => l.interet === 'moyenne') ? 'moyenne' : 'nulle',
+    texte,
+  };
 }
 
 async function lirePage(commune, page, liens, cadre = 'mairie', documents = []) {
@@ -2343,9 +2446,9 @@ async function relireLesChiffres(markdown, projet, urlsCitees) {
   if (!aRelire.length) return { markdown, retires: [] };
 
   const urls = [...new Set([projet.source_url, ...(projet.sources || []).map((x) => x.url), ...urlsCitees].filter(Boolean))].slice(0, SOURCES_RELUES_MAX);
-  // Un PDF n'est pas relu ici : son texte n'est pas lisible sans extraction,
-  // et ce qu'il est seul a dire n'est donc pas tenu pour atteste.
-  const textes = await Promise.all(urls.map((u) => (/\.pdf(\?|#|$)/i.test(u) ? '' : texteDeSource(u))));
+  const textes = await Promise.all(urls.map((u) => (/\.pdf(\?|#|$)/i.test(u) && typeof texteDuPdf === 'function'
+    ? texteDuPdf(u).then((t) => String(t || '').slice(0, SOURCE_RELUE_CHARS)).catch(() => '')
+    : texteDeSource(u))));
   const corpus = nombresCompactes(pourChiffres([projet.title, projet.description, projet.evidence_quote, projet.source_excerpt, projet.marcheDate, ...textes].filter(Boolean).join(' \n ')));
 
   const refuses = [];
@@ -4112,6 +4215,15 @@ async function coreExplore(send, step, state) {
     if (!lot.length) break;
 
     const resultats = await inChunks(lot, VAGUE_TAILLE, async (candidate) => {
+      if (estUnPdf(candidate.url)) {
+        const lu = await lirePdf(commune, candidate).catch(() => null);
+        if (!lu) return { ecartee: true };
+        if (process.env.DEMO_DUMP) console.log(`[demo-pages] ${lu.projets.length} projet(s) | document | ${candidate.url}`);
+        return {
+          candidate, page: { url: candidate.url, data: '' }, lu, texte: lu.texte.slice(0, PAGE_TEXT_BRUT_CHARS),
+          echantillon: null, horsSieges: [], images: [], blocs: [],
+        };
+      }
       const page = await fetchCapped(candidate.url, { headers: UA }, 6000, 400000);
       if (!page) return { echec: candidate };
       /* Une page de la mairie qui redirige HORS du site n'est pas une page de
@@ -4140,7 +4252,8 @@ async function coreExplore(send, step, state) {
       /* Les documents de la page partent AVEC elle au jugement : c'est le seul
          moment ou quelqu'un a sous les yeux a la fois le texte de la page et la
          liste de ses fichiers. */
-      const documents = collectPdfLinks(page.data, page.url);
+      const documentsVus = collectPdfLinks(page.data, page.url, DOCS_PAR_PAGE_VUS);
+      const documents = documentsVus.slice(0, PDF_PAR_PAGE_MAX);
 
       try {
         const lu = await lirePage(commune, { url: page.url, title: candidate.label, text: texte }, nouveaux, 'mairie', documents);
@@ -4152,7 +4265,7 @@ async function coreExplore(send, step, state) {
            avant l'appel, une page remise en file apres echec retrouvait son
            propre texte dans le gabarit a la relecture, et en ressortait vide. */
         return {
-          candidate, page, lu, texte,
+          candidate, page, lu, texte, documentsVus,
           echantillon: brut.slice(0, 4000),
           horsSieges: nouveaux.slice(PAGE_LIENS_SOUMIS),
           images: extractImageUrls(page.data, page.url, 24),
@@ -4182,7 +4295,7 @@ async function coreExplore(send, step, state) {
          le vrai compte (il comptait une vague de cinq pour une), et le fil
          montre chaque page ouverte au lieu d'un cumul. */
       send({ type: 'finding', kind: 'page', title: r.candidate.label || r.page.url, domain: hostOf(r.page.url) });
-      if ((explo.echantillons = explo.echantillons || []).length < GABARIT_ECHANTILLONS) {
+      if (r.echantillon && (explo.echantillons = explo.echantillons || []).length < GABARIT_ECHANTILLONS) {
         explo.echantillons.push(r.echantillon);
       }
       for (const p of r.lu.projets) {
@@ -4217,6 +4330,13 @@ async function coreExplore(send, step, state) {
          une page designee par une page de projets a des chances de donner plus
          vite, autant commencer par elle. */
       for (const l of r.lu.suivants) file.ajouter(l.url, l.label, PRIORITE[r.lu.interet] ?? 1);
+      /* Tous les PDF croises sont notes : quand le site sera epuise, un seul
+         jugement choisira ceux qui valent d'etre lus. */
+      for (const d of r.documentsVus || []) {
+        const vus = (explo.docsVus = explo.docsVus || []);
+        if (vus.length >= DOCS_VUS_MAX) break;
+        if (!vus.some((x) => x.url === d.url)) vus.push({ url: d.url, label: d.label || '', page: r.candidate.label || '' });
+      }
       /* Les liens qu'on n'a PAS pu soumettre au modele, au-dela des 60 sieges,
          n'en disparaissent pas pour autant : sur une page qui parle
          d'amenagement, ils entrent en file a priorite basse. Elle est faite
@@ -4277,6 +4397,27 @@ async function coreExplore(send, step, state) {
       return state;
     }
     explo.file = new FileExploration({ hote: mairie.host }).serialiser();
+  }
+
+  /* Site de la commune epuise sans abondance : c'est le moment de lire ses
+     documents. Un seul jugement, sur le grand modele, avec la date du jour et
+     la liste de ce que le site a deja livre : c'est lui qui decide si des
+     documents valent encore d'etre lus, et lesquels. */
+  if (!file.restantes && !etageEpci && !explo.docsChoisis && !assezDeMatiere()
+    && explo.tours < EXPLO_TOURS_MAX && (explo.docsVus || []).length) {
+    explo.docsChoisis = true;
+    const choisis = await choisirLesDocumentsALire(commune, explo.docsVus, explo.bruts.map((b) => b.title));
+    explo.docsVus = [];
+    const suite = FileExploration.restaurer(explo.file);
+    let ajoutes = 0;
+    for (const d of choisis) if (suite.ajouter(d.url, d.label, PRIORITE.forte + 1, { document: true })) ajoutes++;
+    if (ajoutes) {
+      explo.file = suite.serialiser();
+      console.log(`[demo-generate] documents : ${ajoutes} PDF a lire sur le site de ${commune.nom}`);
+      step('ai1', 'done', 'Lecture en cours', `site parcouru, lecture de ${ajoutes} document(s) officiel(s) : procès-verbaux, bulletins, dossiers`);
+      state.__continue = true;
+      return state;
+    }
   }
 
   let fini = !file.restantes

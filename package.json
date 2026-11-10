@@ -11,7 +11,8 @@
     "deploy": "git push"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.102.1"
+    "@supabase/supabase-js": "^2.102.1",
+    "unpdf": "1.9.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
