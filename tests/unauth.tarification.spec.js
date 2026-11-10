@@ -107,9 +107,11 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     for (const cle of ['carte', 'travaux', 'participer']) {
       await expect(page.locator(`[data-module="${cle}"]`)).toHaveAttribute('aria-checked', 'true');
     }
-    // Trois modules : -20 % sur le plus cher, le signalement
-    await expect(page.locator('[data-module="participer"]')).toContainText('-20 % sur le plus cher');
-    const a = attendu({ population: 50000, poids: [1, 0.6, 2], annees: 4 });
+    // Trois modules : -20 % sur le plus cher. Carte et signalement ont le même
+    // poids : la remise va au premier des deux dans l'ordre de la page, la carte
+    await expect(page.locator('[data-module="carte"]')).toContainText('-20 % sur le plus cher');
+    await expect(page.locator('[data-module="participer"]')).not.toContainText('sur le plus cher');
+    const a = attendu({ population: 50000, poids: [1, 0.6, 1], annees: 4 });
     await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(a.mensuel));
     await expect.poll(() => page.locator('#tarif-setup').textContent().then(nombreDe)).toBe(Math.round(a.setup));
     await expect.poll(() => page.locator('#tarif-total').textContent().then(nombreDe)).toBe(Math.round(a.total));
@@ -140,13 +142,13 @@ test.describe('0.39 - L\'estimateur de prix', () => {
   });
 
   test('0.39.3 - le total sur la durée est mis en regard des seuils de la commande publique', async ({ page }) => {
-    const tous = [1, 0.6, 2, 0.8];
+    const tous = [1, 0.6, 1, 0.8];
     // Une petite ville, la carte seule, un an : loin sous 60 000 € HT
     await page.goto(`${PAGE}?population=12000&modules=carte&annees=1&commercial=1`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#tarif-seuil')).toContainText('sans publicité ni mise en concurrence');
     // Une ville moyenne, quatre modules, quatre ans : entre 60 000 et 90 000 €, procédure adaptée
-    await page.goto(`${PAGE}?population=50000&modules=carte,travaux,participer,diagnostic&annees=4`, { waitUntil: 'domcontentloaded' });
-    const a = attendu({ population: 50000, poids: tous, annees: 4 });
+    await page.goto(`${PAGE}?population=70000&modules=carte,travaux,participer,diagnostic&annees=4`, { waitUntil: 'domcontentloaded' });
+    const a = attendu({ population: 70000, poids: tous, annees: 4 });
     expect(a.total).toBeGreaterThan(60000);
     expect(a.total).toBeLessThan(90000);
     await expect(page.locator('#tarif-seuil')).toContainText('procédure adaptée');

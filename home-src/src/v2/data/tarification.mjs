@@ -45,11 +45,13 @@ export const EXPOSANT = 0.5
 export const POPULATION = { min: 500, max: 2500000, defaut: 12000 }
 
 /* Le poids de chaque module, par clé de data/modules.js. Un module absent
- * d'ici n'a pas de prix et n'apparaît pas sur la page. */
+ * d'ici n'a pas de prix et n'apparaît pas sur la page. Le signalement
+ * (`participer`) est passé de 2 à 1 le 10 novembre 2026 : son prix est divisé
+ * par deux et rejoint celui de la carte. */
 export const POIDS = {
   carte: 1,
   travaux: 0.6,
-  participer: 2,
+  participer: 1,
   diagnostic: 0.8,
 }
 
