@@ -21,6 +21,8 @@
    llms.txt, noindex (voir demo/README.md pour la désinstallation complète).
    ============================================================================ */
 
+// Empreinte des pages lues, pour ne jamais relire la meme sous une autre adresse
+import { createHash } from 'node:crypto';
 // Socle de rédaction partagé avec l'outil de l'admin : structure de l'article,
 // nettoyage des liens, construction du bloc de sources citées.
 import { promptArticle, retirerLesLiens, blocSources, hoteLisible } from './lib/redaction.mjs';
@@ -32,7 +34,7 @@ import {
 // ouvrir, fusion des descriptions d'une meme operation.
 import {
   FileExploration, empreinteGabarit, retirerGabaritConnu, GABARIT_RESTE_MIN,
-  fondre, normaliserUrl, estUnPdf,
+  fondre, normaliserUrl, estUnPdf, estUnePageExplorable,
 } from './lib/demo-exploration.mjs';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
@@ -1055,9 +1057,15 @@ function repartirParRubrique(entrees, max) {
 
 // Intitule lisible tire du dernier segment d'une adresse : le slug d'un CMS est
 // une phrase (« les-pistes-de-padel-debarquent-en-ville »), pas un identifiant.
+/* Un dernier segment fait seulement de chiffres est l'identifiant de la fiche,
+   pas son nom : sur ville-noyal-chatillon.fr, chaque actualite finit par
+   /12183/, et le tri des intitules recevait « 12183 » pour toute la rubrique.
+   Le nom est alors le segment d'avant. */
 function libelleDuChemin(u) {
   try {
-    const seg = new URL(u).pathname.split('/').filter(Boolean).pop() || '';
+    const segs = new URL(u).pathname.split('/').filter(Boolean);
+    while (segs.length > 1 && /^\d+$/.test(segs[segs.length - 1])) segs.pop();
+    const seg = segs.pop() || '';
     return decodeURIComponent(seg).replace(/[-_]+/g, ' ').trim().slice(0, LIEN_LABEL_MAX);
   } catch { return ''; }
 }
@@ -1876,7 +1884,28 @@ Pour les DOCUMENTS : la page porte parfois des fichiers PDF, donnés avec leur i
 
    Ce qui survit au tri est ouvert INTEGRALEMENT. Ce tri n'existe donc que pour
    ne pas payer la lecture de pages dont l'intitule dit deja qu'elles n'ont
-   rien a voir avec l'amenagement du territoire. */
+   rien a voir avec l'amenagement du territoire.
+
+   Les ACTUALITES se jugent desormais sur leur intitule comme le reste. Les
+   proteger toutes faisait ouvrir l'agenda entier : mesure le 10/11/2026 sur
+   saintgenislaval.fr, 75 actualites lues (« samedi yoga », « concours de
+   petanque », « octobre rose »...) pour une seule operation de reference, la
+   chapelle de Beaunant, dont l'intitule annonce les travaux. Rejoue sur les
+   candidates reelles des quatre communes du banc, le nouveau tri ecarte 290
+   des 523 pages que l'ancien faisait lire, dont 273 n'avaient rien donne, et
+   chaque projet de reference garde au moins une page qui le decrit. Une
+   version plus severe (qui ecartait aussi la presentation des services)
+   perdait le reamenagement du centre de Saint-Genis-Laval, decrit sur la seule
+   page « vehicule et stationnement » : elle n'a pas ete gardee. Le numero du
+   magazine municipal reste un sommaire : sur vienne.fr, l'article sur
+   l'ecole Jean Moulin n'est atteint que depuis la page du numero 196. La
+   page du budget aussi : celle de ville-noyal-chatillon.fr est la seule a
+   decrire les travaux de l'ecole du Chat Perche, celle de vienne.fr en
+   decrit six dont l'avenue du General Leclerc.
+
+   Le tri rend aussi les intitules qui annoncent A EUX SEULS une operation : ils
+   passent en tete de la file. Sur ce meme rejeu, 97 de ces 120 pages ont donne
+   un projet, contre 27 des 113 autres pages gardees. */
 const TRI_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -1886,8 +1915,13 @@ const TRI_SCHEMA = {
       description: "Index des pages dont l'intitulé montre qu'elles ne décriront jamais une opération d'aménagement.",
       items: { type: 'integer' },
     },
+    operations: {
+      type: 'array',
+      description: "Index des pages gardées dont l'intitulé annonce à lui seul une opération précise, ou qui recensent les projets ou les travaux de la commune.",
+      items: { type: 'integer' },
+    },
   },
-  required: ['ecarter'],
+  required: ['ecarter', 'operations'],
 };
 const TRI_LOT_MAX = 150;
 
@@ -1907,29 +1941,38 @@ function estUnCarrefour(url) {
 // Au-dela, les pages racines ne sont pas des carrefours : le site est PLAT.
 const CARREFOURS_MAX = 20;
 
-async function ecarterLesHorsSujet(communeNom, liens) {
-  if (liens.length <= TRI_LOT_MAX / 4) return liens;
+/* `hierarchique` : la nature du site, deja etablie sur la liste complete des
+   candidates. Les liens decouverts en cours de lecture arrivent par petits
+   paquets, ou quelques pages racines ne disent rien de la structure du site :
+   sur vienne.fr, les actualites vivent a la racine, et un paquet de dix
+   d'entre elles aurait passe pour dix carrefours a proteger. Avec ce
+   parametre, un petit paquet est trie lui aussi. */
+async function ecarterLesHorsSujet(communeNom, liens, { hierarchique } = {}) {
+  if (!liens.length) return liens;
+  if (hierarchique === undefined && liens.length <= TRI_LOT_MAX / 4) return liens;
   /* La protection des carrefours ne vaut que sur un site HIERARCHIQUE, ou les
      pages racines sont une poignee de rubriques qui ouvrent le reste. Mesure
      sur mairie-vannes.fr : toutes les pages y sont a la racine, et proteger
      « la racine » revenait a exempter le site entier du tri - 7 adresses
      ecartees sur 280, puis 267 lectures dont une bonne moitie pour rien. */
   const racines = liens.filter((l) => estUnCarrefour(l.url));
-  const siteHierarchique = racines.length <= CARREFOURS_MAX;
+  const siteHierarchique = hierarchique ?? racines.length <= CARREFOURS_MAX;
   const carrefours = siteHierarchique ? racines : [];
   const aTrier = siteHierarchique ? liens.filter((l) => !estUnCarrefour(l.url)) : liens;
   const lots = [];
   for (let i = 0; i < aTrier.length; i += TRI_LOT_MAX) lots.push(aTrier.slice(i, i + TRI_LOT_MAX));
 
-  const system = `Tu prepares le recensement des operations d'amenagement de la commune de ${communeNom} a partir de son site officiel. On va OUVRIR toutes les pages que tu ne rejettes pas : ton travail est uniquement d'ecarter celles dont l'intitule prouve deja qu'elles n'ont rien a voir.
+  const system = `Tu prepares le recensement des operations d'amenagement de la commune de ${communeNom} a partir de son site officiel : constructions, renovations, extensions, requalifications de voies ou de places, equipements publics, quartiers en projet. Chaque page que tu ne rejettes pas sera ouverte et lue, et chaque lecture se paie en temps et en argent. Tu rends deux listes.
 
-ECARTE : demarches administratives, etat civil, inscriptions scolaires, menus de cantine, agenda culturel, vie associative, sport et loisirs, annuaire, contacts, recrutement, mentions legales, elus et instances (adjoints, commissions, groupes politiques, organigramme), pages de compte ou de connexion, articles de vie quotidienne sans rapport avec un chantier.
+ECARTER : les pages dont l'intitule montre qu'elles ne decriront jamais une telle operation. Demarches administratives, etat civil, inscriptions scolaires, menus de cantine, agenda culturel, vie associative, sport et loisirs, annuaire, contacts, recrutement, mentions legales, elus et instances (adjoints, commissions, groupes politiques, organigramme), pages de compte ou de connexion, articles de vie quotidienne sans rapport avec un chantier.
 
 N'ecarte PAS les pages qui publient les proces-verbaux ou comptes rendus du conseil municipal, le bulletin municipal ou les deliberations : leurs documents seront lus, et dans une petite commune ce sont souvent les seuls a decrire les projets.
 
-N'ECARTE PAS une page dont l'intitule est vague, generique ou peu clair : dans le doute on ouvre, cela ne coute presque rien, alors qu'une page ecartee a tort fait disparaitre un projet de la carte. N'ecarte jamais une actualite, un sommaire, une rubrique de travaux, d'urbanisme, de cadre de vie ou de projets.
+Une ACTUALITE se juge sur son intitule, comme les autres pages. Ecarte celle qui annonce un evenement ou une animation (concert, spectacle, exposition, atelier, fete, foire, braderie, vide-grenier, sortie, seance sportive, concours), une ceremonie ou une commemoration, une collecte, une campagne de prevention ou de sante, une alerte meteo, une permanence, un appel a candidatures, une election, un portrait, une information pratique sans rapport avec un chantier. Garde celle dont l'intitule parle ou peut parler d'un chantier, de travaux, d'une voie, d'un batiment, d'un equipement, d'un parc, d'un quartier, d'un projet, d'une inauguration, d'une pose de premiere pierre, d'une reunion publique ou d'une concertation, et garde aussi celle dont l'intitule est trop vague pour savoir.
 
-N'ecarte jamais non plus une RUBRIQUE, c'est-a-dire une page dont le chemin est court et l'intitule general (« mairie », « ma ville », « vivre ici ») : ce sont des carrefours qui menent ailleurs, et leur nom ne dit rien de ce qu'ils contiennent. Le patrimoine bati fait partie de l'amenagement des qu'il est question de le restaurer : n'ecarte une page de patrimoine que si elle raconte l'histoire ou la legende d'un lieu.`;
+N'ecarte jamais un sommaire (un numero du magazine ou du bulletin municipal en est un : il renvoie vers ses articles), une rubrique de travaux, d'urbanisme, de cadre de vie ou de projets, ni une page de budget ou de finances de la commune (elle detaille souvent les investissements de l'annee), ni une RUBRIQUE au chemin court et a l'intitule general (« mairie », « ma ville », « vivre ici ») : ce sont des carrefours qui menent ailleurs. Le patrimoine bati fait partie de l'amenagement des qu'il est question de le restaurer : n'ecarte une page de patrimoine que si elle raconte l'histoire ou la legende d'un lieu. Dans le doute, garde : une page ecartee a tort fait disparaitre un projet de la carte.
+
+OPERATIONS : parmi les pages que tu gardes, celles dont l'intitule annonce a lui seul une operation precise (un chantier, des travaux sur un lieu nomme, la construction, la renovation ou l'amenagement de quelque chose, un projet nomme, l'inauguration d'un equipement) ou une rubrique qui recense les projets ou les travaux de la commune. Elles seront lues en premier. Une page au titre vague n'y va pas, elle reste simplement gardee.`;
 
   const parLot = await inChunks(lots, 4, async (lot) => {
     try {
@@ -1943,20 +1986,27 @@ N'ecarte jamais non plus une RUBRIQUE, c'est-a-dire une page dont le chemin est 
            quelques appels par generation, l'economie serait fausse. */
         'tri_liens', TRI_SCHEMA, 2000, 60000, 0.1
       );
-      const ecartes = new Set((out.ecarter || []).filter((i) => Number.isInteger(i) && i >= 0 && i < lot.length));
+      const valides = (liste) => new Set((liste || []).filter((i) => Number.isInteger(i) && i >= 0 && i < lot.length));
+      const ecartes = valides(out.ecarter);
+      const operations = valides(out.operations);
       if (process.env.DEMO_DUMP) {
         // Ce que le tri refuse d'ouvrir. Sans cette trace, on ne peut ni
         // verifier qu'il ecarte bien, ni voir ce qu'il jette a tort.
         for (const i of ecartes) console.log(`[demo-tri] ECARTE : ${lot[i].label} (${lot[i].url.replace(/^https?:\/\/[^/]+/, '')})`);
       }
-      return lot.filter((_, i) => !ecartes.has(i));
+      /* Une page a la fois ecartee et designee comme operation est gardee : le
+         doute profite a la lecture, comme partout dans ce tri. */
+      return lot.filter((_, i) => !ecartes.has(i) || operations.has(i))
+        .map((l) => (operations.has(lot.indexOf(l)) ? { ...l, operation: true } : l));
     } catch (e) {
       // Sans tri, on ouvre tout : c'est plus cher, jamais moins bon.
       console.warn(`[demo-generate] tri des liens indisponible, tout est ouvert :: ${e?.message}`);
       return lot;
     }
   });
-  return [...carrefours, ...parLot.flat()];
+  const gardees = [...carrefours, ...parLot.flat()];
+  gardees.siteHierarchique = siteHierarchique;
+  return gardees;
 }
 
 /* Extrait de page centre sur une citation. Sans citation retrouvee, le debut
@@ -4825,6 +4875,8 @@ const TRANCHES_VIDES_MAX = 2;
 // descendre depuis une page de projets est bien plus prometteur que descendre
 // depuis une page quelconque.
 const PRIORITE = { forte: 3, moyenne: 1, nulle: 0 };
+// Priorite d'une candidate dont l'intitule annonce une operation, des le tri
+const PRIORITE_OPERATION = 2;
 
 async function coreExplore(send, step, state) {
   const { commune, mairie } = state;
@@ -4850,8 +4902,14 @@ async function coreExplore(send, step, state) {
     // lui-meme via son lien « Accueil » et repassait par la file pour rien.
     const candidates = (mairie.candidates || []).filter((l) => normaliserUrl(l.url) !== racine);
     const gardees = await ecarterLesHorsSujet(commune.nom, candidates);
-    for (const l of gardees) file.ajouter(l.url, l.label, 0);
+    /* Un intitule qui annonce a lui seul une operation passe en tete, juste
+       apres les pages qu'une page de projets recommande : 97 des 120 pages
+       ainsi designees ont donne un projet au rejeu du tri (voir
+       ecarterLesHorsSujet). Les autres restent en file, a lire ensuite. */
+    for (const l of gardees) file.ajouter(l.url, l.label, l.operation ? PRIORITE_OPERATION : 0);
     file.marquerVue(racine);
+    explo.siteHierarchique = gardees.siteHierarchique
+      ?? candidates.filter((l) => estUnCarrefour(l.url)).length <= CARREFOURS_MAX;
     explo.amorcee = true;
     console.log(`[demo-generate] exploration ${commune.nom} : ${candidates.length} candidate(s), ${candidates.length - gardees.length} ecartee(s) sur l'intitule, ${file.restantes} a ouvrir`);
     /* L'ACCUEIL est depouille lui aussi, une fois : une petite commune presente
@@ -4870,6 +4928,24 @@ async function coreExplore(send, step, state) {
     }
     // Les candidates sont dans la file : leur copie du brouillon a fini d'exister
     state.mairie.candidates = [];
+  }
+
+  /* Les liens DECOUVERTS en lisant passent par le meme tri que les candidates
+     de depart. Ils entraient sans aucun filtre, et c'est par eux que la
+     lecture se perdait : mesure le 10/11/2026 sur vienne.fr, une fois les
+     candidates triees, 128 pages decouvertes ont encore ete lues, dont 104
+     pour rien ; 94 etaient des fiches « /download/... » recommandees par les
+     pages d'urbanisme (zonages du PLU, dossiers d'antennes relais,
+     reglements). Le tri se fait par paquet, en tete de tranche, sur ce que la
+     tranche precedente a recolte. */
+  if (explo.aTrier?.length) {
+    const paquet = explo.aTrier;
+    explo.aTrier = [];
+    const gardees = await ecarterLesHorsSujet(commune.nom, paquet, {
+      hierarchique: explo.etage === 'epci' ? true : (explo.siteHierarchique ?? true),
+    });
+    for (const l of gardees) file.ajouter(l.url, l.label, Math.max(l.priorite || 0, l.operation ? PRIORITE_OPERATION : 0));
+    console.log(`[demo-generate] liens decouverts : ${paquet.length} soumis au tri, ${paquet.length - gardees.length} ecarte(s)`);
   }
 
   step('ai1', 'start',
@@ -4913,162 +4989,245 @@ async function coreExplore(send, step, state) {
   let traitees = 0;
 
   const assezDeMatiere = () => EXPLO_BRUTS_MAX > 0 && explo.bruts.length >= EXPLO_BRUTS_MAX;
-  while (file.restantes && Date.now() - t0 < PHASE_BUDGET_MS && explo.pagesLues < EXPLO_PAGES_MAX
-    && (!assezDeMatiere() || explo.repechageFait)) {
-    const lot = file.vague(VAGUE_TAILLE);
-    if (!lot.length) break;
+  /* Empreintes des textes deja lus, pour ne jamais payer deux fois la meme
+     page servie sous deux adresses. Elles voyagent en tableau dans l'etat
+     serialise, d'une tranche a l'autre. */
+  const empreintes = new Set(explo.empreintes || []);
+  /* Liens decouverts pendant cette tranche, en attente du tri. Une adresse
+     deja en file ou deja lue n'y passe pas : elle ne fait que remonter sa
+     priorite, comme avant. */
+  const aTrier = new Map();
+  const proposer = (l, priorite) => {
+    if (file.connue(l.url)) { file.ajouter(l.url, l.label, priorite); return; }
+    if (!estUnePageExplorable(l.url, file.hote)) return;
+    const cle = normaliserUrl(l.url);
+    const deja = aTrier.get(cle);
+    if (deja) deja.priorite = Math.max(deja.priorite, priorite);
+    else aTrier.set(cle, { url: l.url, label: l.label, priorite });
+  };
 
-    const resultats = await inChunks(lot, VAGUE_TAILLE, async (candidate) => {
-      if (estUnPdf(candidate.url)) {
-        const lu = await lirePdf(commune, candidate).catch(() => null);
-        if (!lu) return { ecartee: true };
-        if (process.env.DEMO_DUMP) console.log(`[demo-pages] ${lu.projets.length} projet(s) | document | ${candidate.url}`);
-        return {
-          candidate, page: { url: candidate.url, data: '' }, lu, texte: lu.texte.slice(0, PAGE_TEXT_BRUT_CHARS),
-          echantillon: null, horsSieges: [], images: [], blocs: [],
-        };
+  /* Lecture d'un document PDF de la commune. Il passe par la meme lecture
+     qu'une page, tranche par tranche (voir lirePdf), et rend un resultat de la
+     meme forme : sans gabarit a apprendre, sans liens ni visuels a suivre. */
+  const lireUnDocument = async (candidate) => {
+    const lu = await lirePdf(commune, candidate).catch(() => null);
+    if (!lu) return { ecartee: true };
+    if (process.env.DEMO_DUMP) console.log(`[demo-pages] ${lu.projets.length} projet(s) | document | ${candidate.url}`);
+    return {
+      candidate, page: { url: candidate.url, data: '' }, lu, texte: lu.texte.slice(0, PAGE_TEXT_BRUT_CHARS),
+      echantillon: null, horsSieges: [], images: [], blocs: [],
+    };
+  };
+
+  const lireUne = async (candidate) => {
+    // Un PDF choisi parmi les documents du site part directement a sa lecture
+    if (estUnPdf(candidate.url)) return lireUnDocument(candidate);
+    const page = await fetchCapped(candidate.url, { headers: UA }, 6000, 400000);
+    if (!page) return { echec: candidate };
+    /* Une page de la mairie qui redirige HORS du site n'est pas une page de
+       la mairie : la lire la verserait a l'allowlist d'attestation, et une
+       fiche pourrait citer un site tiers comme source officielle. */
+    if (hostOf(page.url) !== hostOf(`https://${hoteEtage}`)) return { ecartee: true };
+    /* La MEME page sous une autre adresse. Une redirection mene souvent
+       plusieurs adresses du sitemap vers une seule page : sur
+       saintgenislaval.fr, 88 adresses « decision-ndeg2025-... » redirigent
+       toutes vers la liste des actes administratifs, qui etait lue 89 fois. L'adresse d'arrivee est marquee vue des la reception (ce
+       passage est synchrone, deux lecteurs ne peuvent pas la reclamer
+       ensemble), et une adresse d'arrivee deja vue n'est pas relue. Le
+       controle precede celui du type : un meme document servi sous deux
+       adresses n'est pas lu deux fois non plus. */
+    if (normaliserUrl(page.url) !== candidate.cle) {
+      if (file.dejaOuverte(page.url)) return { ecartee: true, doublon: page.url };
+      file.marquerVue(page.url);
+    }
+    /* Ce qui n'est pas du HTML n'est pas une page : un PDF servi sans
+       extension (saintgenislaval.fr/print/pdf/node/415 rend application/pdf)
+       passait par stripHtml et partait a la lecture sous forme d'octets
+       compresses. Mesure le 10/11/2026 : 20 lectures de ce genre sur ce seul
+       site, aucune n'a rien donne. Un PDF ainsi reconnu part a la lecture des
+       documents, a son adresse d'arrivee ; le reste est ecarte. Le texte deja
+       recu, borne et decode comme du texte, n'est pas un PDF exploitable :
+       lirePdf le recharge en octets. */
+    const type = String(page.headers?.get?.('content-type') || '');
+    if (/application\/(x-)?pdf/i.test(type)) return lireUnDocument({ ...candidate, url: page.url });
+    if (type && !/html|xml|text\//i.test(type)) return { ecartee: true };
+    const brut = stripHtml(page.data).slice(0, PAGE_TEXT_BRUT_CHARS);
+    /* Meme texte, meme page, quelle que soit l'adresse : les CMS publient une
+       page sous son alias et sous son chemin technique sans redirection. */
+    const empreinte = createHash('sha1').update(brut).digest('hex').slice(0, 16);
+    if (empreintes.has(empreinte)) return { ecartee: true, doublon: page.url };
+    empreintes.add(empreinte);
+    const texte = retirerGabaritConnu(brut, gabarit);
+    // Une page qui ne dit rien de plus que le gabarit du site n'a aucun
+    // contenu propre : on ne paie pas une lecture pour l'apprendre.
+    if (texte.length < GABARIT_RESTE_MIN || looksLikeCode(texte)) return { ecartee: true };
+
+    const liens = [];
+    collectPageLinks(page.data, page.url, hoteEtage, liens);
+    /* On soumet tous les liens PAS ENCORE LUS, y compris ceux qui attendent
+       deja dans la file : c'est ainsi qu'une page de sommaire fait remonter
+       ses fiches detaillees en tete, au lieu de les laisser au fond d'une
+       file alimentee par le sitemap. */
+    /* Les 60 sieges de la soumission vont d'abord aux liens INCONNUS de la
+       file : une candidate deja en attente sera lue de toute facon, elle n'a
+       besoin que d'une eventuelle remontee de priorite. */
+    const nouveaux = liens
+      .filter((l) => !file.dejaOuverte(l.url) && !navSet.has(normaliserUrl(l.url)))
+      .filter((l) => !etageEpci || nommeLaCommune(l))
+      .sort((x, y) => Number(file.connue(x.url)) - Number(file.connue(y.url)));
+    /* Les documents de la page partent AVEC elle au jugement : c'est le seul
+       moment ou quelqu'un a sous les yeux a la fois le texte de la page et la
+       liste de ses fichiers. Tous ceux qu'on a croises sont aussi rendus, pour
+       le choix des documents a lire une fois le site epuise. */
+    const documentsVus = collectPdfLinks(page.data, page.url, DOCS_PAR_PAGE_VUS);
+    const documents = documentsVus.slice(0, PDF_PAR_PAGE_MAX);
+
+    try {
+      const lu = await lirePage(commune, { url: page.url, title: candidate.label, text: texte }, nouveaux, 'mairie', documents);
+      if (process.env.DEMO_DUMP) {
+        // Rendement page par page : la matiere premiere du reglage de l'arret
+        console.log(`[demo-pages] ${lu.projets.length} projet(s) | interet ${lu.interet} | ${candidate.priorite > 0 ? 'chaude' : 'froide'} | ${page.url}`);
       }
-      const page = await fetchCapped(candidate.url, { headers: UA }, 6000, 400000);
-      if (!page) return { echec: candidate };
-      /* Une page de la mairie qui redirige HORS du site n'est pas une page de
-         la mairie : la lire la verserait a l'allowlist d'attestation, et une
-         fiche pourrait citer un site tiers comme source officielle. */
-      if (hostOf(page.url) !== hostOf(`https://${hoteEtage}`)) return { ecartee: true };
-      const brut = stripHtml(page.data).slice(0, PAGE_TEXT_BRUT_CHARS);
-      const texte = retirerGabaritConnu(brut, gabarit);
-      // Une page qui ne dit rien de plus que le gabarit du site n'a aucun
-      // contenu propre : on ne paie pas une lecture pour l'apprendre.
-      if (texte.length < GABARIT_RESTE_MIN || looksLikeCode(texte)) return { ecartee: true };
+      /* L'echantillon de gabarit ne part qu'avec une lecture ABOUTIE : verse
+         avant l'appel, une page remise en file apres echec retrouvait son
+         propre texte dans le gabarit a la relecture, et en ressortait vide. */
+      return {
+        candidate, page, lu, texte, documentsVus,
+        echantillon: brut.slice(0, 4000),
+        horsSieges: nouveaux.slice(PAGE_LIENS_SOUMIS),
+        images: extractImageUrls(page.data, page.url, 24),
+        blocs: extractPageBlocks(page.data, page.url),
+      };
+    } catch (e) {
+      console.warn(`[demo-generate] lecture impossible : ${candidate.url} :: ${e?.message}`);
+      // La page sera relue : son texte ne doit pas passer pour deja lu
+      empreintes.delete(empreinte);
+      return { echec: candidate };
+    }
+  };
 
-      const liens = [];
-      collectPageLinks(page.data, page.url, hoteEtage, liens);
-      /* On soumet tous les liens PAS ENCORE LUS, y compris ceux qui attendent
-         deja dans la file : c'est ainsi qu'une page de sommaire fait remonter
-         ses fiches detaillees en tete, au lieu de les laisser au fond d'une
-         file alimentee par le sitemap. */
-      /* Les 60 sieges de la soumission vont d'abord aux liens INCONNUS de la
-         file : une candidate deja en attente sera lue de toute facon, elle n'a
-         besoin que d'une eventuelle remontee de priorite. */
-      const nouveaux = liens
-        .filter((l) => !file.dejaOuverte(l.url) && !navSet.has(normaliserUrl(l.url)))
-        .filter((l) => !etageEpci || nommeLaCommune(l))
-        .sort((x, y) => Number(file.connue(x.url)) - Number(file.connue(y.url)));
-      /* Les documents de la page partent AVEC elle au jugement : c'est le seul
-         moment ou quelqu'un a sous les yeux a la fois le texte de la page et la
-         liste de ses fichiers. */
-      const documentsVus = collectPdfLinks(page.data, page.url, DOCS_PAR_PAGE_VUS);
-      const documents = documentsVus.slice(0, PDF_PAR_PAGE_MAX);
-
-      try {
-        const lu = await lirePage(commune, { url: page.url, title: candidate.label, text: texte }, nouveaux, 'mairie', documents);
-        if (process.env.DEMO_DUMP) {
-          // Rendement page par page : la matiere premiere du reglage de l'arret
-          console.log(`[demo-pages] ${lu.projets.length} projet(s) | interet ${lu.interet} | ${candidate.priorite > 0 ? 'chaude' : 'froide'} | ${page.url}`);
-        }
-        /* L'echantillon de gabarit ne part qu'avec une lecture ABOUTIE : verse
-           avant l'appel, une page remise en file apres echec retrouvait son
-           propre texte dans le gabarit a la relecture, et en ressortait vide. */
-        return {
-          candidate, page, lu, texte, documentsVus,
-          echantillon: brut.slice(0, 4000),
-          horsSieges: nouveaux.slice(PAGE_LIENS_SOUMIS),
-          images: extractImageUrls(page.data, page.url, 24),
-          blocs: extractPageBlocks(page.data, page.url),
-        };
-      } catch (e) {
-        console.warn(`[demo-generate] lecture impossible : ${candidate.url} :: ${e?.message}`);
-        return { echec: candidate };
+  // Ce qu'une page lue apporte : projets, dossiers, liens a suivre, visuels.
+  const traiter = (r) => {
+    explo.pagesLues++;
+    /* Une trouvaille PAR page lue : le compteur de sources de l'ecran dit
+       le vrai compte (il comptait une vague de cinq pour une), et le fil
+       montre chaque page ouverte au lieu d'un cumul. */
+    send({ type: 'finding', kind: 'page', title: r.candidate.label || r.page.url, domain: hostOf(r.page.url) });
+    // Un document n'a pas d'echantillon : il ne porte pas le gabarit du site
+    if (r.echantillon && (explo.echantillons = explo.echantillons || []).length < GABARIT_ECHANTILLONS) {
+      explo.echantillons.push(r.echantillon);
+    }
+    for (const p of r.lu.projets) {
+      if (etageEpci) {
+        /* Les pages d'amorce de l'etage (rubriques d'amenagement) parlent de
+           toute la metropole : le verrou sur les LIENS ne suffit pas, les
+           projets vitrines qu'elles decrivent elles-memes (La Duchere, place
+           Grandclement...) entraient dans la recolte d'une petite commune et
+           voyageaient jusqu'au filet du geocodage pour rien. Un projet de
+           l'etage qui ne nomme la commune ni dans son texte ni par sa page
+           source est un projet d'ailleurs : il ne quitte pas la page. */
+        const texteDuProjet = `${p.title || ''} ${p.place || ''} ${p.address || ''} ${p.geo_query || ''} ${p.description || ''}`;
+        if (!nommeLaCommune({ url: p.source_url || '', label: texteDuProjet })) continue;
+        // La source est l'intercommunalite : l'attestation reste officielle,
+        // le lecteur de la fiche voit d'ou elle vient.
+        p.sources = [{ url: p.source_url, type: 'intercommunalite' }];
       }
-    });
+      explo.bruts.push(p);
+      send({ type: 'ai-item', phase: 'ai1', title: p.title, quote: (p.evidence_quote || '').slice(0, 220), domain: hostOf(p.source_url) });
+    }
+    /* Les dossiers que la lecture a reconnus sur cette page. Ils sont deja
+       juges pertinents : ils entrent tels quels, avec l'adresse de leur page,
+       et se montrent a l'ecran au fur et a mesure. */
+    for (const d of r.lu.dossiers || []) {
+      if (state.mairie.pdfs.length >= PDF_TOTAL_MAX) break;
+      if (state.mairie.pdfs.some((p) => p.url === d.url)) continue;
+      state.mairie.pdfs.push(d);
+      send({ type: 'finding', kind: 'pdf', title: d.label, domain: 'document officiel' });
+    }
+    /* Les liens que cette page recommande. La priorite ne decide plus de ce
+       qu'on lira - la file est destinee a etre videe - seulement de l'ordre :
+       une page designee par une page de projets a des chances de donner plus
+       vite, autant commencer par elle. */
+    for (const l of r.lu.suivants) proposer(l, PRIORITE[r.lu.interet] ?? 1);
+    /* Tous les PDF croises sont notes : quand le site sera epuise, un seul
+       jugement choisira ceux qui valent d'etre lus. */
+    for (const d of r.documentsVus || []) {
+      const vus = (explo.docsVus = explo.docsVus || []);
+      if (vus.length >= DOCS_VUS_MAX) break;
+      if (!vus.some((x) => x.url === d.url)) vus.push({ url: d.url, label: d.label || '', page: r.candidate.label || '' });
+    }
+    /* Les liens qu'on n'a PAS pu soumettre au modele, au-dela des 60 sieges,
+       n'en disparaissent pas pour autant : sur une page qui parle
+       d'amenagement, ils entrent en file a priorite basse. Elle est faite
+       pour etre videe, et ses gardes bornent deja le cout. */
+    if (r.lu.interet !== 'nulle' && r.horsSieges?.length) {
+      for (const l of r.horsSieges) proposer(l, 0);
+    }
+    // L'index d'images sert plus tard à rattacher un visuel officiel au projet
+    if (r.images.length || r.blocs.length) {
+      /* Index des visuels, pour la phase des illustrations. Le TEXTE y est
+         conserve, ampute mais present : c'est lui qui permet de reconnaitre
+         que cette page parle de ce projet-la. Sans lui, seul le rattachement
+         par bloc fonctionnait, et le repli « page entiere » ne se declenchait
+         jamais - releve sur Lyon, deux vraies photos sur sept la ou toutes
+         les fiches issues du site de la ville en avaient une. */
+      if (state.mairie.pages.length < INDEX_PAGES_MAX) {
+        state.mairie.pages.push({
+          url: r.page.url,
+          title: r.candidate.label,
+          text: r.texte.slice(0, INDEX_TEXTE_MAX),
+          images: r.images.slice(0, 8),
+          blocs: r.blocs.filter((b) => b.images?.length).slice(0, INDEX_BLOCS_MAX),
+        });
+      }
+    }
+    if (!state.mairie.urls.includes(r.page.url)) state.mairie.urls.push(r.page.url);
+  };
 
-    /* Les pages en echec sont MISES DE COTE, et ne retournent en file qu'a la
-       FIN de la tranche : remises immediatement, elles restaient en tete du
-       classement et etaient repiochees quelques secondes plus tard, dans la
-       meme fenetre de coupure, ou leur seconde chance se consumait pour rien.
-       Ce sont precisement les pages les plus prioritaires qui mouraient en
-       premier. */
-    for (const r of resultats) {
+  /* LECTEURS EN CONTINU, et non plus par vagues. Une vague de cinq attendait
+     la plus lente de ses cinq pages avant d'en ouvrir une sixieme : une page
+     lente (site qui traine, reprise de l'IA) immobilisait quatre places. Ici,
+     cinq lecteurs puisent chacun dans la file des qu'ils ont fini, ce qui
+     garde exactement cinq connexions ouvertes au plus, la mesure de
+     VAGUE_TAILLE, sans temps mort. Chaque lecteur prend la meilleure
+     candidate du moment : une page qui vient d'en recommander d'autres les
+     fait passer devant sans attendre la fin d'une vague. */
+  let enCours = 0;
+  const enAttente = [];
+  const reveiller = () => { while (enAttente.length) enAttente.shift()(); };
+  const peutOuvrir = () => Date.now() - t0 < PHASE_BUDGET_MS
+    && explo.pagesLues + enCours < EXPLO_PAGES_MAX
+    && (!assezDeMatiere() || explo.repechageFait);
+  const lecteur = async () => {
+    while (peutOuvrir()) {
+      const [candidate] = file.vague(1);
+      if (!candidate) {
+        // File vide pour l'instant : une lecture en cours peut encore la nourrir
+        if (!enCours) break;
+        await new Promise((ok) => enAttente.push(ok));
+        continue;
+      }
+      enCours++;
+      let r = null;
+      try { r = await lireUne(candidate); } catch { r = { echec: candidate }; }
+      enCours--;
+      /* Les pages en echec sont MISES DE COTE, et ne retournent en file qu'a la
+         FIN de la tranche : remises immediatement, elles restaient en tete du
+         classement et etaient repiochees quelques secondes plus tard, dans la
+         meme fenetre de coupure, ou leur seconde chance se consumait pour rien.
+         Ce sont precisement les pages les plus prioritaires qui mouraient en
+         premier. */
       if (r?.echec) echecs.push(r.echec);
-      if (r && !r.echec) traitees++;
+      else if (r) traitees++;
+      if (r?.doublon && process.env.DEMO_DUMP) console.log(`[demo-doublon] ${candidate.url} -> ${r.doublon}`);
+      if (r && !r.echec && !r.ecartee) traiter(r);
+      reveiller();
     }
-
-    for (const r of resultats) {
-      if (!r || r.echec || r.ecartee) continue;
-      explo.pagesLues++;
-      /* Une trouvaille PAR page lue : le compteur de sources de l'ecran dit
-         le vrai compte (il comptait une vague de cinq pour une), et le fil
-         montre chaque page ouverte au lieu d'un cumul. */
-      send({ type: 'finding', kind: 'page', title: r.candidate.label || r.page.url, domain: hostOf(r.page.url) });
-      if (r.echantillon && (explo.echantillons = explo.echantillons || []).length < GABARIT_ECHANTILLONS) {
-        explo.echantillons.push(r.echantillon);
-      }
-      for (const p of r.lu.projets) {
-        if (etageEpci) {
-          /* Les pages d'amorce de l'etage (rubriques d'amenagement) parlent de
-             toute la metropole : le verrou sur les LIENS ne suffit pas, les
-             projets vitrines qu'elles decrivent elles-memes (La Duchere, place
-             Grandclement...) entraient dans la recolte d'une petite commune et
-             voyageaient jusqu'au filet du geocodage pour rien. Un projet de
-             l'etage qui ne nomme la commune ni dans son texte ni par sa page
-             source est un projet d'ailleurs : il ne quitte pas la page. */
-          const texteDuProjet = `${p.title || ''} ${p.place || ''} ${p.address || ''} ${p.geo_query || ''} ${p.description || ''}`;
-          if (!nommeLaCommune({ url: p.source_url || '', label: texteDuProjet })) continue;
-          // La source est l'intercommunalite : l'attestation reste officielle,
-          // le lecteur de la fiche voit d'ou elle vient.
-          p.sources = [{ url: p.source_url, type: 'intercommunalite' }];
-        }
-        explo.bruts.push(p);
-        send({ type: 'ai-item', phase: 'ai1', title: p.title, quote: (p.evidence_quote || '').slice(0, 220), domain: hostOf(p.source_url) });
-      }
-      /* Les dossiers que la lecture a reconnus sur cette page. Ils sont deja
-         juges pertinents : ils entrent tels quels, avec l'adresse de leur page,
-         et se montrent a l'ecran au fur et a mesure. */
-      for (const d of r.lu.dossiers || []) {
-        if (state.mairie.pdfs.length >= PDF_TOTAL_MAX) break;
-        if (state.mairie.pdfs.some((p) => p.url === d.url)) continue;
-        state.mairie.pdfs.push(d);
-        send({ type: 'finding', kind: 'pdf', title: d.label, domain: 'document officiel' });
-      }
-      /* Les liens que cette page recommande. La priorite ne decide plus de ce
-         qu'on lira - la file est destinee a etre videe - seulement de l'ordre :
-         une page designee par une page de projets a des chances de donner plus
-         vite, autant commencer par elle. */
-      for (const l of r.lu.suivants) file.ajouter(l.url, l.label, PRIORITE[r.lu.interet] ?? 1);
-      /* Tous les PDF croises sont notes : quand le site sera epuise, un seul
-         jugement choisira ceux qui valent d'etre lus. */
-      for (const d of r.documentsVus || []) {
-        const vus = (explo.docsVus = explo.docsVus || []);
-        if (vus.length >= DOCS_VUS_MAX) break;
-        if (!vus.some((x) => x.url === d.url)) vus.push({ url: d.url, label: d.label || '', page: r.candidate.label || '' });
-      }
-      /* Les liens qu'on n'a PAS pu soumettre au modele, au-dela des 60 sieges,
-         n'en disparaissent pas pour autant : sur une page qui parle
-         d'amenagement, ils entrent en file a priorite basse. Elle est faite
-         pour etre videe, et ses gardes bornent deja le cout. */
-      if (r.lu.interet !== 'nulle' && r.horsSieges?.length) {
-        for (const l of r.horsSieges) file.ajouter(l.url, l.label, 0);
-      }
-      // L'index d'images sert plus tard à rattacher un visuel officiel au projet
-      if (r.images.length || r.blocs.length) {
-        /* Index des visuels, pour la phase des illustrations. Le TEXTE y est
-           conserve, ampute mais present : c'est lui qui permet de reconnaitre
-           que cette page parle de ce projet-la. Sans lui, seul le rattachement
-           par bloc fonctionnait, et le repli « page entiere » ne se declenchait
-           jamais - releve sur Lyon, deux vraies photos sur sept la ou toutes
-           les fiches issues du site de la ville en avaient une. */
-        if (state.mairie.pages.length < INDEX_PAGES_MAX) {
-          state.mairie.pages.push({
-            url: r.page.url,
-            title: r.candidate.label,
-            text: r.texte.slice(0, INDEX_TEXTE_MAX),
-            images: r.images.slice(0, 8),
-            blocs: r.blocs.filter((b) => b.images?.length).slice(0, INDEX_BLOCS_MAX),
-          });
-        }
-      }
-      if (!state.mairie.urls.includes(r.page.url)) state.mairie.urls.push(r.page.url);
-    }
-  }
+    reveiller();
+  };
+  await Promise.all(Array.from({ length: VAGUE_TAILLE }, lecteur));
+  explo.empreintes = [...empreintes];
+  explo.aTrier = [...aTrier.values()];
 
   /* Les echecs retournent en file MAINTENANT, hors de la fenetre de coupure
      qui les a fait tomber : ils seront relus a la tranche suivante, et leur
@@ -5086,7 +5245,9 @@ async function coreExplore(send, step, state) {
   if (assezDeMatiere() && !explo.repechageFait) {
     explo.repechageFait = true;
     const restantes = FileExploration.restaurer(explo.file);
-    const candidates = [...restantes.candidates.values()];
+    // Les liens decouverts pas encore tries font partie de ce qui reste
+    const candidates = [...restantes.candidates.values(), ...(explo.aTrier || [])];
+    explo.aTrier = [];
     const enOr = await repecherLesTitresEnOr(commune.nom, candidates);
     if (enOr.length) {
       const garde = new FileExploration({ hote: mairie.host });
@@ -5103,11 +5264,12 @@ async function coreExplore(send, step, state) {
     explo.file = new FileExploration({ hote: mairie.host }).serialiser();
   }
 
-  /* Site de la commune epuise sans abondance : c'est le moment de lire ses
-     documents. Un seul jugement, sur le grand modele, avec la date du jour et
-     la liste de ce que le site a deja livre : c'est lui qui decide si des
-     documents valent encore d'etre lus, et lesquels. */
-  if (!file.restantes && !etageEpci && !explo.docsChoisis && !assezDeMatiere()
+  /* Site de la commune epuise sans abondance (file vide et aucun lien en
+     attente de tri) : c'est le moment de lire ses documents. Un seul
+     jugement, sur le grand modele, avec la date du jour et la liste de ce que
+     le site a deja livre : c'est lui qui decide si des documents valent
+     encore d'etre lus, et lesquels. */
+  if (!file.restantes && !explo.aTrier.length && !etageEpci && !explo.docsChoisis && !assezDeMatiere()
     && explo.tours < EXPLO_TOURS_MAX && (explo.docsVus || []).length) {
     explo.docsChoisis = true;
     const choisis = await choisirLesDocumentsALire(commune, explo.docsVus, explo.bruts.map((b) => b.title));
@@ -5124,7 +5286,8 @@ async function coreExplore(send, step, state) {
     }
   }
 
-  let fini = !file.restantes
+  // Le site n'est parcouru que si la file ET les liens en attente de tri sont vides
+  let fini = (!file.restantes && !explo.aTrier.length)
     || explo.pagesLues >= EXPLO_PAGES_MAX
     || explo.tours >= EXPLO_TOURS_MAX
     || explo.tranchesVides >= TRANCHES_VIDES_MAX
