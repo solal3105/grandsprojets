@@ -3,10 +3,12 @@
 -- Il reproduit ce dont les règles d'accès de `profiles` dépendent sur le projet
 -- Supabase (relevé en base le 10 novembre 2026) : les rôles de l'API, auth.uid(),
 -- auth.jwt(), la table auth.users, la table profiles avec ses droits et ses deux
--- règles d'origine, les fonctions is_admin() et is_global_admin(), le trigger
--- d'inscription. Rien d'autre : ce n'est pas une copie de la base.
+-- règles d'origine, les fonctions is_admin(), is_global_admin() et
+-- get_profiles_with_email(), le trigger d'inscription. Rien d'autre : ce n'est
+-- pas une copie de la base.
 --
--- Usage : voir l'en-tête de profils-droits.sql.
+-- Usage : voir l'en-tête de chaque fichier d'essais (profils-droits.sql,
+-- profils-lecture.sql).
 
 do $$
 begin
@@ -68,6 +70,20 @@ language sql stable security definer set search_path = public as $$
     select 1 from public.profiles
      where id = auth.uid() and role = 'admin' and 'global' = any(ville)
   );
+$$;
+
+-- La liste des utilisateurs de la console, telle qu'elle était en base avant
+-- 20261110120000 (aucune migration du dépôt ne la crée).
+create function public.get_profiles_with_email()
+returns table (id uuid, role text, ville text, created_at timestamptz, email varchar)
+language plpgsql security definer set search_path = public as $$
+begin
+  return query
+  select p.id, p.role, p.ville::text, p.created_at, u.email::varchar
+    from profiles p
+    left join auth.users u on u.id = p.id
+   where (p.id = auth.uid() or is_admin());
+end;
 $$;
 
 create policy "Enable read access for users" on public.profiles

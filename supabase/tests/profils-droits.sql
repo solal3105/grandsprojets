@@ -16,71 +16,8 @@
 -- garde seule, l'ancienne règle d'écriture encore en place (l'état où la console
 -- d'avant doit continuer de marcher), puis l'écriture directe fermée.
 
-\set QUIET on
-set client_min_messages = warning;
-
-create table public.zz_essais (n int generated always as identity, cas text, attendu text, obtenu text, ok boolean);
-
--- Joue une instruction au nom d'un compte, comme le fait l'API : rôle Postgres
--- et jeton. Rend 'ok <lignes touchées>' ou le message de l'erreur.
-create function public.zz_as(p_role text, p_user uuid, p_sql text) returns text
-language plpgsql as $$
-declare
-  v text;
-  n bigint;
-begin
-  begin
-    if p_role in ('anon', 'authenticated', 'service_role') then
-      perform set_config('request.jwt.claims', json_build_object('sub', p_user, 'role', p_role)::text, true);
-    end if;
-    perform set_config('role', p_role, true);
-    execute p_sql;
-    get diagnostics n = row_count;
-    v := 'ok ' || n;
-    perform set_config('role', 'none', true);
-  exception when others then
-    v := sqlerrm;
-  end;
-  perform set_config('request.jwt.claims', '', true);
-  return v;
-end;
-$$;
-
-create function public.zz_check(p_cas text, p_obtenu text, p_attendu text) returns void
-language sql as $$
-  insert into public.zz_essais (cas, attendu, obtenu, ok)
-  values (p_cas, p_attendu, p_obtenu, coalesce(p_obtenu like p_attendu, false));
-$$;
-
--- ── Jeu d'essai ──────────────────────────────────────────────────────────────
-\set glob    '''00000000-0000-4000-8000-000000000001'''
-\set glob_a  '''00000000-0000-4000-8000-000000000002'''
-\set adm_a   '''00000000-0000-4000-8000-00000000000a'''
-\set adm_ab  '''00000000-0000-4000-8000-0000000000ab'''
-\set adm_b   '''00000000-0000-4000-8000-00000000000b'''
-\set adm_0   '''00000000-0000-4000-8000-0000000000a0'''
-\set inv_a   '''00000000-0000-4000-8000-0000000001a0'''
-\set inv_ab  '''00000000-0000-4000-8000-0000000001ab'''
-\set inv_0   '''00000000-0000-4000-8000-000000000100'''
-\set nouveau '''00000000-0000-4000-8000-000000000999'''
-\set inconnu '''00000000-0000-4000-8000-00000000dead'''
-
-insert into auth.users (id, email) values
-  (:glob,   'glob@test.invalid'),   (:glob_a, 'glob-a@test.invalid'),
-  (:adm_a,  'adm-a@test.invalid'),  (:adm_ab, 'adm-ab@test.invalid'),
-  (:adm_b,  'adm-b@test.invalid'),  (:adm_0,  'adm-0@test.invalid'),
-  (:inv_a,  'inv-a@test.invalid'),  (:inv_ab, 'inv-ab@test.invalid'),
-  (:inv_0,  'inv-0@test.invalid');
-
-update public.profiles set role = 'admin',   ville = '{global}'   where id = :glob;
-update public.profiles set role = 'admin',   ville = '{global,a}' where id = :glob_a;
-update public.profiles set role = 'admin',   ville = '{a}'        where id = :adm_a;
-update public.profiles set role = 'admin',   ville = '{a,b}'      where id = :adm_ab;
-update public.profiles set role = 'admin',   ville = '{b}'        where id = :adm_b;
-update public.profiles set role = 'admin',   ville = '{}'         where id = :adm_0;
-update public.profiles set role = 'invited', ville = '{a}'        where id = :inv_a;
-update public.profiles set role = 'invited', ville = '{a,b}'      where id = :inv_ab;
--- inv_0 reste tel que l'inscription l'a créé : invited, sans espace.
+\ir outils-essais.sql
+\ir jeu-profils.sql
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- TEMPS 1 : la garde seule, l'ancienne règle d'écriture encore en place
@@ -235,20 +172,7 @@ select zz_check('Fermé : la clé de service écrit toujours',
   zz_as('service_role', null, format('update profiles set ville = ''{a,b}'' where id = %L', :inv_a)), 'ok 1');
 select zz_check('Fermé : chacun lit toujours son profil',
   zz_as('authenticated', :inv_a, 'create temp table zz_moi on commit drop as select * from profiles'), 'ok 1');
-select zz_check('Fermé : un admin lit toujours les profils',
-  zz_as('authenticated', :adm_a, 'create temp table zz_tous on commit drop as select * from profiles'), 'ok 9');
+select zz_check('Fermé : un admin lit toujours les profils de son espace',
+  zz_as('authenticated', :adm_a, format('create temp table zz_espace on commit drop as select * from profiles where id = %L', :inv_a)), 'ok 1');
 
--- ── Résultat ─────────────────────────────────────────────────────────────────
-\set QUIET off
-\pset footer off
-select n, case when ok then 'OK' else 'ÉCHEC' end as resultat, cas,
-       case when ok then '' else 'attendu : ' || attendu || ' | obtenu : ' || coalesce(obtenu, '(rien)') end as detail
-  from public.zz_essais order by n;
-select count(*) as essais, count(*) filter (where ok) as reussis from public.zz_essais;
-
-do $$
-begin
-  if exists (select 1 from public.zz_essais where not ok) then
-    raise exception 'Des essais échouent : voir les lignes ÉCHEC ci-dessus.';
-  end if;
-end $$;
+\ir resultat-essais.sql

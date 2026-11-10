@@ -1691,7 +1691,13 @@
     // USER MANAGEMENT (Admin only)
 
     /**
-     * Récupère les utilisateurs visibles par l'admin connecté
+     * Récupère les comptes que l'admin connecté gère dans la console.
+     *
+     * C'est la base qui décide de ce que chacun lit (can_read_profile,
+     * migration 20261110120000) : son propre compte, les comptes de ses
+     * espaces pour un administrateur de ville, tous pour un super
+     * administrateur. Le navigateur ne décide plus de qui lit quoi : il ne
+     * reste, dans admin/api.js, que l'affichage de l'espace sélectionné.
      * @returns {Promise<Array>} Liste des utilisateurs avec email, role, ville, created_at
      */
     async getVisibleUsers() {
@@ -1701,64 +1707,20 @@
           console.error('[supabaseService] getVisibleUsers: not authenticated');
           return [];
         }
-        
-        // Récupérer le profil de l'admin connecté
-        const { data: adminProfile, error: profileError } = await supabaseClient
-          .from('profiles')
-          .select('role, ville')
-          .eq('id', user.id)
-          .single();
-        
-        if (profileError || !adminProfile) {
-          console.error('[supabaseService] getVisibleUsers: failed to get admin profile', profileError);
-          return [];
-        }
-        
-        // Vérifier que l'utilisateur est admin
-        if (adminProfile.role !== 'admin') {
-          console.error('[supabaseService] getVisibleUsers: user is not admin');
-          return [];
-        }
-        
-        const adminVilles = parseVilleArray(adminProfile.ville);
-        const isGlobalAdmin = adminVilles.includes('global');
-        
-        // Récupérer tous les utilisateurs (sauf soi-même) avec leur email via la fonction
-        const { data: allUsers, error: usersError } = await supabaseClient
+
+        const { data: comptes, error: usersError } = await supabaseClient
           .rpc('get_profiles_with_email');
-        
+
         if (usersError) {
           console.error('[supabaseService] getVisibleUsers: failed to get users', usersError);
           return [];
         }
-        
-        // Filtrer pour exclure l'utilisateur connecté et parser ville
-        const filteredUsers = (allUsers || [])
+
+        // On ne se gère pas soi-même : son propre compte sort de la liste.
+        const visibleUsers = (comptes || [])
           .filter(u => u.id !== user.id)
           .map(u => ({ ...u, ville: parseVilleArray(u.ville) }));
-        
-        // Filtrer selon les permissions (la fonction a déjà filtré par admin, mais on filtre encore par ville si nécessaire)
-        let visibleUsers = filteredUsers;
-        
-        if (!isGlobalAdmin) {
-          // Admin ville : filtrer uniquement les utilisateurs avec au moins une ville commune
-          visibleUsers = filteredUsers.filter(u => {
-            if (!u.ville) {
-              return false;
-            }
-            
-            // ville doit être un array
-            if (!Array.isArray(u.ville)) {
-              return false;
-            }
-            
-            // Vérifier s'il y a au moins une ville en commun
-            const hasMatch = adminVilles.some(adminCity => u.ville.includes(adminCity));
-            return hasMatch;
-          });
-        }
-        
-        // Les emails sont déjà dans les données depuis la vue profiles_with_email
+
         // État d'accès de chaque compte (jamais connecté ?) : sans lui, la
         // console affiche la liste sans le signaler plutôt que de ne rien montrer.
         const acces = new Map();

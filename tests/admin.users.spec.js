@@ -446,3 +446,69 @@ test.describe('4.6 - Droits gardés par la base', () => {
   });
 
 });
+
+// ─────────────────────────────────────────────────────────
+// 4.7 - Un administrateur ne lit que les comptes de ses espaces
+//
+// Audit de sécurité du 9/11/2026 : l'administrateur d'une seule ville recevait
+// les profils, les adresses e-mail et les dates de connexion de tous les
+// comptes de la suite, et seule la console triait ensuite. La base ne rend
+// plus que les comptes de ses espaces (can_read_profile), règle essayée cas
+// par cas dans supabase/tests/profils-lecture.sql. Ici, on vérifie depuis le
+// navigateur, avec le compte de test (administrateur du seul espace test-e2e),
+// que les trois lectures s'y tiennent. Lecture seule.
+// ─────────────────────────────────────────────────────────
+test.describe('4.7 - Lecture des comptes limitée à ses espaces', () => {
+  const ESPACE = 'test-e2e';
+  // La liste des espaces arrive en tableau (table) ou en texte '{a,b}' (fonction).
+  const espaces = (ville) => (Array.isArray(ville) ? ville : String(ville || '').replace(/[{}"]/g, '').split(',')).filter(Boolean);
+
+  test('4.7.1 - La liste des adresses ne contient que son espace', async ({ page }) => {
+    await goToUsers(page);
+    const lu = await page.evaluate(async () => {
+      const client = window.__supabaseClient;
+      const { data: { user } } = await client.auth.getUser();
+      const { data, error } = await client.rpc('get_profiles_with_email');
+      return { moi: user.id, comptes: data || [], erreur: error?.message || null };
+    });
+    expect(lu.erreur).toBeNull();
+    expect(lu.comptes.length, 'au moins son compte et le contributeur de test').toBeGreaterThanOrEqual(2);
+    const ailleurs = lu.comptes.filter((c) => c.id !== lu.moi && !espaces(c.ville).includes(ESPACE));
+    expect(ailleurs, 'aucun compte d\'un autre espace').toEqual([]);
+  });
+
+  test('4.7.2 - La table des profils et les dates de connexion s\'y tiennent aussi', async ({ page }) => {
+    await goToUsers(page);
+    const lu = await page.evaluate(async () => {
+      const client = window.__supabaseClient;
+      const { data: { user } } = await client.auth.getUser();
+      // Les dates d'abord : un compte créé entre les deux lectures (test 4.5.4)
+      // ne peut alors apparaître que dans la seconde.
+      const acces = await client.rpc('profils_etat_acces');
+      const profils = await client.from('profiles').select('id, ville');
+      return {
+        moi: user.id,
+        profils: profils.data || [], erreurProfils: profils.error?.message || null,
+        acces: (acces.data || []).map((a) => a.id), erreurAcces: acces.error?.message || null,
+      };
+    });
+    expect(lu.erreurProfils).toBeNull();
+    expect(lu.erreurAcces).toBeNull();
+    const ailleurs = lu.profils.filter((p) => p.id !== lu.moi && !espaces(p.ville).includes(ESPACE));
+    expect(ailleurs, 'aucun profil d\'un autre espace').toEqual([]);
+    // Les dates de connexion ne portent que sur des comptes qu'il a le droit de lire.
+    expect(lu.acces.length).toBeGreaterThanOrEqual(2);
+    const lisibles = new Set(lu.profils.map((p) => p.id));
+    expect(lu.acces.filter((id) => !lisibles.has(id)), 'aucune date de connexion hors de ses comptes').toEqual([]);
+  });
+
+  test('4.7.3 - La console affiche tous les comptes que la base lui rend, sauf le sien', async ({ page }) => {
+    // La réponse que la console reçoit elle-même, pour comparer la même lecture.
+    const reponse = page.waitForResponse((r) => r.url().includes('/rest/v1/rpc/get_profiles_with_email') && r.request().method() === 'POST');
+    await goToUsers(page);
+    const comptes = await (await reponse).json();
+    const moi = await page.evaluate(async () => (await window.__supabaseClient.auth.getUser()).data.user.id);
+    await expect(page.locator('.adm-user-row')).toHaveCount(comptes.filter((c) => c.id !== moi).length);
+  });
+
+});
