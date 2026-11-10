@@ -53,6 +53,26 @@
     },
 
     /**
+     * Ouvre une page de compte (connexion, console). Ces pages ne s'affichent
+     * que sur notre site et dans Phaos (règle frame-ancestors de _headers) :
+     * depuis une carte intégrée dans un autre site, elles s'ouvrent dans un
+     * nouvel onglet, où la personne se connecte sur notre domaine.
+     * @param {string} path - Chemin de la page sur notre site
+     */
+    openAccountPage: function(path) {
+      let framedElsewhere = false;
+      if (win.self !== win.top) {
+        try {
+          framedElsewhere = win.top.location.origin !== win.location.origin;
+        } catch {
+          framedElsewhere = true; // accès refusé = autre origine
+        }
+      }
+      if (framedElsewhere && !win.PhaosAuth?.isHost?.()) win.open(path, '_blank', 'noopener');
+      else win.location.href = path;
+    },
+
+    /**
      * Valide et nettoie une URL pour éviter javascript: ou data: schemes malveillants
      * @param {string} url - URL à valider
      * @returns {string} - URL sécurisée ou chaîne vide si dangereuse

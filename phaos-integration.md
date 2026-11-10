@@ -167,6 +167,7 @@ Phaos doit passer le slug de ville dans le chemin de l'iframe (`/ville/metropole
 - [x] `_headers` - `frame-ancestors` restreint aux 3 domaines Phaos
 - [x] `modules/phaos-auth.js` - `scheduleRenewal()` : `phaosOrigin` mémorisé au premier `ID_TOKEN` reçu, utilisé comme `targetOrigin` exact du `postMessage`
 - [ ] Retirer les entrées localhost de `PHAOS_ORIGINS` si elles ne sont plus nécessaires en prod
+- [x] `_headers` (10/11/2026) - la carte reste intégrable partout (règle générale retirée le 19/05/2026) ; la console et la connexion ne s'affichent que sur notre site et dans Phaos, production et recette (`frame-ancestors` sur `/admin` et `/login`). Une origine https ajoutée à `PHAOS_ORIGINS` s'ajoute aussi à cette règle, le test 0.58.1 le vérifie. Dans le cadre de Phaos, la console s'ouvre sur place une fois le jeton reçu (`PhaosAuth.isHost()`)
 
 ### ② Claim email confirmé par Arthur - 15/05/2026 ✅
 

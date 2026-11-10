@@ -180,12 +180,10 @@
       this._bindAction('help', () => { win.location.href = '/aide'; });
 
       // Login → /login
-      this._bindAction('login', () => { win.location.href = '/login'; });
+      this._bindAction('login', () => { win.SecurityUtils.openAccountPage('/login'); });
 
       // Contribute → admin panel
-      this._bindAction('contribute', () => {
-        win.location.href = '/admin/';
-      });
+      this._bindAction('contribute', () => { win.SecurityUtils.openAccountPage('/admin/'); });
 
       // Logout
       this._bindAction('logout', async () => {

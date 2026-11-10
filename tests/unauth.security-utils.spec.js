@@ -418,6 +418,79 @@ test.describe('0.8 - Échappement : pas de repli fail-open', () => {
     expect(r.dansToutLePanneau).toBe('A');
     expect(r.sansPied).toBeNull();
   });
+
+  /**
+   * La connexion et la console ne s'affichent pas dans le cadre d'un autre site
+   * (règle frame-ancestors de `_headers`, essai 0.58.1). Le bouton de la carte
+   * doit donc sortir du cadre quand elle est intégrée ailleurs que dans Phaos.
+   * Deux sites fictifs sont servis par interception, sans serveur, pour tous
+   * les onglets du contexte : le nouvel onglet doit trouver sa page lui aussi.
+   */
+  async function deuxSites(page) {
+    const contexte = page.context();
+    const outils = fs.readFileSync('modules/security-utils.js', 'utf8');
+    const html = (corps) => ({ contentType: 'text/html', body: `<!doctype html><html><body>${corps}</body></html>` });
+    await contexte.route('https://carte.test/**', (route) => {
+      const chemin = new URL(route.request().url()).pathname;
+      if (chemin === '/modules/security-utils.js') return route.fulfill({ contentType: 'text/javascript', body: outils });
+      if (chemin === '/carte') return route.fulfill(html('<script src="/modules/security-utils.js"></script>'));
+      if (chemin === '/accueil') return route.fulfill(html('<iframe src="/carte"></iframe>'));
+      return route.fulfill(html('page de compte'));
+    });
+    await contexte.route('https://hote.test/**', (route) => route.fulfill(html('<iframe src="https://carte.test/carte"></iframe>')));
+  }
+
+  const cadreDeLaCarte = async (page) => {
+    await expect.poll(() => page.frames().some((f) => f.url() === 'https://carte.test/carte')).toBe(true);
+    const cadre = page.frames().find((f) => f.url() === 'https://carte.test/carte');
+    await cadre.waitForFunction(() => !!window.SecurityUtils);
+    return cadre;
+  };
+
+  test('0.8.9 une carte intégrée dans un autre site ouvre la connexion dans un nouvel onglet', async ({ page }) => {
+    await deuxSites(page);
+    await page.goto('https://hote.test/');
+    const cadre = await cadreDeLaCarte(page);
+    const [onglet] = await Promise.all([
+      page.waitForEvent('popup'),
+      cadre.evaluate(() => window.SecurityUtils.openAccountPage('/login')),
+    ]);
+    await onglet.waitForURL('https://carte.test/login');
+    // Le cadre, lui, n'a pas bougé : il n'afficherait qu'une page refusée
+    expect(cadre.url()).toBe('https://carte.test/carte');
+    expect(page.url()).toBe('https://hote.test/');
+  });
+
+  test('0.8.10 sur notre site, dans un cadre de notre site ou dans Phaos, la page s’ouvre sur place', async ({ page, context }) => {
+    await deuxSites(page);
+    const onglets = [];
+    context.on('page', (p) => onglets.push(p));
+
+    // Page de premier niveau
+    await page.goto('https://carte.test/carte');
+    await page.waitForFunction(() => !!window.SecurityUtils);
+    await page.evaluate(() => window.SecurityUtils.openAccountPage('/admin/'));
+    await page.waitForURL('https://carte.test/admin/');
+
+    // Cadre d'une page de notre site (vitrines de l'accueil, écran de salon)
+    await page.goto('https://carte.test/accueil');
+    let cadre = await cadreDeLaCarte(page);
+    await cadre.evaluate(() => window.SecurityUtils.openAccountPage('/login'));
+    await expect.poll(() => page.frames().map((f) => f.url())).toContain('https://carte.test/login');
+    expect(page.url()).toBe('https://carte.test/accueil');
+
+    // Cadre de Phaos : la session vient de lui, la console s'ouvre dans son cadre
+    await page.goto('https://hote.test/');
+    cadre = await cadreDeLaCarte(page);
+    await cadre.evaluate(() => {
+      window.PhaosAuth = { isHost: () => true };
+      window.SecurityUtils.openAccountPage('/admin/');
+    });
+    await expect.poll(() => page.frames().map((f) => f.url())).toContain('https://carte.test/admin/');
+    expect(page.url()).toBe('https://hote.test/');
+
+    expect(onglets).toEqual([]);
+  });
 });
 
 /**
