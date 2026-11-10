@@ -183,7 +183,7 @@ async function _exportCsv() {
       toast(`Export limité aux ${rows.length} plus récents sur ${total} - filtrez pour le reste`, 'warning');
     }
 
-    const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const cell = window.SecurityUtils.csvCell;
     const lignes = [
       ['reference', 'categorie', 'statut', 'description', 'adresse', 'lat', 'lng', 'publie', 'cree_le', 'clos_le'].join(';'),
       ...rows.map((r) => [

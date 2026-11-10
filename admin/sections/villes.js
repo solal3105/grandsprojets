@@ -1,6 +1,6 @@
 import { store } from '../store.js';
 import * as api from '../api.js';
-import { toast, confirm, esc, safeColor, skeletonTable, emptyState } from '../components/ui.js';
+import { toast, confirm, esc, safeColor, skeletonTable, emptyState, reservedPage } from '../components/ui.js';
 import { uploaderHTML, bindUploader } from '../components/uploader.js';
 
 const DEFAULT_COLOR = '#14AE5C';
@@ -14,6 +14,17 @@ let _faviconFile = null;
 let _cityMap = null;
 
 export async function renderVilles(container) {
+  // Créer ou supprimer une ville est réservé aux super administrateurs : c'est
+  // la base qui le garde (city_branding), cette page ne fait que le dire.
+  if (!store.isGlobalAdmin) {
+    reservedPage(container, {
+      id: 'villes-reserved',
+      icon: 'fa-solid fa-earth-europe',
+      heading: 'Gestion des villes',
+      text: 'Créer ou supprimer une ville vaut pour toute la plateforme : demandez-le à un super administrateur. Le nom, la couleur et les logos de votre ville se modifient dans la page Structure.',
+    });
+    return;
+  }
   _showList(container);
   await _loadCities(container);
 }

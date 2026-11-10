@@ -212,4 +212,50 @@ test.describe('0.30 - Relais SSE partagé des fonctions IA', () => {
     expect(friendlyAIError(400, '{}', 'si le problème persiste, réduisez la zone'))
       .toBe('La demande a été refusée. Réessayez ; si le problème persiste, réduisez la zone.');
   });
+
+  test('0.30.8 - La clôture est appelée une fois, quelle que soit la sortie, avant la fermeture du flux', async () => {
+    /* C'est là qu'un appelant règle ce qu'il a réservé (rédaction assistée) :
+       une sortie qui l'éviterait laisserait une réserve jamais réglée. */
+    const sorties = {
+      'fin normale': [{ type: 'response.output_text.delta', delta: 'x' }, { type: 'response.completed' }],
+      'arrêt demandé par l’appelant': [{ type: 'response.output_text.delta', delta: 'x' }, { type: 'response.incomplete' }],
+      'erreur du service en cours de flux': [{ type: 'error', error: { code: 'server_error' } }],
+      'flux coupé sans événement de fin': [{ type: 'response.output_text.delta', delta: 'x' }],
+      'flux vide': [],
+    };
+    for (const [nom, evenements] of Object.entries(sorties)) {
+      let clotures = 0;
+      let texteAvantCloture = null;
+      const recu = [];
+      const res = relay(fauxFluxOpenAI(evenements), {
+        tag: 'test-cloture',
+        corsHeaders: {},
+        setReader: () => {},
+        clearTimeoutFn: () => {},
+        onEvent: async (ev, emit) => {
+          if (ev.type === 'response.output_text.delta') { recu.push(ev.delta); await emit({ content: ev.delta }); }
+          if (ev.type === 'response.incomplete') return 'stop';
+        },
+        onTimeoutMessage: () => null,
+        onClose: async () => { clotures++; texteAvantCloture = recu.join(''); },
+      });
+      const evts = await lireSSE(res);
+      expect(clotures, nom).toBe(1);
+      expect(evts[evts.length - 1], nom).toBe('[DONE]');
+      expect(texteAvantCloture, nom).toBe(evenements.some(e => e.delta) ? 'x' : '');
+    }
+  });
+
+  test('0.30.9 - Une clôture qui échoue ne retient pas le flux', async () => {
+    const res = relay(fauxFluxOpenAI([{ type: 'response.output_text.delta', delta: 'x' }, { type: 'response.completed' }]), {
+      tag: 'test-cloture',
+      corsHeaders: {},
+      setReader: () => {},
+      clearTimeoutFn: () => {},
+      onEvent: async (ev, emit) => { if (ev.delta) await emit({ content: ev.delta }); },
+      onTimeoutMessage: () => null,
+      onClose: async () => { throw new Error('base injoignable'); },
+    });
+    expect(await lireSSE(res)).toEqual([{ content: 'x' }, '[DONE]']);
+  });
 });

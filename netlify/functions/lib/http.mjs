@@ -85,12 +85,23 @@ export async function getProfile(user) {
   } catch { return null; }
 }
 
+const adminOf = (profile, ville) =>
+  profile?.role === 'admin' && (profile.villes.includes('global') || profile.villes.includes(ville));
+
 /**
  * L'utilisateur est-il admin de cette ville (ou admin global) ?
  * Lecture de son propre profil sous RLS.
  */
 export async function isAdminForVille(user, ville) {
+  return adminOf(await getProfile(user), ville);
+}
+
+/**
+ * L'utilisateur fait-il partie de l'équipe de cette ville : un de ses
+ * administrateurs, ou un contributeur invité dans cette ville ?
+ * Un compte sans ville n'est de l'équipe d'aucune.
+ */
+export async function isMemberOfVille(user, ville) {
   const profile = await getProfile(user);
-  if (!profile || profile.role !== 'admin') return false;
-  return profile.villes.includes('global') || profile.villes.includes(ville);
+  return adminOf(profile, ville) || (profile?.role === 'invited' && profile.villes.includes(ville));
 }

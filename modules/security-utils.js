@@ -53,6 +53,56 @@
     },
 
     /**
+     * Expression de recherche pour un filtre `.or()` de l'API de la base : le
+     * texte saisi y devient un motif `ilike` sur chaque colonne, jamais de la
+     * grammaire de filtre. La virgule, les parenthèses et le guillemet sont
+     * cette grammaire : ils sont remplacés par le joker `%` et non par une
+     * espace, sinon « 12, rue » ne retrouverait plus « 12, rue de la Paix ».
+     * @param {string[]} columns - Colonnes de texte où chercher
+     * @param {string} search - Texte saisi dans un champ de recherche
+     * @returns {string} L'expression à passer à `.or()`, ou '' s'il n'y a rien à chercher
+     */
+    ilikeAny: function(columns, search) {
+      const term = String(search ?? '').replace(/[,()"\\%_]/g, '%').trim();
+      if (!term.replace(/%/g, '')) return '';
+      return columns.map((column) => `${column}.ilike."%${term}%"`).join(',');
+    },
+
+    /**
+     * Cellule d'un fichier CSV : entre guillemets, guillemets doublés. Un texte
+     * qui commence par =, +, - ou @ serait lu comme une formule par le tableur
+     * qui ouvre le fichier : il reçoit une apostrophe en tête, sauf s'il s'agit
+     * d'un simple nombre (une longitude négative reste un nombre).
+     * @param {*} value - Valeur de la cellule
+     * @returns {string}
+     */
+    csvCell: function(value) {
+      let text = String(value ?? '');
+      if (/^[=+\-@\t\r]/.test(text) && !/^[+-]?\d+([.,]\d+)?$/.test(text)) text = `'${text}`;
+      return `"${text.replace(/"/g, '""')}"`;
+    },
+
+    /**
+     * Ouvre une page de compte (connexion, console). Ces pages ne s'affichent
+     * que sur notre site et dans Phaos (règle frame-ancestors de _headers) :
+     * depuis une carte intégrée dans un autre site, elles s'ouvrent dans un
+     * nouvel onglet, où la personne se connecte sur notre domaine.
+     * @param {string} path - Chemin de la page sur notre site
+     */
+    openAccountPage: function(path) {
+      let framedElsewhere = false;
+      if (win.self !== win.top) {
+        try {
+          framedElsewhere = win.top.location.origin !== win.location.origin;
+        } catch {
+          framedElsewhere = true; // accès refusé = autre origine
+        }
+      }
+      if (framedElsewhere && !win.PhaosAuth?.isHost?.()) win.open(path, '_blank', 'noopener');
+      else win.location.href = path;
+    },
+
+    /**
      * Valide et nettoie une URL pour éviter javascript: ou data: schemes malveillants
      * @param {string} url - URL à valider
      * @returns {string} - URL sécurisée ou chaîne vide si dangereuse

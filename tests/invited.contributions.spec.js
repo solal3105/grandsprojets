@@ -162,4 +162,27 @@ test.describe('2.8 - Contributions (rôle invited)', () => {
     await expect(page.locator('.cp-trigger')).toBeVisible({ timeout: 5000 });
   });
 
+  test('2.8.10 - La base refuse à un contributeur les modules de sa ville et un dossier sans projet', async ({ page }) => {
+    await waitForBoot(page);
+    // Essais sans effet : rien n'est écrit tant que la base tient, et la ligne
+    // est retirée aussitôt si elle ne tenait plus.
+    const messages = await page.evaluate(async () => {
+      const client = window.AuthModule.getClient();
+      const attempt = async (table, row, match) => {
+        const { error } = await client.from(table).insert(row);
+        if (!error) await client.from(table).delete().match(match);
+        return error?.message || 'insertion acceptée';
+      };
+      return [
+        await attempt('city_modules',
+          { ville: 'test-e2e', module_key: 'refus-attendu', label: 'Refus attendu', enabled: false },
+          { ville: 'test-e2e', module_key: 'refus-attendu' }),
+        await attempt('consultation_dossiers',
+          { project_name: 'Refus attendu (essai)', category: 'refus-attendu', title: 'Refus attendu', pdf_url: 'https://example.invalid/refus-attendu.pdf' },
+          { project_name: 'Refus attendu (essai)' }),
+      ];
+    });
+    for (const message of messages) expect(message).toContain('row-level security');
+  });
+
 });

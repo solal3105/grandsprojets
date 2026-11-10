@@ -8,6 +8,19 @@
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   Cross-Origin-Opener-Policy: same-origin-allow-popups
 
+# La console et la connexion ne s'affichent que sur notre site et dans le
+# portail Phaos : ce sont les origines https de PHAOS_ORIGINS
+# (modules/phaos-auth.js), tenues identiques par le test 0.58.1. La carte, les
+# fiches et les cartes des communes restent intégrables partout.
+/admin
+  Content-Security-Policy: frame-ancestors 'self' https://phaos.groupe-helios.com https://phaos-qa.groupe-helios.com
+/admin/*
+  Content-Security-Policy: frame-ancestors 'self' https://phaos.groupe-helios.com https://phaos-qa.groupe-helios.com
+/login
+  Content-Security-Policy: frame-ancestors 'self' https://phaos.groupe-helios.com https://phaos-qa.groupe-helios.com
+/login/*
+  Content-Security-Policy: frame-ancestors 'self' https://phaos.groupe-helios.com https://phaos-qa.groupe-helios.com
+
 # Images : les logos et la couverture ne changent jamais (règles ci-dessous),
 # les captures d'écran du site si, sous le même nom : une semaine, pas un an
 /img/*

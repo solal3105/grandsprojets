@@ -342,13 +342,26 @@ function _bindPopoverEvents() {
 
   // Manual apply
   const manualInput = _popover.querySelector('.adm-ip-manual-input');
+  /* Une icône saisie à la main n'est retenue que si elle a la forme d'un nom
+     de classe : c'est la règle de la base (is_icon_class), dite ici avant
+     l'enregistrement plutôt que par un refus au moment d'enregistrer. */
+  const applyManual = () => {
+    const val = manualInput?.value?.trim();
+    if (!val) return;
+    if (!/^[A-Za-z0-9_ -]+$/.test(val)) {
+      manualInput.setCustomValidity('Saisissez seulement le nom de l’icône, par exemple fa-solid fa-bus.');
+      manualInput.reportValidity();
+      return;
+    }
+    _select(val);
+  };
   _popover.querySelector('.adm-ip-manual-apply')?.addEventListener('click', (e) => {
     e.stopPropagation();
-    const val = manualInput?.value?.trim();
-    if (val) _select(val);
+    applyManual();
   });
+  manualInput?.addEventListener('input', () => manualInput.setCustomValidity(''));
   manualInput?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); const val = manualInput.value.trim(); if (val) _select(val); }
+    if (e.key === 'Enter') { e.preventDefault(); applyManual(); }
   });
 }
 

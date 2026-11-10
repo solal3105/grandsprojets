@@ -13,12 +13,17 @@
    ============================================================================ */
 
 import { envoyerMessageDemo } from './lib/demo-mail.mjs';
+import { ipHashOf, reservePublicMail, mayKeep, maySend, heldMail } from './lib/public-mail.mjs';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 
-// Même plafond d'esprit que la démo elle-même : on borne l'abus sans gêner un
-// salon (une même IP peut légitimement laisser plusieurs adresses au stand).
-const MAX_LEADS_PER_IP_PER_DAY = 40;
+/* Ce que le formulaire accepte en vingt-quatre heures, compté par la base
+   (`lib/public-mail.mjs`). Par origine, en demandes : on borne l'abus sans
+   gêner un salon, où une même connexion laisse légitimement des dizaines
+   d'adresses. Par adresse, en messages : celle d'un tiers ne reçoit pas le lien
+   à répétition. Pour le formulaire entier, en messages : trente fois la plus
+   grosse journée connue (9 adresses). */
+export const LIMITS = { ip: 40, recipient: 5, total: 300 };
 
 const CORS = {
   'Content-Type': 'application/json',
@@ -41,23 +46,6 @@ function serviceHeaders() {
 
 function json(status, body) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
-}
-
-async function sha256Hex(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function countLeadsToday(ipHash) {
-  const today = new Date().toISOString().slice(0, 10);
-  const url = new URL(`${SUPABASE_URL}/rest/v1/demo_leads`);
-  url.searchParams.set('select', 'id');
-  url.searchParams.set('created_at', `gte.${today}`);
-  url.searchParams.set('ip_hash', `eq.${ipHash}`);
-  const r = await fetch(url.toString(), {
-    headers: { ...serviceHeaders(), Prefer: 'count=exact', Range: '0-0' },
-  });
-  return parseInt((r.headers.get('content-range') || '0/0').split('/')[1] || '0', 10);
 }
 
 // Rattache l'adresse à la génération correspondante : sans ce lien, on sait
@@ -113,11 +101,12 @@ export default async (req, context) => {
   }
 
   try {
-    const ipHash = (await sha256Hex(context?.ip || 'inconnu')).slice(0, 24);
-    if (await countLeadsToday(ipHash) >= MAX_LEADS_PER_IP_PER_DAY) {
+    const ipHash = await ipHashOf(context?.ip);
+    const reservation = await reservePublicMail({ kind: 'demo', ipHash, email, limits: LIMITS });
+    if (!mayKeep(reservation)) {
       // Réponse volontairement neutre : l'écran remercie quand même, on ne va
       // pas afficher un message de quota à un visiteur de salon.
-      console.warn(`[demo-lead] plafond journalier atteint pour ${ipHash}`);
+      console.warn(`[demo-lead] plafond des vingt-quatre heures atteint pour ${ipHash}`);
       return json(200, { ok: true, stored: false });
     }
 
@@ -128,8 +117,13 @@ export default async (req, context) => {
     /* Le message part AVANT l'enregistrement, pour que son issue soit consignée
        avec l'adresse : une ligne « envoyé » ou « échec » vaut bien mieux qu'une
        ligne muette qu'il faudrait recouper avec les logs. L'expédition ne lève
-       jamais, elle rend son état. */
-    const mail = await envoyerMessageDemo({ email, communeNom, spaceUrl, projectsCount });
+       jamais, elle rend son état. Au plafond d'une adresse ou du formulaire,
+       l'adresse est gardée sans message : l'écran dit alors qu'on l'a bien
+       reçue, sans promettre un lien, et aucune relance ne suit. */
+    const mail = maySend(reservation)
+      ? await envoyerMessageDemo({ email, communeNom, spaceUrl, projectsCount })
+      : heldMail(reservation);
+    if (!maySend(reservation)) console.warn(`[demo-lead] adresse gardée sans message : plafond ${reservation}`);
 
     const r = await fetch(`${SUPABASE_URL}/rest/v1/demo_leads`, {
       method: 'POST',

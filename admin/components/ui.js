@@ -77,8 +77,10 @@ export const slidePanel = {
     content.querySelector('#adm-slide-close').onclick = close;
     backdrop.onclick = close;
 
-    // Return handle for external close
-    return { close, content };
+    // Le pied est rendu à part : ses boutons se relient dans le pied, jamais
+    // par une recherche dans tout le panneau, dont le corps peut afficher le
+    // texte d'un contributeur.
+    return { close, content, footer: content.querySelector('.adm-slide-panel__footer') };
   },
 
   close() {
@@ -225,4 +227,27 @@ export function emptyState({ icon = 'fa-solid fa-inbox', title, text, actionLabe
     div.querySelector('.adm-btn').addEventListener('click', onAction);
   }
   return div;
+}
+
+/* ── Page réservée aux super administrateurs ── */
+
+/**
+ * Ce que voit un compte qui ouvre par son adresse une page réservée aux super
+ * administrateurs. La base refuse de toute façon ses écritures : la page le
+ * lui dit au lieu de lui montrer des boutons sans effet.
+ */
+export function reservedPage(container, { id, icon, heading, text }) {
+  container.innerHTML = `
+    <div class="adm-page-header">
+      <div>
+        <h1 class="adm-page-title"><i class="${icon}"></i> ${esc(heading)}</h1>
+      </div>
+    </div>
+    <div class="adm-card" id="${id}"></div>
+  `;
+  container.querySelector(`#${id}`)?.appendChild(emptyState({
+    icon: 'fa-solid fa-lock',
+    title: 'Cette page est réservée aux super administrateurs',
+    text,
+  }));
 }

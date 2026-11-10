@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
 import { _internals } from '../netlify/functions/auth-token.mjs';
 
 /**
@@ -220,6 +221,87 @@ test.describe('0.57 - Phaos : limite de débit', () => {
       expect(checkRateLimit('9.9.9.9'), `minute ${i}`).toBe(true);
       horloge += 6_100;
     }
+  });
+
+});
+
+/**
+ * La console et la connexion ne s'affichent que sur notre site et dans Phaos.
+ * La liste des origines existe en deux endroits que rien ne relie à
+ * l'exécution : l'en-tête de `_headers`, lu par le navigateur avant tout
+ * script, et PHAOS_ORIGINS, lu par le module de la carte. Cet essai les tient
+ * identiques.
+ */
+test.describe('0.58 - Console et connexion : qui peut les afficher dans un cadre', () => {
+
+  const PAGES_DE_COMPTE = ['/admin', '/admin/*', '/login', '/login/*'];
+
+  /** Les règles de `_headers`, chemin par chemin. */
+  function reglesDesEnTetes() {
+    const regles = {};
+    let chemin = null;
+    for (const ligne of fs.readFileSync('_headers', 'utf8').split('\n')) {
+      if (!ligne.trim() || ligne.trim().startsWith('#')) continue;
+      if (!/^\s/.test(ligne)) { chemin = ligne.trim(); regles[chemin] ??= {}; continue; }
+      const [nom, ...valeur] = ligne.trim().split(':');
+      regles[chemin][nom.trim().toLowerCase()] = valeur.join(':').trim();
+    }
+    return regles;
+  }
+
+  function originesPhaos() {
+    const source = fs.readFileSync('modules/phaos-auth.js', 'utf8');
+    const liste = /const PHAOS_ORIGINS = \[([\s\S]*?)\];/.exec(source)[1];
+    return [...liste.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  }
+
+  test('0.58.1 - Seuls notre site et les origines https de PHAOS_ORIGINS encadrent ces pages', () => {
+    const regles = reglesDesEnTetes();
+    const attendu = ["'self'", ...originesPhaos().filter((o) => o.startsWith('https://'))];
+    expect(attendu.length).toBeGreaterThan(1);
+    for (const chemin of PAGES_DE_COMPTE) {
+      const politique = regles[chemin]?.['content-security-policy'] || '';
+      expect(politique.split(/\s+/), chemin).toEqual(['frame-ancestors', ...attendu]);
+    }
+  });
+
+  test('0.58.2 - La carte et les pages publiques restent intégrables partout', () => {
+    const regles = reglesDesEnTetes();
+    for (const [chemin, enTetes] of Object.entries(regles)) {
+      if (PAGES_DE_COMPTE.includes(chemin)) continue;
+      expect(enTetes['content-security-policy'] || '', chemin).not.toContain('frame-ancestors');
+      expect(enTetes['x-frame-options'], chemin).toBeUndefined();
+    }
+  });
+
+  test('0.58.3 - Le navigateur applique la règle telle qu’elle est écrite', async ({ page }) => {
+    // La valeur lue dans `_headers` est servie par un site fictif, puis la page
+    // est encadrée tour à tour par un autre site, par Phaos et par elle-même.
+    const politique = reglesDesEnTetes()['/admin/*']['content-security-policy'];
+    const cadre = (src) => ({ contentType: 'text/html', body: `<!doctype html><iframe src="${src}"></iframe>` });
+    await page.route('https://nous.test/admin/', (route) => route.fulfill({
+      contentType: 'text/html', headers: { 'Content-Security-Policy': politique }, body: '<!doctype html><p id="console">console</p>',
+    }));
+    await page.route('https://nous.test/accueil', (route) => route.fulfill(cadre('/admin/')));
+    await page.route('https://autre-site.test/', (route) => route.fulfill(cadre('https://nous.test/admin/')));
+    await page.route('https://phaos.groupe-helios.com/', (route) => route.fulfill(cadre('https://nous.test/admin/')));
+
+    const consoleAffichee = async (hote) => {
+      await page.goto(hote);
+      return page.frameLocator('iframe').locator('#console').waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false);
+    };
+    expect(await consoleAffichee('https://nous.test/accueil')).toBe(true);
+    expect(await consoleAffichee('https://phaos.groupe-helios.com/')).toBe(true);
+    expect(await consoleAffichee('https://autre-site.test/')).toBe(false);
+  });
+
+  test('0.58.4 - Le serveur pose la règle sur la console et la connexion, pas sur la carte', async ({ request }) => {
+    for (const chemin of ['/admin/', '/admin/contributions/', '/login/']) {
+      const politique = (await request.get(chemin)).headers()['content-security-policy'] || '';
+      expect(politique, chemin).toContain("frame-ancestors 'self' https://phaos.groupe-helios.com");
+    }
+    const carte = (await request.get('/ville/metropole-lyon/carte')).headers()['content-security-policy'] || '';
+    expect(carte).not.toContain('frame-ancestors');
   });
 
 });

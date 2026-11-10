@@ -652,9 +652,9 @@ async function _openDetail(id) {
     }
 
     // Footer action bindings
-    handle.content.querySelector('#sp-edit')?.addEventListener('click', () => handle.close());
+    handle.footer.querySelector('#sp-edit')?.addEventListener('click', () => handle.close());
 
-    handle.content.querySelector('#sp-delete')?.addEventListener('click', async () => {
+    handle.footer.querySelector('#sp-delete')?.addEventListener('click', async () => {
       const yes = await confirm({
         title: 'Supprimer cette contribution ?',
         message: `"${item.project_name}" sera supprimée définitivement.`,
@@ -671,7 +671,7 @@ async function _openDetail(id) {
       } catch (err) { toast(err.message, 'error'); }
     });
 
-    handle.content.querySelector('#sp-toggle-approve')?.addEventListener('click', async (e) => {
+    handle.footer.querySelector('#sp-toggle-approve')?.addEventListener('click', async (e) => {
       const btn = e.currentTarget;
       btn.disabled = true;
       try {

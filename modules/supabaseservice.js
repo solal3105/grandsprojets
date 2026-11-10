@@ -390,16 +390,8 @@
           throw new Error('No city selected');
         }
 
-        if (search && search.trim()) {
-          const s = search.trim();
-          // OR ilike on multiple text columns
-          const orExpr = [
-            `project_name.ilike.%${s}%`,
-            `meta.ilike.%${s}%`,
-            `description.ilike.%${s}%`
-          ].join(',');
-          query = query.or(orExpr);
-        }
+        const searchFilter = win.SecurityUtils.ilikeAny(['project_name', 'meta', 'description'], search);
+        if (searchFilter) query = query.or(searchFilter);
 
         // Logique de filtrage selon le rôle
         try {
@@ -1691,7 +1683,13 @@
     // USER MANAGEMENT (Admin only)
 
     /**
-     * Récupère les utilisateurs visibles par l'admin connecté
+     * Récupère les comptes que l'admin connecté gère dans la console.
+     *
+     * C'est la base qui décide de ce que chacun lit (can_read_profile,
+     * migration 20261110120000) : son propre compte, les comptes de ses
+     * espaces pour un administrateur de ville, tous pour un super
+     * administrateur. Le navigateur ne décide plus de qui lit quoi : il ne
+     * reste, dans admin/api.js, que l'affichage de l'espace sélectionné.
      * @returns {Promise<Array>} Liste des utilisateurs avec email, role, ville, created_at
      */
     async getVisibleUsers() {
@@ -1701,64 +1699,20 @@
           console.error('[supabaseService] getVisibleUsers: not authenticated');
           return [];
         }
-        
-        // Récupérer le profil de l'admin connecté
-        const { data: adminProfile, error: profileError } = await supabaseClient
-          .from('profiles')
-          .select('role, ville')
-          .eq('id', user.id)
-          .single();
-        
-        if (profileError || !adminProfile) {
-          console.error('[supabaseService] getVisibleUsers: failed to get admin profile', profileError);
-          return [];
-        }
-        
-        // Vérifier que l'utilisateur est admin
-        if (adminProfile.role !== 'admin') {
-          console.error('[supabaseService] getVisibleUsers: user is not admin');
-          return [];
-        }
-        
-        const adminVilles = parseVilleArray(adminProfile.ville);
-        const isGlobalAdmin = adminVilles.includes('global');
-        
-        // Récupérer tous les utilisateurs (sauf soi-même) avec leur email via la fonction
-        const { data: allUsers, error: usersError } = await supabaseClient
+
+        const { data: comptes, error: usersError } = await supabaseClient
           .rpc('get_profiles_with_email');
-        
+
         if (usersError) {
           console.error('[supabaseService] getVisibleUsers: failed to get users', usersError);
           return [];
         }
-        
-        // Filtrer pour exclure l'utilisateur connecté et parser ville
-        const filteredUsers = (allUsers || [])
+
+        // On ne se gère pas soi-même : son propre compte sort de la liste.
+        const visibleUsers = (comptes || [])
           .filter(u => u.id !== user.id)
           .map(u => ({ ...u, ville: parseVilleArray(u.ville) }));
-        
-        // Filtrer selon les permissions (la fonction a déjà filtré par admin, mais on filtre encore par ville si nécessaire)
-        let visibleUsers = filteredUsers;
-        
-        if (!isGlobalAdmin) {
-          // Admin ville : filtrer uniquement les utilisateurs avec au moins une ville commune
-          visibleUsers = filteredUsers.filter(u => {
-            if (!u.ville) {
-              return false;
-            }
-            
-            // ville doit être un array
-            if (!Array.isArray(u.ville)) {
-              return false;
-            }
-            
-            // Vérifier s'il y a au moins une ville en commun
-            const hasMatch = adminVilles.some(adminCity => u.ville.includes(adminCity));
-            return hasMatch;
-          });
-        }
-        
-        // Les emails sont déjà dans les données depuis la vue profiles_with_email
+
         // État d'accès de chaque compte (jamais connecté ?) : sans lui, la
         // console affiche la liste sans le signaler plutôt que de ne rien montrer.
         const acces = new Map();
@@ -2905,15 +2859,9 @@
           .order('created_at', { ascending: false })
           .range((page - 1) * pageSize, page * pageSize - 1);
         if (Array.isArray(statutKeys) && statutKeys.length) query = query.in('statut_key', statutKeys);
-        /* La virgule et les parenthèses sont la grammaire de `.or()` : sans ce
-           nettoyage, une adresse française (« 12, rue... ») casse la requête et
-           une saisie hostile réécrit le prédicat. On les remplace par le joker
-           `%` et non par une espace, sinon « 12, rue » ne retrouverait plus
-           « 12, rue de la Paix ». */
-        const terme = String(search).replace(/[,()"\\%_]/g, '%').trim();
-        if (terme && terme.replace(/%/g, '')) {
-          query = query.or(`reference.ilike."%${terme}%",description.ilike."%${terme}%",adresse.ilike."%${terme}%"`);
-        }
+        // Le texte saisi devient un motif, jamais de la grammaire de filtre
+        const searchFilter = win.SecurityUtils.ilikeAny(['reference', 'description', 'adresse'], search);
+        if (searchFilter) query = query.or(searchFilter);
         const { data, error, count } = await query;
         /* On lève au lieu de rendre une liste vide : sous le régime de
            privilèges par colonne, une erreur de droits ressemblerait sinon à
