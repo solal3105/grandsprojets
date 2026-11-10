@@ -4642,10 +4642,166 @@ async function coreAi(send, step, state) {
 /* Trois methodes, toutes precises. Le niveau « quartier identifie » a ete
    retire avec l'etage IRIS : une emprise de secteur statistique n'est pas la
    position d'un projet. */
+
+/* ─── Affinage des emprises par les données nationales ─────────────────────
+
+   Le geocodage pose souvent une epingle la ou la commune a un vrai contour :
+   un perimetre de ZAC publie au Geoportail de l'urbanisme, l'emprise d'une
+   ecole dans la BD TOPO, le trace d'une rue. Ces sources couvrent toute la
+   France et ne demandent pas de cle. Mesure sur Noyal-Chatillon-sur-Seiche :
+   la ZAC Centre-Ville etait dessinee comme une rue, celle de l'Ise comme une
+   epingle, alors que leurs perimetres sont publies.
+
+   L'IA dit d'abord quelle FORME a chaque projet sur une carte (perimetre
+   d'operation, batiment, voie, ponctuel) ; on ne cherche ensuite que la forme
+   annoncee, et seulement au pied de la position deja trouvee : on corrige un
+   contour, jamais un emplacement. Une source qui ne repond pas laisse au
+   projet sa geometrie d'origine. */
+const EMPRISE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    formes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer' },
+          forme: { type: 'string', enum: ['perimetre', 'batiment', 'voie', 'ponctuel'] },
+        },
+        required: ['index', 'forme'],
+      },
+    },
+  },
+  required: ['formes'],
+};
+const AFFINAGE_BUDGET_MS = 12000;
+const GEOPF_WFS = 'https://data.geopf.fr/wfs/ows';
+// Au-dela, une « emprise » n'est plus celle d'un equipement mais d'une zone entiere
+const BATIMENT_SURFACE_MAX_M2 = 200000;
+// Demi-cote de la recherche autour de la position trouvee (environ 200 m)
+const RAYON_RECHERCHE_DEG = 0.0018;
+
+async function formesDesProjets(commune, projets) {
+  try {
+    const system = `Pour chaque projet de ${commune.nom}, dis quelle forme il prend sur une carte : « perimetre » pour une opération d'aménagement d'ensemble sur tout un secteur (ZAC, lotissement, quartier en renouvellement, zone d'activités), « batiment » pour la construction ou la rénovation d'un bâtiment ou d'un équipement avec son terrain (école, gymnase, église, salle, crèche, mais aussi un immeuble ou une résidence, même situés dans une ZAC), « voie » pour des travaux sur une rue, une route, une piste cyclable, un pont ou un quai, « ponctuel » pour tout le reste (borne, plantation, mobilier, réseau enterré).`;
+    const user = JSON.stringify(projets.map((p, i) => ({ index: i, titre: p.title, lieu: p.place || '', adresse: p.address || '', description: (p.description || '').slice(0, 240) })));
+    const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
+      'formes_projets', EMPRISE_SCHEMA, 1500, 30000, 0.1, OPENAI_MODEL_LIGHT, 2);
+    const parIndex = new Map((out.formes || []).map((f) => [f.index, f.forme]));
+    return projets.map((_, i) => parIndex.get(i) || 'ponctuel');
+  } catch (e) {
+    console.warn(`[demo-generate] formes des projets indisponibles :: ${e?.message}`);
+    return projets.map(() => 'ponctuel');
+  }
+}
+
+function anneauxDe(g) {
+  if (g?.type === 'Polygon') return [g.coordinates[0]];
+  if (g?.type === 'MultiPolygon') return g.coordinates.map((p) => p[0]);
+  return [];
+}
+function pointDansAnneau([x, y], anneau) {
+  let dedans = false;
+  for (let i = 0, j = anneau.length - 1; i < anneau.length; j = i++) {
+    const [xi, yi] = anneau[i]; const [xj, yj] = anneau[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) dedans = !dedans;
+  }
+  return dedans;
+}
+const contientPoint = (g, pt) => anneauxDe(g).some((a) => pointDansAnneau(pt, a));
+function surfaceM2(g) {
+  let total = 0;
+  for (const a of anneauxDe(g)) {
+    const kx = 111320 * Math.cos(a[0][1] * Math.PI / 180); const ky = 110540;
+    let s = 0;
+    for (let i = 1; i < a.length; i++) s += (a[i - 1][0] * kx) * (a[i][1] * ky) - (a[i][0] * kx) * (a[i - 1][1] * ky);
+    total += Math.abs(s) / 2;
+  }
+  return total;
+}
+
+// Perimetres de ZAC du Geoportail de l'urbanisme qui contiennent la position :
+// une requete ponctuelle repond en une a deux secondes, la commune entiere en
+// plus de dix (elle ramene aussi tous les zonages d'assainissement).
+async function perimetreDeZac(pt) {
+  const r = await fetchWithTimeout('https://apicarto.ign.fr/api/gpu/info-surf', {
+    method: 'POST', headers: { ...UA, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ geom: { type: 'Point', coordinates: pt } }),
+  }, 8000);
+  if (!r.ok) return null;
+  const d = await lireJson(r, 8000, 20000000);
+  return (d.features || []).filter((f) => f.properties?.typeinf === '02').map((f) => f.geometry)
+    .sort((a, b) => surfaceM2(a) - surfaceM2(b))[0] || null;
+}
+
+async function wfsAutour(couche, [lng, lat], filtre = '') {
+  const q = new URLSearchParams({
+    SERVICE: 'WFS', VERSION: '2.0.0', REQUEST: 'GetFeature', TYPENAMES: couche, OUTPUTFORMAT: 'application/json', COUNT: '200',
+    CQL_FILTER: `BBOX(geometrie,${lat - RAYON_RECHERCHE_DEG},${lng - RAYON_RECHERCHE_DEG},${lat + RAYON_RECHERCHE_DEG},${lng + RAYON_RECHERCHE_DEG})${filtre}`,
+  });
+  const r = await fetchWithTimeout(`${GEOPF_WFS}?${q}`, { headers: UA }, 7000);
+  if (!r.ok) return [];
+  return (await lireJson(r, 7000, 8000000)).features || [];
+}
+
+// La plus petite zone d'interet de la BD TOPO (ecole, stade, eglise...) qui contient la position
+async function empriseDeBatiment(pt) {
+  const zones = (await wfsAutour('BDTOPO_V3:zone_d_activite_ou_d_interet', pt))
+    .filter((f) => contientPoint(f.geometry, pt) && surfaceM2(f.geometry) <= BATIMENT_SURFACE_MAX_M2)
+    .sort((a, b) => surfaceM2(a.geometry) - surfaceM2(b.geometry));
+  return zones[0]?.geometry || null;
+}
+
+// La voie nommee de la BD TOPO, proche de la position, dont le projet cite le nom
+async function traceDeVoie(pt, texte, insee) {
+  const voies = await wfsAutour('BDTOPO_V3:voie_nommee', pt, insee ? ` AND insee_commune='${insee}'` : '');
+  const meule = unaccentLower(texte);
+  const nommees = voies.filter((f) => {
+    const nom = unaccentLower(f.properties?.nom_voie_ban || '');
+    const directeur = unaccentLower(f.properties?.mot_directeur || '');
+    return nom && (meule.includes(nom) || (directeur.length >= 4 && meule.includes(directeur)));
+  });
+  return nommees.length === 1 ? nommees[0].geometry : null;
+}
+
+async function affinerLesEmprises(commune, located, bbox) {
+  const echeance = Date.now() + AFFINAGE_BUDGET_MS;
+  const formes = await formesDesProjets(commune, located);
+  const besoin = (f, g) => ((f === 'perimetre' || f === 'batiment') && !/Polygon/.test(g.type))
+    || (f === 'voie' && !/Line/.test(g.type));
+  const aFaire = located.map((_, i) => i).filter((i) => besoin(formes[i], located[i].geometry));
+  if (!aFaire.length) return 0;
+  let affines = 0;
+  await inChunks(aFaire, 6, async (i) => {
+    if (Date.now() > echeance) return;
+    const p = located[i];
+    const c = centroidOf(p.geometry);
+    const pt = [c.lng, c.lat];
+    let g = null; let methode = null;
+    try {
+      if (formes[i] === 'perimetre') {
+        g = await perimetreDeZac(pt);
+        methode = 'perimetre';
+      } else if (formes[i] === 'batiment') {
+        g = await empriseDeBatiment(pt); methode = 'emprise';
+      } else if (formes[i] === 'voie') {
+        g = await traceDeVoie(pt, `${p.title} ${p.place || ''} ${p.address || ''} ${p.geo_query || ''}`, commune.code); methode = 'trace';
+      }
+    } catch { g = null; }
+    if (g && JSON.stringify(g).length < 60000 && extentAcceptable(g, bbox)) {
+      p.geometry = g; p.method = methode; affines++;
+    }
+  }, echeance);
+  return affines;
+}
+
 const METHOD_LABELS = {
   emprise: 'emprise réelle trouvée',
   trace: 'tracé réel trouvé',
   adresse: 'adresse précise',
+  perimetre: 'périmètre officiel trouvé',
 };
 
 /* Deux fiches designent-elles le MEME chantier ?
@@ -4998,6 +5154,12 @@ async function coreGeo(send, step, state) {
     send({ type: 'error', kind: 'sans-projet', message: messageSansProjet(state.commune.nom) });
     return null;
   }
+
+  const affines = await affinerLesEmprises(state.commune, located, bbox).catch((e) => {
+    console.warn(`[demo-generate] affinage des emprises impossible :: ${e?.message}`);
+    return 0;
+  });
+  if (affines) console.log(`[demo-generate] ${affines} emprise(s) affinée(s) par les données nationales`);
 
   /* Le compte devient DEFINITIF ici, le geocodage etant la derniere etape qui
      puisse reduire la liste. C'est donc le moment d'annoncer une carte courte :
@@ -6228,6 +6390,12 @@ export const config = { path: '/api/demo-generate' };
  * génération complète, donc jamais vérifiés. Rien d'autre ne les importe.
  */
 export const _internals = {
+  affinerLesEmprises,
+  perimetreDeZac,
+  empriseDeBatiment,
+  traceDeVoie,
+  contientPoint,
+  surfaceM2,
   relireLesChiffres,
   chiffresDe,
   INSEE_RE,
