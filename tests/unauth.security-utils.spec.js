@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
 
 /**
  * Tests de non-régression sécurité - helpers d'échappement/URL de l'admin.
@@ -282,8 +283,8 @@ test.describe('0.8 - Échappement : pas de repli fail-open', () => {
     await page.addScriptTag({ path: script });
   }
 
-  // Audit du 9/11/2026 : la carte d'un projet sans image écrivait l'icône de sa
-  // catégorie telle qu'elle est en base.
+  // La carte d'un projet sans image affiche l'icône de sa catégorie : elle passe
+  // par la validation commune, comme la base la tient déjà (is_icon_class).
   test('0.8.5 la carte d’un projet ne laisse passer aucun HTML par l’icône de sa catégorie', async ({ page }) => {
     await pageDeRendu(page, 'modules/carte/carte-nav.js');
     const r = await page.evaluate(async () => {
@@ -314,8 +315,8 @@ test.describe('0.8 - Échappement : pas de repli fail-open', () => {
     expect(r.xss).toEqual([undefined, undefined]);
   });
 
-  // Même audit : la couleur du module Travaux, réglée par la ville, entrait dans
-  // un attribut style sans validation.
+  // La couleur du module Travaux, réglée par la ville, passe par la validation
+  // commune avant d'entrer dans un attribut style (la base tient is_css_color).
   test('0.8.6 le panneau Travaux ne laisse passer aucun HTML par la couleur du module', async ({ page }) => {
     await pageDeRendu(page, 'modules/travaux/travaux-nav.js');
     const rendre = (couleur) => page.evaluate(async (color) => {
@@ -339,6 +340,83 @@ test.describe('0.8 - Échappement : pas de repli fail-open', () => {
 
     const reglee = await rendre('#2563EB');
     expect(reglee.couleurs).toEqual(['#2563EB']);
+  });
+  // Le texte d'un contributeur s'affiche dans la fiche et dans la console : il
+  // ne porte aucune des accroches que nos écrans emploient.
+  test('0.8.7 l’article d’un contributeur ne porte ni identifiant de nos écrans, ni classe, ni attribut data-*', async ({ page }) => {
+    await page.goto('about:blank');
+    await page.setContent('<!doctype html><html><head></head><body></body></html>');
+    await page.addScriptTag({ path: 'modules/markdownutils.js' });
+    // marked et DOMPurify viennent de leurs adresses réelles, comme sur le site
+    await page.evaluate(() => window.MarkdownUtils.loadDeps());
+    await page.waitForFunction(() => !!window.marked && !!window.DOMPurify, { timeout: 20000 });
+
+    const r = await page.evaluate(() => {
+      const md = [
+        '## Le projet',
+        '',
+        '<a id="sp-toggle-approve" name="adm-slide-close" class="adm-btn adm-btn--primary" data-section="users" href="https://exemple.invalid/plan">Voir le plan</a>',
+        '',
+        '<div id="sp-contrib-map" data-close="1" style="position:fixed;inset:0">Un encart</div>',
+        '',
+        '::banner{type="info"}Attention aux travaux::',
+        '',
+        '| a | b |',
+        '|---|---|',
+        '| 1 | 2 |',
+      ].join('\n');
+      const box = document.createElement('div');
+      box.innerHTML = window.MarkdownUtils.renderMarkdown(md).html;
+      const tous = [...box.querySelectorAll('*')];
+      return {
+        ids: tous.filter((e) => e.id).map((e) => e.id),
+        noms: tous.filter((e) => e.getAttribute('name')).map((e) => e.getAttribute('name')),
+        classes: tous.filter((e) => e.hasAttribute('class')).length,
+        styles: tous.filter((e) => e.hasAttribute('style')).length,
+        donnees: tous.filter((e) => [...e.attributes].some((a) => a.name.startsWith('data-'))).length,
+        lien: box.querySelector('a')?.getAttribute('href'),
+        titre: box.querySelector('h2')?.textContent,
+        tableau: box.querySelectorAll('table td').length,
+        texte: box.textContent,
+      };
+    });
+
+    // Les identifiants du texte sont préfixés : aucun ne peut être celui d'un écran
+    expect(r.ids).toEqual(expect.arrayContaining(['user-content-sp-toggle-approve', 'user-content-sp-contrib-map']));
+    expect(r.ids.every((id) => id.startsWith('user-content-'))).toBe(true);
+    expect(r.noms.every((n) => n.startsWith('user-content-'))).toBe(true);
+    expect(r.classes).toBe(0);
+    expect(r.styles).toBe(0);
+    expect(r.donnees).toBe(0);
+    // Le contenu, lui, est rendu comme avant
+    expect(r.lien).toBe('https://exemple.invalid/plan');
+    expect(r.titre).toBe('Le projet');
+    expect(r.tableau).toBe(2);
+    expect(r.texte).toContain('Attention aux travaux');
+    expect(r.texte).toContain('Un encart');
+  });
+
+  test('0.8.8 les boutons d’un panneau se relient dans son pied, pas dans son corps', async ({ page }) => {
+    await page.goto('about:blank');
+    await page.setContent('<!doctype html><html><body><div id="adm-slide-backdrop"></div><div id="adm-slide-panel"><div id="adm-slide-content"></div></div></body></html>');
+    const source = fs.readFileSync('admin/components/ui.js', 'utf8');
+    const r = await page.evaluate(async (code) => {
+      const { slidePanel } = await import(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
+      const handle = slidePanel.open({
+        title: 'Projet',
+        body: '<a id="sp-toggle-approve" href="https://exemple.invalid/">Voir le plan</a>',
+        footer: '<button id="sp-toggle-approve">Approuver</button>',
+      });
+      return {
+        dansLePied: handle.footer.querySelector('#sp-toggle-approve')?.tagName,
+        dansToutLePanneau: handle.content.querySelector('#sp-toggle-approve')?.tagName,
+        sansPied: slidePanel.open({ title: 'Projet', body: '' }).footer,
+      };
+    }, source);
+    expect(r.dansLePied).toBe('BUTTON');
+    // Une recherche dans tout le panneau rendrait le premier élément, celui du corps
+    expect(r.dansToutLePanneau).toBe('A');
+    expect(r.sansPied).toBeNull();
   });
 });
 

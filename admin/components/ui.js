@@ -77,8 +77,10 @@ export const slidePanel = {
     content.querySelector('#adm-slide-close').onclick = close;
     backdrop.onclick = close;
 
-    // Return handle for external close
-    return { close, content };
+    // Le pied est rendu à part : ses boutons se relient dans le pied, jamais
+    // par une recherche dans tout le panneau, dont le corps peut afficher le
+    // texte d'un contributeur.
+    return { close, content, footer: content.querySelector('.adm-slide-panel__footer') };
   },
 
   close() {
