@@ -2320,9 +2320,16 @@ async function moissonnerLaPresse(send, step, state) {
    coupés, et la fiche restait sans article. */
 const ARTICLE_MAX_TOKENS = 4000;
 const ARTICLE_TIMEOUT_MS = 60000;
-/* Le rédacteur. Il sert aussi à la recherche de presse, qui garde son outil de
-   recherche web : la rédaction, elle, n'en a plus. */
-const ARTICLE_MODEL = process.env.DEMO_ARTICLE_MODEL || 'gpt-4.1';
+/* Le modèle de la recherche de presse, seul appel qui garde l'outil de
+   recherche web : la rédaction n'en a plus. Mesure du 10/11/2026 sur les
+   quatre communes du banc, étage presse rejoué en entier (recherche puis
+   lecture des articles) : gpt-4.1-mini rapporte autant d'opérations qui
+   nomment la commune que gpt-4.1 dans fin1 (2, 2, 2 et 3), dont le Vallon des
+   Hôpitaux à Saint-Genis-Laval et la ZAC centre-ville de Noyal ; la recherche
+   prend 4 à 5 s et lit 8 000 jetons de résultats au lieu de 17 500, au
+   cinquième du prix. Une recherche web ne rend jamais deux fois les mêmes
+   articles : la comparaison porte sur un tirage de chaque modèle. */
+const ARTICLE_MODEL = process.env.DEMO_ARTICLE_MODEL || 'gpt-4.1-mini';
 const ARTICLE_OUTIL = process.env.DEMO_ARTICLE_TOOL || 'web_search';
 /* Texte et citations d'une réponse de l'API Responses, pour la recherche de
    presse. Les annotations sont la SEULE source d'adresses réelles : invité à
@@ -3796,6 +3803,33 @@ const RATTACHEMENT_SCHEMA = {
 const RATTACHEMENT_LOT = 15;
 const RATTACHEMENT_TIMEOUT_MS = 19000;
 const RATTACHEMENT_LIEUX_MAX = 4;
+/* Le modèle du rattachement, le poste le plus cher de la génération (un
+   répertoire de 10 000 à 17 000 jetons relu à chaque lot). Il reste sur
+   gpt-4o, mesures du 10/11/2026 à l'appui.
+   Rejoué sur les états réels de fin1 (quatre communes, 117 projets, même
+   répertoire et mêmes extraits pour chaque modèle) :
+   - gpt-4.1, 20 % moins cher, rattache 103 projets au même lieu que gpt-4o.
+     Il en gagne quelques-uns (la mairie de Faugères, l'angle avenue Berthelot
+     et quai Pasteur du city stade d'Estressin, la ZAC Centre-ville de Noyal)
+     et en perd (le boulevard du Rhône rabattu sur la rue du Rhône du centre,
+     l'école neuve de Faugères posée sur la salle du Palais de Bacchus). Mais
+     il recopie dans « situation » des phrases entières là où gpt-4o donne le
+     nom du lieu (« restauration de l'église Saint-Christophe de Faugères »
+     contre « Église Saint-Christophe », « Travaux sur le pont de la Seiche »
+     contre « Pont de la Seiche »), et il la remplit pour des projets que
+     gpt-4o laisse sans lieu (« jardin communautaire », « zone inondable »).
+     Or cette situation est la requête du dernier recours, Nominatim : en
+     génération complète, l'église Saint-Christophe, projet de référence de
+     Faugères, est restée sans emplacement ;
+   - gpt-4.1-mini laisse cinq projets de Noyal sans lieu (dont l'église
+     Saint-Léonard et la D82 du réseau express vélo) et en place trois à faux
+     à Vienne (square Albert Vassy, boulevard des Alpes, Estressin).
+   Le cache d'OpenAI aurait pu diviser le prix du répertoire, identique d'un
+   lot à l'autre : avec une clé de routage (prompt_cache_key) et le deuxième
+   lot envoyé 0,8 s, 1,5 s, 4 s puis 9 s après le premier, gpt-4.1 n'a servi
+   aucun jeton depuis son cache, gpt-4.1-mini 7 000 sur 9 000. Les essais
+   n'ont pas porté sur gpt-4o. */
+const RATTACHEMENT_MODEL = process.env.DEMO_RATTACHEMENT_MODEL || OPENAI_MODEL;
 /* L'extrait entier part à l'IA (1 800 signes autour de la citation) : le
    cœur seul coupait justement les phrases qui situent. Mesuré à Noyal : « à
    l'angle de la rue du Gué et de la rue des Thermes » (Dialog) et la liste
@@ -3820,7 +3854,7 @@ Laisse « lieux » vide quand aucun lieu du répertoire ne porte le projet. Ne c
     extrait: String(p.source_excerpt || '').replace(/\s+/g, ' '),
   })), null, 1);
   const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
-    'rattachement_lieux', RATTACHEMENT_SCHEMA, 200 + 120 * projets.length, RATTACHEMENT_TIMEOUT_MS, 0, OPENAI_MODEL, 1);
+    'rattachement_lieux', RATTACHEMENT_SCHEMA, 200 + 120 * projets.length, RATTACHEMENT_TIMEOUT_MS, 0, RATTACHEMENT_MODEL, 1);
   return out.rattachements || [];
 }
 
@@ -6560,26 +6594,32 @@ async function coreRedact(send, step, state) {
   const t0 = Date.now();
   const pdfs = state.mairie?.pdfs || [];
 
-  while (redac.curseur < located.length && Date.now() - t0 < PHASE_BUDGET_MS) {
-    const lot = [];
-    for (let k = 0; k < ARTICLES_CONCURRENCE && redac.curseur < located.length; k++) lot.push(redac.curseur++);
-    const ecrits = await inChunks(lot, ARTICLES_CONCURRENCE, async (i) => {
+  /* Trois places de redaction tenues en continu : chacune prend le projet
+     suivant des qu'elle a fini le sien. Les vagues de trois attendaient leur
+     article le plus lent avant d'en lancer d'autres, alors qu'un article prend
+     de cinq a quarante secondes selon ses sources : les places liberees
+     restaient vides jusqu'a la fin de la vague. Le nombre d'articles
+     menes de front ne change pas, ni la regle de la tranche : une place ne
+     prend plus de projet passe le budget de temps. */
+  await Promise.all(Array.from({ length: ARTICLES_CONCURRENCE }, async () => {
+    while (redac.curseur < located.length && Date.now() - t0 < PHASE_BUDGET_MS) {
+      const i = redac.curseur++;
+      let a = null;
       try {
         const markdown = await redigerArticle(state.commune, located[i], pdfs);
         send({ type: 'article-item', title: located[i].title });
-        return { index: i, title: located[i].title, markdown };
+        a = { index: i, title: located[i].title, markdown };
       } catch (e) {
         // Un article manquant est un manque, pas une panne : la fiche existe
         // quand même, avec sa description et sa photo.
         console.error(`[demo-generate] article "${located[i].title}" :`, e.message);
-        return null;
       }
-    });
-    for (const a of ecrits) {
       // Un rejeu de tranche ne doit pas creer de doublon
       if (a && !state.articles.some((x) => x.index === a.index)) state.articles.push(a);
     }
-  }
+  }));
+  // Les articles arrivent dans l'ordre ou ils finissent : rangés par projet
+  state.articles.sort((x, y) => x.index - y.index);
 
   if (redac.curseur < located.length && redac.tours < GEO_MAX_TOURS) {
     step('articles', 'done', 'Rédaction en cours', `${state.articles.length} article(s) écrit(s)`);
