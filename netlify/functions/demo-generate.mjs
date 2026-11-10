@@ -248,7 +248,19 @@ function serviceHeaders() {
 
    Ne jamais ecrire d'octet NUL litteral dans ce commentaire : il rendrait le
    fichier binaire pour grep et les outils de diff. */
-const corpsJson = (valeur) => JSON.stringify(valeur).replace(/\\u0000/g, '');
+/* Meme logique pour les caracteres COUPES EN DEUX. Un emoji occupe deux
+   unites UTF-16 ; une troncature au caractere pres (extrait de 1 800 signes
+   autour d'une citation, echantillon de gabarit, index des visuels) peut n'en
+   garder qu'une moitie. JSON.stringify l'ecrit alors \\udXXX, que PostgreSQL
+   refuse en jsonb (22P02, « Unicode low surrogate must follow a high
+   surrogate ») : c'est un 400 sur l'ecriture du brouillon, identique a chaque
+   reprise puisque l'etat est le meme. Constate le 10/11/2026 sur
+   Noyal-Chatillon-sur-Seiche : deux echecs de suite a la meme tranche de
+   lecture, puis abandon de la generation. Chaque moitie orpheline devient le
+   caractere de remplacement, avant la serialisation. */
+const MOITIE_ORPHELINE_RE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+const sansMoitieOrpheline = (cle, v) => (typeof v === 'string' ? v.replace(MOITIE_ORPHELINE_RE, '\uFFFD') : v);
+const corpsJson = (valeur) => JSON.stringify(valeur, sansMoitieOrpheline).replace(/\\u0000/g, '');
 
 async function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
   const ctrl = new AbortController();
@@ -1191,7 +1203,19 @@ function findSiteLogo(html, baseUrl) {
 async function inspectMairieSite(siteUrl, communeNom, echeance = Infinity) {
   const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], candidates: [], accueilTexte: '', bloque: false, tronque: false, octets: 0 };
   const home = await fetchCapped(siteUrl, { headers: UA }, FETCH_TIMEOUT_MS, ACCUEIL_MAX_BYTES);
-  if (!home) return out;
+  /* Un accueil qui ne repond pas etait rendu comme un site vide : aucune
+     candidate, aucun message, et la carte sortait avec ce que la presse avait
+     donne. C'est ce qu'a vecu Noyal-Chatillon-sur-Seiche le 10/11/2026 : la
+     relance n'a pas pu lire le site et a publie une carte d'un seul projet sans
+     le signaler. Le site injoignable est desormais signale comme un site
+     bloque, et compte comme tel dans le journal. */
+  if (!home) {
+    try { out.host = new URL(siteUrl).host; } catch { /* adresse illisible */ }
+    out.bloque = true;
+    out.injoignable = true;
+    console.warn(`[demo-generate] ${out.host} : le site de la commune ne repond pas, site ignore`);
+    return out;
+  }
   /* Le site renvoie une page-tremplin au lieu de son contenu : inutile
      d'insister, mais il faut le dire. Sans ce constat explicite, la commune
      rendait une carte maigre et rien n'indiquait que sa source principale
@@ -3685,7 +3709,9 @@ async function coreSources(send, step, insee, runState) {
          continue sur la presse et les marches publics. */
       if (m.bloque) {
         step('mairie', 'skip', 'Site officiel de la mairie',
-          `${m.host} bloque la lecture automatique · recensement poursuivi sur la presse et les marchés publics`);
+          m.injoignable
+            ? `${m.host} ne répond pas pour le moment · recensement poursuivi sur la presse et les marchés publics`
+            : `${m.host} bloque la lecture automatique · recensement poursuivi sur la presse et les marchés publics`);
         return m;
       }
       /* Identité visuelle : une finition, sautée passé l'échéance, `m.logoUrl`
@@ -6409,6 +6435,7 @@ export const _internals = {
   lireFluxBorne,
   lireJson,
   corpsJson,
+  sansMoitieOrpheline,
   MAIRIE_BUDGET_MS,
   isSafePublicUrl,
   slugify,
