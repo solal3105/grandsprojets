@@ -2763,6 +2763,25 @@ async function banGeocode(q, commune, bbox) {
   return null;
 }
 
+// « 42 boulevard Soult », « 3 bis rue Voltaire » : un numéro en tête de voie
+const AVEC_NUMERO_RE = /^\s*\d{1,4}\s*(?:bis|ter)?[\s,]/i;
+
+// Distance approchee en metres entre deux points (suffisant a l'echelle d'une
+// commune, ou l'erreur de la projection plate est negligeable)
+function haversineM(a, b) {
+  const dLat = (b.lat - a.lat) * 111320;
+  const dLng = (b.lng - a.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180);
+  return Math.sqrt(dLat * dLat + dLng * dLng);
+}
+
+// Mots d'un titre qui identifient reellement un projet (toponymes, noms
+// d'equipements), une fois retire le vocabulaire d'amenagement
+function distinctiveWords(titre) {
+  return [...new Set(
+    unaccentLower(titre).split(/[^a-z0-9]+/).filter((w) => w.length >= 5 && !GENERIC_PROJECT_WORDS.test(w))
+  )];
+}
+
 /* La COMMUNE d'un résultat Nominatim, lue dans son détail d'adresse.
 
    `municipality` en est exclu, et c'est tout l'objet de cette fonction : sur
@@ -2781,10 +2800,10 @@ function communeDuResultat(hit) {
   return a.city || a.town || a.village || a.hamlet || '';
 }
 
-// Géocodage complet d'une requête : Nominatim (emprises/tracés réels) puis BAN.
-// best-of-6 : on garde l'ordre de pertinence de Nominatim mais on descend
-// jusqu'au 1er résultat réellement DANS la commune et son emprise (un homonyme
-// mieux classé ailleurs ne fait plus rater le bon résultat).
+/* Nominatim, dernier recours BORNÉ (voir l'étage 4 de coreGeo).
+   best-of-6 : on garde l'ordre de pertinence de Nominatim mais on descend
+   jusqu'au 1er résultat réellement DANS la commune et son emprise (un homonyme
+   mieux classé ailleurs ne fait plus rater le bon résultat). */
 /* La politique d'usage de Nominatim est stricte : une requete par seconde au
    plus. Or un refus 429 revient en ~50 ms, la ou une reponse pleine prend une
    bonne seconde : une boucle non cadencee ACCELERE des qu'elle est limitee et
@@ -2797,8 +2816,6 @@ async function nominatimRespire() {
   if (attente > 0) await new Promise((r) => setTimeout(r, attente));
 }
 
-// « 42 boulevard Soult », « 3 bis rue Voltaire » : un numéro en tête de voie
-const AVEC_NUMERO_RE = /^\s*\d{1,4}\s*(?:bis|ter)?[\s,]/i;
 
 async function nominatimLookup(q, commune, bbox) {
   try {
@@ -2867,88 +2884,405 @@ async function nominatimLookup(q, commune, bbox) {
   return null;
 }
 
-// Distance approchee en metres entre deux points (suffisant a l'echelle d'une
-// commune, ou l'erreur de la projection plate est negligeable)
-function haversineM(a, b) {
-  const dLat = (b.lat - a.lat) * 111320;
-  const dLng = (b.lng - a.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180);
-  return Math.sqrt(dLat * dLat + dLng * dLng);
+
+/* ─── Répertoire des lieux de la commune ───
+
+   La localisation interrogeait un annuaire d'adresses projet par projet, et
+   formulation par formulation, au rythme imposé d'une requête par seconde.
+   Trois défauts mesurés à Noyal-Châtillon-sur-Seiche (10/11/2026) : 28 projets
+   attestés sur 52 écartés faute d'emplacement, dont la ZAC de l'Ise et le
+   réseau express vélo (« RD82 »), qu'aucun annuaire ne connaît sous ce nom ;
+   la moitié de la durée d'une génération passée à attendre ce rythme ; et des
+   positions fausses (le Hil 3 posé à un kilomètre de sa zone).
+
+   On procède désormais dans l'autre sens. Les lieux NOMMÉS de la commune sont
+   relevés une seule fois dans la BD TOPO de l'IGN (voies, équipements, zones
+   d'activités, lieux-dits, giratoires et parkings, routes numérotées), puis
+   l'IA rattache chaque projet à l'un d'eux en lisant sa source. Elle ne peut
+   rien inventer : elle désigne un index de la liste, et le code pose la vraie
+   géométrie de ce lieu, tracé pour une voie, contour pour un équipement.
+
+   Le service WFS de la Géoplateforme répond sans clé. Le paramètre BBOX seul y
+   est ignoré, d'où le filtre CQL. Mesuré sur Vienne (30 000 habitants) : tout
+   le répertoire tient en moins de dix secondes et deux mégaoctets, couches
+   interrogées en parallèle. */
+/* Une couche lente un jour répond vite le lendemain (construction_lineaire :
+   200 ms puis une coupure à 12 s, mesurées à Noyal le même après-midi) : un
+   second essai, et deux essais tiennent encore dans une tranche. */
+const REPERTOIRE_TIMEOUT_MS = 9000;
+const REPERTOIRE_ESSAIS = 2;
+const REPERTOIRE_MAX_BYTES = 12000000;
+
+/* Les couches lues, et comment chacune nomme ses objets.
+   `cle` identifie un objet de façon stable d'une tranche à l'autre : la
+   géométrie ne voyage pas dans le brouillon, elle est relue au besoin. */
+const COUCHES_REPERTOIRE = [
+  // Les voies sont filtrées sur la commune elle-même : la table porte son code
+  // INSEE et le filtre attributaire y est rapide (470 voies en six secondes à Vienne).
+  { id: 'voie', typename: 'BDTOPO_V3:voie_nommee', parCode: true, nom: (p) => p.nom_voie_ban, nature: () => 'voie' },
+  { id: 'zone', typename: 'BDTOPO_V3:zone_d_activite_ou_d_interet', nom: (p) => p.toponyme },
+  { id: 'habitat', typename: 'BDTOPO_V3:zone_d_habitation', nom: (p) => p.toponyme },
+  { id: 'lieudit', typename: 'BDTOPO_V3:lieu_dit_non_habite', nom: (p) => p.toponyme },
+  { id: 'transport', typename: 'BDTOPO_V3:equipement_de_transport', nom: (p) => p.toponyme },
+  { id: 'ouvrage', typename: 'BDTOPO_V3:construction_lineaire', nom: (p) => p.toponyme },
+  { id: 'cimetiere', typename: 'BDTOPO_V3:cimetiere', nom: (p) => p.toponyme },
+];
+const natureDe = (p) => [p.nature, p.nature_detaillee].filter(Boolean).join(', ');
+
+async function wfsRepertoire(typename, cql, propertyName = null) {
+  const q = new URLSearchParams({
+    SERVICE: 'WFS', VERSION: '2.0.0', REQUEST: 'GetFeature', TYPENAMES: typename,
+    OUTPUTFORMAT: 'application/json', COUNT: '5000', CQL_FILTER: cql,
+  });
+  if (propertyName) q.set('PROPERTYNAME', propertyName);
+  for (let essai = 1; ; essai++) {
+    try {
+      const r = await fetchWithTimeout(`${GEOPF_WFS}?${q}`, { headers: UA }, REPERTOIRE_TIMEOUT_MS);
+      if (!r.ok) throw new Error(`${typename} http=${r.status}`);
+      return (await lireJson(r, REPERTOIRE_TIMEOUT_MS, REPERTOIRE_MAX_BYTES)).features || [];
+    } catch (e) {
+      if (essai >= REPERTOIRE_ESSAIS) throw e;
+    }
+  }
 }
 
-// Mots d'un titre qui identifient reellement un projet (toponymes, noms
-// d'equipements), une fois retire le vocabulaire d'amenagement
-function distinctiveWords(titre) {
-  return [...new Set(
-    unaccentLower(titre).split(/[^a-z0-9]+/).filter((w) => w.length >= 5 && !GENERIC_PROJECT_WORDS.test(w))
-  )];
+function pointsDe(g) {
+  const pts = [];
+  const walk = (c) => { if (typeof c[0] === 'number') pts.push(c); else c.forEach(walk); };
+  if (g?.coordinates) walk(g.coordinates);
+  return pts;
 }
 
-/* Dernier recours de localisation : l'IA a lu les sources et sait souvent
-   nommer un lieu geocodable que les champs structures n'ont pas rendu. Un
-   appel unique pour tous les projets restants, sur le modele leger. */
-const PLACES_SCHEMA = {
+/* Un objet appartient à la commune quand l'IGN l'y rattache, ou quand l'un de
+   ses sommets tombe dans son contour : un stade à cheval sur la limite
+   communale y a sa place, un équipement de la commune voisine compris dans la
+   boîte de recherche n'y a pas la sienne. */
+function dansLaCommune(f, code, contour) {
+  const insee = String(f.properties?.insee_commune || '');
+  if (insee) return insee.includes(code);
+  return pointsDe(f.geometry).some((pt) => contientPoint(contour, pt));
+}
+
+/* Fusionne des géométries de même famille en une seule.
+   Une voie nommée de la BD TOPO est déjà multiple ; une route numérotée y est
+   découpée en dizaines de tronçons. Deux familles différentes ne se mêlent
+   pas : on garde la première, qui est celle désignée en premier. */
+function fusionnerGeometries(geoms) {
+  const gs = geoms.filter(Boolean);
+  if (gs.length <= 1) return gs[0] || null;
+  const famille = (g) => (/Polygon/.test(g.type) ? 'surface' : /Line/.test(g.type) ? 'ligne' : 'point');
+  const f0 = famille(gs[0]);
+  const memes = gs.filter((g) => famille(g) === f0);
+  if (memes.length === 1) return memes[0];
+  const parties = (g) => (g.type.startsWith('Multi') ? g.coordinates : [g.coordinates]);
+  const type = f0 === 'surface' ? 'MultiPolygon' : f0 === 'ligne' ? 'MultiLineString' : 'MultiPoint';
+  return { type, coordinates: memes.flatMap(parties) };
+}
+
+/* L'angle de deux voies : le milieu des deux sommets les plus proches l'un de
+   l'autre. Une opération « à l'angle de la rue du Gué et de la rue des
+   Thermes » (Dialog, à Noyal) est un bâtiment, pas deux rues entières. Si les
+   deux voies ne se touchent pas (plus de 60 m entre leurs sommets les plus
+   proches), il n'y a pas d'angle et le projet garde les deux tracés. */
+const CROISEMENT_MAX_M = 60;
+function pointDeCroisement(g1, g2) {
+  let best = null;
+  for (const a of pointsDe(g1)) {
+    for (const b of pointsDe(g2)) {
+      const d = haversineM({ lng: a[0], lat: a[1] }, { lng: b[0], lat: b[1] });
+      if (!best || d < best.d) best = { d, pt: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+    }
+  }
+  return best && best.d <= CROISEMENT_MAX_M ? { type: 'Point', coordinates: best.pt } : null;
+}
+
+/* ─── Plafond de taille des géométries ───
+   Le brouillon est relu et réécrit à chaque tranche : une emprise de plusieurs
+   dizaines de kilooctets l'alourdit pour rien. Au-delà du plafond, la forme
+   était remplacée par un simple point, et une voie de deux kilomètres perdait
+   son tracé. On la simplifie plutôt (Douglas-Peucker), avec une tolérance qui
+   double jusqu'à tenir sous le plafond ; au-delà d'une tolérance d'environ
+   cinquante mètres la forme ne ressemble plus à rien et on renonce. */
+const GEOMETRIE_MAX_CHARS = 15000;
+const TOLERANCE_MIN_DEG = 0.000005;
+const TOLERANCE_MAX_DEG = 0.0005;
+
+function douglasPeucker(pts, tol) {
+  if (pts.length <= 2) return pts;
+  const garder = new Uint8Array(pts.length);
+  garder[0] = 1; garder[pts.length - 1] = 1;
+  const pile = [[0, pts.length - 1]];
+  while (pile.length) {
+    const [a, b] = pile.pop();
+    const [ax, ay] = pts[a]; const [bx, by] = pts[b];
+    const dx = bx - ax; const dy = by - ay; const l2 = dx * dx + dy * dy;
+    let max = -1; let k = -1;
+    for (let i = a + 1; i < b; i++) {
+      const [px, py] = pts[i];
+      const t = l2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2)) : 0;
+      const ex = px - (ax + t * dx); const ey = py - (ay + t * dy);
+      const d = ex * ex + ey * ey;
+      if (d > max) { max = d; k = i; }
+    }
+    if (k > 0 && max > tol * tol) { garder[k] = 1; pile.push([a, k], [k, b]); }
+  }
+  return pts.filter((_, i) => garder[i]);
+}
+
+function simplifierGeometrie(g, tol) {
+  const arrondi = (c) => [Math.round(c[0] * 1e6) / 1e6, Math.round(c[1] * 1e6) / 1e6];
+  const ligne = (l) => douglasPeucker(l.map(arrondi), tol);
+  const anneau = (a) => { const s = ligne(a); return s.length >= 4 ? s : a.map(arrondi); };
+  switch (g.type) {
+    case 'Point': return { type: 'Point', coordinates: arrondi(g.coordinates) };
+    case 'MultiPoint': return { type: g.type, coordinates: g.coordinates.map(arrondi) };
+    case 'LineString': return { type: g.type, coordinates: ligne(g.coordinates) };
+    case 'MultiLineString': return { type: g.type, coordinates: g.coordinates.map(ligne) };
+    case 'Polygon': return { type: g.type, coordinates: g.coordinates.map(anneau) };
+    case 'MultiPolygon': return { type: g.type, coordinates: g.coordinates.map((p) => p.map(anneau)) };
+    default: return g;
+  }
+}
+
+function allegerLaGeometrie(g, maxChars = GEOMETRIE_MAX_CHARS) {
+  if (!g) return null;
+  let s = simplifierGeometrie(g, 0);
+  for (let tol = TOLERANCE_MIN_DEG; JSON.stringify(s).length >= maxChars; tol *= 2) {
+    if (tol > TOLERANCE_MAX_DEG) return null;
+    s = simplifierGeometrie(g, tol);
+  }
+  return s;
+}
+
+/* Relève le répertoire. Rend { lieux, geometries } : `lieux` est la liste
+   compacte qui voyage dans le brouillon et part à l'IA, `geometries` reste en
+   mémoire (clé → géométrie). Une couche qui ne répond pas est simplement
+   absente : le reste du répertoire sert quand même. */
+async function releverLeRepertoire(code) {
+  const communes = await wfsRepertoire('BDTOPO_V3:commune', `code_insee='${code}'`);
+  const contour = communes[0]?.geometry;
+  if (!contour) throw new Error('contour de la commune introuvable');
+  const pts = pointsDe(contour);
+  const boite = {
+    minLng: Math.min(...pts.map((p) => p[0])), maxLng: Math.max(...pts.map((p) => p[0])),
+    minLat: Math.min(...pts.map((p) => p[1])), maxLat: Math.max(...pts.map((p) => p[1])),
+  };
+  const bboxCql = (champ = 'geometrie') => `BBOX(${champ},${boite.minLat},${boite.minLng},${boite.maxLat},${boite.maxLng})`;
+
+  const objets = []; // { c, cle, nom, nature, geometry }
+  const echecs = [];
+  const parCouche = COUCHES_REPERTOIRE.map(async (couche) => {
+    try {
+      const feats = await wfsRepertoire(couche.typename, couche.parCode ? `insee_commune='${code}'` : bboxCql());
+      const retenus = couche.parCode ? feats : feats.filter((f) => dansLaCommune(f, code, contour));
+      for (const f of retenus) {
+        if (!f.geometry) continue;
+        objets.push({
+          c: couche.id, cle: f.properties.cleabs, nom: String(couche.nom(f.properties) || '').trim(),
+          nature: couche.nature ? couche.nature(f.properties) : natureDe(f.properties), geometry: f.geometry,
+        });
+      }
+    } catch (e) { echecs.push(`${couche.id} (${e?.message})`); }
+  });
+  /* Les routes numérotées (« RD82 ») et les itinéraires cyclables nommés ne
+     sont pas des voies au sens de l'adresse : ils n'existent que comme suite de
+     tronçons. Le filtre attributaire sur la commune n'est pas indexé (54 s
+     mesurées à Noyal), la boîte l'est (moins d'une seconde) : on filtre donc la
+     commune après coup, sur le côté gauche ou droit du tronçon. */
+  const routes = (async () => {
+    try {
+      const champs = ['cpx_numero', 'cpx_toponyme_route_nommee', 'cpx_toponyme_itineraire_cyclable', 'cpx_toponyme_voie_verte'];
+      const feats = await wfsRepertoire('BDTOPO_V3:troncon_de_route',
+        `${bboxCql()} AND (${champs.map((c) => `${c} IS NOT NULL`).join(' OR ')})`,
+        [...champs, 'insee_commune_gauche', 'insee_commune_droite', 'geometrie'].join(','));
+      const groupes = new Map();
+      for (const f of feats) {
+        const p = f.properties || {};
+        if (p.insee_commune_gauche !== code && p.insee_commune_droite !== code) continue;
+        const noms = [
+          p.cpx_numero && [p.cpx_numero, 'route numérotée'],
+          p.cpx_toponyme_route_nommee && [p.cpx_toponyme_route_nommee, 'route nommée'],
+          p.cpx_toponyme_itineraire_cyclable && [p.cpx_toponyme_itineraire_cyclable, 'itinéraire cyclable'],
+          p.cpx_toponyme_voie_verte && [p.cpx_toponyme_voie_verte, 'voie verte'],
+        ].filter(Boolean);
+        for (const [nom, nature] of noms) {
+          const k = `${nature}|${nom}`;
+          if (!groupes.has(k)) groupes.set(k, { nom, nature, geoms: [] });
+          groupes.get(k).geoms.push(f.geometry);
+        }
+      }
+      for (const [k, g] of groupes) objets.push({ c: 'route', cle: k, nom: g.nom, nature: g.nature, geometry: fusionnerGeometries(g.geoms) });
+    } catch (e) { echecs.push(`route (${e?.message})`); }
+  })();
+  await Promise.all([...parCouche, routes]);
+  if (echecs.length) console.warn(`[demo-generate] répertoire ${code} : couche(s) indisponible(s) ${echecs.join(', ')}`);
+
+  /* Un objet SANS NOM ne peut être désigné que s'il est le seul de son espèce
+     dans la commune : « le monument aux morts », « le pumptrack ». Deux églises
+     sans nom ne se distinguent pas, elles restent hors du répertoire. Un objet
+     nommé en plusieurs morceaux (un lieu-dit coupé par une route) forme un
+     seul lieu. */
+  const especes = new Map();
+  for (const o of objets) if (!o.nom) especes.set(`${o.c}|${o.nature}`, (especes.get(`${o.c}|${o.nature}`) || 0) + 1);
+  const parNom = new Map();
+  /* Le lieu qui porte le nom de la commune est son bourg entier. Le désigner
+     revient à colorier toute l'agglomération pour un chantier ponctuel, ce que
+     la phase s'interdit (voir l'étage des quartiers IRIS, retiré pour cela) :
+     à Noyal, un ensemble de logements sans adresse y était rattaché. */
+  const nomCommune = unaccentLower(communes[0].properties?.nom_officiel || '');
+  for (const o of objets) {
+    if (!o.nom && (!o.nature || especes.get(`${o.c}|${o.nature}`) !== 1)) continue;
+    if (o.nom && unaccentLower(o.nom) === nomCommune) continue;
+    const k = `${o.c}|${o.nom ? unaccentLower(o.nom) : o.nature}`;
+    if (!parNom.has(k)) parNom.set(k, { c: o.c, nom: o.nom, nature: o.nature, cles: [], geoms: [] });
+    const l = parNom.get(k);
+    l.cles.push(o.cle); l.geoms.push(o.geometry);
+  }
+  const lieux = []; const geometries = new Map();
+  const ordre = [...parNom.values()].sort((a, b) => a.c.localeCompare(b.c) || (a.nom || a.nature).localeCompare(b.nom || b.nature, 'fr'));
+  for (const l of ordre) {
+    const cle = `${l.c}:${l.cles.sort().join('+')}`;
+    lieux.push({ n: l.nom || `${l.nature} (sans nom, le seul de la commune)`, t: l.nom ? l.nature : '', c: l.c, k: cle });
+    geometries.set(cle, fusionnerGeometries(l.geoms));
+  }
+  return { lieux, geometries, couchesEnEchec: echecs.length };
+}
+
+/* Le répertoire reste en mémoire le temps du processus. En production, chaque
+   tranche peut tourner dans une invocation neuve : il est alors relevé de
+   nouveau, et les lieux y sont retrouvés par leur clé, pas par leur rang. */
+const _repertoires = new Map();
+async function repertoireDe(code) {
+  if (!_repertoires.has(code)) {
+    const r = await releverLeRepertoire(code);
+    _repertoires.set(code, r);
+  }
+  return _repertoires.get(code);
+}
+
+/* ─── Rattachement des projets au répertoire, par l'IA ─── */
+const RATTACHEMENT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    lieux: {
+    rattachements: {
       type: 'array',
       items: {
         type: 'object',
         additionalProperties: false,
         properties: {
-          index: { type: 'number' },
-          lieu: { type: 'string', description: 'Rue, place, quartier ou équipement de la commune, tel qu\'il figure sur une carte. Chaîne vide si vraiment introuvable.' },
+          projet: { type: 'integer' },
+          situation: { type: 'string', description: 'Les mots de la source qui disent où se fait CE projet, recopiés (rue, équipement, secteur, angle de rues, lieux-dits). Chaîne vide si la source ne le dit pas.' },
+          lieux: {
+            type: 'array',
+            description: 'Le ou les lieux du répertoire qui sont le projet ou qui le portent. Liste vide si aucun.',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                index: { type: 'integer' },
+                nom: { type: 'string', description: 'Le nom du lieu tel qu\'il est écrit dans le répertoire, recopié.' },
+              },
+              required: ['index', 'nom'],
+            },
+          },
+          croisement: { type: 'boolean', description: 'Vrai si le projet est à l\'angle des deux voies données dans lieux.' },
+          adresse_du_projet: { type: 'boolean', description: 'Vrai si l\'adresse numérotée fournie pour ce projet est bien celle où il se fait (et non celle d\'un guichet, du siège d\'un maître d\'ouvrage ou d\'un lieu de consultation).' },
         },
-        required: ['index', 'lieu'],
+        required: ['projet', 'situation', 'lieux', 'croisement', 'adresse_du_projet'],
       },
     },
   },
-  required: ['lieux'],
+  required: ['rattachements'],
 };
+/* Au-delà, la liste de projets d'un même appel est découpée en lots envoyés
+   en parallèle. Chaque lot relit le répertoire entier, mais c'est la longueur
+   de la RÉPONSE qui fait la durée : à Vienne, un lot de 22 projets (800 jetons
+   en sortie) a dépassé 18 s et sa reprise a porté la tranche à 27 s. Un seul
+   essai par tranche : un lot qui n'a pas répondu est repris à la suivante. */
+const RATTACHEMENT_LOT = 15;
+const RATTACHEMENT_TIMEOUT_MS = 19000;
+const RATTACHEMENT_LIEUX_MAX = 4;
+/* L'extrait entier part à l'IA (1 800 signes autour de la citation) : le
+   cœur seul coupait justement les phrases qui situent. Mesuré à Noyal : « à
+   l'angle de la rue du Gué et de la rue des Thermes » (Dialog) et la liste
+   des secteurs du chantier d'eau potable tombaient hors des 700 signes gardés. */
+async function rattacherUnLot(commune, lieux, projets) {
+  const liste = lieux.map((l, i) => `${i}|${l.n}${l.t ? `|${l.t}` : ''}`).join('\n');
+  const system = `Tu situes des projets de la commune de ${commune.nom} sur sa carte. Voici le répertoire des lieux de la commune relevés dans les données nationales de l'IGN, un par ligne : index|nom|nature.
 
-async function askAiForPlaces(commune, projets) {
-  if (!projets.length) return [];
-  try {
-    /* Dernier recours : les designations precedentes ont toutes echoue, donc ce
-       qu'on cherche ici est CE QUE LES ANNUAIRES CONNAISSENT, pas la meilleure
-       description du lieu. Mesure sur Ploudalmezeau : « secteur de l'ancienne
-       gare » est la bonne reponse en francais et n'existe sur aucune carte,
-       alors que la meme page cite « rue de Kerjolys », qui se geocode du
-       premier coup. D'ou l'insistance sur la VOIE. */
-    const system = `Tu localises des projets urbains dans la commune de ${commune.nom}. Les designations evidentes ont deja ete essayees sans succes : ce qu'on te demande est une adresse qui existe REELLEMENT sur une carte.
+${liste}
 
-Pour CHAQUE projet (index conservé), cherche dans l'extrait fourni une VOIE nommee - rue, avenue, boulevard, place, chemin, route, quai - et rends-la. C'est le seul type de lieu qu'un annuaire d'adresses connait a coup sur. A defaut de voie, rends le nom exact d'un equipement (« Centre nautique Robert Sautin »), puis seulement en dernier ressort un lieu-dit.
+Pour chaque projet, recopie d'abord dans « situation » les mots de la source qui disent où il se fait. Puis donne dans « lieux » l'index et le nom recopié de chaque lieu du répertoire nommé dans cette situation, et d'abord du lieu du répertoire qui EST le projet ou qui le porte : la voie où ont lieu les travaux, l'équipement construit ou rénové, la zone d'activités, le quartier ou le lieu-dit aménagé, la route numérotée qu'emprunte une liaison. Un quartier ou une ZAC dont le nom manque au répertoire n'empêchent pas le rattachement : donne les voies que la source cite comme celles de ce quartier ou de ce projet (voies nouvelles, voies aménagées). Un même lieu peut s'écrire autrement dans la source (« RD82 » pour « D82 », « école Le Chat Perché » pour « École Primaire le Chat Perche ») : rattache-le quand même. Le répertoire décrit la commune d'aujourd'hui : un équipement récent peut y figurer déjà, et un objet sans nom y est désigné par sa nature quand il est le seul de son espèce dans la commune. Quand le projet couvre plusieurs voies ou plusieurs sites nommés, donne-les tous, ${RATTACHEMENT_LIEUX_MAX} au plus.
 
-Ne rends JAMAIS un nom de secteur, de quartier ou d'operation (« secteur de l'ancienne gare », « ecoquartier »): ces noms ne figurent sur aucune carte et la recherche echouera encore. Ne rends jamais non plus l'adresse ou l'on consulte un dossier, ou se tient une enquete publique ou une permanence (mairie, services techniques) : c'est l'adresse d'un guichet, pas celle du projet. Si l'extrait ne cite ni voie ni equipement, rends une chaine vide : une position fausse est pire qu'une absence.`;
-    const user = JSON.stringify(projets.map((p, i) => ({
-      index: i,
-      titre: p.title,
-      description: (p.description || '').slice(0, 300),
-      extrait: (p.source_excerpt || '').slice(0, 1200),
-    })), null, 1);
-    const out = await openAIStructured(
-      [{ role: 'system', content: system }, { role: 'user', content: user }],
-      'lieux_projets', PLACES_SCHEMA, 1200, 40000, 0.1, OPENAI_VISION_MODEL
-    );
-    const parIndex = new Map((out.lieux || []).map((x) => [x.index, String(x.lieu || '').trim()]));
-    return projets.map((_, i) => parIndex.get(i) || '');
-  } catch (e) {
-    console.warn('[demo-generate] recours IA localisation :', e?.message);
-    return projets.map(() => '');
-  }
+Quand la source situe le projet à l'angle ou au carrefour de deux voies du répertoire, donne ces deux voies dans « lieux » et mets « croisement » à vrai ; sinon « croisement » est faux.
+
+Laisse « lieux » vide quand aucun lieu du répertoire ne porte le projet. Ne choisis jamais un lieu que la source cite à propos d'autre chose, un lieu voisin faute de mieux, ni l'adresse d'un guichet, d'une permanence ou d'un lieu où l'on consulte un dossier : une position fausse est pire qu'une absence.`;
+  const user = JSON.stringify(projets.map(({ k, p }) => ({
+    projet: k,
+    titre: p.title,
+    lieu: p.place || '',
+    adresse: p.address || '',
+    requete: p.geo_query || '',
+    extrait: String(p.source_excerpt || '').replace(/\s+/g, ' '),
+  })), null, 1);
+  const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
+    'rattachement_lieux', RATTACHEMENT_SCHEMA, 200 + 120 * projets.length, RATTACHEMENT_TIMEOUT_MS, 0, OPENAI_MODEL, 1);
+  return out.rattachements || [];
+}
+
+/* L'index rendu par l'IA est contrôlé par le nom qu'elle recopie. Dans une
+   liste de plusieurs centaines de lieux classés par ordre alphabétique, elle
+   se trompe parfois d'une ligne : à Noyal, « rue des Thermes », écrite en
+   toutes lettres dans sa propre réponse, est revenue avec l'index de la rue
+   des Voyageurs, sa voisine dans la liste. Quand nom et index divergent, le
+   nom fait foi s'il désigne exactement une entrée ; sinon le lieu est ignoré. */
+function indexVerifie(lieux, { index, nom }) {
+  const cle = unaccentLower(nom).replace(/[^a-z0-9]+/g, ' ').trim();
+  const nomDe = (l) => unaccentLower(l.n).replace(/[^a-z0-9]+/g, ' ').trim();
+  if (Number.isInteger(index) && lieux[index] && nomDe(lieux[index]) === cle) return index;
+  const memes = lieux.map((l, i) => (nomDe(l) === cle ? i : -1)).filter((i) => i >= 0);
+  return memes.length === 1 ? memes[0] : -1;
+}
+
+/* Rend, pour chaque indice de projet demandé, { lieux: [index valides],
+   adresse: bool }, ou null quand le lot n'a pas pu être traité. Le code
+   VÉRIFIE la réponse : un index hors de la liste est ignoré, jamais deviné. */
+async function rattacherAuxLieux(commune, lieux, projets, indices) {
+  const nLots = Math.max(1, Math.ceil(indices.length / RATTACHEMENT_LOT));
+  const taille = Math.ceil(indices.length / nLots);
+  const lots = [];
+  for (let k = 0; k < indices.length; k += taille) lots.push(indices.slice(k, k + taille));
+  const resultat = new Map();
+  await Promise.all(lots.map(async (lot) => {
+    try {
+      const reponses = await rattacherUnLot(commune, lieux, lot.map((i) => ({ k: i, p: projets[i] })));
+      for (const r of reponses) {
+        if (!lot.includes(r.projet)) continue;
+        const valides = [...new Set((r.lieux || []).map((x) => indexVerifie(lieux, x)).filter((x) => x >= 0))]
+          .slice(0, RATTACHEMENT_LIEUX_MAX);
+        resultat.set(r.projet, { lieux: valides, croisement: !!r.croisement && valides.length === 2, adresse: !!r.adresse_du_projet, situation: String(r.situation || '').slice(0, 200) });
+      }
+      // Un projet oublié par la réponse est traité comme « aucun lieu »
+      for (const i of lot) if (!resultat.has(i)) resultat.set(i, { lieux: [], croisement: false, adresse: false });
+    } catch (e) {
+      console.warn(`[demo-generate] rattachement aux lieux indisponible pour ${lot.length} projet(s) :: ${e?.message}`);
+      for (const i of lot) resultat.set(i, null);
+    }
+  }));
+  return resultat;
 }
 
 /* Requêtes de localisation d'un projet, de la plus fiable à la plus faible :
    adresse postale relevée dans la source, requête optimisée par l'IA, lieu,
    lieux nommés lus littéralement dans le texte, et le titre en DERNIER.
 
-   Le titre était en quatrième position, donc devant les lieux réellement écrits
-   dans la source. Or c'est la formulation la plus faible de toutes : un titre
-   d'opération décrit ce qu'on fait, pas où. « Construction des pistes de
-   padel », soumis tel quel à un annuaire, ne pouvait rendre qu'un résultat au
-   hasard, et l'étage Nominatim n'essaie QUE la première formulation de cette
-   liste. C'est la position dans ce tableau qui a produit la punaise fausse de
-   Conflans, pas le géocodeur. */
+   Elles ne servent plus qu'au dernier étage, la BAN, pour les projets que le
+   répertoire des lieux n'a pas portés. Le titre reste en dernier : c'est la
+   formulation la plus faible de toutes, un titre d'opération décrit ce qu'on
+   fait, pas où. « Construction des pistes de padel », soumis tel quel à un
+   annuaire, ne pouvait rendre qu'un résultat au hasard (la punaise fausse de
+   Conflans). */
 function locationQueries(project, communeNom = '') {
   const fromTitle = String(project.title || '')
     .replace(/^(r[eé]am[eé]nagement|am[eé]nagement|construction|r[eé]novation|r[eé]habilitation|extension|d[eé]molition|reconstruction|cr[eé]ation|installation|requalification|v[eé]g[eé]talisation|ouverture|restructuration|renouvellement|modification|transfert|r[eé]fection)\s+(de\s+la|de\s+l['’]|du|des|de|d['’]|d'|un|une)?\s*/i, '')
@@ -4746,8 +5080,11 @@ async function affinerLesEmprises(commune, located, bbox) {
         g = await traceDeVoie(pt, `${p.title} ${p.place || ''} ${p.address || ''} ${p.geo_query || ''}`, commune.code); methode = 'trace';
       }
     } catch { g = null; }
-    if (g && JSON.stringify(g).length < 60000 && extentAcceptable(g, bbox)) {
-      p.geometry = g; p.method = methode; affines++;
+    // Même plafond que les lieux du répertoire : la forme est simplifiée
+    // plutôt que refusée quand elle est trop lourde.
+    const allegee = g && extentAcceptable(g, bbox) ? allegerLaGeometrie(g) : null;
+    if (allegee) {
+      p.geometry = allegee; p.method = methode; affines++;
     }
   }, echeance);
   return affines;
@@ -4758,6 +5095,7 @@ const METHOD_LABELS = {
   trace: 'tracé réel trouvé',
   adresse: 'adresse précise',
   perimetre: 'périmètre officiel trouvé',
+  lieu: 'lieu-dit officiel',
 };
 
 /* Deux fiches designent-elles le MEME chantier ?
@@ -4775,65 +5113,71 @@ function memeChantier(a, b, distanceM) {
 
 /* Phase LOCALISATION.
 
-   Elle est DECOUPEE EN TRANCHES : Nominatim impose un rythme d'une requete par
-   seconde, et depuis que le nombre de projets n'est plus plafonne, une commune
-   bien dotee demande plus de temps qu'une invocation ne peut en tenir. Chaque
-   invocation travaille pendant un budget borne puis rend la main ; le client
-   rappelle la meme phase, qui reprend a son curseur. Auparavant, le budget
-   epuise faisait simplement basculer TOUS les projets suivants en « non
-   localisable » (mesure sur Oyonnax : 15 punaises perdues sur 18).
+   Quatre étages, dans l'ordre :
+   1. le répertoire des lieux nommés de la commune, relevé une seule fois dans
+      la BD TOPO (voir releverLeRepertoire) ;
+   2. le rattachement de chaque projet à l'un de ces lieux, par l'IA, en un
+      appel découpé en lots parallèles ;
+   3. l'assemblage : la vraie géométrie du lieu désigné, ou l'adresse BAN
+      quand la source donne un numéro, puisqu'un numéro désigne un bâtiment et
+      non la rue entière ;
+   4. Nominatim, borné à dix requêtes, pour les lieux que la source écrit mais
+      que le répertoire ne nomme pas (bâtiments, lieux de culte) ;
+   5. la BAN sur les formulations du projet, pour les projets que l'IA n'a pas
+      pu juger.
+   Ce qui n'a toujours pas de lieu est écarté.
+
+   Elle est DECOUPEE EN TRANCHES : chaque invocation travaille pendant un
+   budget borne puis rend la main ; le client rappelle la meme phase, qui
+   reprend a son etape. Le releve du repertoire et l'appel a l'IA tiennent
+   chacun dans une tranche, l'affinage final dans la sienne.
 
    Elle parle AU FIL DE L'EAU : chaque projet part a l'ecran des qu'il est
-   place. L'ancienne version n'emettait rien avant la fin du dedoublonnage,
-   soit une minute entiere pendant laquelle le bandeau restait fige devant le
-   prospect. Le dedoublonnage est desormais incremental, ce qui rend l'emission
-   immediate sans jamais afficher une punaise absente de la carte finale. */
+   place, apres un dedoublonnage incremental qui n'affiche jamais une punaise
+   absente de la carte finale. */
 const PHASE_BUDGET_MS = 22000;
-const NOMINATIM_RATE_MS = 1050;
 /* Deux fiches ne peuvent pas occuper le meme point : au-dela d'un projet, une
    position partagee est un repli du geocodeur, pas l'adresse du chantier. */
 const POSITION_MIN_M = 45;
 // Filet anti-boucle : au-dela, on finalise avec ce qu'on a plutot que de
 // rappeler la phase indefiniment.
 const GEO_MAX_TOURS = 14;
-/* Nombre de formulations tentees par projet a l'etage Nominatim.
-   Une seule ne suffit pas : la premiere est souvent la forme complete
-   (« stade Claude-Fichot »), que l'annuaire ne connait pas sous ce nom, quand
-   la seconde est le nom propre seul (« Claude-Fichot »), qui rend l'equipement.
-   Les essais sont ordonnes par RANG, pas par projet : tous les projets tentent
-   leur meilleure formulation avant qu'aucun n'en tente une seconde, pour qu'un
-   budget de tranche epuise ne prive personne de son premier essai. */
-const NOMINATIM_ESSAIS = 2;
+/* L'appel a l'IA ne part que s'il peut finir dans la tranche ; sinon il
+   ouvre la suivante, qui commence avec un budget entier. */
+const RATTACHEMENT_DEPART_MAX_MS = PHASE_BUDGET_MS - RATTACHEMENT_TIMEOUT_MS;
+// Requetes Nominatim au plus par generation (une par seconde : dix secondes)
+const NOMINATIM_MAX = 10;
+// Un lot que l'IA n'a pas pu traiter est retente une fois a la tranche suivante.
+const RATTACHEMENT_REPRISES = 1;
+const GEO_VERSION = 2;
 
 /* Brouillon ecrit par une version anterieure du code.
-   L'etat de la phase de localisation voyage en base entre les tranches, et une
-   mise en production peut tomber au milieu d'une generation. Les champs absents
-   doivent etre recrees, sinon un `.push` sur `undefined` fait echouer la
-   reprise. De meme, `aTester` contenait de simples indices avant de contenir
-   des paires [projet, rang] : le destructurer sur un nombre leve une exception
-   et la generation se terminait en echec, brouillon intact et IA deja payee. */
-function migrerEtatGeo(geo, queries) {
+   L'etat de la phase voyage en base entre les tranches, et une mise en
+   production peut tomber au milieu d'une generation. Un etat des anciens
+   etages (annuaire d'adresses projet par projet) garde ses projets deja
+   situes et renvoie ceux qui restent au repertoire ; les champs absents sont
+   recrees, sinon un `.push` sur `undefined` fait echouer la reprise. */
+function migrerEtatGeo(geo) {
   if (!geo) return geo;
-  if (!Array.isArray(geo.titresFusionnes)) geo.titresFusionnes = [];
-  if (!Array.isArray(geo.titresSuperposes)) geo.titresSuperposes = [];
-  if (!Array.isArray(geo.titresAbandonnes)) geo.titresAbandonnes = [];
-  if (!Array.isArray(geo.aTester)) geo.aTester = [];
-  if (geo.etape === 'nominatim' && geo.aTester.length && !Array.isArray(geo.aTester[0])) {
-    geo.aTester = essaisNominatim(queries);
-    geo.curseur = 0;
+  for (const k of ['titresFusionnes', 'titresSuperposes', 'titresAbandonnes', 'reste']) {
+    if (!Array.isArray(geo[k])) geo[k] = [];
   }
+  if (geo.version !== GEO_VERSION) {
+    geo.version = GEO_VERSION;
+    geo.etape = 'repertoire';
+    geo.aTester = geo.reste.slice();
+    delete geo.curseur;
+    delete geo.lieuxIa;
+  }
+  if (!Array.isArray(geo.aTester)) geo.aTester = geo.reste.slice();
+  if (!geo.choix) geo.choix = {};
+  if (!geo.reprisesIa) geo.reprisesIa = 0;
   return geo;
 }
 
-function essaisNominatim(queries) {
-  const paires = [];
-  for (let rang = 0; rang < NOMINATIM_ESSAIS; rang++) {
-    for (let i = 0; i < queries.length; i++) {
-      if (queries[i].length > rang) paires.push([i, rang]);
-    }
-  }
-  return paires;
-}
+const methodeDe = (g) => (/Line/.test(g.type) ? 'trace' : /Polygon/.test(g.type) ? 'emprise' : 'lieu');
+// Les projets que l'IA a jugés : ceux-là ne repassent pas par la BAN (voir l'étage 4)
+const jugeParLIa = (geo, i) => !!geo.choix?.[i];
 
 async function coreGeo(send, step, state) {
   const { projects, bbox } = state;
@@ -4842,26 +5186,21 @@ async function coreGeo(send, step, state) {
     code: state.commune.code,
     centre: { coordinates: [state.commune.lng, state.commune.lat] },
   };
-  const queries = projects.map((p) => locationQueries(p, state.commune.nom));
-  if (process.env.DEMO_DUMP && !state.geo) {
-    // Ce que le geocodeur va reellement chercher. Sans cette trace, un projet
-    // non localise ne dit pas s'il manquait de lieu ou si l'annuaire a echoue.
-    projects.forEach((p, i) => {
-      console.log(`[demo-geo] "${p.title}" -> ${queries[i].length ? queries[i].join(' | ') : 'AUCUNE REQUETE'}`);
-      console.log(`[demo-geo]   extrait : ${(p.source_excerpt || '').slice(0, 400).replace(/\s+/g, ' ')}`);
-    });
-  }
 
   // Etat de la phase, serialisable : il voyage d'une tranche a l'autre
   const geo = state.geo || (state.geo = {
-    etape: 'nominatim',
-    curseur: 0,
-    /* A l'etage Nominatim, des paires [indice de projet, rang de formulation].
-       Les etages suivants remplacent ce tableau par de simples indices. */
-    aTester: essaisNominatim(queries),
+    version: GEO_VERSION,
+    etape: 'repertoire',
+    // Indices des projets que l'etape en cours doit traiter
+    aTester: projects.map((_, i) => i),
     // Indices encore sans position, tous etages confondus
     reste: projects.map((_, i) => i),
-    lieuxIa: null,
+    /* Le repertoire compact : { n: nom, t: nature, c: couche, k: cle }. Ses
+       geometries ne voyagent pas, elles sont relues par cle (repertoireDe). */
+    lieux: null,
+    // Reponse de l'IA par indice de projet : { lieux: [index], adresse: bool }
+    choix: {},
+    reprisesIa: 0,
     fusionnes: 0,
     superposes: 0,
     /* Les TITRES des projets ecartes, pas seulement leur nombre. L'ecran de
@@ -4876,13 +5215,13 @@ async function coreGeo(send, step, state) {
     tours: 0,
   });
 
-  migrerEtatGeo(geo, queries);
+  migrerEtatGeo(geo);
   state.located = state.located || [];
   geo.tours++;
 
   const premiereTranche = geo.tours === 1;
   if (premiereTranche) {
-    step('geo', 'start', 'Localisation des projets', `${projects.length} projet(s) à situer, emprises réelles OpenStreetMap et adresses officielles BAN`);
+    step('geo', 'start', 'Localisation des projets', `${projects.length} projet(s) à situer parmi les lieux nommés des données nationales de l'IGN et les adresses officielles BAN`);
   } else {
     step('geo', 'start', 'Localisation des projets', `${state.located.length} situé(s), ${geo.reste.length} en cours...`);
   }
@@ -4890,12 +5229,12 @@ async function coreGeo(send, step, state) {
   /* Accepte un projet localisé : dédoublonnage incrémental, puis émission
      immédiate. Rend true si le projet a rejoint la carte. */
   const accepter = (i, loc) => {
+    /* Une emprise géante ne tient pas dans le brouillon relu à chaque tranche :
+       elle est simplifiée, et ne retombe en point que si la simplification ne
+       suffit pas. */
+    const allegee = allegerLaGeometrie(loc.geometry);
     const c = centroidOf(loc.geometry);
-    // Une emprise géante ne tient pas dans le brouillon relu à chaque tranche :
-    // elle retombe en point, comme avant, mais plus tôt.
-    if (JSON.stringify(loc.geometry).length >= 15000) {
-      loc.geometry = { type: 'Point', coordinates: [c.lng, c.lat] };
-    }
+    loc.geometry = allegee || { type: 'Point', coordinates: [c.lng, c.lat] };
     const projet = { ...projects[i], ...loc };
 
     for (const deja of state.located) {
@@ -4906,16 +5245,13 @@ async function coreGeo(send, step, state) {
         return false;
       }
       /* Une position DÉJÀ OCCUPÉE n'est pas celle de ce projet-ci.
-         J'avais relâché cette règle en pensant à deux bâtiments d'un même
-         groupe scolaire. La réalité mesurée est autre : sur Saint-Denis (974),
-         CINQ fiches ont atterri sur exactement le même polygone, à la sixième
-         décimale près. Ce n'étaient pas cinq projets voisins, mais cinq avis
-         de marché sans lieu propre (« bâtiments communaux », « les écoles »,
-         « les cimetières », « voiries ») que le géocodeur a tous rabattus sur
-         le même repli. Un emplacement partagé par plusieurs projets n'est la
-         position d'aucun : c'est exactement la position fabriquée que le reste
-         du système s'interdit. Le projet est donc écarté, et compté comme
-         « emplacement non vérifiable », ce qu'il est réellement. */
+         Mesuré sur Saint-Denis (974) : CINQ fiches avaient atterri sur
+         exactement le même polygone, à la sixième décimale près. Ce n'étaient
+         pas cinq projets voisins, mais cinq avis de marché sans lieu propre
+         (« bâtiments communaux », « les écoles », « les cimetières »,
+         « voiries ») rabattus sur le même repli. Un emplacement partagé par
+         plusieurs projets n'est la position d'aucun. Le projet est donc
+         écarté, et compté comme « emplacement non vérifiable ». */
       if (d < POSITION_MIN_M) {
         geo.superposes++;
         geo.titresSuperposes.push(projet.title);
@@ -4947,40 +5283,128 @@ async function coreGeo(send, step, state) {
   };
 
   const t0 = Date.now();
-  const budgetEpuise = () => Date.now() - t0 > PHASE_BUDGET_MS;
+  const ecoule = () => Date.now() - t0;
+  const budgetEpuise = () => ecoule() > PHASE_BUDGET_MS;
 
-  // Passe a l'etage suivant : on repart de ce qui n'a pas encore de position
   const etapeSuivante = (nom) => {
     geo.etape = nom;
-    geo.curseur = 0;
     geo.aTester = geo.reste.slice();
   };
 
   while (geo.etape !== 'final' && !budgetEpuise() && geo.tours <= GEO_MAX_TOURS) {
-    /* Etage 1, Nominatim : seule source d'emprises et de traces reels, donc on
-       lui reserve le budget, mais UNE requete par projet et au rythme impose
-       par sa politique d'usage (1 requete/seconde). */
-    if (geo.etape === 'nominatim') {
-      if (geo.curseur >= geo.aTester.length) { etapeSuivante('ban'); continue; }
-      const [i, rang] = geo.aTester[geo.curseur++];
-      // Le projet a pu etre place par un essai precedent
-      if (!geo.reste.includes(i) || !queries[i][rang]) continue;
-      const hit = await nominatimLookup(queries[i][rang], communeShim, bbox);
-      if (hit) { retirerDuReste(i); accepter(i, hit); }
-      // Le rythme appartient a la boucle, pas au lookup : place dans le lookup,
-      // il n'etait applique qu'en cas d'echec.
-      await sleep(NOMINATIM_RATE_MS);
+    /* Etage 1 : le repertoire. Indisponible (Geoplateforme muette), la phase
+       se rabat sur la BAN seule plutot que de tout ecarter. */
+    if (geo.etape === 'repertoire') {
+      if (!geo.lieux) {
+        try {
+          const rep = await repertoireDe(state.commune.code);
+          geo.lieux = rep.lieux;
+        } catch (e) {
+          console.warn(`[demo-generate] répertoire des lieux indisponible pour ${state.commune.nom} :: ${e?.message}`);
+          geo.lieux = [];
+        }
+      }
+      if (!geo.lieux.length) { etapeSuivante('ban'); continue; }
+      step('geo', 'start', 'Localisation des projets', `${geo.lieux.length} lieux nommés de la commune relevés, rattachement de ${geo.reste.length} projet(s)...`);
+      etapeSuivante('rattachement');
       continue;
     }
 
-    /* Etage 2, BAN : officielle, scopee sur la commune, sans quota. Elle
-       rattrape tout le reste en une poignee de secondes, donc en parallele. */
+    // Etage 2 : l'IA rattache les projets aux lieux du repertoire
+    if (geo.etape === 'rattachement') {
+      if (!geo.aTester.length) { geo.etape = 'assemblage'; geo.aTester = geo.reste.slice(); continue; }
+      if (ecoule() > RATTACHEMENT_DEPART_MAX_MS) break;
+      const res = await rattacherAuxLieux(state.commune, geo.lieux, projects, geo.aTester);
+      const echoues = [];
+      for (const i of geo.aTester) {
+        const r = res.get(i);
+        if (r) geo.choix[i] = r; else echoues.push(i);
+      }
+      if (echoues.length && geo.reprisesIa < RATTACHEMENT_REPRISES) {
+        geo.reprisesIa++;
+        geo.aTester = echoues;
+        break;
+      }
+      geo.etape = 'assemblage';
+      geo.aTester = geo.reste.slice();
+      continue;
+    }
+
+    /* Etage 3 : l'assemblage. La geometrie du lieu designe, ou l'adresse BAN
+       quand la source donne un numero que l'IA confirme comme celui du projet
+       et que le lieu designe n'est qu'une voie (ou rien) : un numero designe
+       un batiment, pas la rue entiere. */
+    if (geo.etape === 'assemblage') {
+      let rep;
+      try { rep = await repertoireDe(state.commune.code); } catch (e) {
+        console.warn(`[demo-generate] répertoire des lieux à relire indisponible :: ${e?.message}`);
+        etapeSuivante('ban');
+        continue;
+      }
+      const lot = geo.aTester.slice();
+      const adresses = await inChunks(lot, 8, async (i) => {
+        const p = projects[i];
+        if (!geo.choix[i]?.adresse || !AVEC_NUMERO_RE.test(String(p.address || ''))) return null;
+        return banGeocode(p.address, communeShim, bbox);
+      });
+      lot.forEach((i, k) => {
+        if (!geo.reste.includes(i)) return;
+        const choix = geo.choix[i];
+        const noms = (choix?.lieux || []).map((x) => geo.lieux[x]).filter(Boolean);
+        const geoms = noms.map((l) => rep.geometries.get(l.k));
+        const angle = choix?.croisement && geoms.every(Boolean) ? pointDeCroisement(geoms[0], geoms[1]) : null;
+        const g = angle || fusionnerGeometries(geoms);
+        const adresse = adresses[k];
+        let loc = null;
+        if (adresse && (!g || /Line/.test(g.type))) loc = adresse;
+        // L'angle de deux rues est une adresse, pas un lieu-dit : il en prend le libellé à l'écran.
+        else if (g) loc = { geometry: g, method: angle ? 'adresse' : methodeDe(g), lieu_repertoire: noms.map((l) => l.n).join(angle ? ' x ' : ' + ') };
+        if (process.env.DEMO_DUMP) {
+          console.log(`[demo-geo] "${projects[i].title}" « ${choix?.situation || ''} » -> ${loc ? `${loc.lieu_repertoire || `adresse ${projects[i].address}`} (${loc.method})` : 'aucun lieu'}`);
+        }
+        if (loc) { retirerDuReste(i); accepter(i, loc); }
+      });
+      /* Ce que le répertoire ne nomme pas, mais dont la source écrit le lieu,
+         passe au dernier recours Nominatim (étage 4). Le lieu interrogé est
+         la « situation » que l'IA a recopiée de la source, jamais le titre. */
+      geo.etape = 'nominatim';
+      geo.aTester = geo.reste
+        .filter((i) => motsSignificatifs(geo.choix[i]?.situation || '', state.commune.nom).size > 0)
+        .slice(0, NOMINATIM_MAX);
+      continue;
+    }
+
+    /* Etage 4, Nominatim : un dernier recours, borné. La BD TOPO ne nomme ni
+       les bâtiments ni la plupart des lieux de culte. Mesuré le 10/11/2026 :
+       sans cet étage, l'église Saint-Christophe de Faugères et la Maison
+       Ricard de Saint-Genis-Laval, situées par OpenStreetMap dans la version
+       précédente, restaient sans emplacement. Une requête par seconde, imposée
+       par sa politique d'usage, et au plus NOMINATIM_MAX requêtes par
+       génération : l'étage ne peut plus occuper la moitié de la durée. */
+    if (geo.etape === 'nominatim') {
+      const i = geo.aTester.shift();
+      if (i === undefined) { etapeSuivante('ban'); continue; }
+      if (!geo.reste.includes(i)) continue;
+      const hit = await nominatimLookup(geo.choix[i].situation, communeShim, bbox);
+      if (process.env.DEMO_DUMP) console.log(`[demo-geo] nominatim « ${geo.choix[i].situation} » -> ${hit ? `${hit.method} ${hit.geometry.type}` : 'rien'}`);
+      if (hit) { retirerDuReste(i); accepter(i, { ...hit, lieu_repertoire: `OpenStreetMap : ${geo.choix[i].situation}` }); }
+      continue;
+    }
+
+    /* Etage 5, BAN sur les formulations du projet : officielle, scopee sur la
+       commune, sans quota, en parallele. Elle ne sert qu'aux projets que l'IA
+       n'a pas pu juger (repertoire ou IA indisponibles). Un projet pour lequel
+       l'IA a repondu « aucun lieu » n'y passe pas : la BAN ne connait que des
+       voies et des numeros, que le repertoire contient deja, et elle reprenait
+       justement ce que l'IA avait ecarte. Mesure a Noyal (10/11/2026) : la
+       « rue de Vern », adresse de la salle d'une reunion publique, devenait
+       l'emplacement de l'operation Coeur de Ville, a 261 m de son perimetre. */
     if (geo.etape === 'ban') {
-      const lot = geo.aTester.slice(geo.curseur, geo.curseur + 8);
-      geo.curseur += lot.length;
-      if (!lot.length) { etapeSuivante('ia'); continue; }
+      geo.aTester = geo.aTester.filter((i) => !jugeParLIa(geo, i));
+      const lot = geo.aTester.splice(0, 8);
+      if (!lot.length) { geo.etape = 'final'; continue; }
       const trouves = await inChunks(lot, 8, async (i) => {
-        for (const q of queries[i]) {
+        for (const q of locationQueries(projects[i], state.commune.nom)) {
           const hit = await banGeocode(q, communeShim, bbox);
           if (hit) return { i, hit };
         }
@@ -4991,54 +5415,13 @@ async function coreGeo(send, step, state) {
       }
       continue;
     }
-
-    /* L'etage des quartiers IRIS de l'INSEE a ete RETIRE.
-
-       Il posait le projet sur l'emprise d'un secteur statistique entier, ce qui
-       revient a colorier un quartier de plusieurs centaines de metres pour un
-       chantier ponctuel. Mesure sur Venissieux : la ligne de tramway T10 et
-       Grand Parilly - Puisoz etaient rendus ainsi. Devant un elu qui connait
-       son territoire, une tache large affichee a la place d'un projet precis se
-       lit comme une approximation, pas comme une information.
-       Un projet qu'on ne sait situer qu'a la maille du quartier est desormais
-       ecarte, comme tous les autres emplacements non verifiables. */
-
-    /* Dernier recours : on redemande a l'IA. Elle a lu les sources et
-       sait souvent nommer un lieu geocodable que les champs structures n'ont
-       pas rendu. Un seul appel pour tous les projets restants. */
-    if (geo.etape === 'ia') {
-      if (!geo.lieuxIa) {
-        const restants = geo.reste.slice();
-        const propositions = restants.length ? await askAiForPlaces(state.commune, restants.map((i) => projects[i])) : [];
-        geo.lieuxIa = restants
-          .map((i, k) => ({ i, lieu: propositions[k] }))
-          .filter((x) => x.lieu && x.lieu.length >= 3 && !adresseDeGuichet(x.lieu, projects[x.i].source_excerpt));
-        // BAN d'abord, en parallele et sans quota
-        const trouves = await inChunks(geo.lieuxIa, 8, async ({ i, lieu }) => {
-          const hit = await banGeocode(lieu, communeShim, bbox);
-          return hit ? { i, hit } : null;
-        });
-        for (const r of trouves) {
-          if (r && geo.reste.includes(r.i)) { retirerDuReste(r.i); accepter(r.i, r.hit); }
-        }
-        geo.curseur = 0;
-        continue;
-      }
-      // Nominatim ensuite, en serie et au rythme impose, pour les lieux NOMMES
-      // (« quartier de la Plaine ») que la BAN n'indexe pas.
-      if (geo.curseur >= geo.lieuxIa.length) { geo.etape = 'final'; continue; }
-      const { i, lieu } = geo.lieuxIa[geo.curseur++];
-      if (!geo.reste.includes(i)) continue;
-      const hit = await nominatimLookup(lieu, communeShim, bbox);
-      if (hit) { retirerDuReste(i); accepter(i, hit); }
-      await sleep(NOMINATIM_RATE_MS);
-      continue;
-    }
   }
 
-  // Budget epuise mais travail inacheve : on rend la main, la tranche suivante
-  // reprend exactement ou celle-ci s'arrete.
-  if (geo.etape !== 'final' && geo.tours < GEO_MAX_TOURS) {
+  /* Budget epuise mais travail inacheve : on rend la main, la tranche suivante
+     reprend exactement ou celle-ci s'arrete. L'affinage final a lui aussi sa
+     tranche quand celle-ci n'a plus de quoi le tenir. */
+  const resteAFaire = geo.etape !== 'final' || ecoule() > PHASE_BUDGET_MS - AFFINAGE_BUDGET_MS;
+  if (resteAFaire && geo.tours < GEO_MAX_TOURS) {
     step('geo', 'done', 'Localisation en cours', `${state.located.length} projet(s) situé(s) jusqu'ici`);
     state.__continue = true;
     return state;
@@ -5077,13 +5460,12 @@ async function coreGeo(send, step, state) {
     geo.titresAbandonnes.push(...geo.reste.map((i) => projects[i].title));
     const depart = projects.length;
     projects.push(...reserve);
-    // On repart uniquement sur les nouveaux venus, à l'étage le plus complet.
-    geo.etape = 'nominatim';
-    geo.curseur = 0;
+    /* On repart uniquement sur les nouveaux venus, depuis le répertoire : il
+       est déjà relevé, la tranche suivante passe donc tout de suite à l'IA. */
+    geo.etape = 'repertoire';
     geo.reste = reserve.map((_, k) => depart + k);
-    geo.aTester = essaisNominatim(projects.map((p) => locationQueries(p, state.commune.nom)))
-      .filter(([i]) => i >= depart);
-    geo.lieuxIa = null;
+    geo.aTester = geo.reste.slice();
+    geo.reprisesIa = 0;
     step('geo', 'done', 'Localisation en cours', `${state.located.length} projet(s) situé(s), reprise sur les marchés publics`);
     state.projects = projects;
     state.__continue = true;
@@ -6365,9 +6747,15 @@ export const _internals = {
   collectPageLinks,
   collectPdfLinks,
   nomDeFichier,
-  essaisNominatim,
   migrerEtatGeo,
+  coreGeo,
+  nominatimLookup,
   communeDuResultat,
+  motsSignificatifs,
+  releverLeRepertoire,
+  rattacherAuxLieux,
+  allegerLaGeometrie,
+  fusionnerGeometries,
   METHOD_LABELS,
   sansPrefixeGenerique,
   nomCoherent,
