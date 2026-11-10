@@ -189,6 +189,7 @@ L'outil est installé par poste : `.claude/` n'est pas suivi par git. S'il manqu
 
 ## Sécurité
 - Une table qui reçoit des données personnelles (`contact_requests`, `demo_leads`) n'a **jamais** de politique de lecture publique : le dépôt est ouvert, la lecture est réservée. Conséquence pour le code : une insertion faite avec la clé anonyme ne demande pas la ligne en retour (pas de `.select()` après `.insert()`, pas de `Prefer: return=representation`), sinon PostgREST exige le droit de lecture et l'écriture échoue en entier.
+- **Droits des comptes** (`profiles.role`, `profiles.ville`) : jamais écrits depuis le navigateur. La console change un rôle par la fonction de base `set_profile_role()` ; la règle « qui peut changer les droits de qui » n'est écrite que dans la garde `profiles_rights_guard` (personne ne change ses propres droits, un administrateur de ville ne change que le rôle d'un compte dont tous les espaces sont les siens, le reste relève du super administrateur), et chaque changement est noté dans `profiles_log`. Les fonctions serveur qui tiennent la clé de service (`invite-user`, SSO) écrivent sans passer par la garde. Toute retouche se rejoue sur une base locale : `supabase/tests/profils-droits.sql` (54 cas, mode d'emploi en tête du fichier), jamais sur le projet Supabase.
 - `SecurityUtils.escapeHtml()` pour toute injection DOM de contenu utilisateur
 - `SecurityUtils.sanitizeUrl()` pour les liens externes (bloque `javascript:`, `data:text/html`)
 - Valider les codes ville : `/^[a-z0-9-]+$/i`
