@@ -1001,6 +1001,32 @@ async function fetchSitemapUrls(baseUrl) {
   return [];
 }
 
+/* Selection de `max` entrees de sitemap reparties entre rubriques : une
+   rubrique est le chemin de l'adresse sans son dernier segment. Chaque tour
+   prend l'entree la plus recente de chaque rubrique encore pourvue, les
+   rubriques les plus fraiches d'abord. Sous le plafond, tout est garde. */
+function repartirParRubrique(entrees, max) {
+  const recentes = [...entrees].sort((a, b) => String(b.lastmod).localeCompare(String(a.lastmod)));
+  if (recentes.length <= max) return recentes;
+  const rubriques = new Map();
+  for (const e of recentes) {
+    let cle = '';
+    try { cle = new URL(e.url).pathname.replace(/\/+$/, '').split('/').slice(0, -1).join('/'); } catch { /* adresse illisible */ }
+    if (!rubriques.has(cle)) rubriques.set(cle, []);
+    rubriques.get(cle).push(e);
+  }
+  const files = [...rubriques.values()];
+  const out = [];
+  for (let tour = 0; out.length < max; tour++) {
+    let pris = false;
+    for (const f of files) {
+      if (tour < f.length) { out.push(f[tour]); pris = true; if (out.length >= max) break; }
+    }
+    if (!pris) break;
+  }
+  return out;
+}
+
 // Intitule lisible tire du dernier segment d'une adresse : le slug d'un CMS est
 // une phrase (« les-pistes-de-padel-debarquent-en-ville »), pas un identifiant.
 function libelleDuChemin(u) {
@@ -1274,13 +1300,18 @@ async function inspectMairieSite(siteUrl, communeNom, echeance = Infinity) {
             && p.pathname !== '/';
         } catch { return false; }
       })
-      // Le plus recent d'abord : c'est structurel, pas un jugement sur le sujet.
-      // Au-dela du plafond, une page ancienne a peu de chances de decrire une
-      // operation encore en cours.
-      .sort((a, b) => String(b.lastmod).localeCompare(String(a.lastmod)))
-      .slice(0, SITEMAP_URLS_MAX)
-      .map((e) => ({ url: e.url, label: libelleDuChemin(e.url) }));
-    links.push(...duSitemap);
+    /* Au-dela du plafond, on ne garde plus simplement les plus recentes :
+       un site regenere son annuaire chaque nuit, et ses fiches occupaient
+       alors tout le plafond. Mesure sur saintgenislaval.fr : 2 235 adresses,
+       les 400 plus recentes etaient l'annuaire des entreprises et des
+       associations (toutes datees du jour), et aucune des six pages de la
+       rubrique « projets en cours » n'etait ouverte. Les places sont donc
+       reparties entre RUBRIQUES (le dossier de l'adresse), a tour de role, la
+       plus recente d'abord dans chaque rubrique. C'est structurel : aucun mot
+       n'y est juge, une petite rubrique passe simplement avant la centieme
+       fiche d'une grande. */
+    links.push(...repartirParRubrique(duSitemap, SITEMAP_URLS_MAX)
+      .map((e) => ({ url: e.url, label: libelleDuChemin(e.url) })));
   }
   console.log(`[demo-generate] candidats : ${depuisAccueil} de l'accueil + ${links.length - depuisAccueil} du sitemap`);
 
@@ -6001,6 +6032,7 @@ export const _internals = {
   choisirLogoEtCouleur,
   couleurDepuisSvg,
   inChunks,
+  repartirParRubrique,
   lireFluxBorne,
   lireJson,
   corpsJson,
