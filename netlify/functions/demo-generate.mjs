@@ -3152,12 +3152,401 @@ async function releverLeRepertoire(code) {
    tranche peut tourner dans une invocation neuve : il est alors relevé de
    nouveau, et les lieux y sont retrouvés par leur clé, pas par leur rang. */
 const _repertoires = new Map();
-async function repertoireDe(code) {
+async function repertoireIgnDe(code) {
   if (!_repertoires.has(code)) {
     const r = await releverLeRepertoire(code);
     _repertoires.set(code, r);
   }
   return _repertoires.get(code);
+}
+
+/* Le répertoire complet : les lieux de l'IGN, puis les opérations nommées de
+   l'open data quand la recette en désigne (voir recetteOuverte). Une source
+   muette n'empêche pas l'autre de servir : sans la BD TOPO, les opérations de
+   l'open data situent encore ce qu'elles nomment. */
+const _repertoiresComplets = new Map();
+async function repertoireDe(code, recette = null) {
+  if (!recette?.length) return repertoireIgnDe(code);
+  const cle = `${code}|${recette.map((r) => `${r.url}|${r.champ}`).join('|')}`;
+  if (!_repertoiresComplets.has(cle)) {
+    const [ign, ouverts] = await Promise.all([
+      repertoireIgnDe(code).catch((e) => ({ erreur: e })),
+      lieuxOuverts(code, recette).catch((e) => {
+        console.warn(`[demo-generate] open data à relire indisponible pour ${code} :: ${e?.message}`);
+        return { lieux: [], geometries: new Map() };
+      }),
+    ]);
+    if (ign.erreur && !ouverts.lieux.length) throw ign.erreur;
+    const base = ign.erreur ? { lieux: [], geometries: new Map(), couchesEnEchec: COUCHES_REPERTOIRE.length } : ign;
+    _repertoiresComplets.set(cle, {
+      ...base,
+      lieux: [...base.lieux, ...ouverts.lieux],
+      geometries: new Map([...base.geometries, ...ouverts.geometries]),
+      lieuxOuverts: ouverts.lieux.length,
+    });
+  }
+  return _repertoiresComplets.get(cle);
+}
+
+/* ─── Opérations d'aménagement de l'open data des collectivités ───
+
+   La BD TOPO nomme les voies et les équipements, pas les opérations. À Noyal,
+   la ZAC Centre-Ville et la ZAC de l'Ise, attestées par le site de la commune,
+   restaient sans lieu. Les périmètres de ZAC du Géoportail de l'urbanisme
+   existent, mais sans nom, et les rapprocher des projets par l'IA (surface,
+   rues, distance) s'est trompé deux fois sur trois. Les NOMS de ces opérations
+   sont publiés par les collectivités elles-mêmes, dans leur open data, que le
+   catalogue national data.gouv.fr moissonne.
+
+   On procède en quatre temps, sans aucun portail ni aucun jeu désigné à
+   l'avance :
+   1. les organisations du catalogue qui SONT la commune ou son
+      intercommunalité, reconnues à leur SIREN (celui que donne geo.api.gouv.fr)
+      et non à leur nom, qui ramène aussi des homonymes ;
+   2. l'IA lit les titres et le début des descriptions de tous leurs jeux, et
+      retient ceux qui décrivent des opérations d'aménagement ;
+   3. le code télécharge la part de chaque jeu retenu qui couvre la commune,
+      quand le jeu offre une ressource lisible sans dépendance (export GeoJSON
+      Opendatasoft, WFS ou OGC API Features filtrés sur la boîte de la commune,
+      ou fichier GeoJSON), et ne garde que les objets situés dans la commune ;
+   4. l'IA désigne, sur un échantillon des propriétés, le champ qui porte le
+      nom de l'opération.
+   Les objets ainsi nommés rejoignent le répertoire avec leur vraie géométrie.
+
+   Ce qui a été jugé une fois (jeux, adresses de téléchargement, champ du nom)
+   forme la « recette », petite et sérialisable, qui voyage dans l'état de la
+   phase : une tranche qui tourne dans une invocation neuve retélécharge les
+   objets sans refaire juger l'IA, et y retrouve les mêmes clés. Là où rien
+   n'est publié, la recette est vide et le répertoire reste celui de l'IGN. */
+const DATAGOUV_API = 'https://www.data.gouv.fr/api/1';
+const OUVERT_TIMEOUT_MS = 8000;
+// Toute la découverte tient dans une tranche, à côté du relevé de l'IGN qui tourne en même temps
+const OUVERT_BUDGET_MS = 17000;
+const OUVERT_CATALOGUE_MAX_BYTES = 12000000;
+const OUVERT_JEU_MAX_BYTES = 8000000;
+// Jeux de données d'une organisation lus en une requête : plus que n'en publie la plus fournie des métropoles
+const OUVERT_JEUX_PAR_ORGANISATION = 1000;
+const OUVERT_JEUX_MAX = 8;
+const OUVERT_LIEUX_PAR_JEU_MAX = 80;
+const OUVERT_DESCRIPTION_CHARS = 80;
+const OUVERT_DESCRIPTION_JUGEE_CHARS = 300;
+// Échantillon montré à l'IA pour chaque champ : assez pour reconnaître un nom, peu pour rester bref
+const OUVERT_ECHANTILLON_VALEURS = 8;
+const OUVERT_VALEUR_CHARS = 50;
+
+// Commune telle que la connaît l'administration : SIREN, intercommunalité, contour exact
+const _communesAdministratives = new Map();
+async function communeAdministrative(code) {
+  if (!_communesAdministratives.has(code)) {
+    const r = await fetchWithTimeout(`https://geo.api.gouv.fr/communes/${encodeURIComponent(code)}?fields=nom,siren,epci,departement,contour&geometry=contour`, { headers: UA }, OUVERT_TIMEOUT_MS);
+    if (!r.ok) throw new Error(`geo.api.gouv.fr http=${r.status}`);
+    const c = await lireJson(r, OUVERT_TIMEOUT_MS, 4000000);
+    if (!c?.contour) throw new Error('contour de la commune introuvable');
+    _communesAdministratives.set(code, c);
+  }
+  return _communesAdministratives.get(code);
+}
+
+async function catalogue(chemin, champs, maxBytes = 2000000) {
+  const r = await fetchWithTimeout(`${DATAGOUV_API}${chemin}`, { headers: { ...UA, 'X-Fields': champs } }, OUVERT_TIMEOUT_MS);
+  if (!r.ok) throw new Error(`data.gouv.fr http=${r.status}`);
+  return lireJson(r, OUVERT_TIMEOUT_MS, maxBytes);
+}
+
+/* Les organisations qui publient AU NOM de la commune ou de son
+   intercommunalité. Le nom ne sert qu'à chercher ; c'est le SIREN, porté par le
+   SIRET de l'organisation, qui décide. Une métropole publie parfois sous deux
+   organisations (Rennes Métropole en a deux, de même SIREN) : on garde les deux.
+   L'intercommunalité est cherchée aussi sous son nom distinctif : la
+   « CA Vienne Condrieu » des données officielles s'appelle « Vienne Condrieu
+   Agglomération » au catalogue, et le sigle seul suffit à ne rien trouver. */
+async function organisationsDuTerritoire(admin) {
+  const recherches = [
+    admin.siren && { siren: admin.siren, q: admin.nom },
+    admin.epci?.code && { siren: admin.epci.code, q: admin.epci.nom },
+    admin.epci?.code && nomDistinctifEpci(admin.epci.nom) !== admin.epci.nom && { siren: admin.epci.code, q: nomDistinctifEpci(admin.epci.nom) },
+  ].filter(Boolean);
+  const trouvees = await Promise.all(recherches.map(async (t) => {
+    const q = new URLSearchParams({ q: t.q, page_size: '50' });
+    const d = await catalogue(`/organizations/?${q}`, 'data{id,name,business_number_id}').catch(() => null);
+    return (d?.data || []).filter((o) => String(o.business_number_id || '').replace(/\s/g, '').startsWith(t.siren));
+  }));
+  const parId = new Map();
+  for (const o of trouvees.flat()) parId.set(o.id, o);
+  return [...parId.values()];
+}
+
+async function jeuxDesOrganisations(organisations) {
+  const listes = await Promise.all(organisations.map(async (o) => {
+    const q = new URLSearchParams({ organization: o.id, page_size: String(OUVERT_JEUX_PAR_ORGANISATION) });
+    const d = await catalogue(`/datasets/?${q}`, 'data{id,title,description,resources{format,url,mime}}', OUVERT_CATALOGUE_MAX_BYTES)
+      .catch((e) => { console.warn(`[demo-generate] jeux de ${o.name} illisibles :: ${e?.message}`); return null; });
+    return (d?.data || []).map((j) => ({ ...j, organisation: o.name }));
+  }));
+  const parId = new Map();
+  for (const j of listes.flat()) if (!parId.has(j.id)) parId.set(j.id, j);
+  return [...parId.values()];
+}
+
+/* La ressource d'un jeu qu'on sait lire SANS DÉPENDANCE, et surtout qu'on sait
+   restreindre à la commune avant de la télécharger. Ce sont des protocoles, pas
+   des portails : l'export d'Opendatasoft, le WFS et l'OGC API Features filtrent
+   par boîte côté serveur ; un fichier GeoJSON se lit entier, sous un plafond.
+   Un shapefile zippé ou un service sans GeoJSON ne sont pas lisibles ici. */
+function ressourceLisible(jeu) {
+  const lisibles = [];
+  for (const res of jeu.resources || []) {
+    const url = String(res.url || '');
+    if (!isSafePublicUrl(url)) continue;
+    let u;
+    try { u = new URL(url); } catch { continue; }
+    const params = new Map([...u.searchParams].map(([k, v]) => [k.toLowerCase(), v]));
+    if (/\/api\/explore\/v2\.1\/catalog\/datasets\/[^/]+\/exports\/geojson\/?$/.test(u.pathname)) lisibles.push({ mode: 'opendatasoft', url, rang: 0 });
+    else if (/^getfeature$/i.test(params.get('request') || '') && /json/i.test(params.get('outputformat') || '')) lisibles.push({ mode: 'wfs', url, rang: 1 });
+    else if (/\/collections\/[^/]+\/items\/?$/.test(u.pathname)) lisibles.push({ mode: 'ogcapi', url, rang: 2 });
+    else if (/geojson/i.test(`${res.format} ${res.mime}`) || /\.geojson$/i.test(u.pathname)) lisibles.push({ mode: 'fichier', url, rang: 3 });
+  }
+  return lisibles.sort((a, b) => a.rang - b.rang)[0] || null;
+}
+
+function boiteDe(contour) {
+  const pts = pointsDe(contour);
+  return {
+    minLng: Math.min(...pts.map((p) => p[0])), maxLng: Math.max(...pts.map((p) => p[0])),
+    minLat: Math.min(...pts.map((p) => p[1])), maxLat: Math.max(...pts.map((p) => p[1])),
+  };
+}
+
+// L'adresse qui ne télécharge que la boîte de la commune, quand le protocole le permet
+async function adresseDansLaBoite(res, b) {
+  const u = new URL(res.url);
+  if (res.mode === 'opendatasoft') {
+    // Le filtre porte sur le champ point du jeu, dont le nom varie : la fiche du jeu le donne
+    const fiche = await fetchWithTimeout(res.url.replace(/\/exports\/geojson\/?$/, ''), { headers: UA }, OUVERT_TIMEOUT_MS);
+    if (!fiche.ok) throw new Error(`fiche Opendatasoft http=${fiche.status}`);
+    const champs = (await lireJson(fiche, OUVERT_TIMEOUT_MS, 2000000)).fields || [];
+    const point = champs.find((f) => f.type === 'geo_point_2d')?.name;
+    if (point) u.searchParams.set('where', `in_bbox(${point}, ${b.minLat}, ${b.minLng}, ${b.maxLat}, ${b.maxLng})`);
+  } else if (res.mode === 'wfs') {
+    for (const k of [...u.searchParams.keys()]) if (/^(bbox|srsname)$/i.test(k)) u.searchParams.delete(k);
+    // En WFS 2.0, l'URN du système de référence impose l'ordre latitude, longitude dans la boîte
+    u.searchParams.set('BBOX', `${b.minLat},${b.minLng},${b.maxLat},${b.maxLng},urn:ogc:def:crs:EPSG::4326`);
+    u.searchParams.set('SRSNAME', 'EPSG:4326');
+  } else if (res.mode === 'ogcapi') {
+    u.searchParams.set('bbox', `${b.minLng},${b.minLat},${b.maxLng},${b.maxLat}`);
+    u.searchParams.set('limit', '1000');
+  }
+  return u.toString();
+}
+
+/* Les objets d'un jeu situés dans la commune : l'un de leurs sommets tombe dans
+   son contour exact (la boîte du téléchargement déborde sur les voisines). Un
+   jeu plus lourd que le plafond est ignoré plutôt que tronqué. */
+const _objetsOuverts = new Map();
+async function objetsDansLaCommune(url, contour) {
+  if (!_objetsOuverts.has(url)) {
+    const r = await fetchWithTimeout(url, { headers: { ...UA, Accept: 'application/geo+json, application/json' } }, OUVERT_TIMEOUT_MS);
+    if (!r.ok) throw new Error(`http=${r.status}`);
+    const d = await lireJson(r, OUVERT_TIMEOUT_MS, OUVERT_JEU_MAX_BYTES);
+    const objets = (d?.features || []).filter((f) => f?.geometry?.coordinates && pointsDe(f.geometry).some((pt) => contientPoint(contour, pt)));
+    _objetsOuverts.set(url, objets);
+  }
+  return _objetsOuverts.get(url);
+}
+
+const PRESELECTION_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: { jeux: { type: 'array', items: { type: 'integer' } } },
+  required: ['jeux'],
+};
+
+/* Premier tri, sur le catalogue entier : il ne reçoit que des titres et des
+   débuts de description, d'où un modèle léger, car une métropole publie
+   plusieurs centaines de jeux. C'est la longueur de la liste qui fait la durée
+   (près de 700 jeux à Rennes Métropole : de 6 à 13 s en un seul appel, mesuré
+   le 10/11/2026) ; elle part donc en lots parallèles, dont les choix sont pris
+   à tour de rôle, le premier de chaque lot d'abord. Ce tri ratisse large : le
+   modèle léger retient aussi des jeux hors sujet (à Bègles, une « trame noire »
+   et des zones de collecte des déchets), que le jugement final écarte en
+   voyant leurs objets. */
+const OUVERT_CHOIX_LOT = 200;
+const OUVERT_CANDIDATS_PAR_LOT = 8;
+const OUVERT_CANDIDATS_MAX = 16;
+async function preselectionnerLesJeux(admin, jeux) {
+  const lots = [];
+  for (let k = 0; k < jeux.length; k += OUVERT_CHOIX_LOT) lots.push(jeux.slice(k, k + OUVERT_CHOIX_LOT));
+  const choix = await Promise.all(lots.map((lot) => preselectionnerUnLot(admin, lot).catch((e) => {
+    console.warn(`[demo-generate] tri des jeux ouverts indisponible pour ${lot.length} jeu(x) :: ${e?.message}`);
+    return [];
+  })));
+  const candidats = [];
+  for (let rang = 0; candidats.length < OUVERT_CANDIDATS_MAX && choix.some((c) => c.length > rang); rang++) {
+    for (const c of choix) if (c[rang] && candidats.length < OUVERT_CANDIDATS_MAX) candidats.push(c[rang]);
+  }
+  return candidats;
+}
+
+async function preselectionnerUnLot(admin, jeux) {
+  const liste = jeux.map((j, i) => `${i}|${j.title}|${String(j.description || '').replace(/\s+/g, ' ').slice(0, OUVERT_DESCRIPTION_CHARS)}`).join('\n');
+  const system = `Tu prépares la carte des projets d'aménagement de la commune de ${admin.nom}. Voici des jeux de données ouverts publiés par la commune et par son intercommunalité (${admin.epci?.nom || 'aucune'}), un par ligne : index|titre|début de la description.
+
+Donne l'index des jeux dont les objets peuvent être des secteurs, des opérations ou des tracés d'aménagement désignés par un nom propre : zones d'aménagement concerté, opérations ou programmes d'aménagement, projets urbains, secteurs de renouvellement urbain, secteurs d'orientations d'aménagement d'un plan local d'urbanisme, itinéraires cyclables en projet. Les plus prometteurs d'abord, ${OUVERT_CANDIDATS_PAR_LOT} au plus. Liste vide si aucun ne convient.`;
+  const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: liste }],
+    'jeux_amenagement', PRESELECTION_SCHEMA, 200, 15000, 0, OPENAI_MODEL_LIGHT, 1);
+  return [...new Set((out.jeux || []).filter((i) => Number.isInteger(i) && jeux[i]))].slice(0, OUVERT_CANDIDATS_PAR_LOT).map((i) => jeux[i]);
+}
+
+const JUGEMENT_JEUX_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    jeux: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer' },
+          operations: { type: 'boolean', description: 'Vrai si les objets du jeu sont des opérations, des secteurs de projet ou des tracés d\'aménagement, faux sinon.' },
+          nature: { type: 'string', description: 'Ce que sont les objets du jeu, en quelques mots au singulier (par exemple « zone d\'aménagement concerté »).' },
+          champ: { type: 'string', description: 'Le champ dont la valeur est le nom propre de l\'opération ou du projet, recopié. Chaîne vide si aucun champ ne porte un tel nom.' },
+          valeurs: { type: 'string', enum: ['nom propre de chaque operation', 'categorie partagee par beaucoup d\'objets', 'aucun champ'], description: 'Ce que sont les valeurs du champ choisi.' },
+        },
+        required: ['index', 'operations', 'nature', 'champ', 'valeurs'],
+      },
+    },
+  },
+  required: ['jeux'],
+};
+
+/* Le jugement final, sur pièces : le titre, la description, et un échantillon
+   des propriétés des objets situés dans la commune. L'IA dit si ce sont des
+   opérations d'aménagement, et quel champ porte leur nom : les jeux ne
+   s'accordent sur aucun nom de champ (« nomzac », « nomopa », « label_long »,
+   « nom »). Le code vérifie que le champ désigné existe bien. */
+async function jugerLesJeux(admin, jeux) {
+  const descriptions = jeux.map(({ jeu, objets }, index) => {
+    const valeurs = new Map();
+    for (const f of objets) {
+      for (const [k, v] of Object.entries(f.properties || {})) {
+        if (v === null || v === '' || typeof v === 'object') continue;
+        if (!valeurs.has(k)) valeurs.set(k, new Set());
+        valeurs.get(k).add(String(v).slice(0, OUVERT_VALEUR_CHARS));
+      }
+    }
+    /* Un nom s'écrit en lettres : un champ dont aucune valeur ne contient trois
+       lettres de suite (nombres, dates, codes) n'en porte pas, inutile de le
+       montrer. */
+    const champs = {};
+    for (const [k, s] of valeurs) {
+      if (![...s].some((v) => /\p{L}{3}/u.test(v))) continue;
+      champs[k] = { valeurs_distinctes: s.size, exemples: [...s].slice(0, OUVERT_ECHANTILLON_VALEURS) };
+    }
+    return {
+      index, titre: jeu.title,
+      description: String(jeu.description || '').replace(/\s+/g, ' ').slice(0, OUVERT_DESCRIPTION_JUGEE_CHARS),
+      objets_dans_la_commune: objets.length, champs,
+    };
+  });
+  const system = `Voici des jeux de données ouverts qui couvrent la commune de ${admin.nom}, avec un échantillon des propriétés de leurs objets situés dans la commune. Ils serviront à situer sur une carte les projets d'aménagement de la commune.
+
+Pour chaque jeu, dis d'abord si ses objets sont des opérations, des secteurs de projet ou des tracés d'aménagement (zone d'aménagement concerté, opération ou programme d'aménagement, projet urbain, renouvellement urbain, secteur d'orientations d'aménagement, itinéraire cyclable) : un parc, une trame écologique, un équipement existant, une zone de collecte ou un zonage réglementaire n'en sont pas.
+
+Dis ensuite quel champ porte le NOM PROPRE de chaque objet (« ZAC des Prés », « Secteur Gare », « Réseau express vélo n° 3 ») : pas un code, pas un identifiant, pas une nature ou un type générique, pas une date, pas un nom de commune, et pas le simple nom de la rue où se trouve l'objet. Un nom propre distingue un objet des autres : un champ qui range les objets en quelques catégories (niveau de réseau, type, état, maître d'ouvrage) n'en porte pas, même si ses valeurs ont des majuscules. Quand plusieurs champs en portent un, choisis celui de l'opération d'ensemble plutôt que celui d'un lot ou d'un îlot. Chaîne vide si aucun champ ne porte un tel nom. Dis enfin ce que sont les valeurs du champ choisi : le nom propre de chaque opération, ou une catégorie que partagent beaucoup d'objets (compare le nombre de valeurs distinctes au nombre d'objets).`;
+  const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: JSON.stringify(descriptions) }],
+    'jugement_jeux', JUGEMENT_JEUX_SCHEMA, 200 + 120 * jeux.length, 15000, 0, OPENAI_MODEL, 1);
+  const parIndex = new Map((out.jeux || []).map((x) => [x.index, x]));
+  return jeux.map((_, i) => {
+    const x = parIndex.get(i);
+    if (!x) return { motif: 'non jugé' };
+    if (!x.operations) return { motif: 'pas des opérations' };
+    if (!x.champ || !descriptions[i].champs[x.champ] || !/^nom propre/.test(x.valeurs)) return { motif: 'aucun champ ne porte de nom' };
+    return { champ: x.champ, nature: String(x.nature || '').trim().slice(0, 90) };
+  });
+}
+
+/* La recette : rend [{ id, titre, nature, url, champ }], vide là où
+   rien n'est publié ou lisible. Les mesures de chaque étape partent au journal. */
+async function recetteOuverte(code) {
+  const t0 = Date.now();
+  const admin = await communeAdministrative(code);
+  const organisations = await organisationsDuTerritoire(admin);
+  if (!organisations.length) { console.log(`[demo-generate] open data ${admin.nom} : aucune organisation de la commune ni de l'intercommunalité au catalogue`); return []; }
+  const jeux = await jeuxDesOrganisations(organisations);
+  const tCatalogue = Date.now() - t0;
+  if (!jeux.length) return [];
+  const candidats = await preselectionnerLesJeux(admin, jeux);
+  const tTri = Date.now() - t0;
+  const boite = boiteDe(admin.contour);
+  const lus = await Promise.all(candidats.map(async (jeu) => {
+    const res = ressourceLisible(jeu);
+    if (!res) return { jeu, motif: 'aucune ressource lisible' };
+    try {
+      const url = await adresseDansLaBoite(res, boite);
+      const objets = await objetsDansLaCommune(url, admin.contour);
+      return objets.length ? { jeu, url, objets } : { jeu, motif: 'aucun objet dans la commune' };
+    } catch (e) { return { jeu, motif: `illisible (${e?.message})` }; }
+  }));
+  const exploitables = lus.filter((r) => r.objets);
+  const tTelechargement = Date.now() - t0;
+  const verdicts = exploitables.length ? await jugerLesJeux(admin, exploitables) : [];
+  const recette = [];
+  exploitables.forEach((r, i) => {
+    const v = verdicts[i];
+    if (v.champ && recette.length < OUVERT_JEUX_MAX) recette.push({ id: r.jeu.id, titre: r.jeu.title, nature: v.nature, url: r.url, champ: v.champ });
+    else r.motif = v.motif || 'au-delà du plafond';
+  });
+  console.log(`[demo-generate] open data ${admin.nom} : ${organisations.map((o) => o.name.trim()).join(', ')} ; ${jeux.length} jeux au catalogue ; candidats : ${lus.map((r) => `« ${r.jeu.title} » (${r.motif || `${r.objets.length} objets, retenu`})`).join(', ') || 'aucun'} ; ${recette.length} dans la recette ; catalogue ${tCatalogue} ms, tri ${tTri} ms, téléchargements ${tTelechargement} ms, fin ${Date.now() - t0} ms`);
+  return recette;
+}
+
+/* La découverte ne doit jamais retarder la localisation : passé son budget,
+   la phase continue avec le seul répertoire de l'IGN, et rien n'est perdu
+   qu'une source facultative. */
+async function recetteOuverteBornee(code) {
+  let minuteur;
+  const delai = new Promise((ok) => { minuteur = setTimeout(() => {
+    console.warn(`[demo-generate] open data ${code} : découverte abandonnée après ${OUVERT_BUDGET_MS} ms`);
+    ok([]);
+  }, OUVERT_BUDGET_MS); });
+  try {
+    return await Promise.race([recetteOuverte(code).catch((e) => {
+      console.warn(`[demo-generate] open data ${code} indisponible :: ${e?.message}`);
+      return [];
+    }), delai]);
+  } finally { clearTimeout(minuteur); }
+}
+
+/* Les lieux de la recette. Les objets qui portent le même nom dans un même jeu
+   forment un seul lieu (une ZAC multisite, les lots d'une opération) ; un objet
+   sans nom ne se distingue pas et reste dehors. La clé tient au jeu et au nom,
+   pas au rang : elle se retrouve d'une invocation à l'autre. */
+async function lieuxOuverts(code, recette) {
+  const admin = await communeAdministrative(code);
+  const lieux = []; const geometries = new Map();
+  await Promise.all(recette.map(async (r) => {
+    let objets;
+    try { objets = await objetsDansLaCommune(r.url, admin.contour); } catch (e) {
+      console.warn(`[demo-generate] open data « ${r.titre} » indisponible :: ${e?.message}`);
+      return;
+    }
+    const parNom = new Map();
+    for (const f of objets) {
+      const nom = String(f.properties?.[r.champ] ?? '').replace(/\s+/g, ' ').trim();
+      const cle = unaccentLower(nom);
+      if (!nom || cle === unaccentLower(admin.nom)) continue;
+      if (!parNom.has(cle)) parNom.set(cle, { nom, geoms: [] });
+      parNom.get(cle).geoms.push(f.geometry);
+    }
+    for (const [cle, l] of [...parNom].slice(0, OUVERT_LIEUX_PAR_JEU_MAX)) {
+      const k = `ouvert:${r.id}:${cle}`;
+      lieux.push({ n: l.nom, t: r.nature, c: 'operation', k });
+      geometries.set(k, fusionnerGeometries(l.geoms));
+    }
+  }));
+  lieux.sort((a, b) => a.t.localeCompare(b.t, 'fr') || a.n.localeCompare(b.n, 'fr'));
+  return { lieux, geometries };
 }
 
 /* ─── Rattachement des projets au répertoire, par l'IA ─── */
@@ -3209,7 +3598,7 @@ const RATTACHEMENT_LIEUX_MAX = 4;
    des secteurs du chantier d'eau potable tombaient hors des 700 signes gardés. */
 async function rattacherUnLot(commune, lieux, projets) {
   const liste = lieux.map((l, i) => `${i}|${l.n}${l.t ? `|${l.t}` : ''}`).join('\n');
-  const system = `Tu situes des projets de la commune de ${commune.nom} sur sa carte. Voici le répertoire des lieux de la commune relevés dans les données nationales de l'IGN, un par ligne : index|nom|nature.
+  const system = `Tu situes des projets de la commune de ${commune.nom} sur sa carte. Voici le répertoire des lieux de la commune relevés dans les données nationales de l'IGN et dans l'open data des collectivités (opérations d'aménagement, zones d'aménagement concerté, secteurs de projet), un par ligne : index|nom|nature.
 
 ${liste}
 
@@ -5296,8 +5685,19 @@ async function coreGeo(send, step, state) {
        se rabat sur la BAN seule plutot que de tout ecarter. */
     if (geo.etape === 'repertoire') {
       if (!geo.lieux) {
+        /* La recette de l'open data est jugée une seule fois, pendant que le
+           relevé de l'IGN tourne : les deux tiennent ensemble dans la tranche.
+           Elle reste ensuite dans l'état, pour que les tranches suivantes
+           relisent les mêmes lieux sans refaire juger l'IA. */
+        if (geo.recetteOuverte === undefined) {
+          const [recette] = await Promise.all([
+            recetteOuverteBornee(state.commune.code),
+            repertoireDe(state.commune.code).catch(() => null),
+          ]);
+          geo.recetteOuverte = recette;
+        }
         try {
-          const rep = await repertoireDe(state.commune.code);
+          const rep = await repertoireDe(state.commune.code, geo.recetteOuverte);
           geo.lieux = rep.lieux;
         } catch (e) {
           console.warn(`[demo-generate] répertoire des lieux indisponible pour ${state.commune.nom} :: ${e?.message}`);
@@ -5305,7 +5705,8 @@ async function coreGeo(send, step, state) {
         }
       }
       if (!geo.lieux.length) { etapeSuivante('ban'); continue; }
-      step('geo', 'start', 'Localisation des projets', `${geo.lieux.length} lieux nommés de la commune relevés, rattachement de ${geo.reste.length} projet(s)...`);
+      const operations = geo.lieux.filter((l) => l.c === 'operation').length;
+      step('geo', 'start', 'Localisation des projets', `${geo.lieux.length} lieux nommés de la commune relevés${operations ? `, dont ${operations} opération(s) d'aménagement publiées par les collectivités` : ''}, rattachement de ${geo.reste.length} projet(s)...`);
       etapeSuivante('rattachement');
       continue;
     }
@@ -5336,7 +5737,7 @@ async function coreGeo(send, step, state) {
        un batiment, pas la rue entiere. */
     if (geo.etape === 'assemblage') {
       let rep;
-      try { rep = await repertoireDe(state.commune.code); } catch (e) {
+      try { rep = await repertoireDe(state.commune.code, geo.recetteOuverte); } catch (e) {
         console.warn(`[demo-generate] répertoire des lieux à relire indisponible :: ${e?.message}`);
         etapeSuivante('ban');
         continue;
@@ -5355,10 +5756,13 @@ async function coreGeo(send, step, state) {
         const angle = choix?.croisement && geoms.every(Boolean) ? pointDeCroisement(geoms[0], geoms[1]) : null;
         const g = angle || fusionnerGeometries(geoms);
         const adresse = adresses[k];
+        /* Le contour d'une opération publiée par la collectivité est son
+           périmètre officiel, et l'écran le dit comme tel. */
+        const perimetre = !angle && g && /Polygon/.test(g.type) && noms[0]?.c === 'operation';
         let loc = null;
         if (adresse && (!g || /Line/.test(g.type))) loc = adresse;
         // L'angle de deux rues est une adresse, pas un lieu-dit : il en prend le libellé à l'écran.
-        else if (g) loc = { geometry: g, method: angle ? 'adresse' : methodeDe(g), lieu_repertoire: noms.map((l) => l.n).join(angle ? ' x ' : ' + ') };
+        else if (g) loc = { geometry: g, method: angle ? 'adresse' : perimetre ? 'perimetre' : methodeDe(g), lieu_repertoire: noms.map((l) => l.n).join(angle ? ' x ' : ' + ') };
         if (process.env.DEMO_DUMP) {
           console.log(`[demo-geo] "${projects[i].title}" « ${choix?.situation || ''} » -> ${loc ? `${loc.lieu_repertoire || `adresse ${projects[i].address}`} (${loc.method})` : 'aucun lieu'}`);
         }
@@ -6753,6 +7157,10 @@ export const _internals = {
   communeDuResultat,
   motsSignificatifs,
   releverLeRepertoire,
+  recetteOuverte,
+  lieuxOuverts,
+  repertoireDe,
+  ressourceLisible,
   rattacherAuxLieux,
   allegerLaGeometrie,
   fusionnerGeometries,
