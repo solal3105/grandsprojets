@@ -1,4 +1,4 @@
--- Essais de la lecture du stockage (migration 20261110130000).
+-- Essais de la lecture du stockage (migrations 20261110130000 et 20261110160000).
 --
 -- À rejouer après toute modification des règles de storage.objects. Base
 -- locale jetable, jamais le projet Supabase.
@@ -12,7 +12,8 @@
 --
 -- Toutes les lignes doivent afficher OK ; le script s'arrête en erreur sinon.
 -- Il applique lui-même la migration entre ses deux temps : d'abord l'état
--- d'avant, où le défaut se constate, puis une lecture par compartiment.
+-- d'avant, où le défaut se constate, puis une lecture par compartiment. La
+-- seconde migration, qui rend à Chantiers sa règle par dossier, vient en fin.
 
 \ir outils-essais.sql
 \ir jeu-profils.sql
@@ -117,5 +118,27 @@ select zz_check('Plus aucune règle de lecture sans condition',
   (select count(*)::text from pg_policies where schemaname = 'storage' and tablename = 'objects' and cmd = 'SELECT' and permissive = 'PERMISSIVE' and qual = 'true'), '0');
 select zz_check('Plus de règle de dépôt ouverte à tous',
   (select count(*)::text from pg_policies where schemaname = 'storage' and tablename = 'objects' and cmd = 'INSERT' and roles::text like '%public%'), '0');
+
+-- Chantiers : un fichier suit son dossier (migration 20261110160000) ----------------
+--
+-- inv_ab entre dans l'espace 1 et voit le dossier 1 ; inv_a reste membre de
+-- l'espace 1 sans voir aucun dossier.
+insert into public.zz_op_membres values (:inv_ab, :espace1);
+insert into public.zz_op_dossiers_visibles values (:inv_ab, :dossier1);
+
+select zz_check('Chantiers, avant : un membre lit la pièce d''un dossier qu''il ne voit pas',
+  zz_lit('authenticated', :inv_a, $$select count(*) from storage.objects where bucket_id = 'op-chantier-documents'$$), '1');
+
+\ir ../migrations/20261110160000_chantiers_fichiers_par_dossier.sql
+\ir ../migrations/20261110160000_chantiers_fichiers_par_dossier.sql
+
+select zz_check('Chantiers : un membre ne lit plus la pièce d''un dossier qu''il ne voit pas, et garde son référentiel',
+  zz_lit('authenticated', :inv_a, :vus), 'modele-1 ' || :public);
+select zz_check('Chantiers : qui voit le dossier lit sa pièce',
+  zz_lit('authenticated', :inv_ab, $$select count(*) from storage.objects where bucket_id = 'op-chantier-documents'$$), '1');
+select zz_check('Chantiers : dans un autre espace, qui voit son dossier lit toujours sa pièce',
+  zz_lit('authenticated', :adm_b, :vus), 'chantier-2 diag-b ' || :public);
+select zz_check('Chantiers : la règle transitoire a disparu',
+  (select count(*)::text from pg_policies where schemaname = 'storage' and policyname = 'op_chantier_fichiers_lecture_espace'), '0');
 
 \ir resultat-essais.sql
