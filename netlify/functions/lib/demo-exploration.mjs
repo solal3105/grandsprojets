@@ -53,12 +53,16 @@ const EXTENSION_NON_PAGE = /\.(pdf|jpe?g|png|gif|webp|svg|zip|rar|docx?|xlsx?|pp
    formulaire de connexion. */
 const CHEMIN_SANS_INTERET = /\/(wp-admin|wp-login|wp-json|admin|login|connexion|panier|cart|checkout|feed|rss|tag|tags|categorie|category|author|auteur|search|recherche|mentions-legales|cookies|plan-du-site|sitemap|newsletter|contact|annuaire|marches-publics|emploi|recrutement|etat-civil|demarches)(\/|\.|$)/i;
 
-export function estUnePageExplorable(u, hote) {
+// Un PDF que la lecture d'une page a designe comme a lire entre en file comme
+// une page : c'est la seule porte d'entree d'un document dans l'exploration.
+export const estUnPdf = (u) => /\.pdf(\?|#|$)/i.test(String(u || ''));
+
+export function estUnePageExplorable(u, hote, { document = false } = {}) {
   try {
     const url = new URL(u);
     if (!/^https?:$/.test(url.protocol)) return false;
     if (hote && url.host.toLowerCase().replace(/^www\./, '') !== hote.toLowerCase().replace(/^www\./, '')) return false;
-    if (EXTENSION_NON_PAGE.test(url.pathname)) return false;
+    if (EXTENSION_NON_PAGE.test(url.pathname) && !(document && estUnPdf(url.pathname))) return false;
     if (CHEMIN_SANS_INTERET.test(url.pathname)) return false;
     return true;
   } catch { return false; }
@@ -105,8 +109,8 @@ export class FileExploration {
    * @param {number} priorite - remontée par la lecture de la page qui l'a citée
    * @returns {boolean} true si l'adresse est nouvelle
    */
-  ajouter(url, label = '', priorite = 0) {
-    if (!estUnePageExplorable(url, this.hote)) return false;
+  ajouter(url, label = '', priorite = 0, { document = false } = {}) {
+    if (!estUnePageExplorable(url, this.hote, { document })) return false;
     const cle = normaliserUrl(url);
     if (this.vues.has(cle)) return false;
     const deja = this.candidates.get(cle);
