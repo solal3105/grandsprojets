@@ -13,7 +13,7 @@
  */
 import { store } from '../store.js';
 import * as api from '../api.js';
-import { toast, confirm, esc, emptyState, formatDate, formatDateTime, skeletonTable } from '../components/ui.js';
+import { toast, confirm, esc, emptyState, reservedPage, formatDate, formatDateTime, skeletonTable } from '../components/ui.js';
 import {
   FILTERS, filterSpaces, summarize, displayName,
   stateLabel, changeLabel, fichesLabel, authorLabel, confirmCopy,
@@ -45,19 +45,12 @@ export async function renderReferencement(container) {
 /* ── Page réservée ─────────────────────────────────────────────── */
 
 function _showReserved(container) {
-  container.innerHTML = `
-    <div class="adm-page-header">
-      <div>
-        <h1 class="adm-page-title"><i class="fa-solid fa-magnifying-glass"></i> Référencement</h1>
-      </div>
-    </div>
-    <div class="adm-card" id="idx-reserved"></div>
-  `;
-  container.querySelector('#idx-reserved')?.appendChild(emptyState({
-    icon: 'fa-solid fa-lock',
-    title: 'Cette page est réservée aux super administrateurs',
+  reservedPage(container, {
+    id: 'idx-reserved',
+    icon: 'fa-solid fa-magnifying-glass',
+    heading: 'Référencement',
     text: 'Le choix des espaces proposés aux moteurs de recherche vaut pour toute la plateforme. Demandez à un super administrateur si un espace doit être retiré des moteurs ou remis dans les moteurs.',
-  }));
+  });
 }
 
 /* ── Squelette de la page ──────────────────────────────────────── */

@@ -10,10 +10,23 @@
  */
 
 import { enrichGeoJSON } from '../../../modules/feature-enrich.js';
-import { isValidCityCode } from './http.mjs';
+import { isValidCityCode, SUPABASE_URL, SUPABASE_ANON_KEY } from './http.mjs';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://wqqsuybmyqemhojsamgq.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcXN1eWJteXFlbWhvanNhbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAxNDYzMDQsImV4cCI6MjA0NTcyMjMwNH0.OpsuMB9GfVip2BjlrERFA_CpCOLsjNGn-ifhqwiqLl0';
+/**
+ * Un tracé ne se télécharge que depuis les fichiers publics de notre stockage,
+ * là où la console les dépose (relevé du 10/11/2026 : c'est le cas de toutes
+ * les lignes des deux tables). La fonction ne va chercher aucune autre adresse
+ * au nom d'une ligne de la base.
+ */
+const STORAGE_PUBLIC = new URL('/storage/v1/object/public/', SUPABASE_URL);
+export function isStoredFile(address) {
+  try {
+    const url = new URL(String(address ?? ''));
+    return url.origin === STORAGE_PUBLIC.origin && url.pathname.startsWith(STORAGE_PUBLIC.pathname);
+  } catch {
+    return false;
+  }
+}
 
 const BASE_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -79,8 +92,10 @@ export function createGeoJSONAggregator({ table, select, enrich, batchSize = 25 
 
       const resp = await fetch(url.toString(), { headers: SUPABASE_HEADERS });
       if (!resp.ok) {
+        // Le détail reste dans nos journaux : la réponse publique ne le recopie pas
         const txt = await resp.text().catch(() => '');
-        return json(502, JSON.stringify({ error: `Supabase ${resp.status}: ${txt}` }));
+        console.error(`[${table}] lecture ${resp.status} :: ${txt.slice(0, 300)}`);
+        return json(502, JSON.stringify({ error: 'Données indisponibles' }));
       }
 
       const rows = await resp.json();
@@ -93,6 +108,10 @@ export function createGeoJSONAggregator({ table, select, enrich, batchSize = 25 
         const results = await Promise.all(
           rows.slice(i, i + batchSize).map(async (row) => {
             if (!row.geojson_url) return [];
+            if (!isStoredFile(row.geojson_url)) {
+              console.warn(`[${table}] tracé hors de notre stockage, ignoré (ligne ${row.id ?? '?'})`);
+              return [];
+            }
             try {
               const r = await fetch(row.geojson_url);
               if (!r.ok) return [];
@@ -108,7 +127,8 @@ export function createGeoJSONAggregator({ table, select, enrich, batchSize = 25 
 
       return jsonCached(JSON.stringify({ type: 'FeatureCollection', features: allFeatures }));
     } catch (e) {
-      return json(500, JSON.stringify({ error: 'Erreur interne', message: e.message }));
+      console.error(`[${table}] échec ::`, e?.message);
+      return json(500, JSON.stringify({ error: 'Erreur interne' }));
     }
   };
 }

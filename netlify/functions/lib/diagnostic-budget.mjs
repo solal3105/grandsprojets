@@ -11,15 +11,16 @@ import { AI_PRICES, FINAL_RESERVE_MICRO } from '../../../admin/sections/diagnost
 export const PRICES = AI_PRICES;
 export { FINAL_RESERVE_MICRO };
 export const requestHash = (payload) => createHash('sha256').update(JSON.stringify(payload)).digest('hex');
-export function usageCost(model, usage) {
-  const price = PRICES[model];
+// `price` : le tarif d'un modèle hors du contrat du diagnostic (la rédaction
+// assistée a le sien, lib/redaction-budget.mjs).
+export function usageCost(model, usage, price = PRICES[model]) {
   if (!usage || !Number.isInteger(usage.input_tokens) || !Number.isInteger(usage.output_tokens) || usage.input_tokens < 0 || usage.output_tokens < 0) return null;
   const cached = Math.max(0, Math.min(usage.input_tokens, usage.input_tokens_details?.cached_tokens || 0));
   return Math.ceil((usage.input_tokens - cached) * price.input + cached * price.cached + usage.output_tokens * price.output);
 }
-export function reservedCost(model, tokens, maximum) {
+export function reservedCost(model, tokens, maximum, price = PRICES[model]) {
   // Petite marge sur le comptage exact ; aucune remise de cache n'est présumée.
-  return Math.ceil((tokens + 64) * PRICES[model].input + maximum * PRICES[model].output);
+  return Math.ceil((tokens + 64) * price.input + maximum * price.output);
 }
 export function createBudgetStore() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;

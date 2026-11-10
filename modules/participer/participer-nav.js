@@ -103,7 +103,7 @@
     });
 
     panel._level2.querySelector('[data-admin-link]')?.addEventListener('click', () => {
-      win.location.href = '/admin/participer/';
+      win.SecurityUtils.openAccountPage('/admin/participer/');
     });
 
     if (_isTeamMember()) _injectPendingBadge(panel, city);

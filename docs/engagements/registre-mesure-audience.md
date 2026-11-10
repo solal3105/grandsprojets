@@ -82,7 +82,9 @@ de tendance sur la durée de rétention du service.
 
 Les enregistrements sont coupés d'eux-mêmes là où le visiteur ne pourrait pas
 exprimer son refus, c'est-à-dire lorsqu'une carte est intégrée dans le site
-d'une collectivité. Ils peuvent être coupés espace par espace. Le refus du
+d'une collectivité. Ils sont coupés sur la console d'administration et sur la
+page de connexion, dont les écrans affichent des comptes et des signalements.
+Le refus du
 visiteur, le signal « Do Not Track » et le signal « Global Privacy Control » du
 navigateur arrêtent toute collecte. Aucune adresse électronique et aucun nom de
 personne ne figure dans les propriétés d'un événement.

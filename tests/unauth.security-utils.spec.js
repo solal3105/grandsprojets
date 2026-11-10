@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
 
 /**
  * Tests de non-régression sécurité - helpers d'échappement/URL de l'admin.
@@ -265,6 +266,299 @@ test.describe('0.8 - Échappement : pas de repli fail-open', () => {
     expect(r.couleurUrl).toBe('');
     expect(r.couleurHex).toBe('#14AE5C');
     expect(r.couleurVar).toBe('var(--color-warning)');
+  });
+  /**
+   * Les deux essais suivants chargent les fichiers réels de la carte dans une
+   * page vide, sans serveur ni base : la configuration de la ville est posée à
+   * la main, piégée, et le rendu est lu dans le DOM.
+   */
+  async function pageDeRendu(page, script) {
+    await page.goto('about:blank');
+    await page.setContent('<!doctype html><html><body><div id="l2"></div><div id="l3"></div></body></html>');
+    await page.evaluate(() => {
+      window.__rendus = {};
+      window.NavPanel = { registerModule: (cle, rendu) => { window.__rendus[cle] = rendu; } };
+    });
+    await page.addScriptTag({ path: 'modules/security-utils.js' });
+    await page.addScriptTag({ path: script });
+  }
+
+  // La carte d'un projet sans image affiche l'icône de sa catégorie : elle passe
+  // par la validation commune, comme la base la tient déjà (is_icon_class).
+  test('0.8.5 la carte d’un projet ne laisse passer aucun HTML par l’icône de sa catégorie', async ({ page }) => {
+    await pageDeRendu(page, 'modules/carte/carte-nav.js');
+    const r = await page.evaluate(async () => {
+      window.categoryIcons = [{
+        category: 'mobilite',
+        icon_class: 'fa-bus"><img src=x onerror="window.__xssIcone=1">',
+        category_styles: { color: 'red" onmouseover="window.__xssCouleur=1' },
+      }];
+      window.supabaseService = { fetchProjectsByCategory: async () => [{ id: 7, project_name: 'Tramway T9' }] };
+      window.CarteNav.register();
+      const panel = { _level3: document.getElementById('l3'), _currentModule: 'carte' };
+      await window.__rendus.carte.renderL3(panel, 'mobilite', { color: '' });
+      await new Promise((ok) => setTimeout(ok, 200));
+      const carte = panel._level3.querySelector('.project-card');
+      return {
+        cartes: panel._level3.querySelectorAll('.project-card').length,
+        images: panel._level3.querySelectorAll('img').length,
+        gestionnaires: [...panel._level3.querySelectorAll('*')].filter((el) => [...el.attributes].some((a) => a.name.startsWith('on'))).length,
+        icone: carte?.querySelector('.card-hero i')?.className,
+        xss: [window.__xssIcone, window.__xssCouleur],
+      };
+    });
+    expect(r.cartes).toBe(1);
+    expect(r.images).toBe(0);
+    expect(r.gestionnaires).toBe(0);
+    // Il ne reste que des caractères de nom de classe.
+    expect(r.icone).toMatch(/^fa-solid fa-bus[\w\s-]*$/);
+    expect(r.xss).toEqual([undefined, undefined]);
+  });
+
+  // La couleur du module Travaux, réglée par la ville, passe par la validation
+  // commune avant d'entrer dans un attribut style (la base tient is_css_color).
+  test('0.8.6 le panneau Travaux ne laisse passer aucun HTML par la couleur du module', async ({ page }) => {
+    await pageDeRendu(page, 'modules/travaux/travaux-nav.js');
+    const rendre = (couleur) => page.evaluate(async (color) => {
+      window._cityModules = [{ module_key: 'travaux', enabled: true, icon_class: 'fa-solid fa-helmet-safety', config: { color } }];
+      window.TravauxNav.register();
+      const panel = { _level2: document.getElementById('l2'), _currentModule: 'travaux', _skeletonL2Items: () => '' };
+      await window.__rendus.travaux.renderL2(panel);
+      const boutons = [...panel._level2.querySelectorAll('.nav-panel__item')];
+      return {
+        boutons: boutons.length,
+        gestionnaires: boutons.filter((b) => [...b.attributes].some((a) => a.name.startsWith('on'))).length,
+        couleurs: [...new Set(boutons.map((b) => b.style.getPropertyValue('--item-color').trim()))],
+      };
+    }, couleur);
+
+    const piege = await rendre('red" onmouseover="window.__xssTravaux=1" x="');
+    expect(piege.boutons).toBeGreaterThan(0);
+    expect(piege.gestionnaires).toBe(0);
+    // Une couleur refusée laisse la couleur par défaut du module.
+    expect(piege.couleurs).toEqual(['#FF6B35']);
+
+    const reglee = await rendre('#2563EB');
+    expect(reglee.couleurs).toEqual(['#2563EB']);
+  });
+  // Le texte d'un contributeur s'affiche dans la fiche et dans la console : il
+  // ne porte aucune des accroches que nos écrans emploient.
+  test('0.8.7 l’article d’un contributeur ne porte ni identifiant de nos écrans, ni classe, ni attribut data-*', async ({ page }) => {
+    await page.goto('about:blank');
+    await page.setContent('<!doctype html><html><head></head><body></body></html>');
+    await page.addScriptTag({ path: 'modules/markdownutils.js' });
+    // marked et DOMPurify viennent de leurs adresses réelles, comme sur le site
+    await page.evaluate(() => window.MarkdownUtils.loadDeps());
+    await page.waitForFunction(() => !!window.marked && !!window.DOMPurify, { timeout: 20000 });
+
+    const r = await page.evaluate(() => {
+      const md = [
+        '## Le projet',
+        '',
+        '<a id="sp-toggle-approve" name="adm-slide-close" class="adm-btn adm-btn--primary" data-section="users" href="https://exemple.invalid/plan">Voir le plan</a>',
+        '',
+        '<div id="sp-contrib-map" data-close="1" style="position:fixed;inset:0">Un encart</div>',
+        '',
+        '::banner{type="info"}Attention aux travaux::',
+        '',
+        '| a | b |',
+        '|---|---|',
+        '| 1 | 2 |',
+      ].join('\n');
+      const box = document.createElement('div');
+      box.innerHTML = window.MarkdownUtils.renderMarkdown(md).html;
+      const tous = [...box.querySelectorAll('*')];
+      return {
+        ids: tous.filter((e) => e.id).map((e) => e.id),
+        noms: tous.filter((e) => e.getAttribute('name')).map((e) => e.getAttribute('name')),
+        classes: tous.filter((e) => e.hasAttribute('class')).length,
+        styles: tous.filter((e) => e.hasAttribute('style')).length,
+        donnees: tous.filter((e) => [...e.attributes].some((a) => a.name.startsWith('data-'))).length,
+        lien: box.querySelector('a')?.getAttribute('href'),
+        titre: box.querySelector('h2')?.textContent,
+        tableau: box.querySelectorAll('table td').length,
+        texte: box.textContent,
+      };
+    });
+
+    // Les identifiants du texte sont préfixés : aucun ne peut être celui d'un écran
+    expect(r.ids).toEqual(expect.arrayContaining(['user-content-sp-toggle-approve', 'user-content-sp-contrib-map']));
+    expect(r.ids.every((id) => id.startsWith('user-content-'))).toBe(true);
+    expect(r.noms.every((n) => n.startsWith('user-content-'))).toBe(true);
+    expect(r.classes).toBe(0);
+    expect(r.styles).toBe(0);
+    expect(r.donnees).toBe(0);
+    // Le contenu, lui, est rendu comme avant
+    expect(r.lien).toBe('https://exemple.invalid/plan');
+    expect(r.titre).toBe('Le projet');
+    expect(r.tableau).toBe(2);
+    expect(r.texte).toContain('Attention aux travaux');
+    expect(r.texte).toContain('Un encart');
+  });
+
+  test('0.8.8 les boutons d’un panneau se relient dans son pied, pas dans son corps', async ({ page }) => {
+    await page.goto('about:blank');
+    await page.setContent('<!doctype html><html><body><div id="adm-slide-backdrop"></div><div id="adm-slide-panel"><div id="adm-slide-content"></div></div></body></html>');
+    const source = fs.readFileSync('admin/components/ui.js', 'utf8');
+    const r = await page.evaluate(async (code) => {
+      const { slidePanel } = await import(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
+      const handle = slidePanel.open({
+        title: 'Projet',
+        body: '<a id="sp-toggle-approve" href="https://exemple.invalid/">Voir le plan</a>',
+        footer: '<button id="sp-toggle-approve">Approuver</button>',
+      });
+      return {
+        dansLePied: handle.footer.querySelector('#sp-toggle-approve')?.tagName,
+        dansToutLePanneau: handle.content.querySelector('#sp-toggle-approve')?.tagName,
+        sansPied: slidePanel.open({ title: 'Projet', body: '' }).footer,
+      };
+    }, source);
+    expect(r.dansLePied).toBe('BUTTON');
+    // Une recherche dans tout le panneau rendrait le premier élément, celui du corps
+    expect(r.dansToutLePanneau).toBe('A');
+    expect(r.sansPied).toBeNull();
+  });
+
+  /**
+   * La connexion et la console ne s'affichent pas dans le cadre d'un autre site
+   * (règle frame-ancestors de `_headers`, essai 0.58.1). Le bouton de la carte
+   * doit donc sortir du cadre quand elle est intégrée ailleurs que dans Phaos.
+   * Deux sites fictifs sont servis par interception, sans serveur, pour tous
+   * les onglets du contexte : le nouvel onglet doit trouver sa page lui aussi.
+   */
+  async function deuxSites(page) {
+    const contexte = page.context();
+    const outils = fs.readFileSync('modules/security-utils.js', 'utf8');
+    const html = (corps) => ({ contentType: 'text/html', body: `<!doctype html><html><body>${corps}</body></html>` });
+    await contexte.route('https://carte.test/**', (route) => {
+      const chemin = new URL(route.request().url()).pathname;
+      if (chemin === '/modules/security-utils.js') return route.fulfill({ contentType: 'text/javascript', body: outils });
+      if (chemin === '/carte') return route.fulfill(html('<script src="/modules/security-utils.js"></script>'));
+      if (chemin === '/accueil') return route.fulfill(html('<iframe src="/carte"></iframe>'));
+      return route.fulfill(html('page de compte'));
+    });
+    await contexte.route('https://hote.test/**', (route) => route.fulfill(html('<iframe src="https://carte.test/carte"></iframe>')));
+  }
+
+  const cadreDeLaCarte = async (page) => {
+    await expect.poll(() => page.frames().some((f) => f.url() === 'https://carte.test/carte')).toBe(true);
+    const cadre = page.frames().find((f) => f.url() === 'https://carte.test/carte');
+    await cadre.waitForFunction(() => !!window.SecurityUtils);
+    return cadre;
+  };
+
+  test('0.8.9 une carte intégrée dans un autre site ouvre la connexion dans un nouvel onglet', async ({ page }) => {
+    await deuxSites(page);
+    await page.goto('https://hote.test/');
+    const cadre = await cadreDeLaCarte(page);
+    const [onglet] = await Promise.all([
+      page.waitForEvent('popup'),
+      cadre.evaluate(() => window.SecurityUtils.openAccountPage('/login')),
+    ]);
+    await onglet.waitForURL('https://carte.test/login');
+    // Le cadre, lui, n'a pas bougé : il n'afficherait qu'une page refusée
+    expect(cadre.url()).toBe('https://carte.test/carte');
+    expect(page.url()).toBe('https://hote.test/');
+  });
+
+  test('0.8.10 sur notre site, dans un cadre de notre site ou dans Phaos, la page s’ouvre sur place', async ({ page, context }) => {
+    await deuxSites(page);
+    const onglets = [];
+    context.on('page', (p) => onglets.push(p));
+
+    // Page de premier niveau
+    await page.goto('https://carte.test/carte');
+    await page.waitForFunction(() => !!window.SecurityUtils);
+    await page.evaluate(() => window.SecurityUtils.openAccountPage('/admin/'));
+    await page.waitForURL('https://carte.test/admin/');
+
+    // Cadre d'une page de notre site (vitrines de l'accueil, écran de salon)
+    await page.goto('https://carte.test/accueil');
+    let cadre = await cadreDeLaCarte(page);
+    await cadre.evaluate(() => window.SecurityUtils.openAccountPage('/login'));
+    await expect.poll(() => page.frames().map((f) => f.url())).toContain('https://carte.test/login');
+    expect(page.url()).toBe('https://carte.test/accueil');
+
+    // Cadre de Phaos : la session vient de lui, la console s'ouvre dans son cadre
+    await page.goto('https://hote.test/');
+    cadre = await cadreDeLaCarte(page);
+    await cadre.evaluate(() => {
+      window.PhaosAuth = { isHost: () => true };
+      window.SecurityUtils.openAccountPage('/admin/');
+    });
+    await expect.poll(() => page.frames().map((f) => f.url())).toContain('https://carte.test/admin/');
+    expect(page.url()).toBe('https://hote.test/');
+
+    expect(onglets).toEqual([]);
+  });
+
+  /**
+   * Deux sorties où un texte saisi par quelqu'un d'autre est relu par une
+   * machine : le filtre de recherche envoyé à la base, et le fichier CSV ouvert
+   * dans un tableur. Les deux règles vivent dans security-utils.js.
+   */
+  const outils = async (page) => {
+    await deuxSites(page);
+    await page.goto('https://carte.test/carte');
+    await page.waitForFunction(() => !!window.SecurityUtils);
+  };
+
+  test('0.8.11 le texte d’une recherche devient un motif, jamais de la grammaire de filtre', async ({ page }) => {
+    await outils(page);
+    const r = await page.evaluate(() => {
+      const f = (texte) => window.SecurityUtils.ilikeAny(['description', 'adresse'], texte);
+      return {
+        adresse: f('12, rue de la Paix'),
+        hostile: f('x%",id.gt.0,adresse.ilike."'),
+        parentheses: f('and(id.gt.0)'),
+        soulignement: f('rue_x'),
+        espaces: f('   nid de poule  '),
+        vide: [f(''), f('   '), f('%'), f(',()'), f(undefined), f(null)],
+      };
+    });
+    // La virgule devient un joker : « 12, rue » retrouve toujours « 12, rue de la Paix »
+    expect(r.adresse).toBe('description.ilike."%12% rue de la Paix%",adresse.ilike."%12% rue de la Paix%"');
+    // Une saisie hostile ne ferme pas la valeur et n'ajoute aucune condition
+    expect(r.hostile).toBe('description.ilike."%x%%%id.gt.0%adresse.ilike.%%",adresse.ilike."%x%%%id.gt.0%adresse.ilike.%%"');
+    // Deux colonnes : deux valeurs entre guillemets, une seule virgule entre elles
+    expect(r.hostile.match(/"/g)).toHaveLength(4);
+    expect(r.hostile.match(/,/g)).toHaveLength(1);
+    expect(r.parentheses).toBe('description.ilike."%and%id.gt.0%%",adresse.ilike."%and%id.gt.0%%"');
+    expect(r.soulignement).toBe('description.ilike."%rue%x%",adresse.ilike."%rue%x%"');
+    expect(r.espaces).toBe('description.ilike."%nid de poule%",adresse.ilike."%nid de poule%"');
+    // Rien à chercher : pas de filtre du tout
+    expect(r.vide).toEqual(['', '', '', '', '', '']);
+  });
+
+  test('0.8.12 une cellule de CSV qui commence comme une formule est lue comme du texte', async ({ page }) => {
+    await outils(page);
+    const r = await page.evaluate(() => [
+      '=HYPERLINK("https://exemple.invalid";"Cliquez")', '+33 6 12 34 56 78', '-2+3', '@SUM(A1)', '\t=1+1', '- nid de poule',
+      '-1.553621', -1.553621, '+47,2', 47.218, 'rue = 3', 'dit "bonjour"', '', null, undefined,
+    ].map((v) => window.SecurityUtils.csvCell(v)));
+    expect(r).toEqual([
+      `"'=HYPERLINK(""https://exemple.invalid"";""Cliquez"")"`, `"'+33 6 12 34 56 78"`, `"'-2+3"`, `"'@SUM(A1)"`, `"'\t=1+1"`, `"'- nid de poule"`,
+      // Un simple nombre reste un nombre : les longitudes de l'ouest sont négatives
+      '"-1.553621"', '"-1.553621"', '"+47,2"', '"47.218"', '"rue = 3"', '"dit ""bonjour"""', '""', '""', '""',
+    ]);
+  });
+
+  test('0.8.13 aucune recherche ni aucun export ne réécrit sa propre règle', async () => {
+    // Test structurel, sur les fichiers du dépôt : un filtre `ilike` bâti à la
+    // main avec le texte saisi, ou une cellule de CSV faite sur place.
+    const dossiers = ['modules', 'admin'];
+    const fichiers = dossiers.flatMap((d) => fs.readdirSync(d, { recursive: true })
+      .filter((f) => String(f).endsWith('.js'))
+      .map((f) => `${d}/${f}`))
+      .filter((f) => f !== 'modules/security-utils.js');
+    expect(fichiers.length).toBeGreaterThan(50);
+    for (const fichier of fichiers) {
+      const src = fs.readFileSync(fichier, 'utf8');
+      expect(src, `${fichier} bâtit un filtre ilike avec une variable`).not.toMatch(/ilike\.["%*]*\$\{/);
+      if (/text\/csv/.test(src)) expect(src, `${fichier} écrit un CSV sans csvCell`).toContain('SecurityUtils.csvCell');
+    }
+    const service = fs.readFileSync('modules/supabaseservice.js', 'utf8');
+    expect(service.match(/SecurityUtils\.ilikeAny\(/g)).toHaveLength(2);
   });
 });
 

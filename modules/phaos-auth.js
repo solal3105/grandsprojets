@@ -57,7 +57,7 @@
   const isInPhaosIframe = detectPhaosIframe();
 
   if (!isInPhaosIframe) {
-    win.PhaosAuth = { waitForSession: () => Promise.resolve() };
+    win.PhaosAuth = { waitForSession: () => Promise.resolve(), isHost: () => false };
     return;
   }
 
@@ -176,6 +176,12 @@
      * Résout quand la session Supabase est prête (ou après timeout/erreur).
      */
     waitForSession: () => sessionReady,
+
+    /**
+     * Vrai une fois qu'un jeton est arrivé d'une origine de PHAOS_ORIGINS : la
+     * page qui nous encadre est bien Phaos, pas un autre site.
+     */
+    isHost: () => phaosOrigin !== null,
   };
 
 }(window));

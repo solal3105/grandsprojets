@@ -55,7 +55,7 @@ site mis en ligne à la racine le 14 septembre 2026.
 |---|---|
 | `data-op-space` | Identifiant de l'espace, rattaché à tous les événements (obligatoire) |
 | `data-op-pageview="manual"` | La page ne compte pas ses vues elle-même : c'est le routeur SPA qui les émet. Le routeur du site n'en émet pas quand seule l'adresse de la page change (réglages de l'estimateur, rubrique de l'aide) : ces gestes passent par les événements de la page. Avant le 04/10/2026, chaque réglage de `/tarification` comptait une page vue (2 570 pour 42 visiteurs en septembre) |
-| `data-op-replay="off"` | Coupe l'enregistrement de session sur cet espace uniquement |
+| `data-op-replay="off"` | Coupe l'enregistrement de session sur cet espace uniquement. Posé sur la console (`admin`) et la connexion (`login`) |
 
 ## API
 
@@ -157,6 +157,15 @@ Analytics d'un coup sur tous les espaces ouverts depuis ce navigateur.
 L'enregistrement se coupe aussi de lui-même dans une iframe cliente, là où le
 visiteur ne pourrait pas exprimer son refus, et sur un espace qui porte
 `data-op-replay="off"`.
+
+Depuis le 10 novembre 2026, deux espaces le portent : la console et la page de
+connexion. Leurs écrans affichent des comptes, des signalements de citoyens et
+des extraits de dossiers, que le masquage des saisies ne couvre pas. La mesure
+d'audience y reste (pages vues, clics), seul l'enregistrement de l'écran est
+coupé. Le test 15.2.4 de `tests/unauth.analytics.spec.js` lit la configuration
+remise à PostHog pour ces deux pages et pour la carte. Un nouvel écran qui
+affiche des données de comptes ou de citoyens derrière une connexion porte
+`data-op-replay="off"` lui aussi.
 
 ## Ce qui n'émet jamais d'événement
 

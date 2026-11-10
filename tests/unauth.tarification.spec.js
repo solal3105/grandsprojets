@@ -94,10 +94,10 @@ test.describe('0.39 - L\'estimateur de prix', () => {
     await expect(page.locator('#tarif-population')).toHaveValue(/^12\D000$/);
     await expect(page.locator('[data-module="carte"]')).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('[data-module="travaux"]')).toHaveAttribute('aria-checked', 'false');
-    await expect(page.locator('[data-annees="3"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('[data-annees="1"]')).toHaveAttribute('aria-checked', 'true');
     // Un seul module : aucune remise multi-modules annoncée
     await expect(page.locator('[data-module="carte"]')).not.toContainText('sur le plus cher');
-    const { mensuel } = attendu({ population: 12000, poids: [1], annees: 3 });
+    const { mensuel } = attendu({ population: 12000, poids: [1], annees: 1 });
     await expect.poll(() => page.locator('#tarif-abonnement').textContent().then(nombreDe)).toBe(Math.round(mensuel));
   });
 

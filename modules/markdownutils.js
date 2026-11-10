@@ -143,10 +143,16 @@
         .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
       return { attrs, html: `<p>${text.replace(/\n{2,}/g, '</p><p>')}</p>` };
     }
+    // Le texte d'un contributeur ne porte non plus aucune accroche de nos
+    // écrans : ni classe, ni attribut data-*, et ses identifiants sont
+    // préfixés (user-content-). Un bouton, un lien de menu ou un style de la
+    // console ne peut donc pas être désigné depuis un article.
     const safeHtml = window.DOMPurify.sanitize(html, {
       ADD_TAGS: ['figure', 'figcaption'],
       FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select'],
-      FORBID_ATTR: ['style']
+      FORBID_ATTR: ['style', 'class'],
+      ALLOW_DATA_ATTR: false,
+      SANITIZE_NAMED_PROPS: true
     });
     return { attrs, html: safeHtml };
   }

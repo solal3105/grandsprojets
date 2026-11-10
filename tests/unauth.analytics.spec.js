@@ -1,5 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
 
 /**
  * Mesure d'audience PostHog - module partagé modules/analytics.js
@@ -108,6 +109,36 @@ test.describe('15.2 Mesure d\'audience - garde-fous', () => {
     await waitForAnalytics(page, '/');
     await page.waitForTimeout(500);
     expect(thirdParty).toEqual([]);
+  });
+
+  // La console et la connexion affichent des comptes et des signalements :
+  // leur écran n'est pas enregistré. La balise réelle de chaque page est posée sur un site
+  // fictif qui passe les garde-fous, et la configuration remise à PostHog est
+  // lue telle que le module la construit. Aucune requête ne quitte l'essai.
+  test('15.2.4 la console et la connexion ne sont pas enregistrées, la carte l\'est', async ({ browser }) => {
+    const balise = (fichier) => /<script[^>]*src="\/modules\/analytics\.js"[^>]*><\/script>/.exec(fs.readFileSync(fichier, 'utf8'))[0];
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+    });
+    await context.addInitScript(() => Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => false }));
+    await context.route('https://espaces.test/**', (route) => {
+      const { pathname, searchParams } = new URL(route.request().url());
+      if (pathname === '/modules/analytics.js') return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync('modules/analytics.js', 'utf8') });
+      if (pathname === '/ph/static/array.js') return route.fulfill({ contentType: 'text/javascript', body: 'window.posthog = { init(cle, config) { window.__config = config; }, register() {}, capture() {} };' });
+      if (pathname === '/page') return route.fulfill({ contentType: 'text/html', body: `<!doctype html><html><head>${balise(searchParams.get('de'))}</head><body></body></html>` });
+      return route.abort();
+    });
+
+    const page = await context.newPage();
+    const enregistrementCoupe = async (fichier) => {
+      await page.goto(`https://espaces.test/page?de=${fichier}`);
+      await page.waitForFunction(() => !!window.__config);
+      return page.evaluate(() => window.__config.disable_session_recording);
+    };
+    expect(await enregistrementCoupe('admin/index.html')).toBe(true);
+    expect(await enregistrementCoupe('login/index.html')).toBe(true);
+    expect(await enregistrementCoupe('index.html')).toBe(false);
+    await context.close();
   });
 });
 

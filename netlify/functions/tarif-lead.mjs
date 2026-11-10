@@ -15,13 +15,17 @@
    ============================================================================ */
 
 import { envoyerMessageTarif, NOMS_MODULES } from './lib/tarif-mail.mjs';
+import { ipHashOf, reservePublicMail, mayKeep, maySend, heldMail } from './lib/public-mail.mjs';
 import { POIDS, POPULATION, ENGAGEMENTS, borner, estTarife, euros, estimer, nombre } from '../../home-src/src/v2/data/tarification.mjs';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
 
-/* Au-delà de ce nombre de demandes par adresse et par jour, on n'envoie plus
-   de message : une adresse tapée par un tiers ne doit pas être inondée. */
-const MAX_DEMANDES_PAR_EMAIL_PAR_JOUR = 3;
+/* Ce que le formulaire accepte en vingt-quatre heures, compté par la base
+   (`lib/public-mail.mjs`). Par adresse, en messages : celle d'un tiers ne doit
+   pas être inondée. Par origine, en demandes, et pour le formulaire entier, en
+   messages : très au-dessus de l'usage (une demande par jour au plus
+   jusqu'ici). */
+export const LIMITS = { ip: 20, recipient: 3, total: 100 };
 
 const CORS = {
   'Content-Type': 'application/json',
@@ -43,19 +47,6 @@ function serviceHeaders() {
 
 function json(status, body) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
-}
-
-async function demandesDuJour(email) {
-  const today = new Date().toISOString().slice(0, 10);
-  const url = new URL(`${SUPABASE_URL}/rest/v1/contact_requests`);
-  url.searchParams.set('select', 'id');
-  url.searchParams.set('referrer', 'eq.tarification');
-  url.searchParams.set('email', `eq.${email}`);
-  url.searchParams.set('created_at', `gte.${today}`);
-  const r = await fetch(url.toString(), {
-    headers: { ...serviceHeaders(), Prefer: 'count=exact', Range: '0-0' },
-  });
-  return parseInt((r.headers.get('content-range') || '0/0').split('/')[1] || '0', 10);
 }
 
 /* Au-delà, un prix mensuel de Chantiers ne vient pas de la page : la plus
@@ -104,7 +95,7 @@ export function lireReglages(body) {
   return reglages;
 }
 
-export default async (req) => {
+export default async (req, context) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return json(405, { error: 'Méthode non autorisée' });
 
@@ -128,16 +119,19 @@ export default async (req) => {
   if (!serviceDisponible) console.warn('[tarif-lead] SUPABASE_SERVICE_ROLE_KEY absente : la demande ne sera pas enregistrée');
 
   try {
-    if (serviceDisponible) {
-      const deja = await demandesDuJour(email).catch(() => 0);
-      if (deja >= MAX_DEMANDES_PAR_EMAIL_PAR_JOUR) {
-        // Réponse neutre : l'écran remercie, on n'annonce pas un quota
-        console.warn(`[tarif-lead] plafond journalier atteint pour une adresse`);
-        return json(200, { ok: true, stored: false, mailed: false });
-      }
+    const reservation = await reservePublicMail({ kind: 'tarif', ipHash: await ipHashOf(context?.ip), email, limits: LIMITS });
+    if (!mayKeep(reservation)) {
+      // Réponse neutre : l'écran remercie, on n'annonce pas un quota
+      console.warn('[tarif-lead] plafond des vingt-quatre heures atteint pour une origine');
+      return json(200, { ok: true, stored: false, mailed: false });
     }
 
-    const mail = await envoyerMessageTarif({ email, telephone, ...reglages });
+    /* Au plafond d'une adresse ou du formulaire, la demande est gardée sans
+       message : l'écran dit alors qu'on l'a bien reçue, sans promettre d'envoi. */
+    const mail = maySend(reservation)
+      ? await envoyerMessageTarif({ email, telephone, ...reglages })
+      : heldMail(reservation);
+    if (!maySend(reservation)) console.warn(`[tarif-lead] demande gardée sans message : plafond ${reservation}`);
 
     let stored = false;
     if (serviceDisponible) {

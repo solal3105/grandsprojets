@@ -487,6 +487,27 @@ test.describe('10.6 - Génération IA (description)', () => {
     // Un seul message résultat
     await expect(result).toHaveCount(1);
   });
+
+  test('10.6.5 - La demande porte la structure, et un refus du serveur est dit dans le panneau', async ({ page }) => {
+    const panel = await openCopilotWithContext(page);
+    // Le serveur exige la structure : c'est elle qui désigne l'équipe autorisée
+    // et l'enveloppe du jour. La dernière route posée passe avant le flux canné.
+    const limite = 'Vous avez atteint la limite du jour de la rédaction assistée pour cette structure. Elle se renouvelle demain.';
+    let demande = null;
+    await page.route('**/api/ai-generate', async (route) => {
+      demande = route.request().postDataJSON();
+      await route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: limite }) });
+    });
+
+    await panel.locator('.cp-suggest-btn[data-target="description"]').click();
+
+    // Le refus est le dernier message de la conversation ; la phrase d'aide du
+    // panneau, toujours rendue en dessous, n'en fait pas partie.
+    await expect(panel.locator('.cp-messages .cp-msg--bot').last()).toContainText(limite, { timeout: 5000 });
+    await expect(panel.locator('.cp-msg--result')).toHaveCount(0);
+    await expect(panel.locator('.cp-generating')).toHaveCount(0);
+    expect(demande).toMatchObject({ project_name: 'Parc Blandan Lyon', city: 'test-e2e', target: 'description' });
+  });
 });
 
 test.describe('10.7 - Génération IA (article)', () => {
