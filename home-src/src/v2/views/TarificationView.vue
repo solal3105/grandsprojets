@@ -597,7 +597,7 @@ const depuisAdresse = () => {
   return {
     population: q.population ? borner(q.population) : POPULATION.defaut,
     retenus: cles.length ? cles : ['carte'],
-    annees: ENGAGEMENTS.some((e) => e.annees === a) ? a : 3,
+    annees: ENGAGEMENTS.some((e) => e.annees === a) ? a : 1,
     territoire: cle,
     // Les réponses du parcours Chantiers, quand l'adresse en porte
     reponses: cle && cles.includes('chantiers')
