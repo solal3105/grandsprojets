@@ -6685,7 +6685,12 @@ async function coreGeo(send, step, state) {
           geo.recetteOuverte = recette;
         }
         try {
-          const rep = await repertoireDe(state.commune.code, geo.recetteOuverte);
+          /* Une seconde chance apres une pause : le repertoire porte presque
+             toute la localisation, et une coupure de quelques secondes (DNS
+             muet, Geoplateforme saturee) suffisait a vider la carte. Mesure
+             le 10/11/2026 : 48 projets attestes a Noyal, aucun situe. */
+          const rep = await repertoireDe(state.commune.code, geo.recetteOuverte)
+            .catch(async () => { await new Promise((ok) => setTimeout(ok, 3000)); return repertoireDe(state.commune.code, geo.recetteOuverte); });
           geo.lieux = rep.lieux;
         } catch (e) {
           console.warn(`[demo-generate] répertoire des lieux indisponible pour ${state.commune.nom} :: ${e?.message}`);
