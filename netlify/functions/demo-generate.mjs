@@ -5284,7 +5284,10 @@ async function coreExplore(send, step, state) {
     explo.aTrier = [];
     const enOr = await repecherLesTitresEnOr(commune.nom, candidates);
     if (enOr.length) {
-      const garde = new FileExploration({ hote: mairie.host });
+      /* La file du repechage prend l'hote de l'etage en cours : pendant
+         l'etage intercommunal, une file a l'hote de la mairie refusait les
+         pages repechees, qui ne sont pas sur son site. */
+      const garde = new FileExploration({ hote: hoteEtage });
       garde.vues = restantes.vues;
       for (const l of enOr) garde.ajouter(l.url, l.label, 3);
       explo.file = garde.serialiser();
@@ -5295,7 +5298,7 @@ async function coreExplore(send, step, state) {
       state.__continue = true;
       return state;
     }
-    explo.file = new FileExploration({ hote: mairie.host }).serialiser();
+    explo.file = new FileExploration({ hote: hoteEtage }).serialiser();
   }
 
   /* Site de la commune epuise sans abondance (file vide et aucun lien en
@@ -6707,7 +6710,12 @@ async function runSources(send, step, insee, ipHash, runState) {
     const enchainer = async (core, s) => {
       if (ordre.indexOf(core.name) < depuis) return s;
       let courant = s;
-      for (let tour = 0; tour < GEO_MAX_TOURS && courant; tour++) {
+      /* Chaque phase s'arrete d'elle-meme (ses propres plafonds de tranches et
+         de pages). La limite ici n'est qu'un garde-fou contre une boucle : a
+         14 tours, elle coupait une exploration de metropole passee par
+         l'etage intercommunal puis le repechage, et la localisation recevait
+         un etat inacheve (Vienne, 10/11/2026). */
+      for (let tour = 0; tour < 60 && courant; tour++) {
         courant = await core(send, step, courant);
         await etatDuBanc(`${core.name}-${tour}`, courant);
         if (!courant?.__continue) return courant;
