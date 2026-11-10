@@ -501,7 +501,9 @@ test.describe('10.6 - Génération IA (description)', () => {
 
     await panel.locator('.cp-suggest-btn[data-target="description"]').click();
 
-    await expect(panel.locator('.cp-msg--bot').last()).toContainText(limite, { timeout: 5000 });
+    // Le refus est le dernier message de la conversation ; la phrase d'aide du
+    // panneau, toujours rendue en dessous, n'en fait pas partie.
+    await expect(panel.locator('.cp-messages .cp-msg--bot').last()).toContainText(limite, { timeout: 5000 });
     await expect(panel.locator('.cp-msg--result')).toHaveCount(0);
     await expect(panel.locator('.cp-generating')).toHaveCount(0);
     expect(demande).toMatchObject({ project_name: 'Parc Blandan Lyon', city: 'test-e2e', target: 'description' });
