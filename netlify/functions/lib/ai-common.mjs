@@ -13,8 +13,8 @@
 // ré-exportées ici pour que ai-generate et ai-diagnostic n'aient rien à changer.
 // Import puis export en deux temps : le transformateur de Playwright compile
 // mal la forme `export ... from` quand un spec importe ce fichier en Node.
-import { getCorsHeaders, errResp, preflightResp, getAuthedUser, isAdminForVille } from './http.mjs';
-export { getCorsHeaders, errResp, preflightResp, getAuthedUser, isAdminForVille };
+import { getCorsHeaders, errResp, preflightResp, getAuthedUser, isAdminForVille, isMemberOfVille } from './http.mjs';
+export { getCorsHeaders, errResp, preflightResp, getAuthedUser, isAdminForVille, isMemberOfVille };
 
 // Nous parlons toujours à OpenAI directement, jamais à un intermédiaire.
 // OPENAI_DIRECT_KEY passe avant OPENAI_API_KEY parce que `netlify dev` remplace
@@ -67,6 +67,9 @@ export function friendlyAIError(status, raw, conseil400 = '') {
  *                                            quel que soit le chemin de sortie (fin normale,
  *                                            plafond atteint, coupure) tant que [DONE] n'est pas parti
  * @param {Function} opts.onTimeoutMessage  - () => string|null ; message si timeout sans contenu
+ * @param {Function} [opts.onClose]         - () => void ; appelé une seule fois, toujours, juste avant la
+ *                                            fermeture du flux vers le navigateur : c'est là qu'un
+ *                                            appelant règle ce qu'il a réservé, quelle que soit l'issue
  * @param {Function} [opts.isDone]          - (ev) => bool ; l'événement termine le stream
  * @param {Function} opts.setReader         - (reader|null) => void ; expose le reader pour l'annulation
  * @param {Function} opts.clearTimeoutFn    - à appeler quand le stream se termine
@@ -74,7 +77,7 @@ export function friendlyAIError(status, raw, conseil400 = '') {
  * @returns {Response} la réponse SSE à retourner au client
  */
 export function relayOpenAIStream(openaiRes, {
-  tag, corsHeaders, onEvent, onFin, onTimeoutMessage, isDone, setReader, clearTimeoutFn, conseil400 = '',
+  tag, corsHeaders, onEvent, onFin, onTimeoutMessage, onClose, isDone, setReader, clearTimeoutFn, conseil400 = '',
 }) {
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
@@ -156,8 +159,13 @@ export function relayOpenAIStream(openaiRes, {
         const msg = onTimeoutMessage();
         if (msg && !doneSent) await emit({ error: msg });
         await sendDone();
-        await writer.close();
       } catch { /* writer déjà fermé */ }
+      /* Avant de fermer : une fois le flux fermé, la plateforme peut geler la
+         fonction, et ce qui resterait à faire ne se ferait pas. Hors du bloc
+         précédent, pour que la fermeture par le navigateur ne l'empêche pas. */
+      try { if (onClose) await onClose(); }
+      catch (err) { console.error(`[${tag}] Clôture:`, err.name, err.message); }
+      try { await writer.close(); } catch { /* writer déjà fermé */ }
     }
   })();
 

@@ -1,7 +1,7 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
-import { isAdminForVille, getAuthedUser } from '../netlify/functions/lib/ai-common.mjs';
+import { isAdminForVille, isMemberOfVille, getAuthedUser } from '../netlify/functions/lib/ai-common.mjs';
 
 /**
  * Endpoints IA avec un JWT valide : validation du corps et contrôle du rôle.
@@ -102,6 +102,27 @@ test.describe('14.1 - Validation du corps avec un JWT valide', () => {
     expect((await res.json()).error).toBe('Seule l’analyse du dossier d’une zone est proposée');
   });
 
+  test('14.1.8 - ai-generate : sans structure → 400, avec la phrase de la console', async ({ request }) => {
+    const res = await post(request, '/api/ai-generate', { project_name: 'Ligne T9', target: 'description' });
+    expect(res.status()).toBe(400);
+    expect((await res.json()).error).toBe('Aucune structure sélectionnée');
+  });
+
+  test('14.1.9 - ai-generate : structure hors format ou nature de texte inconnue → 400', async ({ request }) => {
+    const ville = await post(request, '/api/ai-generate', { project_name: 'Ligne T9', target: 'description', city: 'pas une ville !' });
+    expect(ville.status()).toBe(400);
+    expect((await ville.json()).error).toBe('Paramètre city invalide');
+    const cible = await post(request, '/api/ai-generate', { project_name: 'Ligne T9', target: 'roman', city: 'test-e2e' });
+    expect(cible.status()).toBe(400);
+    expect((await cible.json()).error).toBe('Paramètre target invalide');
+  });
+
+  test('14.1.10 - ai-generate : un champ plus long que ce que le formulaire laisse saisir → 400', async ({ request }) => {
+    const res = await post(request, '/api/ai-generate', { project_name: 'x'.repeat(5000), target: 'article', city: 'test-e2e' });
+    expect(res.status()).toBe(400);
+    expect((await res.json()).error).toBe('Le champ project_name dépasse 200 caractères');
+  });
+
 });
 
 test.describe('14.2 - Contrôle du rôle (isAdminForVille, appel direct)', () => {
@@ -148,6 +169,31 @@ test.describe('14.2 - Contrôle du rôle (isAdminForVille, appel direct)', () =>
       token: tokenOf('admin'),
     };
     expect(await isAdminForVille(user, 'test-e2e')).toBe(false);
+  });
+
+});
+
+test.describe('14.3 - Équipe d’une structure (isMemberOfVille, appel direct)', () => {
+  // La rédaction assistée est ouverte à l'équipe de la ville du projet :
+  // ses administrateurs et ses contributeurs. Les profils simulés sont dans
+  // unauth.redaction-budget.spec.js (0.94) ; ici, les comptes de test réels.
+  const userOf = (who) => getAuthedUser(new Request('http://x', {
+    headers: { authorization: `Bearer ${tokenOf(who)}` },
+  }));
+
+  test('14.3.1 - Un admin et un contributeur font partie de l’équipe de leur structure', async () => {
+    expect(await isMemberOfVille(await userOf('admin'), 'test-e2e')).toBe(true);
+    expect(await isMemberOfVille(await userOf('invited'), 'test-e2e')).toBe(true);
+  });
+
+  test('14.3.2 - Ni l’un ni l’autre ne fait partie de l’équipe d’une autre structure', async () => {
+    expect(await isMemberOfVille(await userOf('admin'), 'metropole-lyon')).toBe(false);
+    expect(await isMemberOfVille(await userOf('invited'), 'metropole-lyon')).toBe(false);
+  });
+
+  test('14.3.3 - Un identifiant forgé ne fait partie d’aucune équipe', async () => {
+    const user = { id: '00000000-0000-0000-0000-000000000000', token: tokenOf('admin') };
+    expect(await isMemberOfVille(user, 'test-e2e')).toBe(false);
   });
 
 });
