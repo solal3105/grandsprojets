@@ -29,10 +29,10 @@ import {
   STYLE_COUCHE_TRANSPORTS, NOM_COUCHE_TRANSPORTS, CATEGORIE_TRANSPORTS,
 } from './lib/transit-osm.mjs';
 // Mecanique d'exploration : registre des pages vues, file de ce qui reste a
-// ouvrir, rapprochement des projets decrits par plusieurs pages.
+// ouvrir, fusion des descriptions d'une meme operation.
 import {
   FileExploration, empreinteGabarit, retirerGabaritConnu, GABARIT_RESTE_MIN,
-  regrouper, fondre, normaliserUrl,
+  fondre, normaliserUrl,
 } from './lib/demo-exploration.mjs';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
@@ -1455,33 +1455,6 @@ const BOAMP_NOT_A_PROJECT = /entretien (et |courant|des|du )|r[eé]parations? co
 // de Montcelard, tous deux de juin 2026, disparaissaient).
 const BOAMP_SERVICE_DE_PROJET = /ma[iî]trise d['’ ]?o?euvre|\bmoe\b|concours|\bopc\b|ordonnancement|[ée]tude de faisabilit|programmation urbaine|assistance [àa] ma[iî]trise d['’ ]?ouvrage|\bamo\b/i;
 
-/* Interventions de concessionnaires de reseau : elles ferment une rue mais ne
-   transforment pas le territoire, et n'ont rien a faire sur une carte de
-   projets urbains.
-
-   Deux motifs, pas un seul. Les marques dont le nom est aussi un nom de
-   commune ou un mot courant (Orange dans le Vaucluse, Free, RTE) ne peuvent
-   pas ecarter un projet a elles seules : « Construction d'une mediatheque a
-   Orange » etait rejete comme intervention de concessionnaire, et comme la
-   description cite presque toujours la commune, TOUS les projets d'Orange
-   tombaient. Ces marques ambigues exigent donc un mot de contexte reseau a
-   proximite. Les marques sans ambiguite gardent leur declenchement direct. */
-const CONCESSIONNAIRE_RE = /\b(enedis|grdf|grt\s?gaz|fibre optique|c[aâ]ble [eé]lectrique|ligne haute tension|moyenne tension|raccordement (?:au |du |des )?r[eé]seau|d[eé]voiement de r[eé]seaux?)\b/i;
-// Marques ambigues : il faut le mot de marque ET un mot de contexte reseau
-// dans la meme phrase (60 caracteres de part et d'autre).
-const CONCESSIONNAIRE_AMBIGU_RE = /\b(orange|sfr|bouygues telecom|free|rte)\b[\s\S]{0,60}\b(r[eé]seau|raccordement|fibre|c[aâ]ble|t[eé]l[eé]com|[eé]lectri|haute tension|antenne|op[eé]rateur)\b|\b(r[eé]seau|raccordement|fibre|c[aâ]ble|t[eé]l[eé]com|[eé]lectri|haute tension|antenne|op[eé]rateur)\b[\s\S]{0,60}\b(orange|sfr|bouygues telecom|free|rte)\b/i;
-
-/* Un projet est-il une intervention de concessionnaire ?
-   Le nom de la commune est retire du texte avant le test : sans cela, toute
-   commune homonyme d'un operateur voyait ses projets ecartes. */
-function estInterventionReseau(project, communeNom) {
-  let hay = `${project.title || ''} ${project.description || ''}`;
-  if (communeNom) {
-    hay = hay.replace(new RegExp(communeNom.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ');
-  }
-  return CONCESSIONNAIRE_RE.test(hay) || CONCESSIONNAIRE_AMBIGU_RE.test(hay);
-}
-
 // Au-dela, un avis ne renseigne plus l'etat du chantier : il devient archive.
 const BOAMP_MAX_AGE_MONTHS = 36;
 const BOAMP_MAX_ROWS = 45;
@@ -1588,11 +1561,11 @@ async function fetchBoamp(communeNom, departementCode, onFinding) {
       const score = /r[eé]sultat|attribution/i.test(x.nature) ? 2 : 1;
       if (!prev || score > prev.score) best.set(k, { ...x, score });
     }
-    /* Les interventions de concessionnaire sont ecartees DES MAINTENANT, pas
-       seulement a la sortie de l'IA : chaque ligne inutile consomme une place
-       dans le paquet et des tokens pour rien. */
+    /* Les interventions de concessionnaire ne sont plus ecartees ici par une
+       liste de marques : le depouillement des avis et le rapprochement les
+       jugent sur le fond. La liste se trompait dans les deux sens (une
+       mediatheque d'Orange ecartee, une conduite d'eau potable gardee). */
     let deduped = [...best.values()]
-      .filter((x) => !estInterventionReseau({ title: x.title, description: x.description }, communeNom))
       .sort((a, b) => (a.date < b.date ? 1 : -1));
 
     /* Plafond : la liste BOAMP est tres compacte (une ligne par avis) et
@@ -4649,133 +4622,203 @@ La citation doit etre recopiee mot pour mot depuis l'objet ou la description de 
   }
 }
 
-/* ARBITRAGE des rapprochements douteux.
+/* RAPPROCHEMENT ET VÉRIFICATION, en un seul jugement sur le fond.
 
-   Le tri mecanique tranche les cas nets sans rien couter. Restent les paires
-   qui partagent un seul mot caracteristique sans partager leur lieu, ou qui
-   n'en partagent aucun tout en designant peut-etre le meme endroit. On ne
-   soumet alors que les TITRES et les lieux, jamais les pages : c'est un appel
-   court, sur une liste courte, et il ne se declenche pas quand il n'y a aucun
-   doute a lever. */
-const DOUTES_SCHEMA = {
+   La lecture page par page décrit la même opération autant de fois qu'elle a
+   de pages : la rubrique des projets, l'actualité qui annonce le chantier,
+   l'arrêté de circulation, le plan de financement, l'avis de marché,
+   l'inauguration. Elle laisse aussi passer ce qui n'a rien à faire sur une
+   carte de projets (une antenne relais d'opérateur, un élagage, un projet de
+   la commune voisine).
+
+   Ces deux questions étaient traitées à part et sur les seuls titres : un tri
+   lexical (mots communs, liste de mots sans caractère), un arbitrage des paires
+   en doute, puis un contrôle des « résidus ». Mesure sur Vienne : 101
+   descriptions donnaient 205 paires en doute, et la requalification de la
+   place de l'Hôtel de Ville, lue sur trois pages, a été fondue dans la place
+   François Mitterrand puis écartée. À Noyal, « Les Robinsons » et
+   « Construction d'un nouvel accueil de loisirs », le même équipement,
+   restaient deux fiches : rien dans les titres ne le disait, tout dans les
+   descriptions.
+
+   L'IA reçoit donc toutes les descriptions avec leur lieu, leur adresse, leur
+   texte et leur page, et rend en une passe les opérations réelles (leurs
+   membres, leur nom, la description qui les présente le mieux) et, pour
+   chaque description écartée, sa raison. Le code ne juge rien : il vérifie que
+   la réponse couvre chaque description une fois et une seule, puis fond. */
+const RAPPROCHEMENT_MODEL = process.env.DEMO_RAPPROCHEMENT_MODEL || 'gpt-4.1';
+/* Descriptions jugées dans un même appel. Au-delà, la liste est découpée en
+   lots qui gardent ensemble les descriptions d'une même page, puis les
+   opérations des lots sont rapprochées entre elles par le même jugement.
+   Mesure sur Vienne : 108 descriptions en un seul appel, toutes rangées (une
+   seule rangée deux fois, corrigée), pour 12 000 jetons lus. Le plafond reste
+   proche de ce qui a été mesuré : au-delà, rien ne dit encore qu'un appel
+   lit aussi bien le milieu de la liste. */
+const RAPPROCHEMENT_LOT_MAX = Number(process.env.DEMO_RAPPROCHEMENT_LOT_MAX) || 120;
+const RAISONS_D_ECART = {
+  pas_une_operation: 'pas une opération d\'aménagement',
+  hors_commune: 'hors de la commune',
+  acte_administratif: 'simple acte administratif',
+};
+const RAPPROCHEMENT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    memes: {
+    operations: {
       type: 'array',
-      description: 'Index des paires qui designent le MEME chantier physique.',
-      items: { type: 'integer' },
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          membres: { type: 'array', items: { type: 'integer' }, description: 'Index de TOUTES les descriptions de cette opération.' },
+          principal: { type: 'integer', description: 'Index, parmi les membres, de la description qui présente le mieux l\'opération dans son ensemble.' },
+          titre: { type: 'string', description: 'Nom de l\'opération.' },
+        },
+        required: ['membres', 'principal', 'titre'],
+      },
+    },
+    ecartes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer' },
+          raison: { type: 'string', enum: Object.keys(RAISONS_D_ECART) },
+          precision: { type: 'string', description: 'Quelques mots qui disent ce que c\'est.' },
+        },
+        required: ['index', 'raison', 'precision'],
+      },
     },
   },
-  required: ['memes'],
+  required: ['operations', 'ecartes'],
 };
-// Paires soumises par appel d'arbitrage : au-dela, le modele rate le milieu de
-// la liste, exactement comme pour le tri des liens.
-const DOUTES_PAR_LOT = 40;
 
-async function arbitrerLesDoutes(commune, projets, groupes, doutes) {
-  if (!doutes.length) return groupes;
-  const decrire = (i) => `${projets[i].title}${projets[i].geo_query ? ` (lieu : ${projets[i].geo_query})` : ''}`;
-  /* Tous les doutes sont arbitres, par LOTS : la troncature a quarante paires
-     laissait sur une metropole plus de la moitie des doutes sans arbitrage,
-     donc autant de doublons potentiels publies. */
+function consigneRapprochement(communeNom) {
+  return `Tu prépares la carte des projets d'aménagement de ${communeNom}. La lecture du site de la commune, de celui de son intercommunalité, des avis de marchés publics et de la presse a relevé les descriptions numérotées qui suivent. Une même opération y figure souvent plusieurs fois, parce que plusieurs pages en parlent : la présentation du projet, chaque étape du chantier, ses tranches, son plan de financement, sa concertation, l'arrêté qui ferme la rue pendant les travaux, l'avis de marché, l'inauguration.
+
+Range chaque description, une fois et une seule, soit dans une opération, soit parmi les descriptions écartées.
+
+Une opération est un aménagement physique et durable d'un lieu situé à ${communeNom} : construire, rénover, agrandir, requalifier un bâtiment, une voie, une place, un parc, un équipement ou un quartier, que ce soit annoncé, en cours ou livré récemment. Les petites opérations comptent aussi (une aire de jeux, la réfection d'une rue, une borne de recharge) : sur la carte d'un village, ce sont souvent les seules.
+
+Mets dans la même opération toutes les descriptions du même objet au même endroit, même quand leurs titres ne se ressemblent pas : lis les descriptions, c'est là que tu verras qu'un équipement nommé par son nom propre et « la construction d'un nouvel équipement » près du même groupe scolaire sont la même chose. Un arrêté, un plan de financement, un avis de marché, une étude, un diagnostic, des fouilles, une protection réglementaire ou une concertation qui portent sur une opération de la liste rejoignent cette opération au lieu d'être écartés.
+
+Deux objets distincts restent deux opérations, même voisins, même annoncés sur la même page et dans les mêmes termes : deux opérations qui portent chacune leur nom propre (deux zones d'aménagement, deux places, deux programmes de logements de maîtres d'ouvrage différents), une école et la rue qui la dessert, deux bâtiments d'un même quartier. Ne fonds deux descriptions que si elles désignent manifestement le même objet. Dans le doute, laisse-les séparées : fondre deux opérations en efface une de la carte.
+
+Écarte une description, avec sa raison, seulement quand elle ne décrit aucune opération et ne se rattache à aucune opération de la liste :
+- pas_une_operation : un événement, une animation, la présentation d'un équipement qui existe déjà (horaires, fonctionnement), un service, une aide, l'entretien courant (élagage, traitement des arbres, nettoyage), une réparation ponctuelle, ou l'intervention d'un opérateur ou d'un concessionnaire de réseau (antenne relais, électricité, gaz, télécommunications) ;
+- hors_commune : l'opération se situe dans une autre commune ;
+- acte_administratif : un acte qui ne s'accompagne d'aucun aménagement décrit dans la liste (un changement de stationnement ou de sens de circulation, une procédure ou une protection réglementaire sans travaux).
+
+Donne à chaque opération le nom le plus juste, celui qu'un habitant reconnaît : ce qu'on fait et où, avec le nom propre de l'opération ou de l'équipement quand une description le donne (par exemple « Requalification de la place du Marché » ou « Construction de l'école des Tilleuls »). Une phrase nominale, sans le nom de la commune, sans date, sans tiret long, sans majuscules autres que celles des noms propres et des sigles. Le principal est la description qui présente le mieux l'opération dans son ensemble, de préférence une page de la commune plutôt qu'un avis de marché ou un arrêté.`;
+}
+
+/* Les lots gardent ensemble les descriptions d'une même page : une page qui
+   décrit trois opérations voisines doit être lue d'un seul tenant pour qu'on
+   les distingue. Les pages restent dans l'ordre de la lecture. */
+function lotsParPage(projets, taille) {
+  const parPage = new Map();
+  for (const p of projets) {
+    const cle = normaliserUrl(p.source_url);
+    if (!parPage.has(cle)) parPage.set(cle, []);
+    parPage.get(cle).push(p);
+  }
   const lots = [];
-  for (let i = 0; i < doutes.length; i += DOUTES_PAR_LOT) lots.push(doutes.slice(i, i + DOUTES_PAR_LOT));
-  try {
-    const system = `Deux descriptions peuvent designer le MEME chantier de la commune de ${commune.nom}, vu par deux sources differentes, ou deux chantiers DISTINCTS.
-
-Rends les index des paires qui designent le meme chantier physique, au meme endroit. Dans le doute, ne les rapproche pas : fusionner deux operations distinctes fait disparaitre un projet de la carte, alors que les laisser separees ne coute qu'une fiche en double, qu'un dernier controle attrapera plus loin.
-
-Deux descriptions du MEME OBJET sont le MEME chantier, meme si le lieu est formule autrement : « renovation des petites serres » et « restauration des petites serres du parc » designent les memes serres ; une creche nommee et la meme creche avec son adresse sont la meme creche. Deux tranches d'une meme operation aussi.
-En revanche un equipement et la voie qui le dessert sont DISTINCTS, et deux equipements differents d'un meme quartier aussi.`;
-    const verdictsParLot = await inChunks(lots, 2, async (lot) => {
-      const user = lot.map(([i, j], k) => `${k}. A = ${decrire(i)} | B = ${decrire(j)}`).join('\n');
-      const out = await openAIStructured(
-        [{ role: 'system', content: system }, { role: 'user', content: user }],
-        'rapprochement_doutes', DOUTES_SCHEMA, 1000, 40000, 0.1
-      );
-      return (out.memes || [])
-        .filter((k) => Number.isInteger(k) && k >= 0 && k < lot.length)
-        .map((k) => lot[k]);
-    });
-    const aFondre = verdictsParLot.flat();
-    if (!aFondre.length) return groupes;
-
-    /* Les groupes sont refondus : deux projets declares identiques doivent
-       rejoindre le meme groupe, y compris quand chacun appartenait deja a un
-       groupe distinct forme par le tri mecanique. */
-    const groupeDe = new Map();
-    groupes.forEach((g, idx) => { for (const p of g) groupeDe.set(p, idx); });
-    const parent = groupes.map((_, i) => i);
-    const racine = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
-    for (const [i, j] of aFondre) {
-      const gi = groupeDe.get(projets[i]);
-      const gj = groupeDe.get(projets[j]);
-      if (gi === undefined || gj === undefined) continue;
-      const ri = racine(gi); const rj = racine(gj);
-      if (ri !== rj) parent[rj] = ri;
-    }
-    const refondus = new Map();
-    groupes.forEach((g, idx) => {
-      const r = racine(idx);
-      if (!refondus.has(r)) refondus.set(r, []);
-      refondus.get(r).push(...g);
-    });
-    return [...refondus.values()];
-  } catch (e) {
-    console.warn(`[demo-generate] arbitrage des rapprochements indisponible :: ${e?.message}`);
-    return groupes;
+  let courant = [];
+  for (const groupe of parPage.values()) {
+    if (courant.length && courant.length + groupe.length > taille) { lots.push(courant); courant = []; }
+    courant.push(...groupe);
   }
+  if (courant.length) lots.push(courant);
+  return lots;
 }
 
-/* CONTROLE FINAL sur les titres.
-
-   La lecture page par page, sur le modele leger, laisse passer quelques
-   residus que la consigne interdit pourtant : mesure sur Lyon, « La salsa
-   cubaine » et « SORCIERE ! », deux evenements culturels, figuraient parmi les
-   cinquante-trois fiches. Devant un elu, une seule suffit a discrediter la
-   carte. Un appel court, sur les seuls titres, ecarte ces residus ; son biais
-   est de GARDER, l'extraction ayant deja filtre l'essentiel. */
-const RESIDUS_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    ecarter: {
-      type: 'array',
-      description: 'Index des entrees qui ne sont manifestement PAS des operations d\'amenagement.',
-      items: { type: 'integer' },
-    },
-  },
-  required: ['ecarter'],
-};
-
-async function ecarterLesResidus(commune, projets) {
-  if (projets.length < 2) return projets;
+/* Un seul appel sur une liste qui tient dans un lot. La réponse est vérifiée
+   avant d'être crue : une description revendiquée deux fois reste dans la
+   première opération qui la nomme, une description à la fois rangée et écartée
+   reste rangée, et une description oubliée devient une opération à elle seule.
+   Dans les trois cas, le biais est de garder : une fiche de trop se voit, une
+   fiche perdue ne se voit pas. */
+async function jugerLeRapprochement(commune, projets) {
+  const liste = projets.map((p, i) => ({
+    index: i,
+    titre: p.title || '',
+    lieu: p.geo_query || p.place || '',
+    adresse: p.address || '',
+    description: p.description || '',
+    page: p.source_url || '',
+    ...(p.origine === 'marche' ? { avis_de_marche_du: p.marcheDate || '' } : {}),
+    ...(p.origine === 'presse' ? { presse: true } : {}),
+  }));
+  let out;
   try {
-    const system = `Voici les titres des fiches retenues pour la carte des projets d'amenagement de ${commune.nom}. La quasi-totalite sont de vraies operations : ton travail est seulement d'ecarter les intrus MANIFESTES.
-
-ECARTE : un spectacle, un concert, un cours ou un atelier, un festival, une exposition, une animation saisonniere, une election, un dispositif evenementiel sans chantier, une INAUGURATION seule (le chantier est fini), et la simple PRESENTATION d'un equipement existant (horaires, tarifs, reservation) sans operation de travaux.
-NE TOUCHE A RIEN d'autre. Sont des amenagements, meme quand le titre ne le crie pas : une restauration de patrimoine, une fresque murale, une aire de jeux, une vegetalisation de cours d'ecole ou de rue, une ferme urbaine, la suppression de feux ou la pietonnisation d'un carrefour, un equipement, une voirie, une concertation sur l'avenir d'une rue. Dans le doute, garde : ecarter a tort fait disparaitre un vrai projet de la carte.`;
-    const user = projets.map((p, i) => `${i}. ${p.title}${p.description ? ` - ${String(p.description).slice(0, 90)}` : ''}`).join('\n');
-    const out = await openAIStructured(
-      [{ role: 'system', content: system }, { role: 'user', content: user }],
-      'residus_titres', RESIDUS_SCHEMA, 800, 40000, 0.1
+    out = await openAIStructured(
+      [{ role: 'system', content: consigneRapprochement(commune.nom) }, { role: 'user', content: JSON.stringify(liste) }],
+      'rapprochement_operations', RAPPROCHEMENT_SCHEMA, 600 + 60 * projets.length, 150000, 0, RAPPROCHEMENT_MODEL, 3
     );
-    const ecartes = new Set((out.ecarter || []).filter((i) => Number.isInteger(i) && i >= 0 && i < projets.length));
-    if (ecartes.size) {
-      console.log(`[demo-generate] residus ecartes au controle final : ${[...ecartes].map((i) => projets[i].title).join(' | ')}`);
-    }
-    return projets.filter((_, i) => !ecartes.has(i));
   } catch (e) {
-    console.warn(`[demo-generate] controle final indisponible :: ${e?.message}`);
-    return projets;
+    /* Sans jugement, chaque description garde sa fiche : des doublons se
+       voient sur la carte, une opération effacée ne se voit pas. */
+    console.warn(`[demo-generate] rapprochement indisponible, ${projets.length} description(s) gardees telles quelles :: ${e?.message}`);
+    out = { operations: [], ecartes: [] };
   }
+
+  const n = projets.length;
+  const range = new Array(n).fill(false);
+  const anomalies = { doubles: 0, oublies: 0, horsListe: 0 };
+  const groupes = [];
+  for (const op of out.operations || []) {
+    const membres = [];
+    for (const i of op.membres || []) {
+      if (!Number.isInteger(i) || i < 0 || i >= n) { anomalies.horsListe++; continue; }
+      if (range[i]) { if (!membres.includes(i)) anomalies.doubles++; continue; }
+      range[i] = true;
+      membres.push(i);
+    }
+    if (!membres.length) continue;
+    const principal = membres.includes(op.principal) ? op.principal : membres[0];
+    groupes.push({ membres: membres.map((i) => projets[i]), principal: projets[principal], titre: String(op.titre || '').trim() });
+  }
+  const ecartes = [];
+  for (const e of out.ecartes || []) {
+    const i = e.index;
+    if (!Number.isInteger(i) || i < 0 || i >= n) { anomalies.horsListe++; continue; }
+    if (range[i]) { anomalies.doubles++; continue; }
+    range[i] = true;
+    ecartes.push({ projet: projets[i], raison: e.raison, precision: String(e.precision || '').trim() });
+  }
+  for (let i = 0; i < n; i++) {
+    if (range[i]) continue;
+    anomalies.oublies++;
+    groupes.push({ membres: [projets[i]], principal: projets[i], titre: '' });
+  }
+  if (anomalies.doubles || anomalies.oublies || anomalies.horsListe) {
+    console.warn(`[demo-generate] rapprochement : reponse corrigee sur ${n} descriptions (${anomalies.doubles} rangee(s) deux fois, ${anomalies.oublies} oubliee(s), ${anomalies.horsListe} index hors liste)`);
+  }
+  return { projets: groupes.map((g) => fondre(g.membres, { titre: g.titre, principal: g.principal })), ecartes };
 }
 
-/* Le vocabulaire d'amenagement ne caracterise aucun projet en particulier :
-   « renovation », « travaux » et « ville » se retrouvent dans un titre sur
-   deux. Il est retire avant tout rapprochement. */
-const MOTS_SANS_CARACTERE = GENERIC_PROJECT_WORDS;
+/**
+ * Regroupe les descriptions par opération réelle et écarte ce qui n'en est pas.
+ * Au-delà d'un lot, chaque lot est jugé à part, puis les opérations obtenues
+ * sont rapprochées entre elles : une opération décrite par deux pages tombées
+ * dans deux lots différents se retrouve ainsi au second tour.
+ * @returns {Promise<{projets: Array<Object>, ecartes: Array<Object>}>}
+ */
+async function rapprocherLesDescriptions(commune, projets) {
+  if (!projets.length) return { projets: [], ecartes: [] };
+  if (projets.length <= RAPPROCHEMENT_LOT_MAX) return jugerLeRapprochement(commune, projets);
+  const lots = lotsParPage(projets, RAPPROCHEMENT_LOT_MAX);
+  const resultats = await inChunks(lots, 2, (lot) => jugerLeRapprochement(commune, lot));
+  const operations = resultats.flatMap((r) => r.projets);
+  const ecartes = resultats.flatMap((r) => r.ecartes);
+  /* Le second tour ne porte que sur des opérations déjà fondues. S'il n'en
+     réduit pas le nombre en dessous de la liste de départ, on s'arrête là :
+     redécouper la même liste tournerait en rond. */
+  if (operations.length >= projets.length) return { projets: operations, ecartes };
+  const second = await rapprocherLesDescriptions(commune, operations);
+  return { projets: second.projets, ecartes: [...ecartes, ...second.ecartes] };
+}
 
 async function coreAi(send, step, state) {
   const { commune, mairie, news, boamp } = state;
@@ -4812,40 +4855,37 @@ async function coreAi(send, step, state) {
   ].map(normaliserUrl));
   const allowedHosts = new Set([...allowedUrls].map(hostOf).filter(Boolean));
 
-  let retenus = bruts.filter((p) =>
+  const retenus = bruts.filter((p) =>
     p.confidence !== 'basse'
     && (allowedUrls.has(normaliserUrl(p.source_url)) || allowedHosts.has(hostOf(p.source_url)))
   );
 
-  // Garde-fou concessionnaires : la consigne demande d'ecarter les
-  // interventions de reseau, le modele en laisse passer (releve : « renovation
-  // d'un cable electrique moyenne tension par ENEDIS » presentee comme un
-  // projet urbain). Remplacer une conduite n'est pas un amenagement.
-  const avantConcess = retenus.length;
-  retenus = retenus.filter((p) => !estInterventionReseau(p, commune.nom));
-  if (retenus.length < avantConcess) {
-    console.log(`[demo-generate] interventions de concessionnaire ecartees : ${avantConcess - retenus.length}`);
+  /* RAPPROCHEMENT ET VÉRIFICATION : l'IA regroupe les descriptions par
+     opération réelle et écarte ce qui n'en est pas une (voir
+     rapprocherLesDescriptions). Elle juge aussi les interventions de
+     concessionnaire de réseau, que des expressions régulières sur des noms de
+     marques écartaient ici auparavant. */
+  const { projets: operations, ecartes: nonRetenus } = await rapprocherLesDescriptions(commune, retenus);
+  let projects = operations;
+  const fusionnes = retenus.length - nonRetenus.length - projects.length;
+  const parRaison = {};
+  for (const e of nonRetenus) parRaison[e.raison] = (parRaison[e.raison] || 0) + 1;
+  console.log(`[demo-generate] rapprochement : ${retenus.length} descriptions -> ${projects.length} operations (${fusionnes} fondue(s), ${nonRetenus.length} ecartee(s) : ${Object.entries(parRaison).map(([r, k]) => `${k} ${RAISONS_D_ECART[r] || r}`).join(', ') || 'aucune'})`);
+  if (nonRetenus.length) {
+    console.log(`[demo-generate] descriptions ecartees : ${nonRetenus.map((e) => `${e.projet.title} (${e.precision || RAISONS_D_ECART[e.raison]})`).join(' | ')}`);
   }
 
-  /* RAPPROCHEMENT. C'est la contrepartie de la lecture page par page : le meme
-     ecoquartier figure sur la rubrique « nos projets », sur l'actualite qui
-     annonce le chantier et dans l'avis de marche. Trois pages distinctes,
-     aucune lue deux fois, et pourtant trois entrees a fondre en une.
-     Ce que la mecanique laisse en doute part a l'arbitrage, sur les seuls
-     titres, ce qui est court et sur. */
-  const { groupes, doutes } = regrouper(retenus, MOTS_SANS_CARACTERE);
-  const groupesFinaux = doutes.length ? await arbitrerLesDoutes(commune, retenus, groupes, doutes) : groupes;
-  let projects = groupesFinaux.map((g) => fondre(g, MOTS_SANS_CARACTERE));
-  projects = await ecarterLesResidus(commune, projects);
-  const fusionnes = retenus.length - projects.length;
-  console.log(`[demo-generate] rapprochement : ${retenus.length} descriptions -> ${projects.length} projets (${fusionnes} fondu(s), ${doutes.length} doute(s) arbitre(s))`);
-
-  /* La matiere de l'article : les phrases relevees sur chaque page qui parle du
-     projet. Elle remplace l'extrait composite d'autrefois, qui etait decoupe a
-     l'aveugle dans un corpus commun. */
+  /* La matiere de l'article : l'extrait de la page qui presente le mieux
+     l'operation, suivi des citations relevees mot pour mot sur ses autres
+     pages. Chaque page de l'operation a ainsi sa phrase dans la matiere,
+     au lieu de la seule page porteuse. */
   for (const p of projects) {
-    p.source_excerpt = (p.page_excerpt || [p.description, p.evidence_quote].filter(Boolean).join('\n\n'))
+    const principal = (p.page_excerpt || [p.description, p.evidence_quote].filter(Boolean).join('\n\n'))
       .slice(0, SOURCE_EXCERPT_CHARS);
+    const autres = (p.citations || [])
+      .map((c) => c.citation)
+      .filter((c) => c && !principal.includes(c));
+    p.source_excerpt = [principal, ...autres.map((c) => `« ${c} »`)].join('\n\n');
     delete p.page_excerpt;
   }
 
@@ -6695,6 +6735,9 @@ export const config = { path: '/api/demo-generate' };
  * génération complète, donc jamais vérifiés. Rien d'autre ne les importe.
  */
 export const _internals = {
+  coreAi,
+  rapprocherLesDescriptions,
+  lotsParPage,
   affinerLesEmprises,
   perimetreDeZac,
   empriseDeBatiment,

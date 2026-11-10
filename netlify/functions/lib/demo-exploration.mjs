@@ -254,113 +254,40 @@ export function retirerGabaritConnu(texte, empreinte) {
   return net;
 }
 
-/* Rapprochement de deux projets décrits sur DEUX pages différentes.
+/* Fusion des descriptions d'une même opération.
  *
  * C'est la contrepartie de la lecture page par page : le même écoquartier est
  * décrit sur la rubrique « nos projets », sur l'actualité qui annonce le
  * chantier et dans l'avis de marché. Trois adresses distinctes, aucune lue deux
  * fois, et pourtant trois fois le même projet en sortie.
  *
- * Ce premier tri ne coûte rien et règle les cas nets. Ce qu'il laisse en doute
- * part ensuite à l'arbitrage, sur les seuls titres, ce qui est court et sûr.
+ * Décider QUELLES descriptions vont ensemble n'est plus fait ici. Le tri
+ * lexical sur les titres qui s'en chargeait (mots communs, liste de mots sans
+ * caractère, paires en doute) a été retiré : mesure sur Vienne, il laissait
+ * 205 paires en doute pour 101 descriptions, et l'arbitrage qui suivait, sur
+ * les seuls titres, a fondu la place de l'Hôtel de Ville dans la place
+ * François Mitterrand. Le regroupement est jugé par l'IA sur le fond
+ * (demo-generate, rapprocherLesDescriptions) ; ce module ne fait que fondre ce
+ * qu'elle a regroupé, sans rien perdre en route.
  */
-export function motsCaracteristiques(titre, motsVides) {
-  return new Set(
-    String(titre || '')
-      // Les ligatures ne se decomposent pas par NFD : sans ce remplacement,
-      // « cœur de ville » ne partage aucun mot avec « coeur de ville ».
-      .replace(/œ/g, 'oe').replace(/æ/g, 'ae').replace(/Œ/g, 'oe').replace(/Æ/g, 'ae')
-      .normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter((m) => m.length >= 5 && !motsVides.test(m))
-  );
-}
 
 /**
- * Deux projets désignent-ils manifestement le même chantier ?
- * Rend 'oui', 'non', ou 'doute' quand seul un arbitrage peut trancher.
+ * Fond un groupe de descriptions de la même opération en une seule fiche.
+ * @param {Array<Object>} groupe - descriptions de la même opération
+ * @param {{titre?: string, principal?: Object}} choix - le nom donné à
+ *   l'opération et la description qui la présente le mieux, tous deux désignés
+ *   par le rapprochement ; à défaut, la première description et son titre.
  */
-export function rapprochement(a, b, motsVides) {
-  const ma = motsCaracteristiques(a.title, motsVides);
-  const mb = motsCaracteristiques(b.title, motsVides);
-  const communs = [...ma].filter((m) => mb.has(m));
-
-  const lieuA = String(a.geo_query || a.place || '').trim().toLowerCase();
-  const lieuB = String(b.geo_query || b.place || '').trim().toLowerCase();
-  const memeLieu = Boolean(lieuA) && lieuA === lieuB;
-  const lieuxDifferents = Boolean(lieuA) && Boolean(lieuB) && lieuA !== lieuB;
-
-  /* Des lieux EXPLICITEMENT differents interdisent la fusion d'office, quel que
-     soit le nombre de mots partages : « requalification de la rue Jean Jaures »
-     et « residence de la rue Jean Jaures » partagent deux mots et sont deux
-     chantiers. L'arbitre tranchera, et son biais est de ne pas fondre :
-     fusionner a tort fait DISPARAITRE un projet de la carte. */
-  if (lieuxDifferents && communs.length) return 'doute';
-
-  // Deux mots caractéristiques communs, ou un seul mais au même endroit : c'est
-  // le même chantier, décrit deux fois.
-  if (communs.length >= 2) return 'oui';
-  if (communs.length === 1 && memeLieu) return 'oui';
-  /* Un titre sans AUCUN mot caracteristique ne prouve rien, ni dans un sens ni
-     dans l'autre : au meme lieu, seul l'arbitre peut trancher. */
-  if (!ma.size || !mb.size) return memeLieu ? 'doute' : 'non';
-  // Aucun mot en commun et des lieux différents : deux chantiers distincts.
-  if (!communs.length && lieuxDifferents) return 'non';
-  if (!communs.length && !memeLieu) return 'non';
-  return 'doute';
-}
-
-/**
- * Regroupe une liste de projets bruts. Rend les groupes formés et les paires
- * restées en doute, que l'appelant fera trancher.
- * @returns {{groupes: Array<Array<Object>>, doutes: Array<[number, number]>}}
- */
-export function regrouper(projets, motsVides) {
-  const parent = projets.map((_, i) => i);
-  const racine = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
-  const unir = (i, j) => { const ri = racine(i); const rj = racine(j); if (ri !== rj) parent[rj] = ri; };
-  const doutes = [];
-
-  for (let i = 0; i < projets.length; i++) {
-    for (let j = i + 1; j < projets.length; j++) {
-      const verdict = rapprochement(projets[i], projets[j], motsVides);
-      if (verdict === 'oui') unir(i, j);
-      else if (verdict === 'doute') doutes.push([i, j]);
-    }
-  }
-
-  const parRacine = new Map();
-  for (let i = 0; i < projets.length; i++) {
-    const r = racine(i);
-    if (!parRacine.has(r)) parRacine.set(r, []);
-    parRacine.get(r).push(projets[i]);
-  }
-  return { groupes: [...parRacine.values()], doutes };
-}
-
-/**
- * Fond un groupe de descriptions du même chantier en une seule fiche.
- * On garde le meilleur de chaque champ plutôt que la première occurrence : le
- * titre le plus court est en général le plus propre, la description la plus
- * longue la plus complète, et les sources s'additionnent, ce qui devient la
- * mesure de solidité du projet.
- * @param {Array<Object>} groupe - descriptions du même chantier
- * @param {RegExp} motsVides - vocabulaire d'aménagement, qui ne caractérise rien
- */
-export function fondre(groupe, motsVides) {
-  /* Le titre retenu est le plus INFORMATIF, pas le plus court.
-     Mesure sur un cas réel : entre « Écoquartier secteur ancienne gare » et
-     « Travaux écoquartier », le plus court est celui de l'avis de marché,
-     c'est-à-dire le plus pauvre. On compte donc les mots qui désignent
-     vraiment quelque chose, et le titre le plus court ne départage qu'à
-     égalité. Un titre venu d'une page de la commune passe devant celui d'un
-     avis de marché, qui est administratif par nature. */
-  const valeur = (p) => (p.origine && p.origine !== 'marche' ? 100 : 0)
-    + motsCaracteristiques(p.title, motsVides).size;
-  const classes = [...groupe].sort((a, b) =>
-    (valeur(b) - valeur(a)) || (String(a.title).length - String(b.title).length));
-  const base = { ...classes[0] };
+export function fondre(groupe, { titre = '', principal = null } = {}) {
+  /* Le PORTEUR est la description que le rapprochement a jugée la plus
+     représentative de l'opération : c'est lui qui donne sa catégorie, sa
+     citation et son extrait de page à la fiche. Le choisir autrefois au
+     nombre de mots « caractéristiques » du titre faisait porter une place
+     entière par l'arrêté de circulation de son chantier. */
+  const porteur = principal && groupe.includes(principal) ? principal : groupe[0];
+  const base = { ...porteur };
+  const nom = String(titre || '').trim();
+  if (nom) base.title = nom;
 
   const meilleur = (champ, mieux) => {
     for (const p of groupe) {
@@ -388,11 +315,27 @@ export function fondre(groupe, motsVides) {
      ou en est le chantier, et elle sert a classer la reserve des marches. */
   base.marcheDate = groupe.reduce((d, p) => (String(p.marcheDate || '') > d ? String(p.marcheDate) : d), String(base.marcheDate || ''));
 
+  const ordonne = [porteur, ...groupe.filter((p) => p !== porteur)];
+  /* Toutes les citations du groupe, chacune avec la page qui la porte. Seule
+     celle du porteur était gardée : les autres pages attestaient pourtant
+     chacune une étape (le lancement, la tranche suivante, l'inauguration) que
+     l'article ne pouvait plus raconter. Une fiche déjà fondue apporte les
+     siennes, ce qui permet de fondre deux fois sans rien perdre. */
+  const citationsVues = new Set();
+  base.citations = [];
+  for (const p of ordonne) {
+    for (const c of p.citations || [{ url: p.source_url, citation: p.evidence_quote }]) {
+      const texte = String(c.citation || '').trim();
+      if (!texte || citationsVues.has(texte)) continue;
+      citationsVues.add(texte);
+      base.citations.push({ url: c.url, citation: texte });
+    }
+  }
+
   // Toutes les adresses qui attestent le projet, sans doublon. Celle du
   // porteur vient en premier : c'est elle que la fiche affiche comme source.
   const vues = new Set();
   base.sources = [];
-  const ordonne = [classes[0], ...groupe.filter((p) => p !== classes[0])];
   for (const p of ordonne) {
     for (const s of p.sources || [{ url: p.source_url, type: p.origine || 'mairie' }]) {
       const cle = normaliserUrl(s.url);
