@@ -23,7 +23,7 @@
 
 // Socle de rédaction partagé avec l'outil de l'admin : structure de l'article,
 // nettoyage des liens, construction du bloc de sources citées.
-import { promptArticle, retirerLesLiens, sourcesDesAnnotations, blocSources, hoteLisible } from './lib/redaction.mjs';
+import { promptArticle, retirerLesLiens, blocSources, hoteLisible } from './lib/redaction.mjs';
 import {
   chargerReseau, reseauEnGeojson, zoneParInsee,
   STYLE_COUCHE_TRANSPORTS, NOM_COUCHE_TRANSPORTS, CATEGORIE_TRANSPORTS,
@@ -2134,51 +2134,46 @@ async function moissonnerLaPresse(send, step, state) {
 }
 
 
-/* ─── RÉDACTION D'UN ARTICLE ───
+/* ─── RÉDACTION D'UN ARTICLE, EN DEUX TEMPS ───
 
-   Un appel PAR PROJET, avec recherche web, comme le fait l'outil de rédaction
-   de l'admin. La démo écrivait auparavant trois articles par appel, à partir du
-   seul extrait de ses sources, et le résultat s'en ressentait : mesure sur
-   Lyon, des articles de 54 mots pour une cible annoncée de 150 à 250.
+   Un article par projet, écrit en deux appels : d'abord les faits, ensuite la
+   prose.
 
-   Le lot a été supprimé pour une raison mesurée, pas par élégance : prié
-   d'écrire trois articles en une fois avec une recherche à sa disposition, le
-   modèle fait UNE recherche et rend UN article ; contraint d'en rendre trois,
-   il n'en fait AUCUNE et invente trois articles de trois cents mots. Le lot est
-   le pire des deux mondes. Un appel par projet règle les deux, et rattache en
-   prime chaque citation au bon projet sans aucun travail.
+   Pourquoi. Le rédacteur recevait le titre, la description, un extrait de 1 800
+   signes et une recherche web restreinte aux domaines du projet, et devait
+   rendre 300 à 500 mots. Mesure du banc d'essai du 10/11/2026 (quatre
+   communes, juges stricts) : la recherche n'était presque jamais lancée (2
+   recherches pour 73 articles), l'extrait était souvent du menu de site (cours
+   Brillier à Vienne : 1 800 signes de navigation de l'agglomération), et le
+   modèle remplissait la longueur demandée avec ce qu'il imaginait : « pont
+   coupé à toute circulation » alors qu'une seconde page dit que la passerelle
+   reste ouverte, « le montant n'est pas précisé » alors que le PDF de la page le
+   donne, « les riverains constateront un changement ».
 
-   La recherche est RESTREINTE aux domaines déjà attestés pour ce projet : le
-   site de la commune et les sources qui ont servi à l'établir. C'est ce qui
-   permet d'aller chercher de la matière sans rouvrir la porte au blog de
-   quartier, et donc de garder l'exigence de sourçage qui fait toute la valeur
-   de cette démonstration. */
-const ARTICLE_MAX_TOKENS = 1400;
-// En deca, ce n'est pas un article : mieux vaut une fiche sans texte qu'une
-// fiche portant une phrase d'excuse.
-const ARTICLE_MIN_CHARS = 200;
+   1. Le code lit lui-même TOUTES les sources du projet (pages citées et PDF de
+      ces pages), avec leur date de publication.
+   2. Un petit modèle en tire la liste exhaustive des faits utiles, rangés par
+      rubrique, chacun avec la citation qui le porte. Le code retrouve chaque
+      citation dans le texte de sa source et jette le fait dont la citation est
+      introuvable.
+   3. Le rédacteur n'a que ces faits, sans recherche : il les relie et les met
+      en français. La longueur suit la matière.
+
+   La relecture des chiffres après coup (une phrase retirée par chiffre non
+   attesté, plus un appel de vérification) est supprimée : elle ne voyait que
+   les chiffres, et elle vidait des articles justes. */
+/* Un article suit maintenant sa matière : à 1 600 jetons, ceux du Vallon de
+   Saint-Genis-Laval (180 faits) et de la Vallée de Gère à Vienne étaient
+   coupés, et la fiche restait sans article. */
+const ARTICLE_MAX_TOKENS = 4000;
 const ARTICLE_TIMEOUT_MS = 60000;
-// Modèle et outil de recherche. Sortis en constantes pour être ajustables sans
-// toucher au code, les noms d'outils de l'API évoluant plus vite que ce fichier.
+/* Le rédacteur. Il sert aussi à la recherche de presse, qui garde son outil de
+   recherche web : la rédaction, elle, n'en a plus. */
 const ARTICLE_MODEL = process.env.DEMO_ARTICLE_MODEL || 'gpt-4.1';
 const ARTICLE_OUTIL = process.env.DEMO_ARTICLE_TOOL || 'web_search';
-
-/* Domaines où la recherche a le droit d'aller pour CE projet. */
-function domainesAutorises(projet, mairieHost) {
-  const hotes = new Set();
-  if (mairieHost) hotes.add(mairieHost.replace(/^www\./, ''));
-  for (const s of projet.sources || []) {
-    const h = hostOf(s.url);
-    if (h) hotes.add(h);
-  }
-  const cite = hostOf(projet.source_url);
-  if (cite) hotes.add(cite);
-  return [...hotes].filter(Boolean);
-}
-
-/* Texte et citations d'une réponse de l'API Responses.
-   Les annotations sont la SEULE source d'adresses réelles : invité à remplir
-   lui-même un champ d'URL, le modèle y écrit un jeton interne. */
+/* Texte et citations d'une réponse de l'API Responses, pour la recherche de
+   presse. Les annotations sont la SEULE source d'adresses réelles : invité à
+   remplir lui-même un champ d'URL, le modèle y écrit un jeton interne. */
 function texteEtCitations(data) {
   const annotations = [];
   let texte = '';
@@ -2190,294 +2185,377 @@ function texteEtCitations(data) {
   }
   return { texte: texte.trim(), annotations };
 }
+const REDACTION_MODEL = process.env.DEMO_REDACTION_MODEL || 'gpt-4.1-mini';
+/* L'extracteur. Mesure du 10/11/2026 sur le cours Brillier à Vienne (sept
+   pages) : gpt-4o-mini relève 8 faits et oublie les quatre financeurs,
+   gpt-4.1-mini en relève 22, dont les 32 000 € du Département pour le vélo et
+   les 171 167 € pour la chaussée, pour 0,008 $ au lieu de 0,003 $. */
+const FAITS_MODEL = process.env.DEMO_FAITS_MODEL || 'gpt-4.1-mini';
+/* Un grand projet donne plus de cent faits : à 4 000 jetons, l'extraction du
+   Vallon de Saint-Genis-Laval était coupée et la fiche restait sans article. */
+const FAITS_MAX_TOKENS = 10000;
+const FAITS_TIMEOUT_MS = 90000;
+const FAITS_LOT_CHARS = 25000;
+// Bornes de lecture d'un projet : de quoi tenir dans un appel du petit modèle
+const SOURCES_LUES_MAX = 8;
+const PDF_LUS_MAX = 6;
+const CORPUS_CHARS = 90000;
+const SOURCE_PAGE_OCTETS = 800000;
+const SOURCE_PDF_OCTETS = 15000000;
+const RUBRIQUES = ['programme', 'calendrier', 'acteurs', 'etat', 'effets'];
 
+/* Forme de comparaison d'une citation : lettres et chiffres seulement, sans
+   accents ni ponctuation. Le modèle recopie fidèlement les mots mais change
+   volontiers une apostrophe, un guillemet ou une espace insécable ; ces
+   écarts-là ne changent pas ce que dit le passage. */
+const pourCitation = (t) => unaccentLower(String(t || '')).replace(/[^a-z0-9]+/g, ' ').trim();
 
-/* ─── Relecture des chiffres d'un article ──────────────────────────────────
-
-   Le redacteur invente parfois un chiffre ou le reprend de travers. Mesure sur
-   le banc d'essai du 10/11/2026 : « fin aout 2024 » pour une etape de 2026 a
-   Vienne, « 1 000 logements » pour un quartier qui en compte 1 350 a
-   Saint-Genis-Laval, soit une fiche fausse sur trente environ. Une seule suffit
-   a faire douter de toute la carte.
-
-   Chaque chiffre et chaque date de l'article est donc relu contre les sources
-   du projet : l'extrait de la page d'origine et le texte des pages citees.
-   1. Un chiffre qui ne figure dans AUCUNE source est refuse d'office.
-   2. Pour les autres, un modele doit recopier mot pour mot le passage qui
-      l'atteste pour la meme chose ; le code verifie que ce passage existe dans
-      les sources et contient bien le chiffre. « 1 000 ans avant notre ere »
-      n'atteste pas « 1 000 logements ».
-   La phrase qui porte un chiffre refuse est retiree de l'article. Trois lignes
-   exactes valent mieux que quinze lignes plausibles. */
-const MOIS_FR = 'janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre';
-const SOURCES_RELUES_MAX = 6;
-const SOURCE_RELUE_CHARS = 60000;
-const _textesDeSources = new Map();
-
-const pourChiffres = (t) => unaccentLower(String(t || '')).replace(/[   ]/g, ' ').replace(/\s+/g, ' ');
-// 1 350 -> 1350, 30,5 -> 30.5 : deux ecritures du meme nombre doivent se rejoindre
-const nombresCompactes = (t) => t.replace(/(?<=\d)[ .](?=\d{3}(?!\d))/g, '').replace(/(?<=\d),(?=\d)/g, '.');
-
-function chiffresDe(texte) {
-  const n = pourChiffres(texte);
-  const out = new Set();
-  for (const m of n.matchAll(new RegExp(`\\b(\\d{1,2})(?:er)? (${MOIS_FR})\\b`, 'g'))) out.add(`${m[1]} ${m[2]}`);
-  // Un chiffre isole (« 2 classes ») est trop courant pour etre recherche seul
-  for (const m of nombresCompactes(n).matchAll(/\d+(?:\.\d+)?/g)) if (m[0].replace('.', '').length >= 2) out.add(m[0]);
-  return [...out];
+/* La citation se trouve-t-elle dans la source ? Une coupure marquée par des
+   points de suspension est admise, chaque morceau devant figurer dans la
+   source : c'est ainsi qu'un modèle rassemble deux phrases d'une même page qui
+   portent ensemble un fait (sur le cours Brillier, le pilotage et les « 18 mois
+   de travaux » sont dits dans deux phrases, dans l'ordre inverse). */
+function citationRetrouvee(citation, sourceNormalisee) {
+  const morceaux = String(citation || '').split(/\.{3}|…|\[\s*\.\.\.\s*\]/).map(pourCitation).filter(Boolean);
+  return morceaux.length > 0 && morceaux.every((m) => sourceNormalisee.includes(m));
 }
 
-function positionsDuChiffre(fait, corpus) {
-  const re = /^\d{1,2} [a-z]+$/.test(fait)
-    ? new RegExp(`\\b0?${fait.split(' ')[0]}(?:er)? ${fait.split(' ')[1]}\\b`, 'g')
-    : new RegExp(`(?<![\\d.])${fait.replace('.', '\\.')}(?!\\d)`, 'g');
-  return [...corpus.matchAll(re)].map((m) => m.index);
+// Date de publication déclarée par la page (Open Graph, schema.org, <time>)
+function dateDePublication(html) {
+  const m = /property=["']article:published_time["'][^>]*content=["']([^"']+)/i.exec(html)
+    || /content=["']([^"']+)["'][^>]*property=["']article:published_time/i.exec(html)
+    || /"datePublished"\s*:\s*"([^"]+)"/i.exec(html)
+    || /<time[^>]+datetime=["']([^"']+)/i.exec(html);
+  const d = m ? new Date(m[1]) : null;
+  return d && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '';
 }
 
-async function texteDeSource(url) {
-  if (_textesDeSources.has(url)) return _textesDeSources.get(url);
-  let texte = '';
-  try {
-    if (isSafePublicUrl(url)) {
-      const r = await fetchCapped(url, { headers: UA }, 6000, 800000);
-      if (r?.data) texte = stripHtml(r.data).slice(0, SOURCE_RELUE_CHARS);
+// Titre de la page : le <h1> d'abord, qui nomme l'article et non le site
+function titreDeLaPage(html) {
+  const h1 = /<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
+  const og = /property=["']og:title["'][^>]*content=["']([^"']+)/i.exec(html);
+  const titre = h1 ? stripHtml(h1[1]) : og ? stripHtml(og[1]) : '';
+  return titre.slice(0, 140);
+}
+
+/* Texte d'un PDF, avec sa date de création. Rendu vide pour un document
+   scanné, qui n'a pas de couche texte. */
+async function lirePdfSource(url) {
+  const r = await fetchCapped(url, { headers: UA }, 20000, SOURCE_PDF_OCTETS, true);
+  if (!r?.data || r.data.byteLength >= SOURCE_PDF_OCTETS) return null;
+  /* Un PDF lu à moitié (serveur lent, lecture coupée à l'échéance) n'est pas
+     un PDF : sa lecture échoue dans pdf.js par un rejet que rien ne rattrape,
+     et qui faisait tomber tout le processus (mesure sur le Vallon de
+     Saint-Genis-Laval, quatre PDF de 2 à 4 Mo lus ensemble). */
+  const annonce = Number(r.headers?.get?.('content-length'));
+  if (annonce && r.data.byteLength < annonce) return null;
+  const octets = new Uint8Array(r.data);
+  if (String.fromCharCode(...octets.slice(0, 5)) !== '%PDF-') return null;
+  return lireLeTexteDuPdf(url, octets);
+}
+
+/* pdf.js est chargé une fois, et les PDF sont lus l'un après l'autre. Lancées
+   ensemble, les premières lectures chargeaient chacune pdf.js, et l'une
+   d'elles finissait par un rejet que rien ne rattrapait (« Invalid PDF
+   structure »), ce qui faisait tomber tout le processus : mesure sur le Vallon
+   de Saint-Genis-Laval, six PDF de 2 à 4 Mo. En série, la mémoire reste aussi
+   bornée à un document à la fois. */
+let _pdfjs = null;
+let _filePdf = Promise.resolve();
+function lireLeTexteDuPdf(url, octets) {
+  const lecture = _filePdf.then(async () => {
+    try {
+      _pdfjs ||= import('unpdf').then(async (m) => { await m.getResolvedPDFJS(); return m; });
+      const { extractText, getDocumentProxy } = await _pdfjs;
+      const pdf = await getDocumentProxy(octets);
+      const { text } = await extractText(pdf, { mergePages: true });
+      let publiee = '';
+      try {
+        const meta = await pdf.getMetadata();
+        const c = /^D:(\d{4})(\d{2})(\d{2})/.exec(meta?.info?.CreationDate || '');
+        if (c) publiee = `${c[1]}-${c[2]}-${c[3]}`;
+      } catch { /* pas de métadonnées */ }
+      try { await pdf.destroy(); } catch { /* déjà libéré */ }
+      const texte = String(text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+      return texte ? { texte, publiee, titre: '', pdfs: [] } : null;
+    } catch (e) {
+      console.warn(`[demo-generate] PDF illisible : ${url} :: ${e?.message}`);
+      return null;
     }
-  } catch { /* source illisible : elle n'atteste rien */ }
-  _textesDeSources.set(url, texte);
-  return texte;
+  });
+  _filePdf = lecture;
+  return lecture;
 }
 
-const RELECTURE_SCHEMA = {
+/* Une page source : son contenu principal, sa date, son titre et les PDF
+   qu'elle lie. Le contenu principal est la balise <main> quand le site en pose
+   une : sur Noyal, 773 signes d'article au lieu de 6 000 de menus, et les PDF
+   des encadrés voisins ne sont plus pris pour ceux du projet. */
+async function lirePageSource(url) {
+  const r = await fetchCapped(url, { headers: UA }, 8000, SOURCE_PAGE_OCTETS, true);
+  if (!r?.data) return null;
+  const octets = new Uint8Array(r.data);
+  if (String.fromCharCode(...octets.slice(0, 5)) === '%PDF-') return lirePdfSource(url);
+  const html = new TextDecoder('utf-8', { fatal: false }).decode(octets);
+  const principal = /<main[\s>][\s\S]*?<\/main>/i.exec(html)?.[0] || html;
+  const texte = stripHtml(principal);
+  if (!texte || looksLikeCode(texte)) return null;
+  return { texte, publiee: dateDePublication(html), titre: titreDeLaPage(html), pdfs: collectPdfLinks(principal, r.url || url) };
+}
+
+// Une lecture par adresse et par invocation, partagée entre les projets qui citent la même page
+const _sourcesLues = new Map();
+function lireSource(url) {
+  if (!_sourcesLues.has(url)) {
+    const lecture = !isSafePublicUrl(url) ? Promise.resolve(null)
+      : (/\.pdf(\?|#|$)/i.test(url) ? lirePdfSource(url) : lirePageSource(url)).catch(() => null);
+    _sourcesLues.set(url, lecture);
+  }
+  return _sourcesLues.get(url);
+}
+
+/* Place de lecture répartie entre les sources : chacune sa part, puis le
+   reliquat des sources courtes aux longues, dans l'ordre (la page d'origine
+   d'abord). Couper chaque source au même nombre de signes amputait les longues
+   alors que le paquet restait à moitié vide. */
+function repartirLaPlace(sources, total) {
+  let reste = total;
+  const part = Math.floor(total / Math.max(1, sources.length));
+  for (const s of sources) { s.place = Math.min(s.texte.length, part); reste -= s.place; }
+  for (const s of sources) {
+    if (reste <= 0) break;
+    const plus = Math.min(reste, s.texte.length - s.place);
+    s.place += plus; reste -= plus;
+  }
+  for (const s of sources) s.lu = s.texte.slice(0, s.place);
+}
+
+/* Toutes les sources lisibles d'un projet : ses pages, puis les PDF de ces
+   pages (ceux que l'exploration a retenus, puis les autres liens de document
+   de la page). Repli sur l'extrait relevé à l'exploration quand la page
+   d'origine ne répond plus : c'est le texte qui a fondé la fiche. */
+async function sourcesDuProjet(projet, tousLesPdfs) {
+  const pages = [...new Set([projet.source_url, ...(projet.sources || []).map((s) => s.url)]
+    .filter((u) => /^https?:\/\//.test(u || '')))].slice(0, SOURCES_LUES_MAX);
+  const lues = await Promise.all(pages.map(lireSource));
+  const sources = [];
+  pages.forEach((url, i) => {
+    if (lues[i]?.texte) sources.push({ url, nature: /\.pdf(\?|#|$)/i.test(url) ? 'pdf' : 'page', ...lues[i] });
+    else if (url === projet.source_url && projet.source_excerpt) sources.push({ url, nature: 'page', texte: projet.source_excerpt, publiee: '', titre: '', pdfs: [] });
+  });
+  const pagesLues = new Set(pages);
+  const candidats = [
+    ...(tousLesPdfs || []).filter((d) => pagesLues.has(d.page)),
+    ...sources.flatMap((s) => s.pdfs || []),
+  ];
+  const pdfs = [];
+  for (const d of candidats) {
+    if (pdfs.length >= PDF_LUS_MAX) break;
+    if (!pagesLues.has(d.url) && !pdfs.some((p) => p.url === d.url)) pdfs.push(d);
+  }
+  const pdfsLus = await Promise.all(pdfs.map((d) => lireSource(d.url)));
+  pdfs.forEach((d, i) => {
+    if (pdfsLus[i]?.texte) sources.push({ ...pdfsLus[i], url: d.url, nature: 'pdf', titre: d.label || nomDeFichier(d.url) });
+  });
+  sources.forEach((s, i) => { s.id = `S${i + 1}`; s.normalisee = pourCitation(s.texte); });
+  repartirLaPlace(sources, CORPUS_CHARS);
+  return sources;
+}
+
+const FAITS_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    attestations: {
+    faits: {
       type: 'array',
       items: {
         type: 'object',
         additionalProperties: false,
         properties: {
-          index: { type: 'integer' },
-          citation: { type: 'string', description: 'Passage des extraits, recopié mot pour mot, qui atteste ce chiffre pour la même chose. Chaîne vide si aucun passage ne le dit.' },
+          /* Nommer l'objet du passage avant de le ranger : une page de la
+             Ville sur le cours Brillier parle aussi du monument aux morts et de
+             la halte fluviale, que l'extracteur versait au cours Brillier tant
+             qu'il n'avait pas à dire de quoi parlait chaque passage. */
+          objet: { type: 'string', description: 'Le chantier, l\'équipement ou le lieu dont parle ce passage.' },
+          porte_sur_le_projet: { type: 'boolean', description: 'true si ce passage parle du projet demandé lui-même, false s\'il parle d\'un autre chantier.' },
+          rubrique: { type: 'string', enum: RUBRIQUES },
+          citation: { type: 'string', description: 'Passage de la source recopié mot pour mot, qui porte ce fait.' },
+          source: { type: 'string', description: 'Identifiant de la source (S1, S2...).' },
         },
-        required: ['index', 'citation'],
+        required: ['objet', 'porte_sur_le_projet', 'rubrique', 'citation', 'source'],
       },
+    },
+    documents: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Identifiants des sources PDF qui portent sur ce projet précis.',
+    },
+    /* L'intitulé affiché sous l'article. Le <h1> des pages porte souvent des
+       capitales et des crochets (« [TRAVAUX] Fermeture du pont »), que la
+       charte d'écriture exclut ; le modèle les récrit sans toucher au sens. */
+    titres: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: { source: { type: 'string' }, titre: { type: 'string' } },
+        required: ['source', 'titre'],
+      },
+      description: 'Pour chaque source, son intitulé court en typographie courante : majuscule initiale et noms propres seulement, sans crochets ni capitales.',
     },
   },
-  required: ['attestations'],
+  required: ['faits', 'documents', 'titres'],
 };
 
-// Decoupe un article en unites qu'on peut retirer une a une : intertitre, ligne de liste, phrase
-function unitesDeLArticle(markdown) {
-  const unites = [];
-  String(markdown || '').split('\n').forEach((ligne, n) => {
-    if (/^\s*#{1,6}\s/.test(ligne)) unites.push({ n, type: 'titre', texte: ligne });
-    else if (!ligne.trim() || /^\s*(?:[-*]|\d+[.)])\s/.test(ligne)) unites.push({ n, type: 'ligne', texte: ligne });
-    else for (const phrase of ligne.split(/(?<=[.!?…»])\s+(?=[A-ZÀ-ÖØ-Þ«])/)) unites.push({ n, type: 'phrase', texte: phrase });
-  });
-  return unites;
+// « il y a 3 ans », « il y a 5 mois » : l'écart entre la publication d'une source et aujourd'hui
+function ancienneteDe(iso) {
+  const mois = Math.round((Date.now() - new Date(`${iso}T12:00:00Z`).getTime()) / (30.44 * 86400000));
+  if (mois < 1) return 'moins d\'un mois';
+  if (mois < 24) return `${mois} mois`;
+  return `${Math.floor(mois / 12)} ans`;
 }
 
-function recomposerLArticle(unites) {
-  // Un intertitre refuse emporte sa section ; un intertitre reste sans texte disparait
-  let sectionRetiree = false;
-  const gardees = [];
-  for (const u of unites) {
-    if (u.type === 'titre') sectionRetiree = Boolean(u.retiree);
-    if (u.retiree || (sectionRetiree && u.type !== 'titre')) continue;
-    gardees.push(u);
+const dateLisible = (iso) => (iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+
+/* Les faits d'un projet, chacun retrouvé dans sa source.
+   Un fait est une citation : il est gardé si elle figure dans le texte de la
+   source qu'il désigne. L'extracteur ne reformule plus. Sa reformulation a été
+   essayée, et c'est elle qui trompait le rédacteur (sur le réseau express vélo
+   de Noyal, 5 km de liaison qui « permettent » déjà de rejoindre Rennes
+   devenaient 5 km qui « vont être aménagés ») ; la contrôler par ses nombres
+   rejetait 8 faits justes sur 28 au boulevard du Rhône, dont tout le plan de
+   financement. Sans elle, la sortie est aussi deux fois plus courte. */
+async function extraireLesFaits(commune, projet, sources, aujourdhui) {
+  const system = `Tu relèves, pour les habitants de ${commune.nom}, tout ce que les sources fournies établissent sur UN projet : « ${projet.title} »${projet.place ? ` (${projet.place})` : ''}.
+
+Relève TOUS les faits utiles, sans en omettre aucun, un fait par élément d'information. Parcours chaque source phrase par phrase : chaque phrase qui dit quelque chose du projet donne au moins un fait.
+- programme : ce qui est construit, transformé ou installé, avec ses chiffres (logements, surfaces, longueurs, places, classes, équipements, matériaux annoncés), et les rues, lieux et itinéraires concernés ;
+- calendrier : chaque date ou période (études, concertation, début et fin de chantier, phases, livraison, inauguration), recopiée comme la source l'écrit ;
+- acteurs : maître d'ouvrage, aménageur, architecte, bureau d'études, entreprises, financeurs, et chaque montant avec ce qu'il finance exactement (coût total, part de chaque financeur, poste concerné) ;
+- etat : où en est le projet à la date de la source (à l'étude, en concertation, en travaux, livré, inauguré, abandonné), et ce qui reste à faire ;
+- effets : ce qui change pour les habitants (fermetures, déviations, ce qui reste ouvert, horaires, stationnement, nouveaux usages).
+
+Chaque fait est une citation recopiée mot pour mot, d'un seul tenant, dans la source indiquée : une phrase ou un morceau de phrase qui contient tout le fait, assez longue pour qu'on comprenne de quoi elle parle et sans rien y changer. Indique dans « objet » le chantier ou l'équipement dont elle parle.
+Une page parle souvent d'autre chose aussi : menus, cookies, autres actualités, « lire aussi », et d'autres chantiers de la commune. Ne relève que ce qui concerne CE projet : un autre chantier cité sur la même page, même voisin, n'en fait pas partie. Un document budgétaire de toute la commune (budget primitif, maquette, compte administratif, note de présentation) ne fournit que les lignes qui nomment ce projet : ses totaux et ses sections portent sur la commune, pas sur le projet. Si une source corrige une annonce précédente, relève les deux faits.
+Dans « documents », donne les identifiants des PDF qui portent sur ce projet précis.
+Nous sommes le ${aujourdhui}.`;
+
+  const parId = new Map(sources.map((s) => [s.id, s]));
+  const lots = lotsDeSources(sources);
+  const sorties = await Promise.all(lots.map((lot) => openAIStructured([
+    { role: 'system', content: system },
+    { role: 'user', content: lot.map((s) => `=== ${s.id} : ${s.nature === 'pdf' ? 'document PDF' : 'page'}${s.titre ? ` « ${s.titre} »` : ''}${s.publiee ? `, publiée le ${dateLisible(s.publiee)}` : ''}\n${s.lu}`).join('\n\n') },
+  ], 'faits_projet', FAITS_SCHEMA, FAITS_MAX_TOKENS, FAITS_TIMEOUT_MS, 0, FAITS_MODEL, 2).catch((e) => {
+    // Un lot perdu coûte ses faits, pas l'article : les autres lots suffisent souvent
+    console.warn(`[demo-generate] extraction perdue pour "${projet.title}" (${lot.map((x) => x.id).join(', ')}) :: ${e?.message}`);
+    return { faits: [], documents: [], titres: [] };
+  })));
+
+  const gardes = [];
+  const rejetes = [];
+  const vues = [];
+  for (const f of sorties.flatMap((o) => o.faits || [])) {
+    const s = parId.get(f.source);
+    const forme = pourCitation(f.citation);
+    const motif = !f.porte_sur_le_projet ? 'autre chantier'
+      : !s ? 'source inconnue'
+        : !citationRetrouvee(f.citation, s.normalisee) ? 'citation introuvable'
+          // La même phrase reprise d'une page à l'autre ne fait qu'un fait
+          : vues.some((v) => v.includes(forme)) ? 'doublon'
+            : '';
+    if (motif) rejetes.push({ ...f, motif });
+    else { gardes.push({ ...f, id: `F${gardes.length + 1}` }); vues.push(forme); }
   }
-  const lignes = [];
-  for (const u of gardees) {
-    const derniere = lignes[lignes.length - 1];
-    if (u.type === 'phrase' && derniere && derniere.n === u.n && derniere.type === 'phrase') derniere.texte += ` ${u.texte}`;
-    else lignes.push({ ...u });
+  const documents = sorties.flatMap((o) => o.documents || []).map((id) => parId.get(id)).filter((s) => s?.nature === 'pdf');
+  for (const t of sorties.flatMap((o) => o.titres || [])) {
+    const s = parId.get(t.source);
+    if (s && String(t.titre || '').trim()) s.titre = String(t.titre).trim().slice(0, 140);
   }
-  const out = [];
-  lignes.forEach((l, i) => {
-    if (l.type === 'titre') {
-      const suite = lignes.slice(i + 1);
-      const fin = suite.findIndex((x) => x.type === 'titre');
-      const corps = (fin < 0 ? suite : suite.slice(0, fin)).some((x) => x.texte.trim());
-      if (!corps) return;
-    }
-    out.push(l.texte);
-  });
-  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return { faits: gardes, rejetes: rejetes.filter((r) => r.motif !== 'doublon'), documents: [...new Set(documents)] };
 }
 
-async function relireLesChiffres(markdown, projet, urlsCitees) {
-  const unites = unitesDeLArticle(markdown);
-  /* Un nombre qui figure dans le NOM du projet ou de son lieu (« RD41 »,
-     « 38 bis avenue Leclerc », « Hil 3 ») est un nom, pas un fait a verifier. */
-  const noms = new Set(chiffresDe(`${projet.title} ${projet.place || ''} ${projet.address || ''} ${projet.geo_query || ''}`));
-  const aRelire = [];
-  for (const u of unites) for (const fait of chiffresDe(u.texte)) if (!noms.has(fait)) aRelire.push({ u, fait });
-  if (!aRelire.length) return { markdown, retires: [] };
-
-  const urls = [...new Set([projet.source_url, ...(projet.sources || []).map((x) => x.url), ...urlsCitees].filter(Boolean))].slice(0, SOURCES_RELUES_MAX);
-  // Un PDF n'est pas relu ici : son texte n'est pas lisible sans extraction,
-  // et ce qu'il est seul a dire n'est donc pas tenu pour atteste.
-  const textes = await Promise.all(urls.map((u) => (/\.pdf(\?|#|$)/i.test(u) ? '' : texteDeSource(u))));
-  const corpus = nombresCompactes(pourChiffres([projet.title, projet.description, projet.evidence_quote, projet.source_excerpt, projet.marcheDate, ...textes].filter(Boolean).join(' \n ')));
-
-  const refuses = [];
-  const douteux = [];
-  for (const x of aRelire) {
-    const positions = positionsDuChiffre(x.fait, corpus);
-    if (!positions.length) refuses.push({ ...x, motif: 'absent des sources' });
-    else {
-      /* Les passages soumis au relecteur sont ceux qui RESSEMBLENT le plus a
-         la phrase : « 2027 » figure dix fois dans les sources, et les trois
-         premieres occurrences sont rarement celles qui parlent de la meme
-         chose. */
-      const mots = new Set(pourChiffres(x.u.texte).match(/[a-z]{4,}/g) || []);
-      const extraits = positions.map((i) => corpus.slice(Math.max(0, i - 220), i + 220))
-        .map((e) => ({ e, score: [...mots].filter((m) => e.includes(m)).length }))
-        .sort((a, b) => b.score - a.score).slice(0, 3).map((o) => o.e);
-      douteux.push({ ...x, extraits });
-    }
+/* Les sources d'un projet partent en plusieurs appels d'extraction, lancés
+   ensemble, d'au plus FAITS_LOT_CHARS signes chacun. Mesure du 10/11/2026 sur
+   le Vallon de Saint-Genis-Laval (13 sources, 90 000 signes en un appel) :
+   122 s d'attente, dont un premier essai coupé à 60 s, et 40 citations sur 84
+   rejetées parce que le modèle, noyé, résumait au lieu de recopier. */
+function lotsDeSources(sources) {
+  const lots = [];
+  let courant = [];
+  let taille = 0;
+  for (const s of sources) {
+    if (courant.length && taille + s.lu.length > FAITS_LOT_CHARS) { lots.push(courant); courant = []; taille = 0; }
+    courant.push(s);
+    taille += s.lu.length;
   }
-
-  if (douteux.length) {
-    try {
-      const system = `Tu vérifies les chiffres d'un article sur un projet d'aménagement (« ${projet.title} »). Pour chaque affirmation, on te donne la phrase de l'article, le chiffre ou la date à vérifier, et des extraits des sources où ce chiffre apparaît (texte en minuscules sans accents, nombres écrits sans espace). Recopie MOT POUR MOT le passage d'un extrait qui atteste ce chiffre POUR LA MÊME CHOSE que la phrase : même objet, même grandeur, même événement. « 1000 ans avant notre ere » n'atteste pas « 1 000 logements » ; « ouverture en 2027 » n'atteste pas « travaux lancés en 2027 ». Si aucun extrait ne dit la même chose, rends une citation vide.`;
-      const user = JSON.stringify(douteux.map((x, i) => ({ index: i, phrase: x.u.texte.slice(0, 400), chiffre: x.fait, extraits: x.extraits })));
-      const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
-        'relecture_chiffres', RELECTURE_SCHEMA, 1800, 30000, 0, OPENAI_MODEL_LIGHT, 2);
-      const parIndex = new Map((out.attestations || []).map((a) => [a.index, a.citation]));
-      douteux.forEach((x, i) => {
-        const citation = nombresCompactes(pourChiffres(parIndex.get(i) || ''));
-        const tenue = citation.length >= 6 && corpus.includes(citation) && positionsDuChiffre(x.fait, citation).length > 0;
-        if (!tenue) refuses.push({ ...x, motif: 'aucune source ne le dit pour la même chose' });
-      });
-    } catch (e) {
-      console.warn(`[demo-generate] relecture des chiffres indisponible pour "${projet.title}" :: ${e?.message}`);
-    }
-  }
-  if (!refuses.length) return { markdown, retires: [] };
-  for (const r of refuses) r.u.retiree = true;
-  return { markdown: recomposerLArticle(unites), retires: refuses.map((r) => `${r.fait} (${r.motif})`) };
+  if (courant.length) lots.push(courant);
+  return lots;
 }
 
-async function redigerArticle(commune, projet, tousLesPdfs, mairieHost) {
-  const system = promptArticle({
-    commune: commune.nom,
-    stricte: true,
-    /* Sans la date du jour, le redacteur date lui-meme ce que la source ne
-       date pas : mesure sur Vienne, « des la fin du mois d'aout » devenait
-       « fin aout 2024 » trois fois sur dix, pour un chantier de 2026. */
-    aujourdhui: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+const ARTICLE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    markdown: {
+      type: 'string',
+      description: "L'article en markdown, et lui seul : aucun préambule, aucune phrase adressée au lecteur de la consigne.",
+    },
+    faits_utilises: { type: 'array', items: { type: 'string' }, description: 'Identifiants (F1, F2...) des faits employés dans l\'article.' },
+  },
+  required: ['markdown', 'faits_utilises'],
+};
+
+async function redigerArticle(commune, projet, tousLesPdfs) {
+  const aujourdhui = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const sources = await sourcesDuProjet(projet, tousLesPdfs);
+  if (!sources.length) throw new Error('aucune source lisible');
+  const { faits, rejetes, documents } = await extraireLesFaits(commune, projet, sources, aujourdhui);
+  console.log(`[demo-faits] "${projet.title}" : ${sources.length} source(s), ${faits.length} fait(s) gardé(s), ${rejetes.length} rejeté(s)${rejetes.length ? ` :: ${rejetes.map((r) => `${r.motif} « ${String(r.citation).slice(0, 80)} »`).join(' ; ')}` : ''}`);
+  if (process.env.DEMO_FAITS_DETAIL) console.log(`[demo-faits-detail] ${JSON.stringify({ sources: sources.map((s) => ({ id: s.id, url: s.url, publiee: s.publiee, chars: s.texte.length, lu: s.lu.length })), faits, rejetes })}`);
+  // Sans fait retrouvé dans une source, il n'y a rien à écrire que la description ne dise déjà
+  if (!faits.length) throw new Error('aucun fait retrouvé dans les sources');
+
+  const parId = new Map(sources.map((s) => [s.id, s]));
+  /* L'âge de la source est calculé ici plutôt que laissé au rédacteur : mesure
+     du 10/11/2026, une page de novembre 2023 qui annonçait des aménagements « à
+     venir » était racontée au présent, « le projet est en cours ». */
+  const liste = faits.map((f) => {
+    const s = parId.get(f.source);
+    return {
+      id: f.id, objet: f.objet, rubrique: f.rubrique, la_source_dit: f.citation,
+      source_publiee_le: s?.publiee ? dateLisible(s.publiee) : 'date inconnue',
+      ...(s?.publiee ? { anciennete_de_la_source: ancienneteDe(s.publiee) } : {}),
+    };
   });
-  const domaines = domainesAutorises(projet, mairieHost);
-  /* Les dossiers trouves sur les PAGES SOURCES de ce projet, et eux seuls. Un
-     document retenu sur la page d'un autre chantier n'a rien a faire ici : le
-     redacteur choisissait autrefois dans le tas de tout le site, sur les seuls
-     intitules, et rattachait la concertation du centre-bourg a la halle
-     sportive. A defaut de page source commune, aucun document n'est propose,
-     ce qui vaut mieux qu'un document faux. */
-  const pagesSources = new Set([projet.source_url, ...(projet.sources || []).map((s) => s.url)].filter(Boolean));
-  const pdfs = (tousLesPdfs || []).filter((d) => pagesSources.has(d.page));
-  // Les intitules seuls : l'adresse ne sert qu'au rattachement, fait en code.
-  const documents = pdfs.length
-    ? pdfs.map((d) => `- ${d.label}`).join('\n')
-    : '(aucun)';
+  const system = promptArticle({ commune: commune.nom, aujourdhui });
   const user = `PROJET : ${projet.title}
 ${projet.place ? `LIEU : ${projet.place}\n` : ''}COMMUNE : ${commune.nom}
-DESCRIPTION ÉTABLIE : ${projet.description || '(aucune)'}
-EXTRAIT DES SOURCES OFFICIELLES :
-${projet.source_excerpt || '(aucun extrait : reste sur la description, sans ajouter aucun détail)'}
+FAITS VÉRIFIÉS (${faits.length}) :
+${JSON.stringify(liste, null, 1)}`;
 
-DOCUMENTS OFFICIELS DISPONIBLES (recopie dans le champ prévu l'intitulé exact de chacun de ceux qui portent sur CE projet, et ne les cite jamais dans le corps du texte) :
-${documents}
+  const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
+    'article_projet', ARTICLE_SCHEMA, ARTICLE_MAX_TOKENS, ARTICLE_TIMEOUT_MS, 0.3, REDACTION_MODEL, 2);
+  /* Les identifiants de faits n'ont rien à faire sous les yeux d'un habitant ;
+     le rédacteur en sème parfois entre parenthèses malgré la consigne. */
+  const markdown = retirerLesLiens(String(out.markdown || '').replace(/\s*\((?:F\d+[,;\s]*(?:et\s*)?)+\)/g, '').trim());
+  if (!markdown) throw new Error('Article vide');
 
-Consulte les pages des sources de ce projet pour compléter ce que l'extrait ne dit pas, puis rédige l'article.`;
-
-  const corps = {
-    model: ARTICLE_MODEL,
-    input: [{ role: 'system', content: system }, { role: 'user', content: user }],
-    max_output_tokens: ARTICLE_MAX_TOKENS,
-    /* La sortie est CONTRAINTE, comme partout ailleurs dans ce fichier.
-       Laissée libre, elle est publiée telle quelle sur la fiche, et le modèle
-       s'adresse volontiers au demandeur : « Voici un texte factuel et sobre : »,
-       ou pire « Je n'ai trouvé aucune information récente sur ce projet ».
-       Ce qui se lit très bien dans une fenêtre de rédaction où un agent relit
-       devient, sur une carte de démonstration, une fiche qui parle à un élu de
-       ce que l'IA n'a pas trouvé. Le champ unique force l'article et rien
-       d'autre ; les citations continuent de remonter normalement. */
-    text: {
-      format: {
-        type: 'json_schema',
-        name: 'article_projet',
-        strict: true,
-        schema: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            markdown: {
-              type: 'string',
-              description: "L'article en markdown, et lui seul : aucun préambule, aucune phrase adressée au lecteur de la consigne, aucun commentaire sur ce que tu as trouvé ou non.",
-            },
-            /* Le lien du document est construit EN CODE à partir de cet
-               intitulé : le modèle ne recopie jamais une adresse fidèlement, et
-               le nettoyage des liens supprimerait de toute façon celle qu'il
-               aurait écrite dans le corps du texte. */
-            documents: {
-              type: 'array',
-              maxItems: 5,
-              items: { type: 'string' },
-              description: "Intitulés EXACTS, recopiés de la liste fournie, des documents officiels qui portent sur CE projet précis. Tableau vide si aucun document de la liste ne le concerne clairement.",
-            },
-          },
-          required: ['markdown', 'documents'],
-        },
-      },
-    },
-  };
-  /* Sans domaine attesté, on n'ouvre pas la recherche : elle ramènerait des
-     pages que rien ne rattache à ce projet, ce que cette démo s'interdit. */
-  if (domaines.length) {
-    corps.tools = [{ type: ARTICLE_OUTIL, filters: { allowed_domains: domaines } }];
+  /* Les sources citées sous l'article sont celles des faits employés, pages
+     d'abord ; un PDF rattaché comme document officiel n'y est pas répété. */
+  const utilises = new Set((out.faits_utilises || []).filter((id) => faits.some((f) => f.id === id)));
+  const employes = faits.filter((f) => !utilises.size || utilises.has(f.id));
+  const dossiers = [...documents];
+  for (const f of employes) {
+    const s = parId.get(f.source);
+    if (s?.nature === 'pdf' && !dossiers.includes(s)) dossiers.push(s);
   }
-
-  const r = await postOpenAI(corps, ARTICLE_TIMEOUT_MS);
-  if (!r.ok) {
-    const detail = await r.text().catch(() => '');
-    throw new Error(`IA indisponible (${r.status}) ${detail.slice(0, 200)}`);
-  }
-  const data = JSON.parse(await readBody(r));
-  logUsage('article', data.usage);
-  const { texte, annotations } = texteEtCitations(data);
-  if (!texte) throw new Error('Article vide');
-  let markdown = '';
-  let retenus = [];
-  try {
-    const sortie = JSON.parse(texte);
-    markdown = String(sortie.markdown || '').trim();
-    retenus = (Array.isArray(sortie.documents) ? sortie.documents : []).map((x) => String(x || '').trim());
-  } catch { markdown = ''; }
-  // Un article illisible ou vide est un MANQUE, pas une panne : la fiche existe
-  // quand même, avec sa description et son illustration.
-  if (markdown.length < ARTICLE_MIN_CHARS) throw new Error('Article trop court ou illisible');
-
-  const sources = sourcesDesAnnotations(annotations);
-  /* Aucune citation ne remonte : la recherche n'a rien trouvé, ou n'a pas eu
-     lieu. L'article n'en est pas moins écrit à partir de l'extrait, qui est
-     attesté ; on cite alors la source d'origine du projet, comme avant. */
-  const citees = sources.length
-    ? sources
-    : [{ url: projet.source_url, title: hoteLisible(projet.source_url) }].filter((s) => s.url);
-  /* Le dossier officiel qui porte sur ce projet, rattache par son intitule.
-     C'est ce qu'un elu ouvre en premier : la deliberation ou la concertation
-     qui fonde l'operation. */
-  const dossiers = pdfs.filter((d) => d.label && retenus.includes(d.label.trim()));
+  const citees = [...new Set(employes.map((f) => parId.get(f.source)))]
+    .filter((s) => s && s.nature !== 'pdf')
+    .map((s) => ({ url: s.url, title: s.titre || hoteLisible(s.url) }));
   const blocDossier = dossiers.length
-    ? `\n\n## ${dossiers.length > 1 ? 'Les documents officiels sont en ligne' : 'Le document officiel est en ligne'}\n\n${dossiers.map((d) => `- [${d.label}](${d.url})`).join('\n')}\n`
+    ? `\n\n## ${dossiers.length > 1 ? 'Les documents officiels sont en ligne' : 'Le document officiel est en ligne'}\n\n${dossiers.map((d) => `- [${d.titre || nomDeFichier(d.url)}](${d.url})`).join('\n')}\n`
     : '';
-  const relu = await relireLesChiffres(retirerLesLiens(markdown), projet, citees.map((c) => c.url));
-  if (relu.retires.length) console.log(`[demo-relecture] "${projet.title}" : ${relu.retires.length} chiffre(s) retiré(s) :: ${relu.retires.join(' ; ')}`);
-  if (relu.markdown.length < ARTICLE_MIN_CHARS) throw new Error('Article trop court après relecture des chiffres');
-  return `${relu.markdown}${blocDossier}${blocSources(citees)}`;
+  return `${markdown}${blocDossier}${blocSources(citees)}`;
 }
 
 // Formats rejetes par la vision gpt-4o : un seul suffit a faire echouer TOUT
@@ -6147,10 +6225,10 @@ async function coreMedia(send, step, state) {
 }
 
 /* Phase RÉDACTION, découpée en tranches comme la localisation et les
-   illustrations. Un article se recherche puis s'écrit en cinq à dix secondes :
-   dix-sept articles ne tiennent plus dans une invocation, alors que trois
-   appels de lot y tenaient. Trois articles à la fois, pas davantage : le bac à
-   sable des fonctions rompt ses connexions sortantes au-delà. */
+   illustrations. Un article se lit, s'extrait puis s'écrit en cinq à quarante
+   secondes selon le nombre de ses sources : vingt-cinq articles ne tiennent pas
+   dans une invocation. Trois articles à la fois, pas davantage : le bac à sable
+   des fonctions rompt ses connexions sortantes au-delà. */
 const ARTICLES_CONCURRENCE = 3;
 
 // Tiret cadratin ou demi-cadratin entre deux mots : une virgule ; en tete de ligne : rien
@@ -6177,14 +6255,13 @@ async function coreRedact(send, step, state) {
 
   const t0 = Date.now();
   const pdfs = state.mairie?.pdfs || [];
-  const mairieHost = state.mairie?.host || '';
 
   while (redac.curseur < located.length && Date.now() - t0 < PHASE_BUDGET_MS) {
     const lot = [];
     for (let k = 0; k < ARTICLES_CONCURRENCE && redac.curseur < located.length; k++) lot.push(redac.curseur++);
     const ecrits = await inChunks(lot, ARTICLES_CONCURRENCE, async (i) => {
       try {
-        const markdown = await redigerArticle(state.commune, located[i], pdfs, mairieHost);
+        const markdown = await redigerArticle(state.commune, located[i], pdfs);
         send({ type: 'article-item', title: located[i].title });
         return { index: i, title: located[i].title, markdown };
       } catch (e) {
@@ -7148,8 +7225,11 @@ export const _internals = {
   traceDeVoie,
   contientPoint,
   surfaceM2,
-  relireLesChiffres,
-  chiffresDe,
+  citationRetrouvee,
+  pourCitation,
+  sourcesDuProjet,
+  extraireLesFaits,
+  redigerArticle,
   INSEE_RE,
   findSiteLogo,
   attributHtml,
@@ -7185,7 +7265,6 @@ export const _internals = {
   pointDuRejeu,
   REPERE_MIN_PX,
   arbitrerMarches,
-  domainesAutorises,
   nomDistinctifEpci,
   MARCHES_CIBLE,
   typeImageReel,
