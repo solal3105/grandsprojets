@@ -3394,61 +3394,6 @@ async function gatherImageCandidates(project, communeNom, mairiePages = []) {
    etaient en francais alors que Wikimedia Commons est indexe massivement en
    anglais (« biomass boiler plant » rend infiniment plus que « chaufferie bois
    collective »). Cout : environ 700 tokens en entree, un appel par generation. */
-const THEMES_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    themes: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          index: { type: 'integer', description: 'Index du projet dans la liste fournie' },
-          query_en: { type: 'string', description: 'Requête Wikimedia Commons EN ANGLAIS décrivant le TYPE d\'ouvrage, jamais le projet précis ni la commune. Exemples : "biomass boiler plant", "public swimming pool France", "roundabout France". Chaîne vide si le projet ne correspond à aucun type d\'ouvrage photographiable.' },
-          libelle_fr: { type: 'string', description: 'Le type d\'ouvrage en français, précédé de son article, pour le crédit affiché : "une chaufferie", "un giratoire", "une caserne de pompiers".' },
-        },
-        required: ['index', 'query_en', 'libelle_fr'],
-      },
-    },
-  },
-  required: ['themes'],
-};
-
-async function themesGeneriques(communeNom, projets) {
-  const vide = projets.map(() => null);
-  if (!projets.length) return vide;
-  try {
-    const system = `Pour chaque projet urbain de la commune de ${communeNom}, identifie le TYPE D'OUVRAGE qu'il produit, puis donne une requête de recherche photo EN ANGLAIS qui rendra des photos de ce type d'ouvrage sur Wikimedia Commons.
-
-Tu ne cherches PAS une photo du projet lui-même : elle n'existe pas. Tu cherches une photo d'un ouvrage du même type, qui servira d'illustration explicitement créditée comme générique.
-
-- query_en : en anglais, 2 à 5 mots, le type d'ouvrage seul. Jamais le nom du projet, jamais le nom de la commune, jamais un nom propre. Ajoute "France" seulement si l'architecture française change vraiment le résultat.
-- libelle_fr : le même type d'ouvrage en français avec son article, tel qu'il sera lu dans « Illustration générique (…) ».
-- Si le projet ne produit aucun ouvrage photographiable (une étude, une concertation, un plan), rends une chaîne vide pour query_en : mieux vaut aucune image qu'une image hors sujet.`;
-    const user = JSON.stringify(projets.map((p, i) => ({
-      index: i,
-      titre: p.title,
-      description: (p.description || '').slice(0, 200),
-    })), null, 1);
-    const out = await openAIStructured(
-      [{ role: 'system', content: system }, { role: 'user', content: user }],
-      'themes_illustration', THEMES_SCHEMA, 1400, 40000, 0.2
-    );
-    const parIndex = new Map();
-    for (const t of out.themes || []) {
-      const requete = String(t.query_en || '').trim();
-      if (requete) parIndex.set(t.index, { requete, libelle: String(t.libelle_fr || 'un ouvrage public').trim() });
-    }
-    return projets.map((_, i) => parIndex.get(i) || null);
-  } catch (e) {
-    // Aucun repli codé en dur : sans thème, la fiche reste sans photo, ce qui
-    // est le comportement honnête. Une table de 18 regex ne couvrait de toute
-    // façon qu'une partie des cas.
-    console.warn('[demo-generate] thèmes d\'illustration :', e?.message);
-    return vide;
-  }
-}
 
 // L'IA REGARDE vraiment les photos et choisit celle qui illustre ce projet
 // précis, ou aucune (-1). C'est le juge de pertinence : mieux vaut rien qu'une
@@ -5360,46 +5305,13 @@ async function coreMedia(send, step, state) {
   }
   delete state.__continue;
 
-  /* Repli thematique pour les projets restes sans visuel. Une seule recherche
-     Commons par THEME distinct, pas par projet : deux ecoles partagent la meme
-     requete. Le credit annonce explicitement l'image comme generique.
-
-     Depuis la vue aerienne, ce repli ne sert plus que la ou l'IGN ne couvre pas
-     la commune. Une photo d'une AUTRE piscine se repere en un instant devant un
-     elu, la ou la vue aerienne de sa propre commune se verifie ; on ne descend
-     donc a ce rang que faute de mieux. Sur une generation ordinaire, cet appel
-     a l'IA ne part plus du tout. */
-  const sansImage = located.map((p, i) => ({ p, i })).filter(({ p }) => !p.coverSrc);
-  if (sansImage.length) {
-    const themes = await themesGeneriques(state.commune.nom, sansImage.map(({ p }) => p));
-    const parRequete = new Map();
-    sansImage.forEach(({ i }, k) => {
-      const t = themes[k];
-      if (!t?.requete) return;
-      if (!parRequete.has(t.requete)) parRequete.set(t.requete, { libelle: t.libelle, cibles: [] });
-      parRequete.get(t.requete).cibles.push(i);
-    });
-    if (parRequete.size) {
-      const entrees = [...parRequete.entries()];
-      const resultats = await inChunks(entrees, 4, async ([requete]) => commonsTextCandidates(requete));
-      entrees.forEach(([, info], k) => {
-        const dispo = (resultats[k] || []).filter((c) => !VISION_UNSUPPORTED_RE.test(c.url) && !used.has(coverKey(c.url)));
-        // Une image differente par projet quand la recherche en offre plusieurs
-        info.cibles.forEach((idx, rang) => {
-          const c = dispo[rang % Math.max(dispo.length, 1)];
-          if (!c || used.has(coverKey(c.url))) return;
-          used.add(coverKey(c.url));
-          located[idx].coverSrc = c.url;
-          located[idx].coverCredit = `Illustration générique (${info.libelle}) - ${c.credit}`;
-          media.illustrated++;
-          const pt = centroidOf(located[idx].geometry);
-          send({ type: 'media-item', title: located[idx].title, credit: located[idx].coverCredit, coverSrc: c.url, lat: pt.lat, lng: pt.lng, source: 'generique', generique: true });
-        });
-      });
-      console.log(`[demo-generate] media: repli thématique appliqué sur ${entrees.reduce((s, [, i2]) => s + i2.cibles.length, 0)} projet(s)`);
-    }
-  }
-
+  /* Plus aucune photo « generique » d'un ouvrage du meme type, cherchee sur
+     Wikimedia Commons par mots-cles. Ce repli posait sur une fiche une image
+     d'un AUTRE lieu, choisie sans que personne ne la regarde. Mesure sur le banc
+     d'essai du 10/11/2026 a Vienne : le projet de crematorium illustre par les
+     fours d'Auschwitz, l'ecole Michel Servet par un lycee du Maryland, le siege
+     de l'agglomeration par un immeuble de Londres. Une fiche sans image est
+     honnete ; celle-la detruit la confiance dans toute la carte. */
   const illustrated = media.illustrated;
   const aeriennes = media.aeriennes;
   const photos = illustrated - aeriennes;
