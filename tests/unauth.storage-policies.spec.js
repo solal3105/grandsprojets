@@ -7,6 +7,10 @@
  * PostgreSQL embarquée : aucun fichier réel n'est touché. Les parcours du
  * navigateur qui suppriment réellement des fichiers sont couverts par
  * invited.contributions.spec.js et admin.contributions.spec.js.
+ *
+ * Ce fichier montre l'état du 23/09/2026. Depuis le 10/11/2026, un fichier de
+ * projet suit son projet (migration 20261110150000_fichiers_par_projet) : les
+ * règles d'aujourd'hui sont essayées dans supabase/tests/fichiers-par-projet.sql.
  */
 import { test, expect } from '@playwright/test';
 import { PGlite } from '@electric-sql/pglite';
@@ -106,7 +110,8 @@ test.describe('0.74 - Stockage public : suppressions, dépôts et remplacements'
       expect(await canDelete(after, 'adminVille', file), file).toBe(true);
     }
     expect(await canDelete(after, 'adminVille', 'demo')).toBe(false);
-    // Comme sur la table des contributions, tout administrateur retire les fichiers d'une contribution.
+    // État du 23/09/2026 : tout administrateur retirait les fichiers d'une contribution.
+    // Resserré par ville le 10/11/2026 (supabase/tests/fichiers-par-projet.sql).
     expect(await canDelete(after, 'adminAutreVille', 'couvertureContributeur')).toBe(true);
     for (const file of ['logo', 'coucheDiagnostic', 'demo']) expect(await canDelete(after, 'adminAutreVille', file), file).toBe(false);
     for (const file of ['logo', 'coucheDiagnostic', 'demo']) expect(await canDelete(after, 'adminGlobal', file), file).toBe(true);

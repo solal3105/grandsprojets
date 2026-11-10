@@ -31,7 +31,19 @@ Rien ne change pour la création d'une contribution, ni pour la lecture publique
 
 `tests/unauth.storage-policies.spec.js` rejoue les politiques de production (`tests/fixtures/storage-uploads-policies.sql`) et la migration dans une base PostgreSQL embarquée : il montre la faille avant la migration et chaque droit après. `tests/invited.contributions.spec.js` (2.8.6-2.8.7) et `tests/admin.contributions.spec.js` (2.9.1) vérifient sur la vraie base qu'un fichier disparaît quand son auteur, puis un administrateur, supprime la contribution. Ils passaient avant la migration et passent après son application (relancés le 23/09/2026).
 
-## Points restants
+## Depuis le 10 novembre 2026 : un fichier suit son projet ou sa ville
 
-- Tout administrateur peut supprimer la contribution d'une autre ville (`contrib_delete_admin`, sur la table). La migration garde la même règle pour les fichiers ; resserrer les deux par ville est un chantier à part.
-- `uploads_read_public` permet de lister tout le compartiment par l'API. Aujourd'hui, une autre politique en erreur bloque ce listage sans compte, par accident ; une lecture publique limitée aux fichiers eux-mêmes suffirait.
+Les deux points laissés ouverts le 23 septembre sont fermés par `supabase/migrations/20261110150000_fichiers_par_projet.sql`, appliquée en base le 10 novembre 2026.
+
+La règle est écrite une seule fois, dans la fonction `can_write_upload` : par l'API, on supprime un fichier du compartiment, et on le lit ou on le liste, quand on a le droit de l'écrire.
+
+- Quand le chemin porte la ville (`branding/<ville>/`, `demo/<espace>/`, `diagnostic/<ville>/`), ce sont ses administrateurs, comme avant.
+- Le fichier d'un projet (tracé, couverture, fiche, PDF d'un dossier de concertation) se supprime par qui l'a déposé, ou par qui peut écrire le projet qui le désigne : son auteur ou un administrateur de sa ville (`can_write_contribution`, la même règle que pour les dossiers de concertation). Un administrateur d'une autre ville ne le supprime plus.
+- Un fichier de projet que plus aucun projet ne désigne ne se supprime que par qui l'a déposé ou par un super administrateur.
+- Le compartiment ne se liste plus par l'API : chacun n'y voit que les fichiers qu'il peut écrire. Aucun écran ne listait ces fichiers.
+
+Ce qui ne change pas : les adresses publiques (`/object/public/`) ne traversent pas ces règles, les cartes, les fiches et les logos s'affichent comme avant ; le dépôt et le remplacement d'un fichier gardent leurs règles ; les fonctions serveur tiennent la clé de service.
+
+Une conséquence pour le code : un fichier n'est rattaché à son projet que tant que la ligne du projet porte son adresse. `deleteContribution` retire donc les fichiers avant les dossiers, et les dossiers avant la ligne ; tout nouveau parcours de suppression garde cet ordre.
+
+Essais : `supabase/tests/fichiers-par-projet.sql` rejoue sur une base locale les règles d'origine (`supabase/tests/socle-fichiers-local.sql`), montre les deux défauts, applique la migration et vérifie 61 cas, rôle par rôle. Après l'application, la lecture réelle de chacun des comptes de la base a été comparée à la liste attendue, calculée à part : aucune différence.
