@@ -5092,12 +5092,30 @@ async function saveDraft(ville, insee, communeNom, ipHash, status, state) {
   }]);
 }
 
+/* Banc d'essai : DEMO_ETATS_DIR enregistre l'etat apres chaque tranche, tel
+   que la production l'ecrirait dans demo_instances (meme serialisation). */
+async function etatDuBanc(nom, state) {
+  const dossier = process.env.DEMO_ETATS_DIR;
+  if (!dossier || !state || process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  const fs = await import('node:fs');
+  fs.mkdirSync(dossier, { recursive: true });
+  fs.writeFileSync(`${dossier}/${nom}.json`, corpsJson(state));
+}
+
 async function runSources(send, step, insee, ipHash, runState) {
   // cumulerTokens n'était appelé que par runPhase : la phase sources, qui
   // consomme pourtant de l'IA (choix du logo, tri des marchés), n'était jamais
   // comptée et le journal sous-estimait la dépense de toute une étape.
-  const state = cumulerTokens(await coreSources(send, step, insee, runState));
+  /* Banc d'essai (voie locale seulement) : DEMO_REPRISE_ETAT repart d'un etat
+     enregistre par une generation precedente, a la phase DEMO_REPRISE_DEPUIS
+     (coreGeo, coreMedia ou coreRedact). Rejouer les dernieres phases sans
+     refaire la lecture du site coute dix fois moins cher. */
+  const reprise = !process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.DEMO_REPRISE_ETAT
+    ? JSON.parse((await import('node:fs')).readFileSync(process.env.DEMO_REPRISE_ETAT, 'utf8'))
+    : null;
+  const state = reprise || cumulerTokens(await coreSources(send, step, insee, runState));
   if (!state) return;
+  if (!reprise) await etatDuBanc('coreSources', state);
   // Le run voyage dans le brouillon : les cinq invocations suivantes sont des
   // processus distincts, c'est le seul fil qui les relie a la meme generation.
   if (runState?.id) {
@@ -5118,10 +5136,14 @@ async function runSources(send, step, insee, ipHash, runState) {
     /* Local : pas de persistance possible, on enchaîne tout dans l'invocation.
        Les phases découpées en tranches sont rejouées sur place tant qu'elles
        demandent la main, exactement comme le ferait le client en production. */
+    const ordre = ['coreExplore', 'coreGeo', 'coreMedia', 'coreRedact'];
+    const depuis = reprise ? ordre.indexOf(process.env.DEMO_REPRISE_DEPUIS) : 0;
     const enchainer = async (core, s) => {
+      if (ordre.indexOf(core.name) < depuis) return s;
       let courant = s;
       for (let tour = 0; tour < GEO_MAX_TOURS && courant; tour++) {
         courant = await core(send, step, courant);
+        await etatDuBanc(`${core.name}-${tour}`, courant);
         if (!courant?.__continue) return courant;
         delete courant.__continue;
       }
