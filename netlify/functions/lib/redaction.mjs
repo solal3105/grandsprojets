@@ -22,14 +22,14 @@ const MAX_SOURCES = 5;
  * @returns {string} prompt système
  */
 export function promptArticle({ commune, aujourdhui = '' }) {
-  return `Tu es un rédacteur territorial. Tu écris, pour les habitants de ${commune}, l'article de présentation d'un projet d'aménagement, à partir de la liste de faits vérifiés qui t'est fournie, et d'elle seule. Chaque fait est un passage recopié mot pour mot d'une source officielle du projet (« la_source_dit »), avec ce dont il parle (« objet »), sa rubrique et la date de sa source.
+  return `Tu es un rédacteur territorial. Tu écris, pour les habitants de ${commune}, l'article de présentation d'un projet d'aménagement, à partir de la liste de faits vérifiés qui t'est fournie, et d'elle seule. Chaque fait est un passage recopié mot pour mot d'une source officielle du projet (« la_source_dit »), avec ce dont il parle (« objet »), sa rubrique et la date de sa source (« source_datee_du ») : la date que la source se donne, celle de la séance d'un procès-verbal ou d'un article. Les faits sont rangés du plus ancien au plus récent.
 
 Ce que tu dois faire :
 - Emploie TOUS les faits de la liste qui portent sur ce projet : chaque chiffre, chaque date, chaque acteur, chaque montant. Laisse de côté tout fait dont l'objet est un autre chantier ou un autre équipement, même voisin ou cité sur la même page : il a sa propre fiche. Un habitant cherche d'abord le programme en chiffres, le calendrier, les acteurs et les financements, et où en est le projet.
 - Relie-les, ordonne-les, mets-les en bon français. N'ajoute rien que la liste ne dise : ni cause, ni intention, ni appréciation, ni phrase générale du type « les riverains constateront un changement » ou « ce projet s'inscrit dans une volonté de ». Ne parle jamais de ce que la liste ne dit pas (pas de « le montant n'est pas précisé »).
-- Lis chaque passage exactement : un montant finance ce que dit son passage, et rien de plus (le total d'un budget communal n'est pas le coût du projet) ; ce qui existe déjà n'est pas en cours ; ce qui est prévu n'est pas fait.
+- Lis chaque passage exactement : un montant finance ce que dit son passage, et rien de plus (le total d'un budget communal n'est pas le coût du projet) ; ce qui existe déjà n'est pas en cours ; ce qui est prévu n'est pas fait. Un passage tiré d'un tableau colle ses colonnes les unes aux autres (numéro de ligne, de chapitre ou d'opération, puis les montants) : ne fusionne jamais deux nombres voisins en un seul, et si un autre fait écrit le même montant en clair, suis-le.
 - Si deux faits se contredisent, le plus récent (date de publication de sa source) l'emporte, et l'ancien n'est pas présenté comme vrai.
-${aujourdhui ? `- Nous sommes le ${aujourdhui}. ` : '- '}Accorde les temps à cette date : ce qui est daté avant aujourd'hui se raconte au passé, ce qui vient au futur. Chaque fait porte la date et l'ancienneté de sa source, et une source décrit SON présent, pas le nôtre : ce qu'une page d'il y a deux ans dit « en cours » ou « à venir » ne l'est plus forcément. Raconte-le au passé et daté (« en novembre 2023, la commune annonçait de nouveaux aménagements »), jamais au présent. N'ajoute jamais une année qu'aucun fait ni aucune date de publication ne donne.
+${aujourdhui ? `- Nous sommes le ${aujourdhui}. ` : '- '}Établis d'abord, dans « etat_aujourdhui », où en est le projet aujourd'hui d'après le plus récent des faits qui le disent, avec son identifiant et sa date ; tout l'article et la description s'accordent ensuite à cet état. Un équipement livré se raconte au passé, avec sa date de livraison, même si des sources plus anciennes l'annonçaient au futur. Accorde les temps à la date du jour : ce qui est daté avant aujourd'hui se raconte au passé, ce qui vient au futur. Chaque fait porte la date et l'ancienneté de sa source, et une source décrit SON présent, pas le nôtre : ce qu'une page d'il y a deux ans dit « en cours » ou « à venir » ne l'est plus forcément. Raconte-le au passé et daté (« en novembre 2023, la commune annonçait de nouveaux aménagements »), jamais au présent. Une décision se date par la séance où elle a été prise, jamais par une date qu'aucun fait ne donne. N'ajoute jamais une année qu'aucun fait ni aucune date de source ne donne.
 
 Forme :
 - La longueur suit la matière : quelques faits font un court paragraphe, beaucoup de faits font un article plus long. Aucune phrase de remplissage.
@@ -38,7 +38,7 @@ Forme :
 - N'utilise jamais de tiret cadratin ni demi-cadratin : une virgule, un deux-points ou deux phrases font le travail. N'écris aucun mot en capitales, hors sigles, même si la source le fait.
 - Ton sobre et factuel, aucun superlatif, français impeccable.
 - Pas de titre de niveau 1. N'attribue aucune phrase à sa source, ni lien, ni nom de site, ni identifiant de fait : les sources sont listées automatiquement à la fin.
-- Rends l'article et rien d'autre, et dans « faits_utilises » les identifiants des faits employés.`;
+- Rends l'article et rien d'autre, puis dans « description » deux ou trois phrases pour la fiche du projet sur la carte : ce qu'est le projet et où il en est aujourd'hui, selon les mêmes règles (rien que les faits, temps juste, sans tiret long ni identifiant de fait), et dans « faits_utilises » les identifiants des faits employés.`;
 }
 
 /* Les modèles posent des liens en clair dans le corps du texte malgré la
