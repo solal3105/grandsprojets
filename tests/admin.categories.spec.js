@@ -227,6 +227,30 @@ test.describe('3.2 - Formulaire de création', () => {
     }
   });
 
+  test('3.2.18 - Saisie manuelle d\'icône : seul un nom de classe est retenu', async ({ page }) => {
+    // La base n'enregistre qu'une icône qui a la forme d'un nom de classe
+    // (is_icon_class) : la saisie le dit avant, au lieu d'un refus à l'enregistrement.
+    await goToCategories(page);
+    await page.click('#cat-add-btn');
+    await expect(page.locator('#cat-form-card')).toBeVisible({ timeout: 5000 });
+    await page.locator('#cat-icon-btn').click();
+    const popover = page.locator('.adm-ip-popover');
+    await expect(popover).toBeVisible({ timeout: 3000 });
+    await popover.locator('.adm-ip-advanced summary').click();
+
+    const manual = popover.locator('.adm-ip-manual-input');
+    await manual.fill('<i class="fa-solid fa-bus"></i>');
+    await popover.locator('.adm-ip-manual-apply').click();
+    // Refusée : la fenêtre reste ouverte, le champ dit quoi saisir, rien n'est retenu
+    await expect(popover).toBeVisible();
+    expect(await manual.evaluate((el) => el.validationMessage)).toBe('Saisissez seulement le nom de l’icône, par exemple fa-solid fa-bus.');
+    await expect(page.locator('#cat-icon')).not.toHaveValue(/</);
+
+    await manual.fill('fa-solid fa-bus');
+    await popover.locator('.adm-ip-manual-apply').click();
+    await expect(page.locator('#cat-icon')).toHaveValue('fa-solid fa-bus');
+  });
+
 });
 
 // ─────────────────────────────────────────────────────────

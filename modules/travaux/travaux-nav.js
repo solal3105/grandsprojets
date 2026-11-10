@@ -17,7 +17,9 @@
       icon_class: mod.icon_class,
       source_type: cfg.source_type || 'city_travaux',
       url: cfg.url || null,
-      color: cfg.color || '#FF6B35',
+      // Saisie par la ville, écrite ensuite dans un attribut style : validée ici,
+      // là où elle entre dans le module.
+      color: win.SecurityUtils.safeColor(cfg.color, '#FF6B35'),
     };
   }
 

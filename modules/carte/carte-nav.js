@@ -129,10 +129,9 @@
 
   function _createProjectCard(project, category, color) {
     const categoryIcon = win.categoryIcons?.find(c => c.category === category);
-    let iconClass = categoryIcon?.icon_class || 'fa-layer-group';
-    if (iconClass && !/^fa-(solid|regular|brands)/.test(iconClass)) {
-      iconClass = `fa-solid ${iconClass}`;
-    }
+    // L'icône est saisie par la ville : elle passe par la même validation que
+    // partout ailleurs avant d'entrer dans le HTML de la carte du projet.
+    const iconClass = win.normalizeIconClass(categoryIcon?.icon_class, 'fa-layer-group');
 
     let categoryColor = color || null;
     if (!categoryColor && categoryIcon?.category_styles) {

@@ -266,6 +266,80 @@ test.describe('0.8 - Échappement : pas de repli fail-open', () => {
     expect(r.couleurHex).toBe('#14AE5C');
     expect(r.couleurVar).toBe('var(--color-warning)');
   });
+  /**
+   * Les deux essais suivants chargent les fichiers réels de la carte dans une
+   * page vide, sans serveur ni base : la configuration de la ville est posée à
+   * la main, piégée, et le rendu est lu dans le DOM.
+   */
+  async function pageDeRendu(page, script) {
+    await page.goto('about:blank');
+    await page.setContent('<!doctype html><html><body><div id="l2"></div><div id="l3"></div></body></html>');
+    await page.evaluate(() => {
+      window.__rendus = {};
+      window.NavPanel = { registerModule: (cle, rendu) => { window.__rendus[cle] = rendu; } };
+    });
+    await page.addScriptTag({ path: 'modules/security-utils.js' });
+    await page.addScriptTag({ path: script });
+  }
+
+  // Audit du 9/11/2026 : la carte d'un projet sans image écrivait l'icône de sa
+  // catégorie telle qu'elle est en base.
+  test('0.8.5 la carte d’un projet ne laisse passer aucun HTML par l’icône de sa catégorie', async ({ page }) => {
+    await pageDeRendu(page, 'modules/carte/carte-nav.js');
+    const r = await page.evaluate(async () => {
+      window.categoryIcons = [{
+        category: 'mobilite',
+        icon_class: 'fa-bus"><img src=x onerror="window.__xssIcone=1">',
+        category_styles: { color: 'red" onmouseover="window.__xssCouleur=1' },
+      }];
+      window.supabaseService = { fetchProjectsByCategory: async () => [{ id: 7, project_name: 'Tramway T9' }] };
+      window.CarteNav.register();
+      const panel = { _level3: document.getElementById('l3'), _currentModule: 'carte' };
+      await window.__rendus.carte.renderL3(panel, 'mobilite', { color: '' });
+      await new Promise((ok) => setTimeout(ok, 200));
+      const carte = panel._level3.querySelector('.project-card');
+      return {
+        cartes: panel._level3.querySelectorAll('.project-card').length,
+        images: panel._level3.querySelectorAll('img').length,
+        gestionnaires: [...panel._level3.querySelectorAll('*')].filter((el) => [...el.attributes].some((a) => a.name.startsWith('on'))).length,
+        icone: carte?.querySelector('.card-hero i')?.className,
+        xss: [window.__xssIcone, window.__xssCouleur],
+      };
+    });
+    expect(r.cartes).toBe(1);
+    expect(r.images).toBe(0);
+    expect(r.gestionnaires).toBe(0);
+    // Il ne reste que des caractères de nom de classe.
+    expect(r.icone).toMatch(/^fa-solid fa-bus[\w\s-]*$/);
+    expect(r.xss).toEqual([undefined, undefined]);
+  });
+
+  // Même audit : la couleur du module Travaux, réglée par la ville, entrait dans
+  // un attribut style sans validation.
+  test('0.8.6 le panneau Travaux ne laisse passer aucun HTML par la couleur du module', async ({ page }) => {
+    await pageDeRendu(page, 'modules/travaux/travaux-nav.js');
+    const rendre = (couleur) => page.evaluate(async (color) => {
+      window._cityModules = [{ module_key: 'travaux', enabled: true, icon_class: 'fa-solid fa-helmet-safety', config: { color } }];
+      window.TravauxNav.register();
+      const panel = { _level2: document.getElementById('l2'), _currentModule: 'travaux', _skeletonL2Items: () => '' };
+      await window.__rendus.travaux.renderL2(panel);
+      const boutons = [...panel._level2.querySelectorAll('.nav-panel__item')];
+      return {
+        boutons: boutons.length,
+        gestionnaires: boutons.filter((b) => [...b.attributes].some((a) => a.name.startsWith('on'))).length,
+        couleurs: [...new Set(boutons.map((b) => b.style.getPropertyValue('--item-color').trim()))],
+      };
+    }, couleur);
+
+    const piege = await rendre('red" onmouseover="window.__xssTravaux=1" x="');
+    expect(piege.boutons).toBeGreaterThan(0);
+    expect(piege.gestionnaires).toBe(0);
+    // Une couleur refusée laisse la couleur par défaut du module.
+    expect(piege.couleurs).toEqual(['#FF6B35']);
+
+    const reglee = await rendre('#2563EB');
+    expect(reglee.couleurs).toEqual(['#2563EB']);
+  });
 });
 
 /**
