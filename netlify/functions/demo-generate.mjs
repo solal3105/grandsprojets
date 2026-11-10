@@ -23,6 +23,8 @@
 
 // Empreinte des pages lues, pour ne jamais relire la meme sous une autre adresse
 import { createHash } from 'node:crypto';
+// Encodage PNG des images tirées des PDF, sans bibliothèque d'image
+import { deflateSync } from 'node:zlib';
 // Socle de rédaction partagé avec l'outil de l'admin : structure de l'article,
 // nettoyage des liens, construction du bloc de sources citées.
 import { promptArticle, retirerLesLiens, blocSources, hoteLisible } from './lib/redaction.mjs';
@@ -235,13 +237,6 @@ const PAGE_SCHEMA = {
 
 // Schémas des appels vision (courts). Le schéma du logo est défini avec son
 // appel, plus bas : il rend désormais le choix du logo ET sa couleur.
-const IMAGE_CHOICE_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: { best_index: { type: 'integer' } },
-  required: ['best_index'],
-};
-
 /* ─── Helpers génériques ─── */
 
 function serviceHeaders() {
@@ -804,26 +799,10 @@ function metaContent(html, key) {
     || null;
 }
 
-// Écarte les images qui ne sont jamais des illustrations de projet (logos,
-// icônes, pixels de tracking, boutons de partage, SVG)
-const IMG_SKIP_RE = /(\.svg|sprite|logo|icone?|\bicon\b|avatar|pixel|placeholder|1x1|blank|spacer|button|share|facebook|twitter|instagram|linkedin|youtube|banner|bandeau|drapeau)/i;
-
-// URLs d'images d'une page : image principale (og/twitter) en tete, puis images
-// de contenu <img> (data-src ou src). Absolues, filtrees, dedupliquees.
+// URLs d'images d'une page, pour l'index des pages de la mairie : le même
+// relevé que celui des illustrations (voir imagesDuHtml).
 function extractImageUrls(html, baseUrl, cap = 16) {
-  const out = [];
-  const push = (src) => {
-    if (!src || out.length >= cap) return;
-    try {
-      const abs = new URL(src, baseUrl).toString();
-      if (/^https?:/.test(abs) && !IMG_SKIP_RE.test(abs) && !out.includes(abs)) out.push(abs);
-    } catch { /* src invalide */ }
-  };
-  push(metaContent(html, 'og:image') || metaContent(html, 'og:image:secure_url') || metaContent(html, 'twitter:image'));
-  const imgRe = /<img\b[^>]*?(?:data-src|src)=["']([^"']+)["'][^>]*>/gi;
-  let m; let n = 0;
-  while ((m = imgRe.exec(html)) !== null && n < 14) { push(m[1]); n++; }
-  return out;
+  return imagesDuHtml(html, baseUrl).slice(0, cap).map((x) => x.url);
 }
 
 // Moissonne les images d'une page dans `out` (accumulé sur plusieurs pages) :
@@ -1827,7 +1806,12 @@ async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs 
     max_output_tokens: maxTokens,
     temperature,
   }, timeoutMs, tries);
-  if (!r.ok) throw new Error(`IA indisponible (${r.status})`);
+  if (!r.ok) {
+    // Le corps de la reponse dit POURQUOI (image illisible, format refuse) :
+    // sans lui, un refus de la vision ressemblait a une panne.
+    const detail = await readBody(r).catch(() => '');
+    throw new Error(`IA indisponible (${r.status}) ${String(detail).slice(0, 300)}`);
+  }
   const data = JSON.parse(await readBody(r));
   logUsage(schemaName, data.usage);
   if (data.status === 'incomplete' && data.incomplete_details?.reason === 'max_output_tokens') {
@@ -4441,36 +4425,36 @@ async function empreinteVueAerienne(bbox) {
    couverture, mesurée dans la même génération plutôt qu'inscrite en dur : le
    jour où l'IGN change d'encodeur, une empreinte figée dans le code aurait
    déclaré la France entière hors couverture.
-   En cas de service injoignable, on répond non : mieux vaut aucune vue aérienne
-   que des fiches pointant sur une image morte. */
+   Si le service ne répond pas à la sonde, on ne sait rien de la couverture, et
+   on répond oui. Répondre non privait toute la commune de vue aérienne pour une
+   lenteur passagère du service (Saint-Genis-Laval et Faugères sur le banc, le
+   10/11/2026, deux communes couvertes) ; et aucune fiche ne peut pour autant
+   pointer sur une image morte ou vide, puisque la phase de création télécharge
+   chaque vue aérienne, écarte celles qui ne viennent pas et celles qui sont
+   vides (AERIEN_OCTETS_MIN). */
 async function couvertureVueAerienne(lat, lng) {
   try {
-    const [ici, rien] = await Promise.all([
-      empreinteVueAerienne([lat - IGN_SONDE_DELTA, lng - IGN_SONDE_DELTA, lat + IGN_SONDE_DELTA, lng + IGN_SONDE_DELTA]),
-      empreinteVueAerienne(IGN_SONDE_VIDE),
-    ]);
-    if (!ici || !rien) return false;
+    /* Deux essais : une seule réponse lente du service suffisait à priver
+       toute la commune de vue aérienne (Saint-Genis-Laval, 10/11/2026 : deux
+       fiches sans aucune image alors que la commune est couverte). */
+    let ici = null; let rien = null;
+    for (let essai = 0; essai < 2 && (!ici || !rien); essai++) {
+      [ici, rien] = await Promise.all([
+        ici || empreinteVueAerienne([lat - IGN_SONDE_DELTA, lng - IGN_SONDE_DELTA, lat + IGN_SONDE_DELTA, lng + IGN_SONDE_DELTA]),
+        rien || empreinteVueAerienne(IGN_SONDE_VIDE),
+      ]);
+    }
+    if (!ici || !rien) {
+      console.warn('[demo-generate] sonde de couverture aérienne sans réponse : vues aériennes gardées, vérifiées à la création');
+      return true;
+    }
     return ici !== rien;
   } catch (e) {
     console.warn('[demo-generate] sonde de couverture aérienne :', e?.message);
-    return false;
+    return true;
   }
 }
 
-// Images de la SOURCE du projet (article de presse, page mairie) : les plus
-// pertinentes car elles illustrent littéralement le projet. Démo : la licence
-// n'est pas un critère ici. L'image og/principale (index 0) est mise en avant.
-async function sourceImageCandidates(url) {
-  const page = await fetchCapped(url, { headers: UA }, 6000, 500000);
-  if (!page) return [];
-  const credit = `Source : ${hostOf(page.url) || 'web'}`;
-  return extractImageUrls(page.data, page.url, 5)
-    .map((u, i) => ({ url: u, title: i === 0 ? 'illustration de la source' : 'image de la source', credit }));
-}
-
-// Candidats autour du projet : d'abord les images de sa source (les plus
-// pertinentes), puis le geosearch Commons, complété par une recherche texte
-// si besoin. Dédupliqués, plafonnés. Le juge vision tranche ensuite.
 /* Images de la page de la mairie qui parle DE CE projet.
    Wikimedia Commons ne contient pas les equipements municipaux francais
    (verifie : chercher « Lycee Lesage Vannes » y rend des scans de bulletins
@@ -4522,70 +4506,534 @@ function mairiePageImages(project, pages = []) {
 }
 
 
-/* Candidats d'illustration d'UN projet, par ordre de confiance decroissante.
-   Le pool d'images generiques du site de la mairie a ete supprime : verse
-   indifferemment dans le pool de chaque projet, il produisait l'essentiel des
-   mauvaises attributions (une photo de Conleau prise sur la page d'accueil
-   servait de visuel a un square) et faisait reencoder les memes images autant
-   de fois qu'il y a de projets. Ne restent que des sources rattachables.
+/* ─── ILLUSTRATIONS : trouver, mesurer et juger les images d'un projet ───
 
-   Ces candidats sont ceux qui passent devant le juge visuel, donc ceux qui
-   pretendent montrer LE PROJET. La vue aerienne, elle, ne pretend rien de tel
-   et n'entre pas dans ce lot : elle est posee plus loin, sans jugement. */
-const CANDIDATS_MAX = 8;
+   Ce que faisait l'étape précédente, et pourquoi elle perdait les images
+   (mesure du banc d'essai le 10/11/2026, sept communes, 99 fiches) :
+   1. l'extraction ne voyait pas les images chargées à la demande. Dans
+      `<img data-error-src="data:..." data-src="photo.jpg">`, le motif
+      `(?:data-src|src)=` trouvait d'abord le `src=` de `data-error-src`, une
+      image vide, et la vraie photo disparaissait. Les galeries (lien vers
+      l'image en grand, `srcset`) et la balise `og:image:url` étaient ignorées ;
+   2. les images partaient chez OpenAI sous forme d'adresse, et c'est OpenAI
+      qui allait les chercher. Un seul refus du serveur faisait échouer tout
+      l'appel : à Bègles, le site de la ville répond 403 à ce robot, et les
+      seize fiches sont tombées en vue aérienne sans qu'aucune image ait été
+      regardée ;
+   3. seule la page principale du projet était lue, jamais ses autres sources
+      ni les PDF qu'il cite.
+   Désormais toutes les sources du projet sont ouvertes, chaque image est
+   téléchargée et mesurée ici, puis envoyée au juge sous forme de données :
+   une image illisible est écartée seule, sans emporter les autres. */
 
-async function gatherImageCandidates(project, communeNom, mairiePages = []) {
-  // Bloc de la page de la mairie qui parle de CE projet : la meilleure source
-  const fromPage = mairiePageImages(project, mairiePages);
-  // Images de la page source du projet elle-meme
-  const fromSource = project.source_url ? await sourceImageCandidates(project.source_url) : [];
+/* Deux niveaux de taille. En dessous du premier, c'est une icône ou une
+   vignette de liste : agrandie à la largeur d'une fiche, elle serait
+   illisible, on l'écarte. Entre les deux, l'image est petite pour une
+   couverture (elle s'affiche sur toute la largeur d'une fiche de téléphone) :
+   elle passe quand même devant le juge, mais ne sert que si aucune image du
+   projet de bonne taille n'existe. Une vraie image un peu floue vaut mieux que
+   la vue aérienne ; une icône agrandie, non. */
+const ILLUS_LARGEUR_ICONE = 200;
+const ILLUS_HAUTEUR_ICONE = 150;
+const ILLUS_LARGEUR_MIN = 400;
+/* Même logique pour le format. La couverture est recadrée au format de la vue
+   aérienne (16/9) : une image qui n'en garderait pas le tiers est un bandeau,
+   écarté ; une qui n'en garderait pas la moitié (une photo en hauteur) ne sert
+   qu'à défaut d'une image mieux cadrée. */
+const ILLUS_FORMAT_COUVERTURE = IGN_LARGEUR_PX / IGN_HAUTEUR_PX;
+const ILLUS_PART_VISIBLE_MIN = 1 / 3;
+const ILLUS_PART_VISIBLE_BONNE = 0.5;
+// Variante visée dans un `srcset` : assez pour la couverture, sans télécharger
+// l'original de plusieurs mégaoctets quand le site en propose une plus légère.
+const ILLUS_LARGEUR_VISEE = 1000;
+const ILLUS_OCTETS_MAX = 6000000;
+const ILLUS_PAGES_PAR_PROJET = 4;
+const ILLUS_PDF_PAR_PROJET = 2;
+const ILLUS_IMAGES_PAR_PDF = 4;
+const ILLUS_TELECHARGEES_MAX = 14;
+const ILLUS_JUGEES_MAX = 8;
+/* Une image présente sur au moins la moitié des pages lues d'un même site fait
+   partie de son gabarit (logo, bandeau d'en-tête, image de partage par défaut) :
+   elle ne peut illustrer aucun projet en particulier. Il faut au moins trois
+   pages du site pour en juger. */
+const ILLUS_GABARIT_PAGES_MIN = 3;
+const IMAGE_FICHIER_RE = /\.(jpe?g|png|webp)$/i;
 
-  /* Recherche par NOM sur Wikimedia Commons, en dernier ressort. C'est le seul
-     chemin restant vers une vraie photo d'un objet nomme : une passerelle, une
-     gare, une eglise en restauration. On ne la tente que si le projet designe
-     un lieu nomme, sans quoi la requete se reduit au nom de la commune et ne
-     rend que du hasard, exactement ce que la recherche par proximite faisait. */
-  let commons = [];
-  const lieu = String(project.place || project.geo_query || '').trim();
-  if (!fromPage.length && !fromSource.length && motsSignificatifs(lieu).size) {
-    commons = await commonsTextCandidates(`${lieu} ${communeNom}`.trim());
+/* Largeur et hauteur d'une image, lues dans son en-tête. Seuls les formats que
+   la vision accepte sont reconnus (JPEG, PNG, WebP) : le reste rend null. */
+function dimensionsImage(buffer) {
+  const type = typeImageReel(buffer);
+  if (!type || !['jpg', 'png', 'webp'].includes(type.ext)) return null;
+  const o = new Uint8Array(buffer);
+  const u16be = (i) => (o[i] << 8) | o[i + 1];
+  const u16le = (i) => o[i] | (o[i + 1] << 8);
+  const u24le = (i) => o[i] | (o[i + 1] << 8) | (o[i + 2] << 16);
+  const u32be = (i) => o[i] * 16777216 + (o[i + 1] << 16) + (o[i + 2] << 8) + o[i + 3];
+  if (type.ext === 'png') return o.length >= 24 ? { ...type, w: u32be(16), h: u32be(20) } : null;
+  if (type.ext === 'webp') {
+    if (o.length < 30) return null;
+    const bloc = String.fromCharCode(o[12], o[13], o[14], o[15]);
+    if (bloc === 'VP8 ') return { ...type, w: u16le(26) & 0x3fff, h: u16le(28) & 0x3fff };
+    if (bloc === 'VP8L') {
+      const b = o[21] | (o[22] << 8) | (o[23] << 16) | (o[24] << 24);
+      return { ...type, w: (b & 0x3fff) + 1, h: ((b >> 14) & 0x3fff) + 1 };
+    }
+    if (bloc === 'VP8X') return { ...type, w: u24le(24) + 1, h: u24le(27) + 1 };
+    return null;
   }
-
-  const seen = new Set();
-  const all = [];
-  for (const c of [...fromPage, ...fromSource, ...commons]) {
-    if (seen.has(c.url) || all.length >= CANDIDATS_MAX) continue;
-    seen.add(c.url);
-    all.push(c);
+  // JPEG : on parcourt les segments jusqu'au premier en-tête de trame (SOFn)
+  let i = 2;
+  while (i + 9 < o.length) {
+    if (o[i] !== 0xff) { i++; continue; }
+    const m = o[i + 1];
+    if (m === 0xff) { i++; continue; }
+    if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; }
+    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+      return { ...type, w: u16be(i + 7), h: u16be(i + 5) };
+    }
+    i += 2 + u16be(i + 2);
   }
-  return all;
+  return null;
 }
 
-// L'IA REGARDE vraiment les photos et choisit celle qui illustre ce projet
-// précis, ou aucune (-1). C'est le juge de pertinence : mieux vaut rien qu'une
-// image hors sujet. Coût vision assumé, la crédibilité de la démo prime.
-async function pickBestImageWithAI(project, communeNom, candidates) {
-  // Ecarte les formats que la vision rejette : un seul suffirait a faire
-  // echouer TOUT l'appel et a perdre tous les autres candidats
-  const usable = candidates.filter((c) => !VISION_UNSUPPORTED_RE.test(c.url));
-  if (!usable.length) return null;
-  try {
-    const content = [{
-      type: 'input_text',
-      text: `Projet urbain à ${communeNom} : "${project.title}". ${project.description || ''}${project.place ? ` Lieu concerné : ${project.place}.` : ''}\n\nVoici ${usable.length} photo(s) numérotée(s) de 0 à ${usable.length - 1}. Choisis l'index de celle qui illustre le mieux CE lieu ou CE projet (le bâtiment, la rue, le quartier ou l'équipement concerné, ou une vue représentative du secteur). Si aucune ne correspond vraiment, réponds -1. Ne choisis jamais par défaut : une photo hors sujet est pire que pas de photo.`,
-    }];
-    usable.forEach((c, i) => {
-      content.push({ type: 'input_text', text: `Image ${i} - ${c.title}` });
-      // detail 'low' : 85 tokens par image au lieu de ~1100 en détail auto.
-      // Juger « cette photo montre-t-elle ce parking / cette rue » ne demande
-      // pas la pleine résolution, et ce juge concentrait la moitié du coût IA.
-      content.push({ type: 'input_image', image_url: c.url, detail: 'low' });
-    });
-    const out = await openAIStructured([{ role: 'user', content }], 'choix_image', IMAGE_CHOICE_SCHEMA, 60, 30000, 0.2, OPENAI_VISION_MODEL);
-    const idx = out.best_index;
-    if (typeof idx !== 'number' || idx < 0 || idx >= usable.length) return null;
-    return usable[idx];
-  } catch { return null; }
+const partVisible = (w, h) => Math.min((w / h) / ILLUS_FORMAT_COUVERTURE, ILLUS_FORMAT_COUVERTURE / (w / h));
+
+// Rend la raison du refus, ou null si l'image peut servir de couverture
+function formatRefuse(w, h) {
+  if (!w || !h || w < ILLUS_LARGEUR_ICONE || h < ILLUS_HAUTEUR_ICONE) return 'petite';
+  if (partVisible(w, h) < ILLUS_PART_VISIBLE_MIN) return 'bandeau';
+  return null;
+}
+
+// Image acceptée mais mal taillée pour une couverture : elle ne sert qu'à défaut
+const estSecondaire = (img) => img.w < ILLUS_LARGEUR_MIN || partVisible(img.w, img.h) < ILLUS_PART_VISIBLE_BONNE;
+
+/* Même image sous deux tailles : les gestionnaires de contenu suffixent le nom
+   du fichier par ses dimensions (`photo-400x267.jpg`). La clé les confond. */
+function cleImage(u) {
+  return coverKey(u).replace(/-\d{2,5}x\d{2,5}(?=\.[a-z0-9]+$)/, '');
+}
+
+function decoderAttribut(v) {
+  return String(v || '')
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&quot;/gi, '"').replace(/&apos;/gi, "'").replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&');
+}
+
+// Attributs d'une balise, dans l'ordre où ils sont écrits
+function attributsDe(balise) {
+  const a = {};
+  const re = /([^\s"'<>/=]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
+  let m;
+  while ((m = re.exec(balise)) !== null) {
+    const nom = m[1].toLowerCase();
+    if (!(nom in a)) a[nom] = decoderAttribut(m[2] ?? m[3] ?? m[4] ?? '');
+  }
+  return a;
+}
+
+/* Variante d'un `srcset` : la plus petite qui atteint la largeur visée, sinon
+   la plus grande. Les entrées sont séparées par une virgule suivie d'une
+   adresse et d'un descripteur, les adresses pouvant elles-mêmes contenir des
+   virgules. */
+function varianteDeSrcset(valeur) {
+  const entrees = String(valeur || '').split(/,(?=\s*\S+(?:\s+\d+(?:\.\d+)?[wx])?\s*(?:,|$))/)
+    .map((e) => e.trim().split(/\s+/))
+    .filter((e) => e[0] && !/^data:/i.test(e[0]))
+    .map(([url, d = '1x']) => ({ url, w: /w$/.test(d) ? parseFloat(d) : parseFloat(d) * ILLUS_LARGEUR_VISEE / 2 }));
+  if (!entrees.length) return null;
+  entrees.sort((a, b) => a.w - b.w);
+  return (entrees.find((e) => e.w >= ILLUS_LARGEUR_VISEE) || entrees[entrees.length - 1]).url;
+}
+
+const estAdresseImage = (v) => {
+  if (!v || /^data:/i.test(v)) return false;
+  try { return IMAGE_FICHIER_RE.test(new URL(v, 'https://x.fr').pathname); } catch { return false; }
+};
+
+/* Images d'une page, dans l'ordre où un lecteur les voit : l'image de partage
+   d'abord (celle que le site a choisie pour représenter la page), puis celles
+   du contenu principal (<main> quand la page en a un). Pour chaque balise, la
+   meilleure source disponible : variante d'un `srcset`, attribut de chargement
+   différé, lien vers l'image en grand d'une galerie, puis `src`. Aucun tri sur
+   le nom des fichiers : ce sont la taille mesurée, la récurrence sur le site et
+   le juge visuel qui décident. */
+function imagesDuHtml(html, baseUrl) {
+  const out = [];
+  const vus = new Set();
+  const pousser = (src, legende = '') => {
+    if (!src || /^data:/i.test(src)) return;
+    let abs;
+    try { abs = new URL(src.trim(), baseUrl).toString(); } catch { return; }
+    if (!/^https?:/.test(abs)) return;
+    const cle = cleImage(abs);
+    if (vus.has(cle)) return;
+    vus.add(cle);
+    out.push({ url: abs, legende: String(legende || '').replace(/\s+/g, ' ').trim().slice(0, 160) });
+  };
+  for (const k of ['og:image', 'og:image:url', 'og:image:secure_url', 'twitter:image', 'twitter:image:src']) {
+    const v = metaContent(html, k);
+    if (v) { pousser(decoderAttribut(v), 'image de partage de la page'); break; }
+  }
+  const principal = /<main[\s>][\s\S]*?<\/main>/i.exec(html)?.[0] || html;
+  const re = /<(img|source|a)\b[^>]*>|url\(\s*['"]?([^'")]+)['"]?\s*\)/gi;
+  let m;
+  while ((m = re.exec(principal)) !== null) {
+    if (m[2]) { if (estAdresseImage(decoderAttribut(m[2]))) pousser(decoderAttribut(m[2])); continue; }
+    const tag = m[1].toLowerCase();
+    const a = attributsDe(m[0]);
+    const legende = a.alt || a['data-caption'] || a.title || a['aria-label'] || '';
+    const srcset = a.srcset || a['data-srcset'] || a['data-lazy-srcset'];
+    const differe = Object.entries(a).find(([k, v]) => k.startsWith('data-') && !k.includes('srcset') && estAdresseImage(v))?.[1];
+    if (tag === 'a') {
+      if (!estAdresseImage(a.href)) continue;
+      pousser(varianteDeSrcset(a['data-srcset']) || a.href, legende);
+    } else if (tag === 'source') {
+      pousser(varianteDeSrcset(srcset), legende);
+    } else {
+      pousser(varianteDeSrcset(srcset) || differe || a.src, legende);
+    }
+  }
+  return out;
+}
+
+/* Télécharge une image et la mesure. Rend { octets, ct, ext, w, h } ou
+   { refus } avec la raison, pour que l'entonnoir dise où chaque image s'est
+   perdue. La page d'où vient l'image est donnée comme provenance : certains
+   serveurs refusent une image demandée sans elle. */
+async function telechargerImage(url, provenance, original = true) {
+  const r = await fetchCapped(url, {
+    headers: { ...UA, Accept: 'image/webp,image/png,image/jpeg;q=0.9,*/*;q=0.5', ...(provenance ? { Referer: provenance } : {}) },
+  }, FETCH_TIMEOUT_MS, ILLUS_OCTETS_MAX, true);
+  if (!r?.data?.byteLength) return { refus: 'chargement' };
+  if (r.data.byteLength >= ILLUS_OCTETS_MAX) return { refus: 'lourde' };
+  const d = dimensionsImage(r.data);
+  if (!d) return { refus: 'format' };
+  /* Une vignette dont le nom porte ses dimensions (`photo-300x200.jpg`) a
+     presque toujours son original à côté, sans le suffixe : on le tente. */
+  const sansTaille = url.replace(/-\d{2,5}x\d{2,5}(?=\.[a-z0-9]+(?:[?#]|$))/i, '');
+  if (original && d.w < ILLUS_LARGEUR_MIN && sansTaille !== url) {
+    const grand = await telechargerImage(sansTaille, provenance, false);
+    if (!grand.refus && grand.w > d.w) return { ...grand, url: sansTaille };
+  }
+  const refus = formatRefuse(d.w, d.h);
+  if (refus) return { refus, w: d.w, h: d.h };
+  return { octets: new Uint8Array(r.data), ct: d.ct, ext: d.ext, w: d.w, h: d.h };
+}
+
+/* ── Images tirées des PDF du projet ──
+   Un magazine municipal ou une présentation publique porte souvent la seule
+   perspective d'un projet. On n'ouvre que la page qui contient la citation
+   rattachée au projet : un magazine de soixante pages parle de vingt autres
+   choses, et ses autres images n'ont aucune raison d'aller sur cette fiche. */
+const compacter = (s) => unaccentLower(s).replace(/[^a-z0-9]+/g, '');
+
+/* Pages d'un PDF qui contiennent une citation. Le texte est comparé sans
+   espaces ni ponctuation, parce que l'extraction coupe les mots en fin de
+   ligne (« sco-\nlaire ») ; trois fenêtres de quarante signes prises dans la
+   citation suffisent à la reconnaître sans exiger qu'elle soit d'un seul tenant. */
+function pagesDeLaCitation(textesDesPages, citations) {
+  const fenetres = [];
+  for (const c of citations) {
+    const k = compacter(c);
+    if (k.length < 30) continue;
+    const L = Math.min(40, k.length);
+    for (const debut of [0, Math.floor((k.length - L) / 2), k.length - L]) fenetres.push(k.slice(debut, debut + L));
+  }
+  if (!fenetres.length) return [];
+  const pages = [];
+  textesDesPages.forEach((t, i) => {
+    const k = compacter(t);
+    if (fenetres.some((f) => k.includes(f))) pages.push(i + 1);
+  });
+  return pages;
+}
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(octets) {
+  let c = 0xffffffff;
+  for (let i = 0; i < octets.length; i++) c = CRC_TABLE[(c ^ octets[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+/* Image brute d'un PDF (pixels décodés par pdf.js) enregistrée en PNG, réduite
+   par moyenne de blocs entiers quand elle dépasse largement la largeur visée.
+   Pas de bibliothèque d'image dans les fonctions : zlib suffit au PNG. */
+function pixelsEnPng(data, w, h, canaux) {
+  const k = Math.max(1, Math.floor(w / ILLUS_LARGEUR_VISEE));
+  const W = Math.floor(w / k);
+  const H = Math.floor(h / k);
+  const gris = canaux === 1;
+  const sortie = gris ? 1 : 3;
+  const ligne = W * sortie + 1;
+  const brut = Buffer.alloc(ligne * H);
+  for (let y = 0; y < H; y++) {
+    brut[y * ligne] = 0;
+    for (let x = 0; x < W; x++) {
+      for (let c = 0; c < sortie; c++) {
+        let somme = 0;
+        for (let dy = 0; dy < k; dy++) {
+          const base = ((y * k + dy) * w + x * k) * canaux + c;
+          for (let dx = 0; dx < k; dx++) somme += data[base + dx * canaux];
+        }
+        brut[y * ligne + 1 + x * sortie + c] = Math.round(somme / (k * k));
+      }
+    }
+  }
+  const bloc = (type, contenu) => {
+    const corps = Buffer.concat([Buffer.from(type, 'ascii'), contenu]);
+    const taille = Buffer.alloc(4); taille.writeUInt32BE(contenu.length);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(corps));
+    return Buffer.concat([taille, corps, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4);
+  ihdr[8] = 8; ihdr[9] = gris ? 0 : 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    bloc('IHDR', ihdr), bloc('IDAT', deflateSync(brut)), bloc('IEND', Buffer.alloc(0)),
+  ]);
+  return { octets: new Uint8Array(png), ct: 'image/png', ext: 'png', w: W, h: H };
+}
+
+/* Images de la page d'un PDF qui cite le projet. Passe par la même file que la
+   lecture des PDF : pdf.js chargé une fois, un document en mémoire à la fois. */
+function imagesDuPdf(url, citations) {
+  const travail = _filePdf.then(async () => {
+    const r = await fetchCapped(url, { headers: UA }, 20000, PDF_OCTETS_MAX, true);
+    if (!r?.data || r.data.byteLength >= PDF_OCTETS_MAX) return { refus: 'chargement', images: [] };
+    const octets = new Uint8Array(r.data);
+    if (String.fromCharCode(...octets.slice(0, 5)) !== '%PDF-') return { refus: 'pas un pdf', images: [] };
+    let pdf = null;
+    try {
+      _pdfjs ||= import('unpdf').then(async (m) => { await m.getResolvedPDFJS(); return m; });
+      const { extractText, extractImages, getDocumentProxy } = await _pdfjs;
+      pdf = await getDocumentProxy(octets);
+      const { text } = await extractText(pdf, { mergePages: false });
+      const pages = pagesDeLaCitation(Array.isArray(text) ? text : [String(text || '')], citations).slice(0, 2);
+      if (!pages.length) return { refus: 'citation introuvable', images: [] };
+      const images = [];
+      const refus = [];
+      for (const n of pages) {
+        for (const im of await extractImages(pdf, n)) {
+          const motif = formatRefuse(im.width, im.height);
+          if (motif) { refus.push(motif); continue; }
+          if (![1, 3, 4].includes(im.channels)) { refus.push('format'); continue; }
+          images.push({ ...pixelsEnPng(im.data, im.width, im.height, im.channels), page: n });
+          if (images.length >= ILLUS_IMAGES_PAR_PDF) break;
+        }
+        if (images.length >= ILLUS_IMAGES_PAR_PDF) break;
+      }
+      return { pages, images, refusImages: refus };
+    } catch (e) {
+      console.warn(`[demo-media] PDF illisible pour ses images : ${url} :: ${e?.message}`);
+      return { refus: 'illisible', images: [] };
+    } finally {
+      try { await pdf?.destroy(); } catch { /* déjà libéré */ }
+    }
+  });
+  _filePdf = travail.catch(() => null);
+  return travail;
+}
+
+/* Une image tirée d'un PDF n'a pas d'adresse : elle est déposée là où la phase
+   de création ira la chercher. En production, dans le stockage public ; sur le
+   banc d'essai (aucune écriture permise), sur le disque à côté des états. */
+async function deposerImage(img) {
+  const nom = `${(await sha256Hex(img.octets)).slice(0, 24)}.${img.ext}`;
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return uploadToStorage(`demo/illustrations/${nom}`, img.octets, img.ct);
+  }
+  if (process.env.DEMO_ETATS_DIR) {
+    const fs = await import('node:fs');
+    const dossier = `${process.env.DEMO_ETATS_DIR}-images`;
+    fs.mkdirSync(dossier, { recursive: true });
+    fs.writeFileSync(`${dossier}/${nom}`, img.octets);
+    return `${dossier}/${nom}`;
+  }
+  return null;
+}
+
+/* ── Le juge ──
+   Il reçoit les images elles-mêmes, pas leurs adresses, avec la page d'où
+   chacune vient et sa légende. Il classe chaque image plutôt que de choisir
+   « la meilleure » d'un lot : l'ancienne consigne acceptait « une vue
+   représentative du secteur », et un cône de chantier, un tuyau ou une caméra
+   passaient pour l'illustration d'une rue, d'une conduite d'eau ou d'un
+   dispositif de vidéoprotection. */
+const ILLUS_JUGEMENT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    images: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer' },
+          montre: { type: 'string' },
+          nature: { type: 'string', enum: ['projet', 'lieu', 'generique', 'autre'] },
+        },
+        required: ['index', 'montre', 'nature'],
+      },
+    },
+    meilleure: { type: 'integer' },
+  },
+  required: ['images', 'meilleure'],
+};
+
+/* Modèle du juge des illustrations. Mesure du banc le 10/11/2026 : gpt-4o
+   classait « projet » la première image d'une page même quand c'était une
+   photo d'illustration (un cône de chantier), et « générique » la même image
+   plus bas dans la liste. gpt-4.1 coûte moins cher par jeton d'entrée et
+   compte une image en basse définition au même prix. */
+const ILLUS_JUGE_MODEL = process.env.DEMO_ILLUS_JUGE_MODEL || 'gpt-4.1';
+
+/* Le juge décrit chaque image avant de la classer : sans cette description,
+   il classait « projet » un tableau de financement, une légende de carte ou
+   des mains posées sur un plan, du seul fait qu'ils venaient de la page du
+   projet. */
+async function jugerLesImages(project, communeNom, images) {
+  const content = [{
+    type: 'input_text',
+    text: `Projet à ${communeNom} : « ${project.title} ». ${project.description || ''}${project.place ? ` Lieu : ${project.place}.` : ''}
+
+Voici ${images.length} image(s) trouvée(s) dans les sources de ce projet, numérotées de 0 à ${images.length - 1}, chacune avec la page ou le document d'où elle vient. Pour chacune, décris d'abord en quelques mots ce qu'elle montre (« montre »), puis donne sa nature :
+- « projet » : elle montre ce projet-ci, à cet endroit-ci. Ce qui est construit, installé, réaménagé, restauré ou réparé, avant, pendant ou après les travaux (le bâtiment à restaurer, le pont à réparer, l'équipement construit, la rue réaménagée), son chantier, une perspective, une maquette ou un plan du projet.
+- « lieu » : elle montre l'endroit concerné, reconnaissable, mais pas ce que le projet y ajoute ou y change (le toit avant la pose des panneaux, le terrain vide avant le stade, le plan des déviations pendant le chantier).
+- « generique » : rien n'y permet de reconnaître ce lieu ou ce projet. Un logo, un pictogramme, une affiche, un tableau de chiffres, un texte, une légende de carte, une bannière du site, un portrait, ou une photo d'illustration qui irait aussi bien avec n'importe quel article du même genre (cône de chantier, tuyaux, caméra, mains sur un plan, engin, outil).
+- « autre » : un autre lieu ou un autre projet.
+Une image tirée d'un PDF vient d'une page qui parle du projet mais souvent aussi d'autres sujets (un journal, un magazine) : ne la classe « projet » que si l'image elle-même ou ce qu'elle montre permet de la rattacher à ce projet-ci.
+Juge chaque image pour elle-même : sa place dans la liste ne dit rien de sa nature, et l'image principale d'une page peut être une photo d'illustration achetée à une banque d'images, ce que son nom de fichier laisse parfois deviner.
+Dans « meilleure », donne l'index de l'image « projet » qui ferait le mieux comprendre le projet à un habitant qui ne le connaît pas : une perspective ou une photo de l'ouvrage ou du chantier plutôt qu'un plan, un plan plutôt qu'un document ancien. Réponds -1 s'il n'y a aucune image « projet ». Une image hors sujet sur la fiche est pire que pas d'image du tout.`,
+  }];
+  images.forEach((c, i) => {
+    // Le nom du fichier trahit souvent une photo de banque d'images
+    const fichier = c.url ? nomDeFichier(c.url) : '';
+    content.push({ type: 'input_text', text: `Image ${i}, ${c.provenance}${fichier ? `, fichier « ${fichier.slice(0, 90)} »` : ''}${c.legende ? `, légende : « ${c.legende} »` : ''}` });
+    content.push({ type: 'input_image', image_url: `data:${c.ct};base64,${Buffer.from(c.octets).toString('base64')}`, detail: 'low' });
+  });
+  const out = await openAIStructured([{ role: 'user', content }], 'jugement_images', ILLUS_JUGEMENT_SCHEMA, 120 + 60 * images.length, 30000, 0, ILLUS_JUGE_MODEL);
+  const natures = images.map((_, i) => out.images?.find((x) => x.index === i)?.nature || 'autre');
+  const montre = images.map((_, i) => out.images?.find((x) => x.index === i)?.montre || '');
+  return { natures, montre, meilleure: Number.isInteger(out.meilleure) ? out.meilleure : -1 };
+}
+
+/* Pages et documents d'un projet à ouvrir pour ses images : sa source
+   principale, puis ses autres sources, sauf les avis de marché (aucune image).
+   Chaque document garde les citations qui le rattachent au projet, pour
+   retrouver la bonne page d'un PDF. */
+function documentsDuProjet(p) {
+  const docs = [];
+  const ajouter = (url) => {
+    if (!url || docs.some((d) => d.url === url) || docs.length >= ILLUS_PAGES_PAR_PROJET) return;
+    const citations = (p.citations || []).filter((c) => c.url === url).map((c) => c.citation);
+    if (url === p.source_url && p.evidence_quote) citations.push(p.evidence_quote);
+    docs.push({ url, citations });
+  };
+  ajouter(p.source_url);
+  for (const s of p.sources || []) if (s.type !== 'marche') ajouter(s.url);
+  return docs;
+}
+
+/* Images candidates d'un projet, téléchargées et mesurées, dans l'ordre de
+   confiance : sa page principale, ses autres pages, le bloc de la mairie qui
+   le décrit, les pages des PDF qui le citent, et Wikimedia Commons en dernier
+   recours, par le nom du lieu. Rend aussi le décompte de ce qui a été écarté et
+   pourquoi : c'est l'entonnoir que le banc d'essai lit. */
+async function imagesDuProjet(p, communeNom, media, indexMairie, autres = new Set()) {
+  const gabarit = new Set(media.gabarit || []);
+  const journal = { trouvees: 0, gabarit: 0, refus: {}, pdf: 0, pdfRefus: [] };
+  const refuser = (motif) => { journal.refus[motif] = (journal.refus[motif] || 0) + 1; };
+  const docs = documentsDuProjet(p);
+  const pistes = [];
+  const pdfs = [];
+  for (const d of docs) {
+    const page = media.pages?.[d.url];
+    if (!page) continue;
+    if (page.pdf) { pdfs.push(d); continue; }
+    for (const im of page.images) {
+      journal.trouvees++;
+      if (gabarit.has(cleImage(im.url))) { journal.gabarit++; continue; }
+      pistes.push({ ...im, provenance: `page « ${page.titre || hostOf(d.url)} » (${hostOf(d.url)})`, page: d.url, principale: d.url === p.source_url });
+    }
+  }
+  /* Le bloc de la mairie est rattaché au projet par les mots de son titre, donc
+     avec une part de hasard : une image publiée sur la page d'un AUTRE projet
+     revient à celui-là, pas à celui-ci. */
+  const siennes = new Set(pistes.map((x) => cleImage(x.url)));
+  for (const c of mairiePageImages(p, indexMairie)) {
+    journal.trouvees++;
+    if (gabarit.has(cleImage(c.url))) { journal.gabarit++; continue; }
+    if (autres.has(cleImage(c.url)) && !siennes.has(cleImage(c.url))) { journal.ailleurs = (journal.ailleurs || 0) + 1; continue; }
+    pistes.push({ url: c.url, legende: '', provenance: c.title, page: null, credit: c.credit });
+  }
+
+  const retenues = [];
+  const deja = new Set();
+  const garder = (img, meta) => {
+    // La même image publiée sous deux adresses ne passe qu'une fois devant le juge
+    const empreinte = `${img.w}x${img.h}:${img.octets.byteLength}`;
+    if (deja.has(empreinte)) return;
+    deja.add(empreinte);
+    retenues.push({ ...img, ...meta });
+  };
+  const vues = new Set();
+  const aOuvrir = pistes.filter((x) => !vues.has(cleImage(x.url)) && vues.add(cleImage(x.url))).slice(0, ILLUS_TELECHARGEES_MAX);
+  for (let k = 0; k < aOuvrir.length && retenues.length < ILLUS_JUGEES_MAX; k += 4) {
+    const lot = await Promise.all(aOuvrir.slice(k, k + 4).map(async (x) => ({ x, img: await telechargerImage(x.url, x.page) })));
+    for (const { x, img } of lot) {
+      if (img.refus) { refuser(img.refus); continue; }
+      if (retenues.length < ILLUS_JUGEES_MAX) garder(img, { url: img.url || x.url, legende: x.legende, provenance: x.provenance, principale: !!x.principale, page: x.page, credit: x.credit || `Source : ${hostOf(x.page || x.url)}` });
+    }
+  }
+  const tireesDesPdf = [];
+  for (const d of pdfs.slice(0, ILLUS_PDF_PAR_PROJET)) {
+    if (!d.citations.length) { journal.pdfRefus.push('sans citation'); continue; }
+    const r = await imagesDuPdf(d.url, d.citations);
+    if (r.refus) journal.pdfRefus.push(r.refus);
+    for (const m of r.refusImages || []) refuser(`pdf ${m}`);
+    for (const img of r.images) {
+      journal.pdf++;
+      tireesDesPdf.push({ ...img, url: null, pdf: d.url, page: d.url, pageDuPdf: img.page, legende: '', principale: d.url === p.source_url,
+        provenance: `document PDF « ${nomDeFichier(d.url)} », page ${img.page}, qui peut traiter d'autres sujets`,
+        credit: `Source : ${hostOf(d.url)}, document « ${nomDeFichier(d.url)} »` });
+    }
+  }
+  /* Les images des PDF gardent au moins la moitié des places devant le juge :
+     une page de site peut aligner huit photos d'ambiance avant que la
+     perspective du projet n'apparaisse dans le document qu'il cite. */
+  if (tireesDesPdf.length) {
+    const pourLesPdf = Math.min(tireesDesPdf.length, ILLUS_JUGEES_MAX / 2);
+    retenues.splice(ILLUS_JUGEES_MAX - pourLesPdf);
+    for (const img of tireesDesPdf) if (retenues.length < ILLUS_JUGEES_MAX) garder(img, {});
+  }
+
+  /* Wikimedia Commons, par le NOM du lieu, quand aucune source du projet n'a
+     donné d'image : le seul chemin vers une vraie photo d'un objet nommé (une
+     église en restauration, une passerelle). Ces photos passent devant le juge
+     comme les autres : aucune n'est posée sans avoir été regardée. */
+  const lieu = String(p.place || p.geo_query || '').trim();
+  if (!retenues.length && motsSignificatifs(lieu).size) {
+    for (const c of await commonsTextCandidates(`${lieu} ${communeNom}`.trim())) {
+      if (retenues.length >= ILLUS_JUGEES_MAX) break;
+      const img = await telechargerImage(c.url);
+      if (img.refus) { refuser(img.refus); continue; }
+      garder(img, { url: img.url || c.url, legende: c.title, provenance: 'Wikimedia Commons, recherche par le nom du lieu', credit: c.credit });
+    }
+  }
+  return { retenues, journal };
 }
 
 /* ─── Écriture Supabase ─── */
@@ -6993,6 +7441,11 @@ function coverKey(u) {
    Rend null si le service ne couvre pas la commune, ou si ce cadrage exact a
    déjà servi à un autre projet, ce qui n'arrive qu'entre deux projets voisins
    au mètre près. */
+// Filet anti-boucle de la phase : elle lit d'abord toutes les sources, puis juge
+// quatre projets par tranche, ce qui peut demander plus de tranches que la
+// localisation.
+const MEDIA_MAX_TOURS = 30;
+
 function vueAerienneDe(projet, disponible, used) {
   if (!disponible) return null;
   const url = vueAerienneUrl(projet.geometry);
@@ -7002,8 +7455,8 @@ function vueAerienneDe(projet, disponible, used) {
 
 async function coreMedia(send, step, state) {
   const located = state.located;
-  const pages = state.mairie?.pages || [];
-  const media = state.media || (state.media = { curseur: 0, illustrated: 0, aeriennes: 0, used: [], tours: 0 });
+  const indexMairie = state.mairie?.pages || [];
+  const media = state.media || (state.media = { curseur: 0, illustrated: 0, aeriennes: 0, used: [], tours: 0, pages: {}, gabarit: null, entonnoir: [] });
   media.tours++;
 
   /* La couverture aérienne est sondée UNE fois et retenue sur l'état racine :
@@ -7015,52 +7468,159 @@ async function coreMedia(send, step, state) {
   }
 
   if (media.tours === 1) {
-    console.log(`[demo-generate] media: ${located.length} projets, ${pages.length} page(s) mairie indexée(s)`);
-    step('media', 'start', 'Recherche des illustrations des projets', 'Chaque image est choisie par l\'IA selon le sujet');
+    console.log(`[demo-generate] media: ${located.length} projets, ${indexMairie.length} page(s) mairie indexée(s)`);
+    step('media', 'start', 'Recherche des illustrations des projets', 'Nous ouvrons les sources de chaque projet et regardons leurs images');
   } else {
     step('media', 'start', 'Recherche des illustrations', `${media.illustrated} trouvée(s), ${located.length - media.curseur} projet(s) restant(s)`);
   }
-
   const t0 = Date.now();
-  const used = new Set(media.used);
 
-  // Concurrence 4 : a 6 appels vision simultanes, les connexions sortantes du
-  // bac a sable de fonctions partaient en UND_ERR_CONNECT_TIMEOUT en rafale
+  /* 1. Lecture de toutes les sources de tous les projets, avant tout jugement :
+     c'est en comparant les pages d'un même site qu'on reconnaît son gabarit
+     (une image présente sur la moitié des pages n'illustre aucun projet). */
+  const aLire = [...new Set(located.flatMap((p) => documentsDuProjet(p).map((d) => d.url)))].filter((u) => !(u in media.pages));
+  for (let k = 0; k < aLire.length && Date.now() - t0 < PHASE_BUDGET_MS; k += 6) {
+    await Promise.all(aLire.slice(k, k + 6).map(async (url) => {
+      /* Une seconde tentative après une pause : six lectures de front sur le
+         même site essuient parfois un refus passager, et une page perdue ici
+         l'est pour toutes les fiches qui la citent (Vienne, 10/11/2026 : deux
+         perspectives perdues d'une mesure à l'autre). */
+      let r = await fetchCapped(url, { headers: UA }, FETCH_TIMEOUT_MS, SOURCE_PAGE_OCTETS, true);
+      if (!r?.data) {
+        await sleep(1500);
+        r = await fetchCapped(url, { headers: UA }, FETCH_TIMEOUT_MS, SOURCE_PAGE_OCTETS, true);
+      }
+      if (!r?.data) { media.pages[url] = { images: [], echec: true }; return; }
+      const octets = new Uint8Array(r.data);
+      if (String.fromCharCode(...octets.slice(0, 5)) === '%PDF-' || estUnPdf(url)) { media.pages[url] = { pdf: true, images: [] }; return; }
+      const html = new TextDecoder('utf-8', { fatal: false }).decode(octets);
+      media.pages[url] = { titre: titreDeLaPage(html), images: imagesDuHtml(html, r.url || url).slice(0, 30) };
+    }));
+  }
+  if (aLire.some((u) => !(u in media.pages))) {
+    step('media', 'done', 'Illustrations en cours', 'Lecture des sources des projets');
+    state.__continue = true;
+    return state;
+  }
+  if (!media.gabarit) {
+    const lues = Object.values(media.pages);
+    console.log(`[demo-generate] media: ${lues.length} source(s) ouverte(s), dont ${lues.filter((x) => x.pdf).length} PDF et ${lues.filter((x) => x.echec).length} illisible(s)`);
+    /* Les pages de l'index de la mairie comptent aussi : relevées pendant
+       l'exploration, elles montrent le gabarit du site sur des dizaines de
+       pages, là où les sources des projets n'en sont qu'une poignée. */
+    const toutes = { ...Object.fromEntries(indexMairie.map((pg) => [pg.url, { images: (pg.images || []).map((u) => ({ url: u })) }])), ...media.pages };
+    const parSite = new Map();
+    for (const [url, page] of Object.entries(toutes)) {
+      if (page.pdf || page.echec) continue;
+      const site = parSite.get(hostOf(url)) || parSite.set(hostOf(url), { pages: 0, vues: new Map() }).get(hostOf(url));
+      site.pages++;
+      for (const cle of new Set(page.images.map((im) => cleImage(im.url)))) site.vues.set(cle, (site.vues.get(cle) || 0) + 1);
+    }
+    media.gabarit = [];
+    for (const site of parSite.values()) {
+      if (site.pages < ILLUS_GABARIT_PAGES_MIN) continue;
+      for (const [cle, n] of site.vues) if (n >= Math.max(ILLUS_GABARIT_PAGES_MIN, site.pages / 2)) media.gabarit.push(cle);
+    }
+  }
+
+  /* 2. Jugement, projet par projet, quatre à la fois : au-delà, les connexions
+     sortantes du bac à sable de fonctions partaient en UND_ERR_CONNECT_TIMEOUT. */
+  // Images publiées sur les pages propres de chaque projet
+  const proprietaires = new Map();
+  located.forEach((p, i) => {
+    for (const d of documentsDuProjet(p)) {
+      for (const im of media.pages[d.url]?.images || []) {
+        const cle = cleImage(im.url);
+        (proprietaires.get(cle) || proprietaires.set(cle, new Set()).get(cle)).add(i);
+      }
+    }
+  });
+  // Pages et documents que plusieurs projets citent comme source
+  const citees = new Map();
+  for (const p of located) for (const d of documentsDuProjet(p)) citees.set(d.url, (citees.get(d.url) || 0) + 1);
+  const partagees = new Set([...citees].filter(([, n]) => n > 1).map(([u]) => u));
+  const chezLesAutres = (i) => new Set([...proprietaires].filter(([, qui]) => [...qui].some((j) => j !== i)).map(([cle]) => cle));
+
+  const used = new Set(media.used);
   while (media.curseur < located.length && Date.now() - t0 < PHASE_BUDGET_MS) {
     const lot = [];
     for (let k = 0; k < 4 && media.curseur < located.length; k++) lot.push(media.curseur++);
     const choix = await inChunks(lot, 4, async (i) => {
       const p = located[i];
-      const candidates = await gatherImageCandidates(p, state.commune.nom, pages);
-      const img = candidates.length ? await pickBestImageWithAI(p, state.commune.nom, candidates) : null;
-      if (process.env.DEMO_DUMP) {
-        const origines = candidates.map((x) => (/wikimedia|wikipedia/.test(x.url) ? 'commons' : 'site')).join(',');
-        console.log(`[demo-media] "${p.title}" : ${candidates.length} candidats [${origines}] -> ${img ? 'RETENU ' + img.title : 'aucun'}`);
+      const { retenues, journal } = await imagesDuProjet(p, state.commune.nom, media, indexMairie, chezLesAutres(i));
+      let jugement = { natures: [], montre: [], meilleure: -1 };
+      if (retenues.length) {
+        try { jugement = await jugerLesImages(p, state.commune.nom, retenues); } catch (e) {
+          console.warn(`[demo-media] juge indisponible pour "${p.title}" : ${e?.message}`);
+        }
       }
-      return { i, img };
+      return { i, retenues, journal, jugement };
     });
+
     // Le rattachement est séquentiel : `used` interdit la même photo sur deux
     // fiches, et cette décision ne peut pas se prendre en parallèle.
-    for (const { i, img } of choix) {
-      const retenu = img && !used.has(coverKey(img.url))
-        ? { url: img.url, credit: img.credit, source: 'photo' }
-        : vueAerienneDe(located[i], state.ignAerien, used);
-      if (!retenu) continue;
-      used.add(coverKey(retenu.url));
-      located[i].coverSrc = retenu.url;
-      located[i].coverCredit = retenu.credit;
+    for (const { i, retenues, journal, jugement } of choix) {
+      const deNature = (n) => retenues.map((img, k) => ({ img, k })).filter(({ k }) => jugement.natures[k] === n);
+      const projet = deNature('projet').sort((a, b) => (b.k === jugement.meilleure) - (a.k === jugement.meilleure));
+      // Une image tirée d'un PDF n'a pas d'adresse : sa clé est sa taille
+      const cle = (img) => (img.url ? cleImage(img.url) : `pdf:${img.w}x${img.h}:${img.octets.byteLength}`);
+      const libre = (liste) => liste.find(({ img }) => !used.has(cle(img)))?.img;
+      /* Ordre de préférence : une image du projet ; puis une photo du lieu
+         publiée sur la page principale du projet quand cette page lui est
+         consacrée (le bâtiment à réhabiliter, la rue avant les travaux), qui en
+         dit plus qu'une vue du ciel ; puis la vue aérienne du lieu exact, juste
+         par construction ; enfin, là où l'IGN ne couvre pas, une photo du lieu
+         trouvée ailleurs. Sur une page qui traite de plusieurs projets ou d'un
+         autre sujet (le budget de l'année, la rubrique urbanisme), « le lieu »
+         était le bandeau du site ou la carte de toute la commune. */
+      const bonnes = (liste) => liste.filter(({ img }) => !estSecondaire(img));
+      const petites = (liste) => liste.filter(({ img }) => estSecondaire(img));
+      let retenu = null;
+      const lieux = deNature('lieu');
+      const surSaPage = lieux.filter(({ img }) => img.principale && !partagees.has(img.page));
+      const photo = libre(bonnes(projet)) || libre(petites(projet));
+      const lieuSur = libre(bonnes(surSaPage));
+      if (photo) retenu = { img: photo, source: 'photo' };
+      else if (lieuSur) retenu = { img: lieuSur, source: 'lieu' };
+      else {
+        const aerien = vueAerienneDe(located[i], state.ignAerien, used);
+        if (aerien) retenu = { aerien };
+        else {
+          const lieu = libre(bonnes(lieux)) || libre(petites(lieux));
+          if (lieu) retenu = { img: lieu, source: 'lieu' };
+        }
+      }
+      let url = null; let credit = null; let source = null;
+      if (retenu?.aerien) ({ url, credit, source } = retenu.aerien);
+      else if (retenu?.img) {
+        url = retenu.img.url || await deposerImage(retenu.img).catch(() => null);
+        credit = retenu.img.credit;
+        source = retenu.source;
+        if (url) used.add(cle(retenu.img));
+      }
+      const resultat = !url ? 'aucune' : source === 'aerien' ? 'aerien' : source === 'lieu' ? 'lieu' : retenu.img.url ? 'projet' : 'projet-pdf';
+      const natures = jugement.natures.reduce((a, n) => ({ ...a, [n]: (a[n] || 0) + 1 }), {});
+      media.entonnoir.push({ i, titre: located[i].title, ...journal, jugees: retenues.length, natures, resultat });
+      if (process.env.DEMO_DUMP) {
+        console.log(`[demo-media] "${located[i].title}" : ${journal.trouvees} trouvées, ${journal.gabarit} gabarit, ${journal.ailleurs || 0} d'un autre projet, refus ${JSON.stringify(journal.refus)}, ${journal.pdf} de PDF${journal.pdfRefus.length ? ` (${journal.pdfRefus.join(', ')})` : ''}, ${retenues.length} jugées ${JSON.stringify(natures)} -> ${resultat}${url && source !== 'aerien' ? ` ${retenu.img.provenance} ${retenu.img.w}x${retenu.img.h}` : ''}`);
+        retenues.forEach((img, k) => console.log(`[demo-media]    ${k} ${jugement.natures[k] || '-'} ${img.w}x${img.h} ${img.url || img.provenance} :: ${jugement.montre[k] || ''}`));
+      }
+      if (!url) continue;
+      used.add(coverKey(url));
+      located[i].coverSrc = url;
+      located[i].coverCredit = credit;
       media.illustrated++;
-      if (retenu.source === 'aerien') media.aeriennes++;
+      if (source === 'aerien') media.aeriennes++;
       const c = centroidOf(located[i].geometry);
       // coverSrc + coordonnées : le front pose la photo directement sur la carte
       send({
         type: 'media-item',
         title: located[i].title,
-        credit: retenu.credit,
-        coverSrc: retenu.url,
+        credit,
+        coverSrc: url,
         lat: c.lat,
         lng: c.lng,
-        source: retenu.source,
+        source: source === 'aerien' ? 'aerien' : 'photo',
         // Conservé pour les écrans déjà ouverts au moment d'une mise en ligne
         generique: false,
       });
@@ -7068,26 +7628,20 @@ async function coreMedia(send, step, state) {
   }
   media.used = [...used];
 
-  if (media.curseur < located.length && media.tours < GEO_MAX_TOURS) {
+  if (media.curseur < located.length && media.tours < MEDIA_MAX_TOURS) {
     step('media', 'done', 'Illustrations en cours', `${media.illustrated} illustration(s) trouvée(s)`);
     state.__continue = true;
     return state;
   }
   delete state.__continue;
 
-  /* Plus aucune photo « generique » d'un ouvrage du meme type, cherchee sur
-     Wikimedia Commons par mots-cles. Ce repli posait sur une fiche une image
-     d'un AUTRE lieu, choisie sans que personne ne la regarde. Mesure sur le banc
-     d'essai du 10/11/2026 a Vienne : le projet de crematorium illustre par les
-     fours d'Auschwitz, l'ecole Michel Servet par un lycee du Maryland, le siege
-     de l'agglomeration par un immeuble de Londres. Une fiche sans image est
-     honnete ; celle-la detruit la confiance dans toute la carte. */
   const illustrated = media.illustrated;
   const aeriennes = media.aeriennes;
   const photos = illustrated - aeriennes;
   console.log(`[demo-generate] media: ${illustrated}/${located.length} illustrés dont ${aeriennes} vue(s) aérienne(s) (${media.tours} tranche(s))`);
+  if (process.env.DEMO_DUMP) console.log(`[demo-entonnoir] ${JSON.stringify(media.entonnoir)}`);
   step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées',
-    `${illustrated}/${located.length} projets illustrés${aeriennes ? ` (${photos} visuel(s) officiel(s), ${aeriennes} vue(s) aérienne(s) du lieu)` : ' (image choisie par l\'IA)'}`);
+    `${illustrated}/${located.length} projets illustrés${aeriennes ? ` (${photos} image(s) des sources, ${aeriennes} vue(s) aérienne(s) du lieu)` : ''}`);
   // Refuser une photo hors sujet est une décision, pas un échec : on l'affiche
   if (located.length - illustrated > 0) {
     send({ type: 'rejected', kind: 'photo', count: located.length - illustrated });
@@ -7284,7 +7838,9 @@ async function runSources(send, step, insee, ipHash, runState) {
     /* La rédaction est elle aussi découpée en tranches depuis qu'elle fait un
        appel par projet : sans `enchainer`, la voie locale n'écrivait plus que
        les trois premiers articles. */
-    const s5 = await enchainer(coreRedact, s4);
+    /* Banc d'essai : DEMO_REPRISE_JUSQUA=coreMedia arrete la reprise apres les
+       illustrations, pour les mesurer sans payer la redaction. */
+    const s5 = process.env.DEMO_REPRISE_JUSQUA === 'coreMedia' ? s4 : await enchainer(coreRedact, s4);
     if (!s5) return;
     // Audit local : DEMO_DUMP=1 déverse les artefacts complets (projets
     // localisés, illustrations retenues, articles rédigés) dans les logs
@@ -8118,6 +8674,22 @@ export const config = { path: '/api/demo-generate' };
  * génération complète, donc jamais vérifiés. Rien d'autre ne les importe.
  */
 export const _internals = {
+  extractImageUrls,
+  imagesDuHtml,
+  dimensionsImage,
+  formatRefuse,
+  varianteDeSrcset,
+  telechargerImage,
+  imagesDuPdf,
+  pagesDeLaCitation,
+  pixelsEnPng,
+  documentsDuProjet,
+  imagesDuProjet,
+  jugerLesImages,
+  mairiePageImages,
+  cleImage,
+  fetchCapped,
+  coreMedia,
   coreAi,
   rapprocherLesDescriptions,
   daterLesPages,
