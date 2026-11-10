@@ -3380,21 +3380,6 @@ async function gatherImageCandidates(project, communeNom, mairiePages = []) {
   return all;
 }
 
-/* Repli thematique : quand aucun visuel du projet n'existe, une photo
-   GENERIQUE du type d'ouvrage vaut mieux qu'une vignette vide, a condition
-   d'etre annoncee comme telle. Personne ne photographie la chaufferie d'un
-   lycee, mais une chaufferie reste parlante. Le credit dit explicitement
-   « illustration generique » pour ne jamais laisser croire a une photo du
-   projet lui-meme.
-
-   Un SEUL appel IA remplace les 18 familles qui etaient ecrites en dur, et qui
-   avaient deux defauts. Couverture : giratoire, tribunal, caserne, theatre,
-   eglise, port, gare routiere, decheterie, skatepark, station d'epuration ne
-   correspondaient a aucune ligne, donc aucune image. Langue : les requetes
-   etaient en francais alors que Wikimedia Commons est indexe massivement en
-   anglais (« biomass boiler plant » rend infiniment plus que « chaufferie bois
-   collective »). Cout : environ 700 tokens en entree, un appel par generation. */
-
 // L'IA REGARDE vraiment les photos et choisit celle qui illustre ce projet
 // précis, ou aucune (-1). C'est le juge de pertinence : mieux vaut rien qu'une
 // image hors sujet. Coût vision assumé, la crédibilité de la démo prime.
