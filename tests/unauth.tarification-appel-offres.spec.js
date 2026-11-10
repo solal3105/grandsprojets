@@ -49,9 +49,10 @@ test.describe('0.86 - L\'estimateur pour les appels d\'offres', () => {
   test('0.86.2 - le montant, les modules et la durée changent le prix selon la grille des collectivités', async ({ page }) => {
     await page.goto(`${PAGE}?montant=80000000&modules=carte,travaux,participer&annees=4`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#marche-montant')).toHaveValue(/^80\D000\D000$/);
-    let att = attendu({ montant: 80000000, poids: [1, 0.6, 2], annees: 4 });
+    let att = attendu({ montant: 80000000, poids: [1, 0.6, 1], annees: 4 });
     await expect.poll(() => page.locator('#marche-mensuel').textContent().then(nombreDe)).toBe(Math.round(att.mensuel));
-    await expect(page.locator('[data-module="participer"]')).toContainText('-20 % sur le plus cher');
+    // Carte et signalement pèsent autant : la remise va à la carte, la première
+    await expect(page.locator('[data-module="carte"]')).toContainText('-20 % sur le plus cher');
 
     // Un montant tapé au clavier, puis un module retiré et une durée plus courte
     await page.locator('#marche-montant').fill('250000');

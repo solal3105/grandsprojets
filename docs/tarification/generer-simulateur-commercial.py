@@ -40,7 +40,7 @@ MODULES = [
     ("carte", "Carte des projets urbains", 1, "C4002A"),
     ("travaux", "Travaux du quotidien", 0.6, "B45309"),
     ("chantiers", "Chantiers et arrêtés", 3, "0B7A4A"),
-    ("participer", "Signalement", 2, "1B5FA8"),
+    ("participer", "Signalement", 1, "1B5FA8"),
     ("diagnostic", "Diagnostic terrain", 0.8, "7546CC"),
 ]
 CHANTIERS_DEMI_POIDS = {"sous": 5000, "plein": 20000}
