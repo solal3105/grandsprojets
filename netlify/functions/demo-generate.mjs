@@ -21,18 +21,22 @@
    llms.txt, noindex (voir demo/README.md pour la désinstallation complète).
    ============================================================================ */
 
+// Empreinte des pages lues, pour ne jamais relire la meme sous une autre adresse
+import { createHash } from 'node:crypto';
+// Encodage PNG des images tirées des PDF, sans bibliothèque d'image
+import { deflateSync } from 'node:zlib';
 // Socle de rédaction partagé avec l'outil de l'admin : structure de l'article,
 // nettoyage des liens, construction du bloc de sources citées.
-import { promptArticle, retirerLesLiens, sourcesDesAnnotations, blocSources, hoteLisible } from './lib/redaction.mjs';
+import { promptArticle, retirerLesLiens, blocSources, hoteLisible } from './lib/redaction.mjs';
 import {
   chargerReseau, reseauEnGeojson, zoneParInsee,
   STYLE_COUCHE_TRANSPORTS, NOM_COUCHE_TRANSPORTS, CATEGORIE_TRANSPORTS,
 } from './lib/transit-osm.mjs';
 // Mecanique d'exploration : registre des pages vues, file de ce qui reste a
-// ouvrir, rapprochement des projets decrits par plusieurs pages.
+// ouvrir, fusion des descriptions d'une meme operation.
 import {
   FileExploration, empreinteGabarit, retirerGabaritConnu, GABARIT_RESTE_MIN,
-  regrouper, fondre, normaliserUrl,
+  fondre, normaliserUrl, estUnPdf, estUnePageExplorable,
 } from './lib/demo-exploration.mjs';
 
 const SUPABASE_URL = 'https://wqqsuybmyqemhojsamgq.supabase.co';
@@ -106,6 +110,20 @@ const SOURCE_EXCERPT_CHARS = 1800;
 // retient pour tout le site. Le tri, lui, appartient a la lecture de la page.
 const PDF_PAR_PAGE_MAX = 20;
 const PDF_TOTAL_MAX = 40;
+/* LECTURE des PDF de la mairie. Une petite commune ne decrit souvent ses
+   projets que dans les proces-verbaux du conseil et son bulletin : mesure sur
+   faugeres34.fr, aucune page du site ne parle de la rehabilitation de l'ancienne
+   mairie, de la borne de recharge ni de la centrale solaire, que les PV de 2025
+   et 2026 detaillent avec leur plan de financement. Quand le site est epuise
+   sans avoir reuni assez de matiere, UN jugement choisit parmi tous les PDF
+   croises ceux qui valent d'etre lus ; ils entrent en file comme des pages, et
+   leur texte est lu par tranches. Bornes : nombre de documents, poids du
+   fichier, nombre de tranches. Une ville dont le site suffit ne lit aucun PDF. */
+const PDF_LUS_MAX = 12;
+const DOCS_VUS_MAX = 240;
+const DOCS_PAR_PAGE_VUS = 60;
+const PDF_OCTETS_MAX = 30000000;
+const PDF_TRANCHES_MAX = 4;
 // Plafond de telechargement d'une illustration. Au-dela on ABANDONNE l'image :
 // fetchCapped tronque, et une image tronquee s'affiche amputee.
 const COVER_MAX_BYTES = 8000000;
@@ -219,13 +237,6 @@ const PAGE_SCHEMA = {
 
 // Schémas des appels vision (courts). Le schéma du logo est défini avec son
 // appel, plus bas : il rend désormais le choix du logo ET sa couleur.
-const IMAGE_CHOICE_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: { best_index: { type: 'integer' } },
-  required: ['best_index'],
-};
-
 /* ─── Helpers génériques ─── */
 
 function serviceHeaders() {
@@ -248,7 +259,19 @@ function serviceHeaders() {
 
    Ne jamais ecrire d'octet NUL litteral dans ce commentaire : il rendrait le
    fichier binaire pour grep et les outils de diff. */
-const corpsJson = (valeur) => JSON.stringify(valeur).replace(/\\u0000/g, '');
+/* Meme logique pour les caracteres COUPES EN DEUX. Un emoji occupe deux
+   unites UTF-16 ; une troncature au caractere pres (extrait de 1 800 signes
+   autour d'une citation, echantillon de gabarit, index des visuels) peut n'en
+   garder qu'une moitie. JSON.stringify l'ecrit alors \\udXXX, que PostgreSQL
+   refuse en jsonb (22P02, « Unicode low surrogate must follow a high
+   surrogate ») : c'est un 400 sur l'ecriture du brouillon, identique a chaque
+   reprise puisque l'etat est le meme. Constate le 10/11/2026 sur
+   Noyal-Chatillon-sur-Seiche : deux echecs de suite a la meme tranche de
+   lecture, puis abandon de la generation. Chaque moitie orpheline devient le
+   caractere de remplacement, avant la serialisation. */
+const MOITIE_ORPHELINE_RE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+const sansMoitieOrpheline = (cle, v) => (typeof v === 'string' ? v.replace(MOITIE_ORPHELINE_RE, '\uFFFD') : v);
+const corpsJson = (valeur) => JSON.stringify(valeur, sansMoitieOrpheline).replace(/\\u0000/g, '');
 
 async function fetchWithTimeout(url, opts = {}, ms = FETCH_TIMEOUT_MS) {
   const ctrl = new AbortController();
@@ -696,7 +719,7 @@ async function findMairie(insee, bbox = null) {
  * Les seuls refus faits ici sont structurels : ce n'est pas une adresse, ce
  * n'est pas du web, ou c'est deja releve.
  */
-function collectPdfLinks(html, baseUrl) {
+function collectPdfLinks(html, baseUrl, max = PDF_PAR_PAGE_MAX) {
   /* Le lien d'abord, son intitule ensuite, et jamais l'inverse : un bouton de
      telechargement enveloppe souvent son libelle dans une icone, un cartouche
      et le poids du fichier. Exiger la balise fermante dans la meme expression
@@ -706,7 +729,7 @@ function collectPdfLinks(html, baseUrl) {
   const re = /<a\b[^>]*href=["']([^"'\s]+\.pdf(?:\?[^"']*)?)["'][^>]*>/gi;
   const out = [];
   let m;
-  while ((m = re.exec(html)) !== null && out.length < PDF_PAR_PAGE_MAX) {
+  while ((m = re.exec(html)) !== null && out.length < max) {
     try {
       const abs = new URL(m[1], baseUrl);
       if (!/^https?:$/.test(abs.protocol)) continue;
@@ -776,26 +799,10 @@ function metaContent(html, key) {
     || null;
 }
 
-// Écarte les images qui ne sont jamais des illustrations de projet (logos,
-// icônes, pixels de tracking, boutons de partage, SVG)
-const IMG_SKIP_RE = /(\.svg|sprite|logo|icone?|\bicon\b|avatar|pixel|placeholder|1x1|blank|spacer|button|share|facebook|twitter|instagram|linkedin|youtube|banner|bandeau|drapeau)/i;
-
-// URLs d'images d'une page : image principale (og/twitter) en tete, puis images
-// de contenu <img> (data-src ou src). Absolues, filtrees, dedupliquees.
+// URLs d'images d'une page, pour l'index des pages de la mairie : le même
+// relevé que celui des illustrations (voir imagesDuHtml).
 function extractImageUrls(html, baseUrl, cap = 16) {
-  const out = [];
-  const push = (src) => {
-    if (!src || out.length >= cap) return;
-    try {
-      const abs = new URL(src, baseUrl).toString();
-      if (/^https?:/.test(abs) && !IMG_SKIP_RE.test(abs) && !out.includes(abs)) out.push(abs);
-    } catch { /* src invalide */ }
-  };
-  push(metaContent(html, 'og:image') || metaContent(html, 'og:image:secure_url') || metaContent(html, 'twitter:image'));
-  const imgRe = /<img\b[^>]*?(?:data-src|src)=["']([^"']+)["'][^>]*>/gi;
-  let m; let n = 0;
-  while ((m = imgRe.exec(html)) !== null && n < 14) { push(m[1]); n++; }
-  return out;
+  return imagesDuHtml(html, baseUrl).slice(0, cap).map((x) => x.url);
 }
 
 // Moissonne les images d'une page dans `out` (accumulé sur plusieurs pages) :
@@ -1001,11 +1008,43 @@ async function fetchSitemapUrls(baseUrl) {
   return [];
 }
 
+/* Selection de `max` entrees de sitemap reparties entre rubriques : une
+   rubrique est le chemin de l'adresse sans son dernier segment. Chaque tour
+   prend l'entree la plus recente de chaque rubrique encore pourvue, les
+   rubriques les plus fraiches d'abord. Sous le plafond, tout est garde. */
+function repartirParRubrique(entrees, max) {
+  const recentes = [...entrees].sort((a, b) => String(b.lastmod).localeCompare(String(a.lastmod)));
+  if (recentes.length <= max) return recentes;
+  const rubriques = new Map();
+  for (const e of recentes) {
+    let cle = '';
+    try { cle = new URL(e.url).pathname.replace(/\/+$/, '').split('/').slice(0, -1).join('/'); } catch { /* adresse illisible */ }
+    if (!rubriques.has(cle)) rubriques.set(cle, []);
+    rubriques.get(cle).push(e);
+  }
+  const files = [...rubriques.values()];
+  const out = [];
+  for (let tour = 0; out.length < max; tour++) {
+    let pris = false;
+    for (const f of files) {
+      if (tour < f.length) { out.push(f[tour]); pris = true; if (out.length >= max) break; }
+    }
+    if (!pris) break;
+  }
+  return out;
+}
+
 // Intitule lisible tire du dernier segment d'une adresse : le slug d'un CMS est
 // une phrase (« les-pistes-de-padel-debarquent-en-ville »), pas un identifiant.
+/* Un dernier segment fait seulement de chiffres est l'identifiant de la fiche,
+   pas son nom : sur ville-noyal-chatillon.fr, chaque actualite finit par
+   /12183/, et le tri des intitules recevait « 12183 » pour toute la rubrique.
+   Le nom est alors le segment d'avant. */
 function libelleDuChemin(u) {
   try {
-    const seg = new URL(u).pathname.split('/').filter(Boolean).pop() || '';
+    const segs = new URL(u).pathname.split('/').filter(Boolean);
+    while (segs.length > 1 && /^\d+$/.test(segs[segs.length - 1])) segs.pop();
+    const seg = segs.pop() || '';
     return decodeURIComponent(seg).replace(/[-_]+/g, ' ').trim().slice(0, LIEN_LABEL_MAX);
   } catch { return ''; }
 }
@@ -1165,7 +1204,19 @@ function findSiteLogo(html, baseUrl) {
 async function inspectMairieSite(siteUrl, communeNom, echeance = Infinity) {
   const out = { pages: [], logoUrl: null, themeColor: null, host: null, urls: [], pdfs: [], images: [], candidates: [], accueilTexte: '', bloque: false, tronque: false, octets: 0 };
   const home = await fetchCapped(siteUrl, { headers: UA }, FETCH_TIMEOUT_MS, ACCUEIL_MAX_BYTES);
-  if (!home) return out;
+  /* Un accueil qui ne repond pas etait rendu comme un site vide : aucune
+     candidate, aucun message, et la carte sortait avec ce que la presse avait
+     donne. C'est ce qu'a vecu Noyal-Chatillon-sur-Seiche le 10/11/2026 : la
+     relance n'a pas pu lire le site et a publie une carte d'un seul projet sans
+     le signaler. Le site injoignable est desormais signale comme un site
+     bloque, et compte comme tel dans le journal. */
+  if (!home) {
+    try { out.host = new URL(siteUrl).host; } catch { /* adresse illisible */ }
+    out.bloque = true;
+    out.injoignable = true;
+    console.warn(`[demo-generate] ${out.host} : le site de la commune ne repond pas, site ignore`);
+    return out;
+  }
   /* Le site renvoie une page-tremplin au lieu de son contenu : inutile
      d'insister, mais il faut le dire. Sans ce constat explicite, la commune
      rendait une carte maigre et rien n'indiquait que sa source principale
@@ -1274,13 +1325,18 @@ async function inspectMairieSite(siteUrl, communeNom, echeance = Infinity) {
             && p.pathname !== '/';
         } catch { return false; }
       })
-      // Le plus recent d'abord : c'est structurel, pas un jugement sur le sujet.
-      // Au-dela du plafond, une page ancienne a peu de chances de decrire une
-      // operation encore en cours.
-      .sort((a, b) => String(b.lastmod).localeCompare(String(a.lastmod)))
-      .slice(0, SITEMAP_URLS_MAX)
-      .map((e) => ({ url: e.url, label: libelleDuChemin(e.url) }));
-    links.push(...duSitemap);
+    /* Au-dela du plafond, on ne garde plus simplement les plus recentes :
+       un site regenere son annuaire chaque nuit, et ses fiches occupaient
+       alors tout le plafond. Mesure sur saintgenislaval.fr : 2 235 adresses,
+       les 400 plus recentes etaient l'annuaire des entreprises et des
+       associations (toutes datees du jour), et aucune des six pages de la
+       rubrique « projets en cours » n'etait ouverte. Les places sont donc
+       reparties entre RUBRIQUES (le dossier de l'adresse), a tour de role, la
+       plus recente d'abord dans chaque rubrique. C'est structurel : aucun mot
+       n'y est juge, une petite rubrique passe simplement avant la centieme
+       fiche d'une grande. */
+    links.push(...repartirParRubrique(duSitemap, SITEMAP_URLS_MAX)
+      .map((e) => ({ url: e.url, label: libelleDuChemin(e.url) })));
   }
   console.log(`[demo-generate] candidats : ${depuisAccueil} de l'accueil + ${links.length - depuisAccueil} du sitemap`);
 
@@ -1400,33 +1456,6 @@ const BOAMP_NOT_A_PROJECT = /entretien (et |courant|des|du )|r[eé]parations? co
 // de Montcelard, tous deux de juin 2026, disparaissaient).
 const BOAMP_SERVICE_DE_PROJET = /ma[iî]trise d['’ ]?o?euvre|\bmoe\b|concours|\bopc\b|ordonnancement|[ée]tude de faisabilit|programmation urbaine|assistance [àa] ma[iî]trise d['’ ]?ouvrage|\bamo\b/i;
 
-/* Interventions de concessionnaires de reseau : elles ferment une rue mais ne
-   transforment pas le territoire, et n'ont rien a faire sur une carte de
-   projets urbains.
-
-   Deux motifs, pas un seul. Les marques dont le nom est aussi un nom de
-   commune ou un mot courant (Orange dans le Vaucluse, Free, RTE) ne peuvent
-   pas ecarter un projet a elles seules : « Construction d'une mediatheque a
-   Orange » etait rejete comme intervention de concessionnaire, et comme la
-   description cite presque toujours la commune, TOUS les projets d'Orange
-   tombaient. Ces marques ambigues exigent donc un mot de contexte reseau a
-   proximite. Les marques sans ambiguite gardent leur declenchement direct. */
-const CONCESSIONNAIRE_RE = /\b(enedis|grdf|grt\s?gaz|fibre optique|c[aâ]ble [eé]lectrique|ligne haute tension|moyenne tension|raccordement (?:au |du |des )?r[eé]seau|d[eé]voiement de r[eé]seaux?)\b/i;
-// Marques ambigues : il faut le mot de marque ET un mot de contexte reseau
-// dans la meme phrase (60 caracteres de part et d'autre).
-const CONCESSIONNAIRE_AMBIGU_RE = /\b(orange|sfr|bouygues telecom|free|rte)\b[\s\S]{0,60}\b(r[eé]seau|raccordement|fibre|c[aâ]ble|t[eé]l[eé]com|[eé]lectri|haute tension|antenne|op[eé]rateur)\b|\b(r[eé]seau|raccordement|fibre|c[aâ]ble|t[eé]l[eé]com|[eé]lectri|haute tension|antenne|op[eé]rateur)\b[\s\S]{0,60}\b(orange|sfr|bouygues telecom|free|rte)\b/i;
-
-/* Un projet est-il une intervention de concessionnaire ?
-   Le nom de la commune est retire du texte avant le test : sans cela, toute
-   commune homonyme d'un operateur voyait ses projets ecartes. */
-function estInterventionReseau(project, communeNom) {
-  let hay = `${project.title || ''} ${project.description || ''}`;
-  if (communeNom) {
-    hay = hay.replace(new RegExp(communeNom.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ');
-  }
-  return CONCESSIONNAIRE_RE.test(hay) || CONCESSIONNAIRE_AMBIGU_RE.test(hay);
-}
-
 // Au-dela, un avis ne renseigne plus l'etat du chantier : il devient archive.
 const BOAMP_MAX_AGE_MONTHS = 36;
 const BOAMP_MAX_ROWS = 45;
@@ -1533,11 +1562,11 @@ async function fetchBoamp(communeNom, departementCode, onFinding) {
       const score = /r[eé]sultat|attribution/i.test(x.nature) ? 2 : 1;
       if (!prev || score > prev.score) best.set(k, { ...x, score });
     }
-    /* Les interventions de concessionnaire sont ecartees DES MAINTENANT, pas
-       seulement a la sortie de l'IA : chaque ligne inutile consomme une place
-       dans le paquet et des tokens pour rien. */
+    /* Les interventions de concessionnaire ne sont plus ecartees ici par une
+       liste de marques : le depouillement des avis et le rapprochement les
+       jugent sur le fond. La liste se trompait dans les deux sens (une
+       mediatheque d'Orange ecartee, une conduite d'eau potable gardee). */
     let deduped = [...best.values()]
-      .filter((x) => !estInterventionReseau({ title: x.title, description: x.description }, communeNom))
       .sort((a, b) => (a.date < b.date ? 1 : -1));
 
     /* Plafond : la liste BOAMP est tres compacte (une ligne par avis) et
@@ -1777,7 +1806,12 @@ async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs 
     max_output_tokens: maxTokens,
     temperature,
   }, timeoutMs, tries);
-  if (!r.ok) throw new Error(`IA indisponible (${r.status})`);
+  if (!r.ok) {
+    // Le corps de la reponse dit POURQUOI (image illisible, format refuse) :
+    // sans lui, un refus de la vision ressemblait a une panne.
+    const detail = await readBody(r).catch(() => '');
+    throw new Error(`IA indisponible (${r.status}) ${String(detail).slice(0, 300)}`);
+  }
   const data = JSON.parse(await readBody(r));
   logUsage(schemaName, data.usage);
   if (data.status === 'incomplete' && data.incomplete_details?.reason === 'max_output_tokens') {
@@ -1802,7 +1836,9 @@ function consignePage(communeNom, cadre = 'mairie') {
     ? `Tu dépouilles UN article de presse en ligne pour y trouver les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES situés dans la commune de ${communeNom}.
 
 L'article peut couvrir plusieurs communes ou toute une agglomération : ne retiens QUE les opérations situées à ${communeNom}. La presse rapporte aussi des intentions, des polémiques et des promesses : ne retiens que les opérations DÉCIDÉES, financées ou engagées, jamais une piste à l'étude ni une promesse de campagne.`
-    : `Tu dépouilles UNE page du site officiel de ${communeNom} pour y trouver les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES qui concernent cette commune.`;
+    : cadre === 'document'
+      ? `Tu dépouilles un document PDF publié par la commune de ${communeNom} (procès-verbal du conseil municipal, bulletin municipal, dossier de projet...) pour y trouver les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES qui concernent cette commune. Une délibération qui approuve des travaux, leur plan de financement ou une demande de subvention pour une opération précise décrit un projet. Ne retiens QUE ce qui se construit, se rénove ou s'aménage à un endroit que le document nomme (une rue, un bâtiment, un lieu-dit, un quartier) : un acte purement juridique ou financier n'est pas un projet, même s'il porte sur un terrain. Une acquisition ou une cession de parcelle, un avenant à un contrat ou à une concession, une convention, une servitude, un périmètre de protection, une garantie d'emprunt, un tarif, une décision de personnel ou une subvention à une association ne se retiennent pas.`
+      : `Tu dépouilles UNE page du site officiel de ${communeNom} pour y trouver les projets d'aménagement, de travaux ou d'équipement CONCRETS et PHYSIQUES qui concernent cette commune.`;
   return `${entete}
 
 Retiens un projet UNIQUEMENT si cette page le décrit vraiment, et si tu peux en recopier une phrase mot pour mot. Une simple mention en passant, un lien de menu ou un titre de rubrique ne sont pas une description : dans ce cas, rends une liste vide, ce qui est le cas le plus fréquent et ne pose aucun problème.
@@ -1832,7 +1868,28 @@ Pour les DOCUMENTS : la page porte parfois des fichiers PDF, donnés avec leur i
 
    Ce qui survit au tri est ouvert INTEGRALEMENT. Ce tri n'existe donc que pour
    ne pas payer la lecture de pages dont l'intitule dit deja qu'elles n'ont
-   rien a voir avec l'amenagement du territoire. */
+   rien a voir avec l'amenagement du territoire.
+
+   Les ACTUALITES se jugent desormais sur leur intitule comme le reste. Les
+   proteger toutes faisait ouvrir l'agenda entier : mesure le 10/11/2026 sur
+   saintgenislaval.fr, 75 actualites lues (« samedi yoga », « concours de
+   petanque », « octobre rose »...) pour une seule operation de reference, la
+   chapelle de Beaunant, dont l'intitule annonce les travaux. Rejoue sur les
+   candidates reelles des quatre communes du banc, le nouveau tri ecarte 290
+   des 523 pages que l'ancien faisait lire, dont 273 n'avaient rien donne, et
+   chaque projet de reference garde au moins une page qui le decrit. Une
+   version plus severe (qui ecartait aussi la presentation des services)
+   perdait le reamenagement du centre de Saint-Genis-Laval, decrit sur la seule
+   page « vehicule et stationnement » : elle n'a pas ete gardee. Le numero du
+   magazine municipal reste un sommaire : sur vienne.fr, l'article sur
+   l'ecole Jean Moulin n'est atteint que depuis la page du numero 196. La
+   page du budget aussi : celle de ville-noyal-chatillon.fr est la seule a
+   decrire les travaux de l'ecole du Chat Perche, celle de vienne.fr en
+   decrit six dont l'avenue du General Leclerc.
+
+   Le tri rend aussi les intitules qui annoncent A EUX SEULS une operation : ils
+   passent en tete de la file. Sur ce meme rejeu, 97 de ces 120 pages ont donne
+   un projet, contre 27 des 113 autres pages gardees. */
 const TRI_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -1842,8 +1899,13 @@ const TRI_SCHEMA = {
       description: "Index des pages dont l'intitulé montre qu'elles ne décriront jamais une opération d'aménagement.",
       items: { type: 'integer' },
     },
+    operations: {
+      type: 'array',
+      description: "Index des pages gardées dont l'intitulé annonce à lui seul une opération précise, ou qui recensent les projets ou les travaux de la commune.",
+      items: { type: 'integer' },
+    },
   },
-  required: ['ecarter'],
+  required: ['ecarter', 'operations'],
 };
 const TRI_LOT_MAX = 150;
 
@@ -1863,27 +1925,38 @@ function estUnCarrefour(url) {
 // Au-dela, les pages racines ne sont pas des carrefours : le site est PLAT.
 const CARREFOURS_MAX = 20;
 
-async function ecarterLesHorsSujet(communeNom, liens) {
-  if (liens.length <= TRI_LOT_MAX / 4) return liens;
+/* `hierarchique` : la nature du site, deja etablie sur la liste complete des
+   candidates. Les liens decouverts en cours de lecture arrivent par petits
+   paquets, ou quelques pages racines ne disent rien de la structure du site :
+   sur vienne.fr, les actualites vivent a la racine, et un paquet de dix
+   d'entre elles aurait passe pour dix carrefours a proteger. Avec ce
+   parametre, un petit paquet est trie lui aussi. */
+async function ecarterLesHorsSujet(communeNom, liens, { hierarchique } = {}) {
+  if (!liens.length) return liens;
+  if (hierarchique === undefined && liens.length <= TRI_LOT_MAX / 4) return liens;
   /* La protection des carrefours ne vaut que sur un site HIERARCHIQUE, ou les
      pages racines sont une poignee de rubriques qui ouvrent le reste. Mesure
      sur mairie-vannes.fr : toutes les pages y sont a la racine, et proteger
      « la racine » revenait a exempter le site entier du tri - 7 adresses
      ecartees sur 280, puis 267 lectures dont une bonne moitie pour rien. */
   const racines = liens.filter((l) => estUnCarrefour(l.url));
-  const siteHierarchique = racines.length <= CARREFOURS_MAX;
+  const siteHierarchique = hierarchique ?? racines.length <= CARREFOURS_MAX;
   const carrefours = siteHierarchique ? racines : [];
   const aTrier = siteHierarchique ? liens.filter((l) => !estUnCarrefour(l.url)) : liens;
   const lots = [];
   for (let i = 0; i < aTrier.length; i += TRI_LOT_MAX) lots.push(aTrier.slice(i, i + TRI_LOT_MAX));
 
-  const system = `Tu prepares le recensement des operations d'amenagement de la commune de ${communeNom} a partir de son site officiel. On va OUVRIR toutes les pages que tu ne rejettes pas : ton travail est uniquement d'ecarter celles dont l'intitule prouve deja qu'elles n'ont rien a voir.
+  const system = `Tu prepares le recensement des operations d'amenagement de la commune de ${communeNom} a partir de son site officiel : constructions, renovations, extensions, requalifications de voies ou de places, equipements publics, quartiers en projet. Chaque page que tu ne rejettes pas sera ouverte et lue, et chaque lecture se paie en temps et en argent. Tu rends deux listes.
 
-ECARTE : demarches administratives, etat civil, inscriptions scolaires, menus de cantine, agenda culturel, vie associative, sport et loisirs, annuaire, contacts, recrutement, mentions legales, comptes rendus de conseil, elus et instances (adjoints, commissions, groupes politiques, organigramme), pages de compte ou de connexion, articles de vie quotidienne sans rapport avec un chantier.
+ECARTER : les pages dont l'intitule montre qu'elles ne decriront jamais une telle operation. Demarches administratives, etat civil, inscriptions scolaires, menus de cantine, agenda culturel, vie associative, sport et loisirs, annuaire, contacts, recrutement, mentions legales, elus et instances (adjoints, commissions, groupes politiques, organigramme), pages de compte ou de connexion, articles de vie quotidienne sans rapport avec un chantier.
 
-N'ECARTE PAS une page dont l'intitule est vague, generique ou peu clair : dans le doute on ouvre, cela ne coute presque rien, alors qu'une page ecartee a tort fait disparaitre un projet de la carte. N'ecarte jamais une actualite, un sommaire, une rubrique de travaux, d'urbanisme, de cadre de vie ou de projets.
+N'ecarte PAS les pages qui publient les proces-verbaux ou comptes rendus du conseil municipal, le bulletin municipal ou les deliberations : leurs documents seront lus, et dans une petite commune ce sont souvent les seuls a decrire les projets.
 
-N'ecarte jamais non plus une RUBRIQUE, c'est-a-dire une page dont le chemin est court et l'intitule general (« mairie », « ma ville », « vivre ici ») : ce sont des carrefours qui menent ailleurs, et leur nom ne dit rien de ce qu'ils contiennent. Le patrimoine bati fait partie de l'amenagement des qu'il est question de le restaurer : n'ecarte une page de patrimoine que si elle raconte l'histoire ou la legende d'un lieu.`;
+Une ACTUALITE se juge sur son intitule, comme les autres pages. Ecarte celle qui annonce un evenement ou une animation (concert, spectacle, exposition, atelier, fete, foire, braderie, vide-grenier, sortie, seance sportive, concours), une ceremonie ou une commemoration, une collecte, une campagne de prevention ou de sante, une alerte meteo, une permanence, un appel a candidatures, une election, un portrait, une information pratique sans rapport avec un chantier. Garde celle dont l'intitule parle ou peut parler d'un chantier, de travaux, d'une voie, d'un batiment, d'un equipement, d'un parc, d'un quartier, d'un projet, d'une inauguration, d'une pose de premiere pierre, d'une reunion publique ou d'une concertation, et garde aussi celle dont l'intitule est trop vague pour savoir.
+
+N'ecarte jamais un sommaire (un numero du magazine ou du bulletin municipal en est un : il renvoie vers ses articles), une rubrique de travaux, d'urbanisme, de cadre de vie ou de projets, ni une page de budget ou de finances de la commune (elle detaille souvent les investissements de l'annee), ni une RUBRIQUE au chemin court et a l'intitule general (« mairie », « ma ville », « vivre ici ») : ce sont des carrefours qui menent ailleurs. Le patrimoine bati fait partie de l'amenagement des qu'il est question de le restaurer : n'ecarte une page de patrimoine que si elle raconte l'histoire ou la legende d'un lieu. Dans le doute, garde : une page ecartee a tort fait disparaitre un projet de la carte.
+
+OPERATIONS : parmi les pages que tu gardes, celles dont l'intitule annonce a lui seul une operation precise (un chantier, des travaux sur un lieu nomme, la construction, la renovation ou l'amenagement de quelque chose, un projet nomme, l'inauguration d'un equipement) ou une rubrique qui recense les projets ou les travaux de la commune. Elles seront lues en premier. Une page au titre vague n'y va pas, elle reste simplement gardee.`;
 
   const parLot = await inChunks(lots, 4, async (lot) => {
     try {
@@ -1897,20 +1970,27 @@ N'ecarte jamais non plus une RUBRIQUE, c'est-a-dire une page dont le chemin est 
            quelques appels par generation, l'economie serait fausse. */
         'tri_liens', TRI_SCHEMA, 2000, 60000, 0.1
       );
-      const ecartes = new Set((out.ecarter || []).filter((i) => Number.isInteger(i) && i >= 0 && i < lot.length));
+      const valides = (liste) => new Set((liste || []).filter((i) => Number.isInteger(i) && i >= 0 && i < lot.length));
+      const ecartes = valides(out.ecarter);
+      const operations = valides(out.operations);
       if (process.env.DEMO_DUMP) {
         // Ce que le tri refuse d'ouvrir. Sans cette trace, on ne peut ni
         // verifier qu'il ecarte bien, ni voir ce qu'il jette a tort.
         for (const i of ecartes) console.log(`[demo-tri] ECARTE : ${lot[i].label} (${lot[i].url.replace(/^https?:\/\/[^/]+/, '')})`);
       }
-      return lot.filter((_, i) => !ecartes.has(i));
+      /* Une page a la fois ecartee et designee comme operation est gardee : le
+         doute profite a la lecture, comme partout dans ce tri. */
+      return lot.filter((_, i) => !ecartes.has(i) || operations.has(i))
+        .map((l) => (operations.has(lot.indexOf(l)) ? { ...l, operation: true } : l));
     } catch (e) {
       // Sans tri, on ouvre tout : c'est plus cher, jamais moins bon.
       console.warn(`[demo-generate] tri des liens indisponible, tout est ouvert :: ${e?.message}`);
       return lot;
     }
   });
-  return [...carrefours, ...parLot.flat()];
+  const gardees = [...carrefours, ...parLot.flat()];
+  gardees.siteHierarchique = siteHierarchique;
+  return gardees;
 }
 
 /* Extrait de page centre sur une citation. Sans citation retrouvee, le debut
@@ -1930,6 +2010,91 @@ function nomDeFichier(u) {
     const chemin = decodeURIComponent(new URL(u).pathname);
     return chemin.slice(chemin.lastIndexOf('/') + 1);
   } catch { return ''; }
+}
+
+const DOCS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    lire: { type: 'array', maxItems: PDF_LUS_MAX, items: { type: 'integer' }, description: 'Index des documents à lire, du plus utile au moins utile.' },
+  },
+  required: ['lire'],
+};
+
+/* Parmi tous les PDF croises sur le site, lesquels lire pour connaitre les
+   projets de la commune ? Jugement confie au grand modele : c'est un tri sur
+   des intitules et des noms de fichiers dates, une seule fois par generation. */
+async function choisirLesDocumentsALire(commune, docs, dejaTrouves = []) {
+  if (!docs.length) return [];
+  try {
+    const aujourdhui = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    const system = `Nous sommes le ${aujourdhui}. Voici les documents PDF publiés sur le site officiel de ${commune.nom}, chacun avec son intitulé, son nom de fichier et la page qui le présente. On va lire en entier ceux que tu désignes pour y trouver les projets d'aménagement, de travaux ou d'équipement de la commune.
+
+Désigne les documents qui racontent ce que la commune décide et construit EN CE MOMENT : procès-verbaux et comptes rendus du conseil municipal, bulletins et magazines municipaux, dossiers de présentation, de concertation ou d'enquête publique d'un projet. Ne retiens que les plus récents, datés des deux dernières années d'après leur intitulé ou leur nom de fichier, les plus récents d'abord, ${PDF_LUS_MAX} au plus.
+
+Tu reçois aussi la liste des projets que les pages du site ont déjà permis de repérer. Si elle est courte, les procès-verbaux du conseil sont souvent la seule source : désigne-les largement. Si elle est déjà longue, ne désigne que les documents qui apporteront des opérations absentes de cette liste ou le dossier complet d'une opération qui y figure (bulletin municipal récent, dossier de création ou de concertation, étude) : une décision ou une délibération isolée, une liste de délibérations, un procès-verbal de plus n'apprendront rien, ne les désigne pas.
+
+Ne désigne jamais un règlement, un formulaire, un document d'urbanisme réglementaire (PLU, zonage, servitudes, annexes sanitaires), un arrêté de circulation, un tarif, un menu, un document budgétaire sans description de projets. Si rien ne convient, rends une liste vide.`;
+    const user = `PROJETS DÉJÀ REPÉRÉS SUR LE SITE (${dejaTrouves.length}) :
+${dejaTrouves.slice(0, 120).map((t) => `- ${t}`).join('\n') || '(aucun)'}
+
+DOCUMENTS :
+${docs.map((d, i) => `${i}. ${d.label || '(sans intitulé)'} [fichier : ${nomDeFichier(d.url)}] (page : ${d.page || '?'})`).join('\n')}`;
+    const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
+      'documents_a_lire', DOCS_SCHEMA, 400, 40000, 0.1);
+    return [...new Set(out.lire || [])].filter((i) => Number.isInteger(i) && i >= 0 && i < docs.length).slice(0, PDF_LUS_MAX).map((i) => docs[i]);
+  } catch (e) {
+    console.warn(`[demo-generate] choix des documents indisponible :: ${e?.message}`);
+    return [];
+  }
+}
+
+/* Texte d'un PDF, ou null s'il est illisible (scan sans texte, fichier trop
+   lourd, extraction indisponible). La bibliotheque n'est chargee qu'au premier
+   document : une generation sans PDF a lire n'en paie pas le cout. */
+async function texteDuPdf(url) {
+  const r = await fetchCapped(url, { headers: UA }, 20000, PDF_OCTETS_MAX, true);
+  if (!r?.data || r.data.byteLength >= PDF_OCTETS_MAX) return null;
+  const octets = new Uint8Array(r.data);
+  if (String.fromCharCode(...octets.slice(0, 5)) !== '%PDF-') return null;
+  try {
+    const { extractText, getDocumentProxy } = await import('unpdf');
+    const pdf = await getDocumentProxy(octets);
+    const { text } = await extractText(pdf, { mergePages: true });
+    const propre = String(text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    return propre.length >= GABARIT_RESTE_MIN ? propre : null;
+  } catch (e) {
+    console.warn(`[demo-generate] PDF illisible : ${url} :: ${e?.message}`);
+    return null;
+  }
+}
+
+/* Lecture d'un PDF par tranches de la taille d'une page : chaque tranche passe
+   par la meme lecture qu'une page du site, et les projets s'additionnent. Le
+   document devient le dossier des projets qu'il decrit. */
+async function lirePdf(commune, candidate) {
+  const texte = await texteDuPdf(candidate.url);
+  if (!texte) return null;
+  const titre = candidate.label || nomDeFichier(candidate.url);
+  const tranches = [];
+  for (let i = 0; i < texte.length && tranches.length < PDF_TRANCHES_MAX; i += PAGE_TEXTE_LU_MAX) {
+    tranches.push(texte.slice(i, i + PAGE_TEXTE_LU_MAX));
+  }
+  const lus = await Promise.all(tranches.map((t, k) => lirePage(commune, {
+    url: candidate.url,
+    title: tranches.length > 1 ? `${titre} (partie ${k + 1} sur ${tranches.length})` : titre,
+    text: t,
+  }, [], 'document').catch(() => ({ projets: [], suivants: [], dossiers: [], interet: 'nulle' }))));
+  const projets = lus.flatMap((l) => l.projets);
+  // L'extrait a ete pris dans la tranche : on le recentre sur le texte entier
+  for (const p of projets) p.page_excerpt = extraitAutourDe(texte, p.evidence_quote);
+  return {
+    projets,
+    suivants: [],
+    dossiers: projets.length ? [{ url: candidate.url, label: titre, page: candidate.url }] : [],
+    interet: lus.some((l) => l.interet === 'forte') ? 'forte' : lus.some((l) => l.interet === 'moyenne') ? 'moyenne' : 'nulle',
+    texte,
+  };
 }
 
 async function lirePage(commune, page, liens, cadre = 'mairie', documents = []) {
@@ -2106,51 +2271,53 @@ async function moissonnerLaPresse(send, step, state) {
 }
 
 
-/* ─── RÉDACTION D'UN ARTICLE ───
+/* ─── RÉDACTION D'UN ARTICLE, EN DEUX TEMPS ───
 
-   Un appel PAR PROJET, avec recherche web, comme le fait l'outil de rédaction
-   de l'admin. La démo écrivait auparavant trois articles par appel, à partir du
-   seul extrait de ses sources, et le résultat s'en ressentait : mesure sur
-   Lyon, des articles de 54 mots pour une cible annoncée de 150 à 250.
+   Un article par projet, écrit en deux appels : d'abord les faits, ensuite la
+   prose.
 
-   Le lot a été supprimé pour une raison mesurée, pas par élégance : prié
-   d'écrire trois articles en une fois avec une recherche à sa disposition, le
-   modèle fait UNE recherche et rend UN article ; contraint d'en rendre trois,
-   il n'en fait AUCUNE et invente trois articles de trois cents mots. Le lot est
-   le pire des deux mondes. Un appel par projet règle les deux, et rattache en
-   prime chaque citation au bon projet sans aucun travail.
+   Pourquoi. Le rédacteur recevait le titre, la description, un extrait de 1 800
+   signes et une recherche web restreinte aux domaines du projet, et devait
+   rendre 300 à 500 mots. Mesure du banc d'essai du 10/11/2026 (quatre
+   communes, juges stricts) : la recherche n'était presque jamais lancée (2
+   recherches pour 73 articles), l'extrait était souvent du menu de site (cours
+   Brillier à Vienne : 1 800 signes de navigation de l'agglomération), et le
+   modèle remplissait la longueur demandée avec ce qu'il imaginait : « pont
+   coupé à toute circulation » alors qu'une seconde page dit que la passerelle
+   reste ouverte, « le montant n'est pas précisé » alors que le PDF de la page le
+   donne, « les riverains constateront un changement ».
 
-   La recherche est RESTREINTE aux domaines déjà attestés pour ce projet : le
-   site de la commune et les sources qui ont servi à l'établir. C'est ce qui
-   permet d'aller chercher de la matière sans rouvrir la porte au blog de
-   quartier, et donc de garder l'exigence de sourçage qui fait toute la valeur
-   de cette démonstration. */
-const ARTICLE_MAX_TOKENS = 1400;
-// En deca, ce n'est pas un article : mieux vaut une fiche sans texte qu'une
-// fiche portant une phrase d'excuse.
-const ARTICLE_MIN_CHARS = 200;
+   1. Le code lit lui-même TOUTES les sources du projet (pages citées et PDF de
+      ces pages), avec leur date de publication.
+   2. Un petit modèle en tire la liste exhaustive des faits utiles, rangés par
+      rubrique, chacun avec la citation qui le porte. Le code retrouve chaque
+      citation dans le texte de sa source et jette le fait dont la citation est
+      introuvable.
+   3. Le rédacteur n'a que ces faits, sans recherche : il les relie et les met
+      en français. La longueur suit la matière.
+
+   La relecture des chiffres après coup (une phrase retirée par chiffre non
+   attesté, plus un appel de vérification) est supprimée : elle ne voyait que
+   les chiffres, et elle vidait des articles justes. */
+/* Un article suit maintenant sa matière : à 1 600 jetons, ceux du Vallon de
+   Saint-Genis-Laval (180 faits) et de la Vallée de Gère à Vienne étaient
+   coupés, et la fiche restait sans article. */
+const ARTICLE_MAX_TOKENS = 4000;
 const ARTICLE_TIMEOUT_MS = 60000;
-// Modèle et outil de recherche. Sortis en constantes pour être ajustables sans
-// toucher au code, les noms d'outils de l'API évoluant plus vite que ce fichier.
-const ARTICLE_MODEL = process.env.DEMO_ARTICLE_MODEL || 'gpt-4.1';
+/* Le modèle de la recherche de presse, seul appel qui garde l'outil de
+   recherche web : la rédaction n'en a plus. Mesure du 10/11/2026 sur les
+   quatre communes du banc, étage presse rejoué en entier (recherche puis
+   lecture des articles) : gpt-4.1-mini rapporte autant d'opérations qui
+   nomment la commune que gpt-4.1 dans fin1 (2, 2, 2 et 3), dont le Vallon des
+   Hôpitaux à Saint-Genis-Laval et la ZAC centre-ville de Noyal ; la recherche
+   prend 4 à 5 s et lit 8 000 jetons de résultats au lieu de 17 500, au
+   cinquième du prix. Une recherche web ne rend jamais deux fois les mêmes
+   articles : la comparaison porte sur un tirage de chaque modèle. */
+const ARTICLE_MODEL = process.env.DEMO_ARTICLE_MODEL || 'gpt-4.1-mini';
 const ARTICLE_OUTIL = process.env.DEMO_ARTICLE_TOOL || 'web_search';
-
-/* Domaines où la recherche a le droit d'aller pour CE projet. */
-function domainesAutorises(projet, mairieHost) {
-  const hotes = new Set();
-  if (mairieHost) hotes.add(mairieHost.replace(/^www\./, ''));
-  for (const s of projet.sources || []) {
-    const h = hostOf(s.url);
-    if (h) hotes.add(h);
-  }
-  const cite = hostOf(projet.source_url);
-  if (cite) hotes.add(cite);
-  return [...hotes].filter(Boolean);
-}
-
-/* Texte et citations d'une réponse de l'API Responses.
-   Les annotations sont la SEULE source d'adresses réelles : invité à remplir
-   lui-même un champ d'URL, le modèle y écrit un jeton interne. */
+/* Texte et citations d'une réponse de l'API Responses, pour la recherche de
+   presse. Les annotations sont la SEULE source d'adresses réelles : invité à
+   remplir lui-même un champ d'URL, le modèle y écrit un jeton interne. */
 function texteEtCitations(data) {
   const annotations = [];
   let texte = '';
@@ -2162,111 +2329,597 @@ function texteEtCitations(data) {
   }
   return { texte: texte.trim(), annotations };
 }
+const REDACTION_MODEL = process.env.DEMO_REDACTION_MODEL || 'gpt-4.1-mini';
+/* L'extracteur. Mesure du 10/11/2026 sur le cours Brillier à Vienne (sept
+   pages) : gpt-4o-mini relève 8 faits et oublie les quatre financeurs,
+   gpt-4.1-mini en relève 22, dont les 32 000 € du Département pour le vélo et
+   les 171 167 € pour la chaussée, pour 0,008 $ au lieu de 0,003 $. */
+const FAITS_MODEL = process.env.DEMO_FAITS_MODEL || 'gpt-4.1-mini';
+/* Un grand projet donne plus de cent faits : à 4 000 jetons, l'extraction du
+   Vallon de Saint-Genis-Laval était coupée et la fiche restait sans article. */
+const FAITS_MAX_TOKENS = 10000;
+const FAITS_TIMEOUT_MS = 90000;
+const FAITS_LOT_CHARS = 25000;
+// Bornes de lecture d'un projet : de quoi tenir dans un appel du petit modèle
+const SOURCES_LUES_MAX = 8;
+const PDF_PAR_PROJET_MAX = 6;
+const CORPUS_CHARS = 90000;
+const SOURCE_PAGE_OCTETS = 800000;
+const SOURCE_PDF_OCTETS = 15000000;
+const RUBRIQUES = ['programme', 'calendrier', 'acteurs', 'etat', 'effets'];
 
-async function redigerArticle(commune, projet, tousLesPdfs, mairieHost) {
-  const system = promptArticle({ commune: commune.nom, stricte: true });
-  const domaines = domainesAutorises(projet, mairieHost);
-  /* Les dossiers trouves sur les PAGES SOURCES de ce projet, et eux seuls. Un
-     document retenu sur la page d'un autre chantier n'a rien a faire ici : le
-     redacteur choisissait autrefois dans le tas de tout le site, sur les seuls
-     intitules, et rattachait la concertation du centre-bourg a la halle
-     sportive. A defaut de page source commune, aucun document n'est propose,
-     ce qui vaut mieux qu'un document faux. */
-  const pagesSources = new Set([projet.source_url, ...(projet.sources || []).map((s) => s.url)].filter(Boolean));
-  const pdfs = (tousLesPdfs || []).filter((d) => pagesSources.has(d.page));
-  // Les intitules seuls : l'adresse ne sert qu'au rattachement, fait en code.
-  const documents = pdfs.length
-    ? pdfs.map((d) => `- ${d.label}`).join('\n')
-    : '(aucun)';
-  const user = `PROJET : ${projet.title}
-${projet.place ? `LIEU : ${projet.place}\n` : ''}COMMUNE : ${commune.nom}
-DESCRIPTION ÉTABLIE : ${projet.description || '(aucune)'}
-EXTRAIT DES SOURCES OFFICIELLES :
-${projet.source_excerpt || '(aucun extrait : reste sur la description, sans ajouter aucun détail)'}
+/* Forme de comparaison d'une citation : lettres et chiffres seulement, sans
+   accents ni ponctuation. Le modèle recopie fidèlement les mots mais change
+   volontiers une apostrophe, un guillemet ou une espace insécable ; ces
+   écarts-là ne changent pas ce que dit le passage. */
+const pourCitation = (t) => unaccentLower(String(t || '')).replace(/[^a-z0-9]+/g, ' ').trim();
 
-DOCUMENTS OFFICIELS DISPONIBLES (recopie l'intitulé exact de celui qui porte sur CE projet, dans le champ prévu, et ne le cite jamais dans le corps du texte) :
-${documents}
+/* La citation se trouve-t-elle dans la source ? Une coupure marquée par des
+   points de suspension est admise, chaque morceau devant figurer dans la
+   source : c'est ainsi qu'un modèle rassemble deux phrases d'une même page qui
+   portent ensemble un fait (sur le cours Brillier, le pilotage et les « 18 mois
+   de travaux » sont dits dans deux phrases, dans l'ordre inverse). */
+function citationRetrouvee(citation, sourceNormalisee) {
+  const morceaux = String(citation || '').split(/\.{3}|…|\[\s*\.\.\.\s*\]/).map(pourCitation).filter(Boolean);
+  return morceaux.length > 0 && morceaux.every((m) => sourceNormalisee.includes(m));
+}
 
-Consulte les pages des sources de ce projet pour compléter ce que l'extrait ne dit pas, puis rédige l'article.`;
+// Date de publication déclarée par la page (Open Graph, schema.org, <time>)
+function dateDePublication(html) {
+  const m = /property=["']article:published_time["'][^>]*content=["']([^"']+)/i.exec(html)
+    || /content=["']([^"']+)["'][^>]*property=["']article:published_time/i.exec(html)
+    || /"datePublished"\s*:\s*"([^"]+)"/i.exec(html)
+    || /<time[^>]+datetime=["']([^"']+)/i.exec(html);
+  const d = m ? new Date(m[1]) : null;
+  return d && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '';
+}
 
-  const corps = {
-    model: ARTICLE_MODEL,
-    input: [{ role: 'system', content: system }, { role: 'user', content: user }],
-    max_output_tokens: ARTICLE_MAX_TOKENS,
-    /* La sortie est CONTRAINTE, comme partout ailleurs dans ce fichier.
-       Laissée libre, elle est publiée telle quelle sur la fiche, et le modèle
-       s'adresse volontiers au demandeur : « Voici un texte factuel et sobre : »,
-       ou pire « Je n'ai trouvé aucune information récente sur ce projet ».
-       Ce qui se lit très bien dans une fenêtre de rédaction où un agent relit
-       devient, sur une carte de démonstration, une fiche qui parle à un élu de
-       ce que l'IA n'a pas trouvé. Le champ unique force l'article et rien
-       d'autre ; les citations continuent de remonter normalement. */
-    text: {
-      format: {
-        type: 'json_schema',
-        name: 'article_projet',
-        strict: true,
-        schema: {
+/* Date de dernière mise à jour déclarée par la page. Une page de rubrique
+   (« Finances et marchés », « Travaux en cours ») est publiée une fois et
+   complétée pendant des années : sa date de publication seule la ferait passer
+   pour ancienne (Noyal, publiée en 2022, mise à jour en septembre 2026). */
+function dateDeMiseAJour(html) {
+  const m = /property=["']article:modified_time["'][^>]*content=["']([^"']+)/i.exec(html)
+    || /content=["']([^"']+)["'][^>]*property=["']article:modified_time/i.exec(html)
+    || /"dateModified"\s*:\s*"([^"]+)"/i.exec(html);
+  const d = m ? new Date(m[1]) : null;
+  return d && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '';
+}
+
+// Titre de la page : le <h1> d'abord, qui nomme l'article et non le site
+function titreDeLaPage(html) {
+  const h1 = /<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
+  const og = /property=["']og:title["'][^>]*content=["']([^"']+)/i.exec(html);
+  const titre = h1 ? stripHtml(h1[1]) : og ? stripHtml(og[1]) : '';
+  return titre.slice(0, 140);
+}
+
+/* Texte d'un PDF, avec sa date de création. Rendu vide pour un document
+   scanné, qui n'a pas de couche texte. */
+async function lirePdfSource(url) {
+  const r = await fetchCapped(url, { headers: UA }, 20000, SOURCE_PDF_OCTETS, true);
+  if (!r?.data || r.data.byteLength >= SOURCE_PDF_OCTETS) return null;
+  /* Un PDF lu à moitié (serveur lent, lecture coupée à l'échéance) n'est pas
+     un PDF : sa lecture échoue dans pdf.js par un rejet que rien ne rattrape,
+     et qui faisait tomber tout le processus (mesure sur le Vallon de
+     Saint-Genis-Laval, quatre PDF de 2 à 4 Mo lus ensemble). */
+  const annonce = Number(r.headers?.get?.('content-length'));
+  if (annonce && r.data.byteLength < annonce) return null;
+  const octets = new Uint8Array(r.data);
+  if (String.fromCharCode(...octets.slice(0, 5)) !== '%PDF-') return null;
+  return lireLeTexteDuPdf(url, octets);
+}
+
+/* pdf.js est chargé une fois, et les PDF sont lus l'un après l'autre. Lancées
+   ensemble, les premières lectures chargeaient chacune pdf.js, et l'une
+   d'elles finissait par un rejet que rien ne rattrapait (« Invalid PDF
+   structure »), ce qui faisait tomber tout le processus : mesure sur le Vallon
+   de Saint-Genis-Laval, six PDF de 2 à 4 Mo. En série, la mémoire reste aussi
+   bornée à un document à la fois. */
+let _pdfjs = null;
+let _filePdf = Promise.resolve();
+function lireLeTexteDuPdf(url, octets) {
+  const lecture = _filePdf.then(async () => {
+    try {
+      _pdfjs ||= import('unpdf').then(async (m) => { await m.getResolvedPDFJS(); return m; });
+      const { extractText, getDocumentProxy } = await _pdfjs;
+      const pdf = await getDocumentProxy(octets);
+      const { text } = await extractText(pdf, { mergePages: true });
+      let publiee = '';
+      try {
+        const meta = await pdf.getMetadata();
+        const c = /^D:(\d{4})(\d{2})(\d{2})/.exec(meta?.info?.CreationDate || '');
+        if (c) publiee = `${c[1]}-${c[2]}-${c[3]}`;
+      } catch { /* pas de métadonnées */ }
+      try { await pdf.destroy(); } catch { /* déjà libéré */ }
+      const texte = String(text || '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+      return texte ? { texte, publiee, titre: '', pdfs: [] } : null;
+    } catch (e) {
+      console.warn(`[demo-generate] PDF illisible : ${url} :: ${e?.message}`);
+      return null;
+    }
+  });
+  _filePdf = lecture;
+  return lecture;
+}
+
+/* Une page source : son contenu principal, sa date, son titre et les PDF
+   qu'elle lie. Le contenu principal est la balise <main> quand le site en pose
+   une : sur Noyal, 773 signes d'article au lieu de 6 000 de menus, et les PDF
+   des encadrés voisins ne sont plus pris pour ceux du projet. */
+async function lirePageSource(url) {
+  const r = await fetchCapped(url, { headers: UA }, 8000, SOURCE_PAGE_OCTETS, true);
+  if (!r?.data) return null;
+  const octets = new Uint8Array(r.data);
+  if (String.fromCharCode(...octets.slice(0, 5)) === '%PDF-') return lirePdfSource(url);
+  const html = new TextDecoder('utf-8', { fatal: false }).decode(octets);
+  const principal = /<main[\s>][\s\S]*?<\/main>/i.exec(html)?.[0] || html;
+  const texte = stripHtml(principal);
+  if (!texte || looksLikeCode(texte)) return null;
+  return { texte, publiee: dateDePublication(html), modifiee: dateDeMiseAJour(html), titre: titreDeLaPage(html), pdfs: collectPdfLinks(principal, r.url || url) };
+}
+
+// Une lecture par adresse et par invocation, partagée entre les projets qui citent la même page
+const _sourcesLues = new Map();
+function lireSource(url) {
+  if (!_sourcesLues.has(url)) {
+    const lecture = !isSafePublicUrl(url) ? Promise.resolve(null)
+      : (/\.pdf(\?|#|$)/i.test(url) ? lirePdfSource(url) : lirePageSource(url)).catch(() => null);
+    _sourcesLues.set(url, lecture);
+  }
+  return _sourcesLues.get(url);
+}
+
+/* Place de lecture répartie entre les sources : chacune sa part, puis le
+   reliquat des sources courtes aux longues, dans l'ordre (la page d'origine
+   d'abord). Couper chaque source au même nombre de signes amputait les longues
+   alors que le paquet restait à moitié vide. */
+function repartirLaPlace(sources, total) {
+  /* Partage équitable : chaque source reçoit sa part, celles qui en demandent
+     moins la rendent, et ce qui est rendu se partage à nouveau entre les
+     sources encore coupées, à parts égales. Le reliquat allait auparavant à la
+     première source longue de la liste : sur l'accueil de loisirs de Noyal, la
+     maquette du budget 2026 (290 000 signes de tableaux) en prenait 62 000, et
+     la note de présentation qui dit l'équipement ouvert le 4 février 2026 n'en
+     gardait que 7 000. */
+  for (const s of sources) s.place = 0;
+  let reste = total;
+  let ouvertes = sources.filter((s) => s.texte.length > 0);
+  while (reste > 0 && ouvertes.length) {
+    const part = Math.floor(reste / ouvertes.length);
+    if (part < 1) break;
+    for (const s of ouvertes) {
+      const plus = Math.min(part, s.texte.length - s.place);
+      s.place += plus; reste -= plus;
+    }
+    ouvertes = ouvertes.filter((s) => s.place < s.texte.length);
+  }
+  for (const s of sources) s.lu = s.texte.slice(0, s.place);
+}
+
+/* Toutes les sources lisibles d'un projet : ses pages, puis les PDF de ces
+   pages (ceux que l'exploration a retenus, puis les autres liens de document
+   de la page). Repli sur l'extrait relevé à l'exploration quand la page
+   d'origine ne répond plus : c'est le texte qui a fondé la fiche. */
+async function sourcesDuProjet(projet, tousLesPdfs) {
+  const pages = [...new Set([projet.source_url, ...(projet.sources || []).map((s) => s.url)]
+    .filter((u) => /^https?:\/\//.test(u || '')))].slice(0, SOURCES_LUES_MAX);
+  const lues = await Promise.all(pages.map(lireSource));
+  const sources = [];
+  pages.forEach((url, i) => {
+    if (lues[i]?.texte) sources.push({ url, nature: /\.pdf(\?|#|$)/i.test(url) ? 'pdf' : 'page', ...lues[i] });
+    else if (url === projet.source_url && projet.source_excerpt) sources.push({ url, nature: 'page', texte: projet.source_excerpt, publiee: '', titre: '', pdfs: [] });
+  });
+  const pagesLues = new Set(pages);
+  const candidats = [
+    ...(tousLesPdfs || []).filter((d) => pagesLues.has(d.page)),
+    ...sources.flatMap((s) => s.pdfs || []),
+  ];
+  const pdfs = [];
+  for (const d of candidats) {
+    if (pdfs.length >= PDF_PAR_PROJET_MAX) break;
+    if (!pagesLues.has(d.url) && !pdfs.some((p) => p.url === d.url)) pdfs.push(d);
+  }
+  const pdfsLus = await Promise.all(pdfs.map((d) => lireSource(d.url)));
+  pdfs.forEach((d, i) => {
+    if (pdfsLus[i]?.texte) sources.push({ ...pdfsLus[i], url: d.url, nature: 'pdf', titre: d.label || nomDeFichier(d.url) });
+  });
+  sources.forEach((s, i) => { s.id = `S${i + 1}`; s.normalisee = pourCitation(s.texte); });
+  repartirLaPlace(sources, CORPUS_CHARS);
+  return sources;
+}
+
+/* ATTRIBUTION D'UN PASSAGE. Mesure du banc du 10/11/2026 : l'extracteur
+   répondait à « ce passage porte-t-il sur le projet ? » par oui presque
+   toujours, puisqu'on venait de lui demander des faits sur ce projet. La fiche
+   de l'école Le Chat Perché à Noyal recevait ainsi 947 570 € du budget 2026
+   qui vont à l'accueil de loisirs d'une autre école, la cantine et l'entretien
+   des espaces verts ; celle de la vidéoprotection, la mutuelle des agents. Un
+   budget, un procès-verbal ou un bulletin liste des lignes voisines, et rien
+   dans une question à une seule réponse ne les en distinguait.
+
+   L'extracteur reçoit donc les autres opérations de la carte, et dit pour
+   chaque passage à laquelle il se rapporte : le projet demandé, une autre
+   opération nommée, ou aucune. Une ligne de budget qui nomme l'accueil de
+   loisirs a désormais une place où aller. Seuls les passages rendus au projet
+   demandé sont gardés. */
+function schemaDesFaits(nAutres) {
+  const operations = ['P', 'aucune', ...Array.from({ length: nAutres }, (_, k) => `O${k + 1}`)];
+  return {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      faits: {
+        type: 'array',
+        items: {
           type: 'object',
           additionalProperties: false,
           properties: {
-            markdown: {
-              type: 'string',
-              description: "L'article en markdown, et lui seul : aucun préambule, aucune phrase adressée au lecteur de la consigne, aucun commentaire sur ce que tu as trouvé ou non.",
-            },
-            /* Le lien du document est construit EN CODE à partir de cet
-               intitulé : le modèle ne recopie jamais une adresse fidèlement, et
-               le nettoyage des liens supprimerait de toute façon celle qu'il
-               aurait écrite dans le corps du texte. */
-            document: {
-              type: 'string',
-              description: "Intitulé EXACT, recopié de la liste fournie, du document officiel qui porte sur CE projet précis. Chaîne vide si aucun document de la liste ne le concerne clairement.",
-            },
+            citation: { type: 'string', description: 'Passage de la source recopié mot pour mot, qui porte ce fait.' },
+            source: { type: 'string', description: 'Identifiant de la source (S1, S2...).' },
+            /* Nommer l'objet du passage avant de le ranger : une page de la
+               Ville sur le cours Brillier parle aussi du monument aux morts et
+               de la halte fluviale, que l'extracteur versait au cours Brillier
+               tant qu'il n'avait pas à dire de quoi parlait chaque passage. */
+            objet: { type: 'string', description: 'Les mots de la source qui nomment ce dont parle le passage (le chantier, l\'équipement, le lieu, l\'intitulé de la ligne ou du point), recopiés tels quels depuis le passage ou depuis le titre de la section où il se trouve. Vide si rien ne le nomme.' },
+            operation: { type: 'string', enum: operations, description: '« P » si le passage parle du projet demandé, « O1 », « O2 »... s\'il parle d\'une autre opération de la liste, « aucune » s\'il parle d\'autre chose.' },
+            rubrique: { type: 'string', enum: RUBRIQUES },
           },
-          required: ['markdown', 'document'],
+          required: ['citation', 'source', 'objet', 'operation', 'rubrique'],
+        },
+      },
+      documents: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Identifiants des sources PDF qui portent sur ce projet précis.',
+      },
+      /* L'intitulé et la date de chaque source. Le <h1> des pages porte souvent
+         des capitales et des crochets (« [TRAVAUX] Fermeture du pont »), que la
+         charte d'écriture exclut ; le modèle les récrit sans toucher au sens.
+         La date est celle que le document écrit pour lui-même : la date de
+         dépôt d'un PDF n'est pas celle de la séance qu'il rapporte (Faugères :
+         les délibérations du 20 août 2026, déposées en octobre, étaient dites
+         « d'octobre 2026 »). */
+      sources: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            source: { type: 'string' },
+            titre: { type: 'string', description: 'Intitulé court en typographie courante : majuscule initiale et noms propres seulement, sans crochets ni capitales.' },
+            date_ecrite: { type: 'string', description: 'La date que le document se donne à lui-même, recopiée mot pour mot depuis son texte : date de la séance d\'un procès-verbal ou d\'une délibération, date d\'un article, date d\'un budget, d\'un bulletin ou d\'un plan. Vide si son texte n\'en écrit pas.' },
+            date_iso: { type: 'string', description: 'Cette même date sous la forme AAAA-MM-JJ, AAAA-MM ou AAAA. Vide si date_ecrite est vide.' },
+          },
+          required: ['source', 'titre', 'date_ecrite', 'date_iso'],
         },
       },
     },
+    required: ['faits', 'documents', 'sources'],
   };
-  /* Sans domaine attesté, on n'ouvre pas la recherche : elle ramènerait des
-     pages que rien ne rattache à ce projet, ce que cette démo s'interdit. */
-  if (domaines.length) {
-    corps.tools = [{ type: ARTICLE_OUTIL, filters: { allowed_domains: domaines } }];
+}
+
+/* Une date partielle (AAAA, AAAA-MM) ou complète, lue sans fuseau. Rendue
+   vide si elle n'a pas cette forme. */
+function dateIso(iso) {
+  const m = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(String(iso || '').trim());
+  if (!m || Number(m[2] || 1) > 12 || Number(m[3] || 1) > 31) return null;
+  return { annee: m[1], mois: m[2] || '', jour: m[3] || '' };
+}
+
+/* La date écrite par le document est-elle bien la sienne ? Elle doit figurer
+   dans son texte, et la forme AAAA-MM-JJ que le modèle en donne doit en
+   reprendre l'année et le jour : un modèle qui lit « séance du 20 août » dans
+   un PV de 2026 ne peut pas rendre 2025-10-01. */
+function dateDeLaSourceVerifiee(s, d) {
+  const iso = dateIso(d?.date_iso);
+  const ecrite = String(d?.date_ecrite || '').trim();
+  if (!iso || !ecrite || !citationRetrouvee(ecrite, s.normalisee)) return '';
+  const chiffres = ecrite.match(/\d+/g) || [];
+  if (!chiffres.includes(iso.annee)) return '';
+  if (iso.jour && !chiffres.some((c) => Number(c) === Number(iso.jour))) return '';
+  return [iso.annee, iso.mois, iso.jour].filter(Boolean).join('-');
+}
+
+// « il y a 3 ans », « il y a 5 mois » : l'écart entre la date d'une source et aujourd'hui
+function ancienneteDe(iso) {
+  const d = dateIso(iso);
+  if (!d) return '';
+  const ref = new Date(`${d.annee}-${d.mois || '07'}-${d.jour || '15'}T12:00:00Z`);
+  const mois = Math.round((Date.now() - ref.getTime()) / (30.44 * 86400000));
+  if (mois < 1) return 'moins d\'un mois';
+  if (mois < 24) return `${mois} mois`;
+  return `${Math.floor(mois / 12)} ans`;
+}
+
+// 2026-08-20 → « 20 août 2026 », 2026-08 → « août 2026 », 2026 → « 2026 »
+function dateLisible(iso) {
+  const d = dateIso(iso);
+  if (!d) return '';
+  const date = new Date(`${d.annee}-${d.mois || '01'}-${d.jour || '01'}T12:00:00Z`);
+  if (d.jour) return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  if (d.mois) return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  return d.annee;
+}
+
+/* La date d'une source telle qu'on peut la présenter : celle que le document
+   écrit pour lui-même, sinon, pour une page, sa date de publication déclarée.
+   La date de création d'un fichier PDF n'est jamais retenue : c'est le jour de
+   son dépôt, pas celui de ce qu'il rapporte. */
+const dateDeLaSource = (s) => s?.datee || (s?.nature === 'page' ? s.publiee || '' : '');
+
+/* VÉRIFICATION DU RATTACHEMENT, par un second regard.
+
+   Mesure du 10/11/2026 sur l'école Le Chat Perché de Noyal, après que
+   l'extracteur a reçu la liste des autres opérations : il rangeait encore au
+   projet la ligne « ALSH CONSTRUCTION ALSH ESPACE VIE SOCIALE ET 2 CLASSES »
+   du budget, l'opération voisine pourtant dans sa liste, et les totaux de la
+   section d'investissement. Chargé de trouver des faits sur un projet, un
+   modèle trouve que tout en parle. La question est donc reposée à part, à un
+   modèle qui n'a rien à remplir : chaque passage gardé, avec ce qui l'entoure
+   dans sa source, se rapporte-t-il au projet, à une autre opération de la
+   carte, ou à rien de tout cela ? */
+const RATTACHEMENT_FAITS_LOT = 60;
+const CONTEXTE_AVANT = 400;
+const CONTEXTE_APRES = 200;
+function contexteDuPassage(s, citation) {
+  const t = s?.texte || '';
+  const debut = String(citation || '').slice(0, 30);
+  let at = debut ? t.indexOf(debut) : -1;
+  if (at < 0) {
+    // Apostrophes et espaces changés par le modèle : on cherche dans la forme normalisée
+    const n = s?.normalisee || '';
+    const k = n.indexOf(pourCitation(citation).slice(0, 30));
+    return k < 0 ? '' : n.slice(Math.max(0, k - CONTEXTE_AVANT), k + pourCitation(citation).length + CONTEXTE_APRES);
+  }
+  return t.slice(Math.max(0, at - CONTEXTE_AVANT), at + String(citation).length + CONTEXTE_APRES);
+}
+
+async function verifierLeRattachement(commune, projet, faits, parId, autres) {
+  if (!faits.length) return faits;
+  const codes = ['P', 'aucune', ...autres.map((_, k) => `O${k + 1}`)];
+  const schema = {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      passages: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            id: { type: 'string' },
+            ce_qu_il_nomme: { type: 'string', description: 'Ce que le passage et son contexte désignent, en quelques mots.' },
+            operation: { type: 'string', enum: codes },
+          },
+          required: ['id', 'ce_qu_il_nomme', 'operation'],
+        },
+      },
+    },
+    required: ['passages'],
+  };
+  const listeAutres = autres.map((o, k) => `O${k + 1} : ${o.title}${o.place ? ` (${o.place})` : ''}`).join('\n');
+  const system = `Tu vérifies une fiche de la carte des projets de ${commune.nom}. La fiche porte sur UN projet, désigné P : « ${projet.title} »${projet.place ? ` (${projet.place})` : ''}${projet.description ? `. ${String(projet.description).slice(0, 400)}` : ''}
+
+Les autres opérations de la commune ont chacune leur fiche :
+${listeAutres || '(aucune)'}
+
+On a relevé pour la fiche P les passages qui suivent, chacun avec son contexte dans sa source. Pour chacun, dis à quoi il se rapporte vraiment, d'après ce qu'il nomme et ce qui l'entoure : « P » s'il parle du projet P lui-même ; le code d'une autre opération s'il parle d'elle ; « aucune » s'il parle d'autre chose (le budget ou le fonctionnement de toute la commune, ses totaux, le personnel, un service, un chantier hors de la liste).
+
+Tu n'as pas à remplir la fiche : un passage qui ne parle pas de P doit en sortir. Dans un budget, un procès-verbal ou un bulletin, une ligne ou un paragraphe se rapporte à l'opération qu'il nomme ou à celle de la section où il se trouve, pas à P parce qu'il est voisin d'une ligne qui le nomme. Un même groupe scolaire, une même rue ou un même quartier peuvent porter deux opérations distinctes.`;
+  const lots = [];
+  for (let k = 0; k < faits.length; k += RATTACHEMENT_FAITS_LOT) lots.push(faits.slice(k, k + RATTACHEMENT_FAITS_LOT));
+  const verdicts = new Map();
+  await Promise.all(lots.map(async (lot) => {
+    const user = JSON.stringify(lot.map((f) => {
+      const src = parId.get(f.source);
+      return { id: f.id, source: src?.titre || hostOf(src?.url || ''), passage: f.citation, contexte: contexteDuPassage(src, f.citation) };
+    }));
+    try {
+      const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
+        'rattachement_faits', schema, 400 + 60 * lot.length, FAITS_TIMEOUT_MS, 0, FAITS_MODEL, 2);
+      for (const v of out.passages || []) verdicts.set(v.id, v);
+    } catch (e) {
+      // Sans second regard, les passages gardent le rattachement de l'extracteur
+      console.warn(`[demo-generate] verification du rattachement impossible pour "${projet.title}" :: ${e?.message}`);
+    }
+  }));
+  const nomDe = (code) => (code === 'aucune' ? 'aucune opération de la carte' : autres[Number(String(code).slice(1)) - 1]?.title || code);
+  for (const f of faits) {
+    const v = verdicts.get(f.id);
+    if (v && v.operation !== 'P') f.motif = `rattachement refusé : ${nomDe(v.operation)} (${String(v.ce_qu_il_nomme || '').slice(0, 60)})`;
+  }
+  return faits;
+}
+
+/* Les faits d'un projet, chacun retrouvé dans sa source.
+   Un fait est une citation : il est gardé si elle figure dans le texte de la
+   source qu'il désigne. L'extracteur ne reformule plus. Sa reformulation a été
+   essayée, et c'est elle qui trompait le rédacteur (sur le réseau express vélo
+   de Noyal, 5 km de liaison qui « permettent » déjà de rejoindre Rennes
+   devenaient 5 km qui « vont être aménagés ») ; la contrôler par ses nombres
+   rejetait 8 faits justes sur 28 au boulevard du Rhône, dont tout le plan de
+   financement. Sans elle, la sortie est aussi deux fois plus courte.
+   @param {Array<Object>} autres - les autres opérations de la carte, qui ont leur propre fiche */
+async function extraireLesFaits(commune, projet, sources, aujourdhui, autres = []) {
+  const listeAutres = autres.map((o, k) => `O${k + 1} : ${o.title}${o.place ? ` (${o.place})` : ''}`).join('\n');
+  const system = `Tu relèves, pour les habitants de ${commune.nom}, tout ce que les sources fournies établissent sur UN projet : « ${projet.title} »${projet.place ? ` (${projet.place})` : ''}.
+
+Relève TOUS les faits utiles sur ce projet, sans en omettre aucun, un fait par élément d'information. Parcours chaque source phrase par phrase : chaque phrase qui dit quelque chose du projet donne au moins un fait.
+- programme : ce qui est construit, transformé ou installé, avec ses chiffres (logements, surfaces, longueurs, places, classes, équipements, matériaux annoncés), et les rues, lieux et itinéraires concernés ;
+- calendrier : chaque date ou période (études, concertation, début et fin de chantier, phases, livraison, inauguration), recopiée comme la source l'écrit ;
+- acteurs : maître d'ouvrage, aménageur, architecte, bureau d'études, entreprises, financeurs, et chaque montant avec ce qu'il finance exactement (coût total, part de chaque financeur, poste concerné) ;
+- etat : où en est le projet à la date de la source (à l'étude, en concertation, en travaux, livré, inauguré, abandonné), et ce qui reste à faire ;
+- effets : ce qui change pour les habitants (fermetures, déviations, ce qui reste ouvert, horaires, stationnement, nouveaux usages).
+
+Chaque fait est une citation recopiée mot pour mot, d'un seul tenant, dans la source indiquée : une phrase ou un morceau de phrase qui contient tout le fait, assez longue pour qu'on comprenne de quoi elle parle et sans rien y changer.
+
+Pour chaque fait, recopie d'abord dans « objet » les mots de la source qui nomment ce dont il parle, tels qu'ils sont écrits dans le passage ou dans le titre de sa section (« ACCUEIL LOISIRS SUD EXT ECOLE LPP ALSH », « Restauration de l'église », « Point 4 : vidéoprotection »), jamais le nom du projet demandé s'il n'y figure pas ; puis dis dans « operation » à quelle opération ces mots se rapportent : « P » pour le projet demandé, le code d'une autre opération de la commune s'il parle d'elle, « aucune » s'il parle d'autre chose (le fonctionnement de la commune, le personnel, un service, un chantier qui n'est pas dans la liste). ${listeAutres ? `Les autres opérations de la commune, qui ont chacune leur fiche :\n${listeAutres}\n` : ''}
+Une page, un procès-verbal, un budget ou un bulletin parlent de beaucoup de choses à la fois. Un passage ne se rapporte au projet demandé que s'il en parle lui-même : il nomme son équipement, son lieu ou l'opération, ou il continue sans ambiguïté un paragraphe qui les nomme. La ligne voisine d'un budget, le point suivant d'un ordre du jour, l'article d'à côté d'un bulletin se rapportent à ce qu'ils nomment, même dans le même chapitre ou pour le même quartier. Les totaux et les sections d'un document budgétaire de toute la commune portent sur la commune, jamais sur le projet. Si une source corrige une annonce précédente, relève les deux faits.
+
+Dans « documents », donne les identifiants des PDF qui portent sur ce projet précis.
+Dans « sources », donne pour chaque source son intitulé et la date qu'elle se donne à elle-même : la date de séance d'un procès-verbal ou d'une délibération, la date d'un article, d'un budget, d'un bulletin ou d'un plan, recopiée telle que son texte l'écrit. La date de publication d'une page en ligne n'est pas à recopier : laisse vide si le texte n'écrit pas de date pour lui-même.
+Nous sommes le ${aujourdhui}.`;
+
+  const parId = new Map(sources.map((s) => [s.id, s]));
+  const lots = lotsDeSources(sources);
+  const schema = schemaDesFaits(autres.length);
+  const sorties = await Promise.all(lots.map((lot) => openAIStructured([
+    { role: 'system', content: system },
+    { role: 'user', content: lot.map((s) => `=== ${s.id} : ${s.nature === 'pdf' ? 'document PDF' : 'page'}${s.titre ? ` « ${s.titre} »` : ''}${s.nature === 'page' && s.publiee ? `, publiée en ligne le ${dateLisible(s.publiee)}` : ''}\n${s.lu}`).join('\n\n') },
+  ], 'faits_projet', schema, FAITS_MAX_TOKENS, FAITS_TIMEOUT_MS, 0, FAITS_MODEL, 2).catch((e) => {
+    // Un lot perdu coûte ses faits, pas l'article : les autres lots suffisent souvent
+    console.warn(`[demo-generate] extraction perdue pour "${projet.title}" (${lot.map((x) => x.id).join(', ')}) :: ${e?.message}`);
+    return { faits: [], documents: [], sources: [] };
+  })));
+
+  for (const d of sorties.flatMap((o) => o.sources || [])) {
+    const s = parId.get(d.source);
+    if (!s) continue;
+    if (String(d.titre || '').trim()) s.titre = String(d.titre).trim().slice(0, 140);
+    const datee = dateDeLaSourceVerifiee(s, d);
+    if (datee) { s.datee = datee; s.datee_ecrite = String(d.date_ecrite).trim(); }
   }
 
-  const r = await postOpenAI(corps, ARTICLE_TIMEOUT_MS);
-  if (!r.ok) {
-    const detail = await r.text().catch(() => '');
-    throw new Error(`IA indisponible (${r.status}) ${detail.slice(0, 200)}`);
+  const nomDe = (code) => (code === 'aucune' ? 'aucune opération de la carte' : autres[Number(String(code).slice(1)) - 1]?.title || code);
+  const gardes = [];
+  const rejetes = [];
+  const vues = [];
+  for (const f of sorties.flatMap((o) => o.faits || [])) {
+    const s = parId.get(f.source);
+    const forme = pourCitation(f.citation);
+    const motif = f.operation !== 'P' ? `autre opération (${nomDe(f.operation)})`
+      : !s ? 'source inconnue'
+        : !citationRetrouvee(f.citation, s.normalisee) ? 'citation introuvable'
+          // La même phrase reprise d'une page à l'autre ne fait qu'un fait
+          : vues.some((v) => v.includes(forme)) ? 'doublon'
+            : '';
+    if (motif) rejetes.push({ ...f, motif });
+    else { gardes.push({ ...f, id: `F${gardes.length + 1}` }); vues.push(forme); }
   }
-  const data = JSON.parse(await readBody(r));
-  logUsage('article', data.usage);
-  const { texte, annotations } = texteEtCitations(data);
-  if (!texte) throw new Error('Article vide');
-  let markdown = '';
-  let document = '';
-  try {
-    const sortie = JSON.parse(texte);
-    markdown = String(sortie.markdown || '').trim();
-    document = String(sortie.document || '').trim();
-  } catch { markdown = ''; }
-  // Un article illisible ou vide est un MANQUE, pas une panne : la fiche existe
-  // quand même, avec sa description et son illustration.
-  if (markdown.length < ARTICLE_MIN_CHARS) throw new Error('Article trop court ou illisible');
+  /* Second regard sur le rattachement des passages gardés (voir
+     verifierLeRattachement), puis renumérotation des faits restants. */
+  await verifierLeRattachement(commune, projet, gardes, parId, autres);
+  for (const f of gardes.filter((x) => x.motif)) rejetes.push(f);
+  const retenus = gardes.filter((x) => !x.motif).map((f, k) => ({ ...f, id: `F${k + 1}` }));
+  gardes.length = 0;
+  gardes.push(...retenus);
+  /* Un document officiel listé sous l'article est un PDF que l'extracteur
+     rattache au projet ET qui porte au moins un fait gardé : le budget de toute
+     la commune n'est plus présenté comme le dossier d'une école parce qu'une de
+     ses lignes a été lue pour elle. */
+  const avecFaits = new Set(gardes.map((f) => f.source));
+  const documents = sorties.flatMap((o) => o.documents || []).map((id) => parId.get(id))
+    .filter((s) => s?.nature === 'pdf' && avecFaits.has(s.id));
+  return { faits: gardes, rejetes: rejetes.filter((r) => r.motif !== 'doublon'), documents: [...new Set(documents)] };
+}
 
-  const sources = sourcesDesAnnotations(annotations);
-  /* Aucune citation ne remonte : la recherche n'a rien trouvé, ou n'a pas eu
-     lieu. L'article n'en est pas moins écrit à partir de l'extrait, qui est
-     attesté ; on cite alors la source d'origine du projet, comme avant. */
-  const citees = sources.length
-    ? sources
-    : [{ url: projet.source_url, title: hoteLisible(projet.source_url) }].filter((s) => s.url);
-  /* Le dossier officiel qui porte sur ce projet, rattache par son intitule.
-     C'est ce qu'un elu ouvre en premier : la deliberation ou la concertation
-     qui fonde l'operation. */
-  const dossier = pdfs.find((d) => d.label && d.label.trim() === document);
-  const blocDossier = dossier ? `\n\n## Document officiel\n\n- [${dossier.label}](${dossier.url})\n` : '';
-  return `${retirerLesLiens(markdown)}${blocDossier}${blocSources(citees)}`;
+/* Les sources d'un projet partent en plusieurs appels d'extraction, lancés
+   ensemble, d'au plus FAITS_LOT_CHARS signes chacun. Mesure du 10/11/2026 sur
+   le Vallon de Saint-Genis-Laval (13 sources, 90 000 signes en un appel) :
+   122 s d'attente, dont un premier essai coupé à 60 s, et 40 citations sur 84
+   rejetées parce que le modèle, noyé, résumait au lieu de recopier. */
+function lotsDeSources(sources) {
+  const lots = [];
+  let courant = [];
+  let taille = 0;
+  for (const s of sources) {
+    if (courant.length && taille + s.lu.length > FAITS_LOT_CHARS) { lots.push(courant); courant = []; taille = 0; }
+    courant.push(s);
+    taille += s.lu.length;
+  }
+  if (courant.length) lots.push(courant);
+  return lots;
+}
+
+const ARTICLE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    /* L'état du projet à la date du jour, établi AVANT d'écrire. Mesure du banc
+       du 10/11/2026 : l'accueil de loisirs de Noyal, livré et ouvert le 4
+       février 2026, était raconté au futur depuis les pages de son chantier ;
+       un projet de 2018 l'était au présent. */
+    etat_aujourdhui: { type: 'string', description: 'Où en est le projet aujourd\'hui, en une phrase, d\'après le fait le plus récent qui le dit, avec son identifiant et sa date.' },
+    markdown: {
+      type: 'string',
+      description: "L'article en markdown, et lui seul : aucun préambule, aucune phrase adressée au lecteur de la consigne.",
+    },
+    description: { type: 'string', description: 'Deux ou trois phrases pour la fiche du projet sur la carte : ce qu\'est le projet et où il en est aujourd\'hui, au temps juste, tirées des faits.' },
+    faits_utilises: { type: 'array', items: { type: 'string' }, description: 'Identifiants (F1, F2...) des faits employés dans l\'article.' },
+  },
+  required: ['etat_aujourdhui', 'markdown', 'description', 'faits_utilises'],
+};
+
+/**
+ * Article d'un projet, écrit à partir des faits relevés dans ses sources.
+ * @param {Array<Object>} autres - les autres opérations de la carte, pour que
+ *   l'extraction rende à chacune les passages qui la concernent
+ * @returns {Promise<{markdown: string, description: string}>}
+ */
+/* Les reperes des faits (F11, F25...) servent au redacteur a citer ses
+   preuves ; ils ne doivent pas paraitre dans le texte publie. Le modele les
+   ecrit seuls, en liste, ou suivis de la date de leur source : « (F11, 12
+   janvier 2026; F25, 9 septembre 2026) », forme vue a Vienne le 10/11/2026. */
+const MARQUEURS_DE_FAITS = /\s*\((?:\s*(?:et\s+)?F\d+(?:\s*,\s*[^;,()]*\d{4})?\s*[,;]?)+\s*\)/g;
+
+async function redigerArticle(commune, projet, tousLesPdfs, autres = []) {
+  const aujourdhui = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const sources = await sourcesDuProjet(projet, tousLesPdfs);
+  if (!sources.length) throw new Error('aucune source lisible');
+  const { faits, rejetes, documents } = await extraireLesFaits(commune, projet, sources, aujourdhui, autres);
+  console.log(`[demo-faits] "${projet.title}" : ${sources.length} source(s), ${faits.length} fait(s) gardé(s), ${rejetes.length} rejeté(s)${rejetes.length ? ` :: ${rejetes.map((r) => `${r.motif} « ${String(r.citation).slice(0, 80)} »`).join(' ; ')}` : ''}`);
+  if (process.env.DEMO_FAITS_DETAIL) console.log(`[demo-faits-detail] ${JSON.stringify({ projet: projet.title, sources: sources.map((s) => ({ id: s.id, url: s.url, publiee: s.publiee, datee: s.datee || '', datee_ecrite: s.datee_ecrite || '', chars: s.texte.length, lu: s.lu.length })), faits, rejetes })}`);
+  // Sans fait retrouvé dans une source, il n'y a rien à écrire que la description ne dise déjà
+  if (!faits.length) throw new Error('aucun fait retrouvé dans les sources');
+
+  const parId = new Map(sources.map((s) => [s.id, s]));
+  /* L'âge de la source est calculé ici plutôt que laissé au rédacteur : mesure
+     du 10/11/2026, une page de novembre 2023 qui annonçait des aménagements « à
+     venir » était racontée au présent, « le projet est en cours ». La date est
+     celle que la source écrit pour elle-même (séance, article), jamais celle du
+     dépôt d'un fichier. Les faits sont donnés du plus ancien au plus récent :
+     le dernier dit où en est le projet. */
+  const datee = (f) => dateDeLaSource(parId.get(f.source));
+  const ordonnes = [...faits].sort((x, y) => (datee(x) || '9999').localeCompare(datee(y) || '9999'));
+  const liste = ordonnes.map((f) => {
+    const d = datee(f);
+    return {
+      id: f.id, objet: f.objet, rubrique: f.rubrique, la_source_dit: f.citation,
+      source_datee_du: d ? dateLisible(d) : 'date inconnue',
+      ...(d ? { anciennete_de_la_source: ancienneteDe(d) } : {}),
+    };
+  });
+  const system = promptArticle({ commune: commune.nom, aujourdhui });
+  const user = `PROJET : ${projet.title}
+${projet.place ? `LIEU : ${projet.place}\n` : ''}COMMUNE : ${commune.nom}
+FAITS VÉRIFIÉS (${faits.length}), du plus ancien au plus récent, les faits sans date à la fin :
+${JSON.stringify(liste, null, 1)}`;
+
+  const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
+    'article_projet', ARTICLE_SCHEMA, ARTICLE_MAX_TOKENS, ARTICLE_TIMEOUT_MS, 0.3, REDACTION_MODEL, 2);
+  /* Les identifiants de faits n'ont rien à faire sous les yeux d'un habitant ;
+     le rédacteur en sème parfois entre parenthèses malgré la consigne. */
+  const markdown = retirerLesLiens(String(out.markdown || '').replace(MARQUEURS_DE_FAITS, '').trim());
+  if (!markdown) throw new Error('Article vide');
+
+  /* Les sources citées sous l'article sont celles des faits employés, pages
+     d'abord ; un PDF rattaché comme document officiel n'y est pas répété. */
+  const utilises = new Set((out.faits_utilises || []).filter((id) => faits.some((f) => f.id === id)));
+  const employes = faits.filter((f) => !utilises.size || utilises.has(f.id));
+  const dossiers = [...documents];
+  for (const f of employes) {
+    const s = parId.get(f.source);
+    if (s?.nature === 'pdf' && !dossiers.includes(s)) dossiers.push(s);
+  }
+  const citees = [...new Set(employes.map((f) => parId.get(f.source)))]
+    .filter((s) => s && s.nature !== 'pdf')
+    .map((s) => ({ url: s.url, title: s.titre || hoteLisible(s.url) }));
+  const blocDossier = dossiers.length
+    ? `\n\n## ${dossiers.length > 1 ? 'Les documents officiels sont en ligne' : 'Le document officiel est en ligne'}\n\n${dossiers.map((d) => `- [${d.titre || nomDeFichier(d.url)}](${d.url})`).join('\n')}\n`
+    : '';
+  const description = retirerLesLiens(String(out.description || '').replace(MARQUEURS_DE_FAITS, '').trim());
+  return { markdown: `${markdown}${blocDossier}${blocSources(citees)}`, description, etat: String(out.etat_aujourdhui || '').trim() };
 }
 
 // Formats rejetes par la vision gpt-4o : un seul suffit a faire echouer TOUT
@@ -2525,6 +3178,25 @@ async function banGeocode(q, commune, bbox) {
   return null;
 }
 
+// « 42 boulevard Soult », « 3 bis rue Voltaire » : un numéro en tête de voie
+const AVEC_NUMERO_RE = /^\s*\d{1,4}\s*(?:bis|ter)?[\s,]/i;
+
+// Distance approchee en metres entre deux points (suffisant a l'echelle d'une
+// commune, ou l'erreur de la projection plate est negligeable)
+function haversineM(a, b) {
+  const dLat = (b.lat - a.lat) * 111320;
+  const dLng = (b.lng - a.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180);
+  return Math.sqrt(dLat * dLat + dLng * dLng);
+}
+
+// Mots d'un titre qui identifient reellement un projet (toponymes, noms
+// d'equipements), une fois retire le vocabulaire d'amenagement
+function distinctiveWords(titre) {
+  return [...new Set(
+    unaccentLower(titre).split(/[^a-z0-9]+/).filter((w) => w.length >= 5 && !GENERIC_PROJECT_WORDS.test(w))
+  )];
+}
+
 /* La COMMUNE d'un résultat Nominatim, lue dans son détail d'adresse.
 
    `municipality` en est exclu, et c'est tout l'objet de cette fonction : sur
@@ -2543,10 +3215,10 @@ function communeDuResultat(hit) {
   return a.city || a.town || a.village || a.hamlet || '';
 }
 
-// Géocodage complet d'une requête : Nominatim (emprises/tracés réels) puis BAN.
-// best-of-6 : on garde l'ordre de pertinence de Nominatim mais on descend
-// jusqu'au 1er résultat réellement DANS la commune et son emprise (un homonyme
-// mieux classé ailleurs ne fait plus rater le bon résultat).
+/* Nominatim, dernier recours BORNÉ (voir l'étage 4 de coreGeo).
+   best-of-6 : on garde l'ordre de pertinence de Nominatim mais on descend
+   jusqu'au 1er résultat réellement DANS la commune et son emprise (un homonyme
+   mieux classé ailleurs ne fait plus rater le bon résultat). */
 /* La politique d'usage de Nominatim est stricte : une requete par seconde au
    plus. Or un refus 429 revient en ~50 ms, la ou une reponse pleine prend une
    bonne seconde : une boucle non cadencee ACCELERE des qu'elle est limitee et
@@ -2559,8 +3231,6 @@ async function nominatimRespire() {
   if (attente > 0) await new Promise((r) => setTimeout(r, attente));
 }
 
-// « 42 boulevard Soult », « 3 bis rue Voltaire » : un numéro en tête de voie
-const AVEC_NUMERO_RE = /^\s*\d{1,4}\s*(?:bis|ter)?[\s,]/i;
 
 async function nominatimLookup(q, commune, bbox) {
   try {
@@ -2629,88 +3299,821 @@ async function nominatimLookup(q, commune, bbox) {
   return null;
 }
 
-// Distance approchee en metres entre deux points (suffisant a l'echelle d'une
-// commune, ou l'erreur de la projection plate est negligeable)
-function haversineM(a, b) {
-  const dLat = (b.lat - a.lat) * 111320;
-  const dLng = (b.lng - a.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180);
-  return Math.sqrt(dLat * dLat + dLng * dLng);
+
+/* ─── Répertoire des lieux de la commune ───
+
+   La localisation interrogeait un annuaire d'adresses projet par projet, et
+   formulation par formulation, au rythme imposé d'une requête par seconde.
+   Trois défauts mesurés à Noyal-Châtillon-sur-Seiche (10/11/2026) : 28 projets
+   attestés sur 52 écartés faute d'emplacement, dont la ZAC de l'Ise et le
+   réseau express vélo (« RD82 »), qu'aucun annuaire ne connaît sous ce nom ;
+   la moitié de la durée d'une génération passée à attendre ce rythme ; et des
+   positions fausses (le Hil 3 posé à un kilomètre de sa zone).
+
+   On procède désormais dans l'autre sens. Les lieux NOMMÉS de la commune sont
+   relevés une seule fois dans la BD TOPO de l'IGN (voies, équipements, zones
+   d'activités, lieux-dits, giratoires et parkings, routes numérotées), puis
+   l'IA rattache chaque projet à l'un d'eux en lisant sa source. Elle ne peut
+   rien inventer : elle désigne un index de la liste, et le code pose la vraie
+   géométrie de ce lieu, tracé pour une voie, contour pour un équipement.
+
+   Le service WFS de la Géoplateforme répond sans clé. Le paramètre BBOX seul y
+   est ignoré, d'où le filtre CQL. Mesuré sur Vienne (30 000 habitants) : tout
+   le répertoire tient en moins de dix secondes et deux mégaoctets, couches
+   interrogées en parallèle. */
+/* Une couche lente un jour répond vite le lendemain (construction_lineaire :
+   200 ms puis une coupure à 12 s, mesurées à Noyal le même après-midi) : un
+   second essai, et deux essais tiennent encore dans une tranche. */
+const REPERTOIRE_TIMEOUT_MS = 9000;
+const REPERTOIRE_ESSAIS = 2;
+const REPERTOIRE_MAX_BYTES = 12000000;
+
+/* Les couches lues, et comment chacune nomme ses objets.
+   `cle` identifie un objet de façon stable d'une tranche à l'autre : la
+   géométrie ne voyage pas dans le brouillon, elle est relue au besoin. */
+const COUCHES_REPERTOIRE = [
+  // Les voies sont filtrées sur la commune elle-même : la table porte son code
+  // INSEE et le filtre attributaire y est rapide (470 voies en six secondes à Vienne).
+  { id: 'voie', typename: 'BDTOPO_V3:voie_nommee', parCode: true, nom: (p) => p.nom_voie_ban, nature: () => 'voie' },
+  { id: 'zone', typename: 'BDTOPO_V3:zone_d_activite_ou_d_interet', nom: (p) => p.toponyme },
+  { id: 'habitat', typename: 'BDTOPO_V3:zone_d_habitation', nom: (p) => p.toponyme },
+  { id: 'lieudit', typename: 'BDTOPO_V3:lieu_dit_non_habite', nom: (p) => p.toponyme },
+  { id: 'transport', typename: 'BDTOPO_V3:equipement_de_transport', nom: (p) => p.toponyme },
+  { id: 'ouvrage', typename: 'BDTOPO_V3:construction_lineaire', nom: (p) => p.toponyme },
+  { id: 'cimetiere', typename: 'BDTOPO_V3:cimetiere', nom: (p) => p.toponyme },
+];
+const natureDe = (p) => [p.nature, p.nature_detaillee].filter(Boolean).join(', ');
+
+async function wfsRepertoire(typename, cql, propertyName = null) {
+  const q = new URLSearchParams({
+    SERVICE: 'WFS', VERSION: '2.0.0', REQUEST: 'GetFeature', TYPENAMES: typename,
+    OUTPUTFORMAT: 'application/json', COUNT: '5000', CQL_FILTER: cql,
+  });
+  if (propertyName) q.set('PROPERTYNAME', propertyName);
+  for (let essai = 1; ; essai++) {
+    try {
+      const r = await fetchWithTimeout(`${GEOPF_WFS}?${q}`, { headers: UA }, REPERTOIRE_TIMEOUT_MS);
+      if (!r.ok) throw new Error(`${typename} http=${r.status}`);
+      return (await lireJson(r, REPERTOIRE_TIMEOUT_MS, REPERTOIRE_MAX_BYTES)).features || [];
+    } catch (e) {
+      if (essai >= REPERTOIRE_ESSAIS) throw e;
+    }
+  }
 }
 
-// Mots d'un titre qui identifient reellement un projet (toponymes, noms
-// d'equipements), une fois retire le vocabulaire d'amenagement
-function distinctiveWords(titre) {
-  return [...new Set(
-    unaccentLower(titre).split(/[^a-z0-9]+/).filter((w) => w.length >= 5 && !GENERIC_PROJECT_WORDS.test(w))
-  )];
+function pointsDe(g) {
+  const pts = [];
+  const walk = (c) => { if (typeof c[0] === 'number') pts.push(c); else c.forEach(walk); };
+  if (g?.coordinates) walk(g.coordinates);
+  return pts;
 }
 
-/* Dernier recours de localisation : l'IA a lu les sources et sait souvent
-   nommer un lieu geocodable que les champs structures n'ont pas rendu. Un
-   appel unique pour tous les projets restants, sur le modele leger. */
-const PLACES_SCHEMA = {
+/* Un objet appartient à la commune quand l'IGN l'y rattache, ou quand l'un de
+   ses sommets tombe dans son contour : un stade à cheval sur la limite
+   communale y a sa place, un équipement de la commune voisine compris dans la
+   boîte de recherche n'y a pas la sienne. */
+function dansLaCommune(f, code, contour) {
+  const insee = String(f.properties?.insee_commune || '');
+  if (insee) return insee.includes(code);
+  return pointsDe(f.geometry).some((pt) => contientPoint(contour, pt));
+}
+
+/* Fusionne des géométries de même famille en une seule.
+   Une voie nommée de la BD TOPO est déjà multiple ; une route numérotée y est
+   découpée en dizaines de tronçons. Deux familles différentes ne se mêlent
+   pas : on garde la première, qui est celle désignée en premier. */
+function fusionnerGeometries(geoms) {
+  const gs = geoms.filter(Boolean);
+  if (gs.length <= 1) return gs[0] || null;
+  const famille = (g) => (/Polygon/.test(g.type) ? 'surface' : /Line/.test(g.type) ? 'ligne' : 'point');
+  const f0 = famille(gs[0]);
+  const memes = gs.filter((g) => famille(g) === f0);
+  if (memes.length === 1) return memes[0];
+  const parties = (g) => (g.type.startsWith('Multi') ? g.coordinates : [g.coordinates]);
+  const type = f0 === 'surface' ? 'MultiPolygon' : f0 === 'ligne' ? 'MultiLineString' : 'MultiPoint';
+  return { type, coordinates: memes.flatMap(parties) };
+}
+
+/* L'angle de deux voies : le milieu des deux sommets les plus proches l'un de
+   l'autre. Une opération « à l'angle de la rue du Gué et de la rue des
+   Thermes » (Dialog, à Noyal) est un bâtiment, pas deux rues entières. Si les
+   deux voies ne se touchent pas (plus de 60 m entre leurs sommets les plus
+   proches), il n'y a pas d'angle et le projet garde les deux tracés. */
+const CROISEMENT_MAX_M = 60;
+function pointDeCroisement(g1, g2) {
+  let best = null;
+  for (const a of pointsDe(g1)) {
+    for (const b of pointsDe(g2)) {
+      const d = haversineM({ lng: a[0], lat: a[1] }, { lng: b[0], lat: b[1] });
+      if (!best || d < best.d) best = { d, pt: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+    }
+  }
+  return best && best.d <= CROISEMENT_MAX_M ? { type: 'Point', coordinates: best.pt } : null;
+}
+
+/* ─── Plafond de taille des géométries ───
+   Le brouillon est relu et réécrit à chaque tranche : une emprise de plusieurs
+   dizaines de kilooctets l'alourdit pour rien. Au-delà du plafond, la forme
+   était remplacée par un simple point, et une voie de deux kilomètres perdait
+   son tracé. On la simplifie plutôt (Douglas-Peucker), avec une tolérance qui
+   double jusqu'à tenir sous le plafond ; au-delà d'une tolérance d'environ
+   cinquante mètres la forme ne ressemble plus à rien et on renonce. */
+const GEOMETRIE_MAX_CHARS = 15000;
+const TOLERANCE_MIN_DEG = 0.000005;
+const TOLERANCE_MAX_DEG = 0.0005;
+
+function douglasPeucker(pts, tol) {
+  if (pts.length <= 2) return pts;
+  const garder = new Uint8Array(pts.length);
+  garder[0] = 1; garder[pts.length - 1] = 1;
+  const pile = [[0, pts.length - 1]];
+  while (pile.length) {
+    const [a, b] = pile.pop();
+    const [ax, ay] = pts[a]; const [bx, by] = pts[b];
+    const dx = bx - ax; const dy = by - ay; const l2 = dx * dx + dy * dy;
+    let max = -1; let k = -1;
+    for (let i = a + 1; i < b; i++) {
+      const [px, py] = pts[i];
+      const t = l2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2)) : 0;
+      const ex = px - (ax + t * dx); const ey = py - (ay + t * dy);
+      const d = ex * ex + ey * ey;
+      if (d > max) { max = d; k = i; }
+    }
+    if (k > 0 && max > tol * tol) { garder[k] = 1; pile.push([a, k], [k, b]); }
+  }
+  return pts.filter((_, i) => garder[i]);
+}
+
+function simplifierGeometrie(g, tol) {
+  const arrondi = (c) => [Math.round(c[0] * 1e6) / 1e6, Math.round(c[1] * 1e6) / 1e6];
+  const ligne = (l) => douglasPeucker(l.map(arrondi), tol);
+  const anneau = (a) => { const s = ligne(a); return s.length >= 4 ? s : a.map(arrondi); };
+  switch (g.type) {
+    case 'Point': return { type: 'Point', coordinates: arrondi(g.coordinates) };
+    case 'MultiPoint': return { type: g.type, coordinates: g.coordinates.map(arrondi) };
+    case 'LineString': return { type: g.type, coordinates: ligne(g.coordinates) };
+    case 'MultiLineString': return { type: g.type, coordinates: g.coordinates.map(ligne) };
+    case 'Polygon': return { type: g.type, coordinates: g.coordinates.map(anneau) };
+    case 'MultiPolygon': return { type: g.type, coordinates: g.coordinates.map((p) => p.map(anneau)) };
+    default: return g;
+  }
+}
+
+function allegerLaGeometrie(g, maxChars = GEOMETRIE_MAX_CHARS) {
+  if (!g) return null;
+  let s = simplifierGeometrie(g, 0);
+  for (let tol = TOLERANCE_MIN_DEG; JSON.stringify(s).length >= maxChars; tol *= 2) {
+    if (tol > TOLERANCE_MAX_DEG) return null;
+    s = simplifierGeometrie(g, tol);
+  }
+  return s;
+}
+
+/* Relève le répertoire. Rend { lieux, geometries } : `lieux` est la liste
+   compacte qui voyage dans le brouillon et part à l'IA, `geometries` reste en
+   mémoire (clé → géométrie). Une couche qui ne répond pas est simplement
+   absente : le reste du répertoire sert quand même. */
+async function releverLeRepertoire(code) {
+  const communes = await wfsRepertoire('BDTOPO_V3:commune', `code_insee='${code}'`);
+  const contour = communes[0]?.geometry;
+  if (!contour) throw new Error('contour de la commune introuvable');
+  const pts = pointsDe(contour);
+  const boite = {
+    minLng: Math.min(...pts.map((p) => p[0])), maxLng: Math.max(...pts.map((p) => p[0])),
+    minLat: Math.min(...pts.map((p) => p[1])), maxLat: Math.max(...pts.map((p) => p[1])),
+  };
+  const bboxCql = (champ = 'geometrie') => `BBOX(${champ},${boite.minLat},${boite.minLng},${boite.maxLat},${boite.maxLng})`;
+
+  const objets = []; // { c, cle, nom, nature, geometry }
+  const echecs = [];
+  const parCouche = COUCHES_REPERTOIRE.map(async (couche) => {
+    try {
+      const feats = await wfsRepertoire(couche.typename, couche.parCode ? `insee_commune='${code}'` : bboxCql());
+      const retenus = couche.parCode ? feats : feats.filter((f) => dansLaCommune(f, code, contour));
+      for (const f of retenus) {
+        if (!f.geometry) continue;
+        objets.push({
+          c: couche.id, cle: f.properties.cleabs, nom: String(couche.nom(f.properties) || '').trim(),
+          nature: couche.nature ? couche.nature(f.properties) : natureDe(f.properties), geometry: f.geometry,
+        });
+      }
+    } catch (e) { echecs.push(`${couche.id} (${e?.message})`); }
+  });
+  /* Les routes numérotées (« RD82 ») et les itinéraires cyclables nommés ne
+     sont pas des voies au sens de l'adresse : ils n'existent que comme suite de
+     tronçons. Le filtre attributaire sur la commune n'est pas indexé (54 s
+     mesurées à Noyal), la boîte l'est (moins d'une seconde) : on filtre donc la
+     commune après coup, sur le côté gauche ou droit du tronçon. */
+  const routes = (async () => {
+    try {
+      const champs = ['cpx_numero', 'cpx_toponyme_route_nommee', 'cpx_toponyme_itineraire_cyclable', 'cpx_toponyme_voie_verte'];
+      const feats = await wfsRepertoire('BDTOPO_V3:troncon_de_route',
+        `${bboxCql()} AND (${champs.map((c) => `${c} IS NOT NULL`).join(' OR ')})`,
+        [...champs, 'insee_commune_gauche', 'insee_commune_droite', 'geometrie'].join(','));
+      const groupes = new Map();
+      for (const f of feats) {
+        const p = f.properties || {};
+        if (p.insee_commune_gauche !== code && p.insee_commune_droite !== code) continue;
+        const noms = [
+          p.cpx_numero && [p.cpx_numero, 'route numérotée'],
+          p.cpx_toponyme_route_nommee && [p.cpx_toponyme_route_nommee, 'route nommée'],
+          p.cpx_toponyme_itineraire_cyclable && [p.cpx_toponyme_itineraire_cyclable, 'itinéraire cyclable'],
+          p.cpx_toponyme_voie_verte && [p.cpx_toponyme_voie_verte, 'voie verte'],
+        ].filter(Boolean);
+        for (const [nom, nature] of noms) {
+          const k = `${nature}|${nom}`;
+          if (!groupes.has(k)) groupes.set(k, { nom, nature, geoms: [] });
+          groupes.get(k).geoms.push(f.geometry);
+        }
+      }
+      for (const [k, g] of groupes) objets.push({ c: 'route', cle: k, nom: g.nom, nature: g.nature, geometry: fusionnerGeometries(g.geoms) });
+    } catch (e) { echecs.push(`route (${e?.message})`); }
+  })();
+  await Promise.all([...parCouche, routes]);
+  if (echecs.length) console.warn(`[demo-generate] répertoire ${code} : couche(s) indisponible(s) ${echecs.join(', ')}`);
+
+  /* Un objet SANS NOM ne peut être désigné que s'il est le seul de son espèce
+     dans la commune : « le monument aux morts », « le pumptrack ». Deux églises
+     sans nom ne se distinguent pas, elles restent hors du répertoire. Un objet
+     nommé en plusieurs morceaux (un lieu-dit coupé par une route) forme un
+     seul lieu. */
+  const especes = new Map();
+  for (const o of objets) if (!o.nom) especes.set(`${o.c}|${o.nature}`, (especes.get(`${o.c}|${o.nature}`) || 0) + 1);
+  const parNom = new Map();
+  /* Le lieu qui porte le nom de la commune est son bourg entier. Le désigner
+     revient à colorier toute l'agglomération pour un chantier ponctuel, ce que
+     la phase s'interdit (voir l'étage des quartiers IRIS, retiré pour cela) :
+     à Noyal, un ensemble de logements sans adresse y était rattaché. */
+  const nomCommune = unaccentLower(communes[0].properties?.nom_officiel || '');
+  for (const o of objets) {
+    if (!o.nom && (!o.nature || especes.get(`${o.c}|${o.nature}`) !== 1)) continue;
+    if (o.nom && unaccentLower(o.nom) === nomCommune) continue;
+    const k = `${o.c}|${o.nom ? unaccentLower(o.nom) : o.nature}`;
+    if (!parNom.has(k)) parNom.set(k, { c: o.c, nom: o.nom, nature: o.nature, cles: [], geoms: [] });
+    const l = parNom.get(k);
+    l.cles.push(o.cle); l.geoms.push(o.geometry);
+  }
+  const lieux = []; const geometries = new Map();
+  const ordre = [...parNom.values()].sort((a, b) => a.c.localeCompare(b.c) || (a.nom || a.nature).localeCompare(b.nom || b.nature, 'fr'));
+  for (const l of ordre) {
+    const cle = `${l.c}:${l.cles.sort().join('+')}`;
+    lieux.push({ n: l.nom || `${l.nature} (sans nom, le seul de la commune)`, t: l.nom ? l.nature : '', c: l.c, k: cle });
+    geometries.set(cle, fusionnerGeometries(l.geoms));
+  }
+  return { lieux, geometries, couchesEnEchec: echecs.length };
+}
+
+/* Le répertoire reste en mémoire le temps du processus. En production, chaque
+   tranche peut tourner dans une invocation neuve : il est alors relevé de
+   nouveau, et les lieux y sont retrouvés par leur clé, pas par leur rang. */
+const _repertoires = new Map();
+async function repertoireIgnDe(code) {
+  if (!_repertoires.has(code)) {
+    const r = await releverLeRepertoire(code);
+    _repertoires.set(code, r);
+  }
+  return _repertoires.get(code);
+}
+
+/* Le répertoire complet : les lieux de l'IGN, puis les opérations nommées de
+   l'open data quand la recette en désigne (voir recetteOuverte). Une source
+   muette n'empêche pas l'autre de servir : sans la BD TOPO, les opérations de
+   l'open data situent encore ce qu'elles nomment. */
+const _repertoiresComplets = new Map();
+async function repertoireDe(code, recette = null) {
+  if (!recette?.length) return repertoireIgnDe(code);
+  const cle = `${code}|${recette.map((r) => `${r.url}|${r.champ}`).join('|')}`;
+  if (!_repertoiresComplets.has(cle)) {
+    const [ign, ouverts] = await Promise.all([
+      repertoireIgnDe(code).catch((e) => ({ erreur: e })),
+      lieuxOuverts(code, recette).catch((e) => {
+        console.warn(`[demo-generate] open data à relire indisponible pour ${code} :: ${e?.message}`);
+        return { lieux: [], geometries: new Map() };
+      }),
+    ]);
+    if (ign.erreur && !ouverts.lieux.length) throw ign.erreur;
+    const base = ign.erreur ? { lieux: [], geometries: new Map(), couchesEnEchec: COUCHES_REPERTOIRE.length } : ign;
+    _repertoiresComplets.set(cle, {
+      ...base,
+      lieux: [...base.lieux, ...ouverts.lieux],
+      geometries: new Map([...base.geometries, ...ouverts.geometries]),
+      lieuxOuverts: ouverts.lieux.length,
+    });
+  }
+  return _repertoiresComplets.get(cle);
+}
+
+/* ─── Opérations d'aménagement de l'open data des collectivités ───
+
+   La BD TOPO nomme les voies et les équipements, pas les opérations. À Noyal,
+   la ZAC Centre-Ville et la ZAC de l'Ise, attestées par le site de la commune,
+   restaient sans lieu. Les périmètres de ZAC du Géoportail de l'urbanisme
+   existent, mais sans nom, et les rapprocher des projets par l'IA (surface,
+   rues, distance) s'est trompé deux fois sur trois. Les NOMS de ces opérations
+   sont publiés par les collectivités elles-mêmes, dans leur open data, que le
+   catalogue national data.gouv.fr moissonne.
+
+   On procède en quatre temps, sans aucun portail ni aucun jeu désigné à
+   l'avance :
+   1. les organisations du catalogue qui SONT la commune ou son
+      intercommunalité, reconnues à leur SIREN (celui que donne geo.api.gouv.fr)
+      et non à leur nom, qui ramène aussi des homonymes ;
+   2. l'IA lit les titres et le début des descriptions de tous leurs jeux, et
+      retient ceux qui décrivent des opérations d'aménagement ;
+   3. le code télécharge la part de chaque jeu retenu qui couvre la commune,
+      quand le jeu offre une ressource lisible sans dépendance (export GeoJSON
+      Opendatasoft, WFS ou OGC API Features filtrés sur la boîte de la commune,
+      ou fichier GeoJSON), et ne garde que les objets situés dans la commune ;
+   4. l'IA désigne, sur un échantillon des propriétés, le champ qui porte le
+      nom de l'opération.
+   Les objets ainsi nommés rejoignent le répertoire avec leur vraie géométrie.
+
+   Ce qui a été jugé une fois (jeux, adresses de téléchargement, champ du nom)
+   forme la « recette », petite et sérialisable, qui voyage dans l'état de la
+   phase : une tranche qui tourne dans une invocation neuve retélécharge les
+   objets sans refaire juger l'IA, et y retrouve les mêmes clés. Là où rien
+   n'est publié, la recette est vide et le répertoire reste celui de l'IGN. */
+const DATAGOUV_API = 'https://www.data.gouv.fr/api/1';
+const OUVERT_TIMEOUT_MS = 8000;
+// Toute la découverte tient dans une tranche, à côté du relevé de l'IGN qui tourne en même temps
+const OUVERT_BUDGET_MS = 17000;
+const OUVERT_CATALOGUE_MAX_BYTES = 12000000;
+const OUVERT_JEU_MAX_BYTES = 8000000;
+// Jeux de données d'une organisation lus en une requête : plus que n'en publie la plus fournie des métropoles
+const OUVERT_JEUX_PAR_ORGANISATION = 1000;
+const OUVERT_JEUX_MAX = 8;
+const OUVERT_LIEUX_PAR_JEU_MAX = 80;
+const OUVERT_DESCRIPTION_CHARS = 80;
+const OUVERT_DESCRIPTION_JUGEE_CHARS = 300;
+// Échantillon montré à l'IA pour chaque champ : assez pour reconnaître un nom, peu pour rester bref
+const OUVERT_ECHANTILLON_VALEURS = 8;
+const OUVERT_VALEUR_CHARS = 50;
+
+// Commune telle que la connaît l'administration : SIREN, intercommunalité, contour exact
+const _communesAdministratives = new Map();
+async function communeAdministrative(code) {
+  if (!_communesAdministratives.has(code)) {
+    const r = await fetchWithTimeout(`https://geo.api.gouv.fr/communes/${encodeURIComponent(code)}?fields=nom,siren,epci,departement,contour&geometry=contour`, { headers: UA }, OUVERT_TIMEOUT_MS);
+    if (!r.ok) throw new Error(`geo.api.gouv.fr http=${r.status}`);
+    const c = await lireJson(r, OUVERT_TIMEOUT_MS, 4000000);
+    if (!c?.contour) throw new Error('contour de la commune introuvable');
+    _communesAdministratives.set(code, c);
+  }
+  return _communesAdministratives.get(code);
+}
+
+async function catalogue(chemin, champs, maxBytes = 2000000) {
+  const r = await fetchWithTimeout(`${DATAGOUV_API}${chemin}`, { headers: { ...UA, 'X-Fields': champs } }, OUVERT_TIMEOUT_MS);
+  if (!r.ok) throw new Error(`data.gouv.fr http=${r.status}`);
+  return lireJson(r, OUVERT_TIMEOUT_MS, maxBytes);
+}
+
+/* Les organisations qui publient AU NOM de la commune ou de son
+   intercommunalité. Le nom ne sert qu'à chercher ; c'est le SIREN, porté par le
+   SIRET de l'organisation, qui décide. Une métropole publie parfois sous deux
+   organisations (Rennes Métropole en a deux, de même SIREN) : on garde les deux.
+   L'intercommunalité est cherchée aussi sous son nom distinctif : la
+   « CA Vienne Condrieu » des données officielles s'appelle « Vienne Condrieu
+   Agglomération » au catalogue, et le sigle seul suffit à ne rien trouver. */
+async function organisationsDuTerritoire(admin) {
+  const recherches = [
+    admin.siren && { siren: admin.siren, q: admin.nom },
+    admin.epci?.code && { siren: admin.epci.code, q: admin.epci.nom },
+    admin.epci?.code && nomDistinctifEpci(admin.epci.nom) !== admin.epci.nom && { siren: admin.epci.code, q: nomDistinctifEpci(admin.epci.nom) },
+  ].filter(Boolean);
+  const trouvees = await Promise.all(recherches.map(async (t) => {
+    const q = new URLSearchParams({ q: t.q, page_size: '50' });
+    const d = await catalogue(`/organizations/?${q}`, 'data{id,name,business_number_id}').catch(() => null);
+    return (d?.data || []).filter((o) => String(o.business_number_id || '').replace(/\s/g, '').startsWith(t.siren));
+  }));
+  const parId = new Map();
+  for (const o of trouvees.flat()) parId.set(o.id, o);
+  return [...parId.values()];
+}
+
+async function jeuxDesOrganisations(organisations) {
+  const listes = await Promise.all(organisations.map(async (o) => {
+    const q = new URLSearchParams({ organization: o.id, page_size: String(OUVERT_JEUX_PAR_ORGANISATION) });
+    const d = await catalogue(`/datasets/?${q}`, 'data{id,title,description,resources{format,url,mime}}', OUVERT_CATALOGUE_MAX_BYTES)
+      .catch((e) => { console.warn(`[demo-generate] jeux de ${o.name} illisibles :: ${e?.message}`); return null; });
+    return (d?.data || []).map((j) => ({ ...j, organisation: o.name }));
+  }));
+  const parId = new Map();
+  for (const j of listes.flat()) if (!parId.has(j.id)) parId.set(j.id, j);
+  return [...parId.values()];
+}
+
+/* La ressource d'un jeu qu'on sait lire SANS DÉPENDANCE, et surtout qu'on sait
+   restreindre à la commune avant de la télécharger. Ce sont des protocoles, pas
+   des portails : l'export d'Opendatasoft, le WFS et l'OGC API Features filtrent
+   par boîte côté serveur ; un fichier GeoJSON se lit entier, sous un plafond.
+   Un shapefile zippé ou un service sans GeoJSON ne sont pas lisibles ici. */
+function ressourceLisible(jeu) {
+  const lisibles = [];
+  for (const res of jeu.resources || []) {
+    const url = String(res.url || '');
+    if (!isSafePublicUrl(url)) continue;
+    let u;
+    try { u = new URL(url); } catch { continue; }
+    const params = new Map([...u.searchParams].map(([k, v]) => [k.toLowerCase(), v]));
+    if (/\/api\/explore\/v2\.1\/catalog\/datasets\/[^/]+\/exports\/geojson\/?$/.test(u.pathname)) lisibles.push({ mode: 'opendatasoft', url, rang: 0 });
+    else if (/^getfeature$/i.test(params.get('request') || '') && /json/i.test(params.get('outputformat') || '')) lisibles.push({ mode: 'wfs', url, rang: 1 });
+    else if (/\/collections\/[^/]+\/items\/?$/.test(u.pathname)) lisibles.push({ mode: 'ogcapi', url, rang: 2 });
+    else if (/geojson/i.test(`${res.format} ${res.mime}`) || /\.geojson$/i.test(u.pathname)) lisibles.push({ mode: 'fichier', url, rang: 3 });
+  }
+  return lisibles.sort((a, b) => a.rang - b.rang)[0] || null;
+}
+
+function boiteDe(contour) {
+  const pts = pointsDe(contour);
+  return {
+    minLng: Math.min(...pts.map((p) => p[0])), maxLng: Math.max(...pts.map((p) => p[0])),
+    minLat: Math.min(...pts.map((p) => p[1])), maxLat: Math.max(...pts.map((p) => p[1])),
+  };
+}
+
+// L'adresse qui ne télécharge que la boîte de la commune, quand le protocole le permet
+async function adresseDansLaBoite(res, b) {
+  const u = new URL(res.url);
+  if (res.mode === 'opendatasoft') {
+    // Le filtre porte sur le champ point du jeu, dont le nom varie : la fiche du jeu le donne
+    const fiche = await fetchWithTimeout(res.url.replace(/\/exports\/geojson\/?$/, ''), { headers: UA }, OUVERT_TIMEOUT_MS);
+    if (!fiche.ok) throw new Error(`fiche Opendatasoft http=${fiche.status}`);
+    const champs = (await lireJson(fiche, OUVERT_TIMEOUT_MS, 2000000)).fields || [];
+    const point = champs.find((f) => f.type === 'geo_point_2d')?.name;
+    if (point) u.searchParams.set('where', `in_bbox(${point}, ${b.minLat}, ${b.minLng}, ${b.maxLat}, ${b.maxLng})`);
+  } else if (res.mode === 'wfs') {
+    for (const k of [...u.searchParams.keys()]) if (/^(bbox|srsname)$/i.test(k)) u.searchParams.delete(k);
+    // En WFS 2.0, l'URN du système de référence impose l'ordre latitude, longitude dans la boîte
+    u.searchParams.set('BBOX', `${b.minLat},${b.minLng},${b.maxLat},${b.maxLng},urn:ogc:def:crs:EPSG::4326`);
+    u.searchParams.set('SRSNAME', 'EPSG:4326');
+  } else if (res.mode === 'ogcapi') {
+    u.searchParams.set('bbox', `${b.minLng},${b.minLat},${b.maxLng},${b.maxLat}`);
+    u.searchParams.set('limit', '1000');
+  }
+  return u.toString();
+}
+
+/* Les objets d'un jeu situés dans la commune : l'un de leurs sommets tombe dans
+   son contour exact (la boîte du téléchargement déborde sur les voisines). Un
+   jeu plus lourd que le plafond est ignoré plutôt que tronqué. */
+const _objetsOuverts = new Map();
+async function objetsDansLaCommune(url, contour) {
+  if (!_objetsOuverts.has(url)) {
+    const r = await fetchWithTimeout(url, { headers: { ...UA, Accept: 'application/geo+json, application/json' } }, OUVERT_TIMEOUT_MS);
+    if (!r.ok) throw new Error(`http=${r.status}`);
+    const d = await lireJson(r, OUVERT_TIMEOUT_MS, OUVERT_JEU_MAX_BYTES);
+    const objets = (d?.features || []).filter((f) => f?.geometry?.coordinates && pointsDe(f.geometry).some((pt) => contientPoint(contour, pt)));
+    _objetsOuverts.set(url, objets);
+  }
+  return _objetsOuverts.get(url);
+}
+
+const PRESELECTION_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: { jeux: { type: 'array', items: { type: 'integer' } } },
+  required: ['jeux'],
+};
+
+/* Premier tri, sur le catalogue entier : il ne reçoit que des titres et des
+   débuts de description, d'où un modèle léger, car une métropole publie
+   plusieurs centaines de jeux. C'est la longueur de la liste qui fait la durée
+   (près de 700 jeux à Rennes Métropole : de 6 à 13 s en un seul appel, mesuré
+   le 10/11/2026) ; elle part donc en lots parallèles, dont les choix sont pris
+   à tour de rôle, le premier de chaque lot d'abord. Ce tri ratisse large : le
+   modèle léger retient aussi des jeux hors sujet (à Bègles, une « trame noire »
+   et des zones de collecte des déchets), que le jugement final écarte en
+   voyant leurs objets. */
+const OUVERT_CHOIX_LOT = 200;
+const OUVERT_CANDIDATS_PAR_LOT = 8;
+const OUVERT_CANDIDATS_MAX = 16;
+async function preselectionnerLesJeux(admin, jeux) {
+  const lots = [];
+  for (let k = 0; k < jeux.length; k += OUVERT_CHOIX_LOT) lots.push(jeux.slice(k, k + OUVERT_CHOIX_LOT));
+  const choix = await Promise.all(lots.map((lot) => preselectionnerUnLot(admin, lot).catch((e) => {
+    console.warn(`[demo-generate] tri des jeux ouverts indisponible pour ${lot.length} jeu(x) :: ${e?.message}`);
+    return [];
+  })));
+  const candidats = [];
+  for (let rang = 0; candidats.length < OUVERT_CANDIDATS_MAX && choix.some((c) => c.length > rang); rang++) {
+    for (const c of choix) if (c[rang] && candidats.length < OUVERT_CANDIDATS_MAX) candidats.push(c[rang]);
+  }
+  return candidats;
+}
+
+async function preselectionnerUnLot(admin, jeux) {
+  const liste = jeux.map((j, i) => `${i}|${j.title}|${String(j.description || '').replace(/\s+/g, ' ').slice(0, OUVERT_DESCRIPTION_CHARS)}`).join('\n');
+  const system = `Tu prépares la carte des projets d'aménagement de la commune de ${admin.nom}. Voici des jeux de données ouverts publiés par la commune et par son intercommunalité (${admin.epci?.nom || 'aucune'}), un par ligne : index|titre|début de la description.
+
+Donne l'index des jeux dont les objets peuvent être des secteurs, des opérations ou des tracés d'aménagement désignés par un nom propre : zones d'aménagement concerté, opérations ou programmes d'aménagement, projets urbains, secteurs de renouvellement urbain, secteurs d'orientations d'aménagement d'un plan local d'urbanisme, itinéraires cyclables en projet. Les plus prometteurs d'abord, ${OUVERT_CANDIDATS_PAR_LOT} au plus. Liste vide si aucun ne convient.`;
+  const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: liste }],
+    'jeux_amenagement', PRESELECTION_SCHEMA, 200, 15000, 0, OPENAI_MODEL_LIGHT, 1);
+  return [...new Set((out.jeux || []).filter((i) => Number.isInteger(i) && jeux[i]))].slice(0, OUVERT_CANDIDATS_PAR_LOT).map((i) => jeux[i]);
+}
+
+const JUGEMENT_JEUX_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    lieux: {
+    jeux: {
       type: 'array',
       items: {
         type: 'object',
         additionalProperties: false,
         properties: {
-          index: { type: 'number' },
-          lieu: { type: 'string', description: 'Rue, place, quartier ou équipement de la commune, tel qu\'il figure sur une carte. Chaîne vide si vraiment introuvable.' },
+          index: { type: 'integer' },
+          operations: { type: 'boolean', description: 'Vrai si les objets du jeu sont des opérations, des secteurs de projet ou des tracés d\'aménagement, faux sinon.' },
+          nature: { type: 'string', description: 'Ce que sont les objets du jeu, en quelques mots au singulier (par exemple « zone d\'aménagement concerté »).' },
+          champ: { type: 'string', description: 'Le champ dont la valeur est le nom propre de l\'opération ou du projet, recopié. Chaîne vide si aucun champ ne porte un tel nom.' },
+          valeurs: { type: 'string', enum: ['nom propre de chaque operation', 'categorie partagee par beaucoup d\'objets', 'aucun champ'], description: 'Ce que sont les valeurs du champ choisi.' },
         },
-        required: ['index', 'lieu'],
+        required: ['index', 'operations', 'nature', 'champ', 'valeurs'],
       },
     },
   },
-  required: ['lieux'],
+  required: ['jeux'],
 };
 
-async function askAiForPlaces(commune, projets) {
-  if (!projets.length) return [];
+/* Le jugement final, sur pièces : le titre, la description, et un échantillon
+   des propriétés des objets situés dans la commune. L'IA dit si ce sont des
+   opérations d'aménagement, et quel champ porte leur nom : les jeux ne
+   s'accordent sur aucun nom de champ (« nomzac », « nomopa », « label_long »,
+   « nom »). Le code vérifie que le champ désigné existe bien. */
+async function jugerLesJeux(admin, jeux) {
+  const descriptions = jeux.map(({ jeu, objets }, index) => {
+    const valeurs = new Map();
+    for (const f of objets) {
+      for (const [k, v] of Object.entries(f.properties || {})) {
+        if (v === null || v === '' || typeof v === 'object') continue;
+        if (!valeurs.has(k)) valeurs.set(k, new Set());
+        valeurs.get(k).add(String(v).slice(0, OUVERT_VALEUR_CHARS));
+      }
+    }
+    /* Un nom s'écrit en lettres : un champ dont aucune valeur ne contient trois
+       lettres de suite (nombres, dates, codes) n'en porte pas, inutile de le
+       montrer. */
+    const champs = {};
+    for (const [k, s] of valeurs) {
+      if (![...s].some((v) => /\p{L}{3}/u.test(v))) continue;
+      champs[k] = { valeurs_distinctes: s.size, exemples: [...s].slice(0, OUVERT_ECHANTILLON_VALEURS) };
+    }
+    return {
+      index, titre: jeu.title,
+      description: String(jeu.description || '').replace(/\s+/g, ' ').slice(0, OUVERT_DESCRIPTION_JUGEE_CHARS),
+      objets_dans_la_commune: objets.length, champs,
+    };
+  });
+  const system = `Voici des jeux de données ouverts qui couvrent la commune de ${admin.nom}, avec un échantillon des propriétés de leurs objets situés dans la commune. Ils serviront à situer sur une carte les projets d'aménagement de la commune.
+
+Pour chaque jeu, dis d'abord si ses objets sont des opérations, des secteurs de projet ou des tracés d'aménagement (zone d'aménagement concerté, opération ou programme d'aménagement, projet urbain, renouvellement urbain, secteur d'orientations d'aménagement, itinéraire cyclable) : un parc, une trame écologique, un équipement existant, une zone de collecte ou un zonage réglementaire n'en sont pas.
+
+Dis ensuite quel champ porte le NOM PROPRE de chaque objet (« ZAC des Prés », « Secteur Gare », « Réseau express vélo n° 3 ») : pas un code, pas un identifiant, pas une nature ou un type générique, pas une date, pas un nom de commune, et pas le simple nom de la rue où se trouve l'objet. Un nom propre distingue un objet des autres : un champ qui range les objets en quelques catégories (niveau de réseau, type, état, maître d'ouvrage) n'en porte pas, même si ses valeurs ont des majuscules. Quand plusieurs champs en portent un, choisis celui de l'opération d'ensemble plutôt que celui d'un lot ou d'un îlot. Chaîne vide si aucun champ ne porte un tel nom. Dis enfin ce que sont les valeurs du champ choisi : le nom propre de chaque opération, ou une catégorie que partagent beaucoup d'objets (compare le nombre de valeurs distinctes au nombre d'objets).`;
+  const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: JSON.stringify(descriptions) }],
+    'jugement_jeux', JUGEMENT_JEUX_SCHEMA, 200 + 120 * jeux.length, 15000, 0, OPENAI_MODEL, 1);
+  const parIndex = new Map((out.jeux || []).map((x) => [x.index, x]));
+  return jeux.map((_, i) => {
+    const x = parIndex.get(i);
+    if (!x) return { motif: 'non jugé' };
+    if (!x.operations) return { motif: 'pas des opérations' };
+    if (!x.champ || !descriptions[i].champs[x.champ] || !/^nom propre/.test(x.valeurs)) return { motif: 'aucun champ ne porte de nom' };
+    return { champ: x.champ, nature: String(x.nature || '').trim().slice(0, 90) };
+  });
+}
+
+/* La recette : rend [{ id, titre, nature, url, champ }], vide là où
+   rien n'est publié ou lisible. Les mesures de chaque étape partent au journal. */
+async function recetteOuverte(code) {
+  const t0 = Date.now();
+  const admin = await communeAdministrative(code);
+  const organisations = await organisationsDuTerritoire(admin);
+  if (!organisations.length) { console.log(`[demo-generate] open data ${admin.nom} : aucune organisation de la commune ni de l'intercommunalité au catalogue`); return []; }
+  const jeux = await jeuxDesOrganisations(organisations);
+  const tCatalogue = Date.now() - t0;
+  if (!jeux.length) return [];
+  const candidats = await preselectionnerLesJeux(admin, jeux);
+  const tTri = Date.now() - t0;
+  const boite = boiteDe(admin.contour);
+  const lus = await Promise.all(candidats.map(async (jeu) => {
+    const res = ressourceLisible(jeu);
+    if (!res) return { jeu, motif: 'aucune ressource lisible' };
+    try {
+      const url = await adresseDansLaBoite(res, boite);
+      const objets = await objetsDansLaCommune(url, admin.contour);
+      return objets.length ? { jeu, url, objets } : { jeu, motif: 'aucun objet dans la commune' };
+    } catch (e) { return { jeu, motif: `illisible (${e?.message})` }; }
+  }));
+  const exploitables = lus.filter((r) => r.objets);
+  const tTelechargement = Date.now() - t0;
+  const verdicts = exploitables.length ? await jugerLesJeux(admin, exploitables) : [];
+  const recette = [];
+  exploitables.forEach((r, i) => {
+    const v = verdicts[i];
+    if (v.champ && recette.length < OUVERT_JEUX_MAX) recette.push({ id: r.jeu.id, titre: r.jeu.title, nature: v.nature, url: r.url, champ: v.champ });
+    else r.motif = v.motif || 'au-delà du plafond';
+  });
+  console.log(`[demo-generate] open data ${admin.nom} : ${organisations.map((o) => o.name.trim()).join(', ')} ; ${jeux.length} jeux au catalogue ; candidats : ${lus.map((r) => `« ${r.jeu.title} » (${r.motif || `${r.objets.length} objets, retenu`})`).join(', ') || 'aucun'} ; ${recette.length} dans la recette ; catalogue ${tCatalogue} ms, tri ${tTri} ms, téléchargements ${tTelechargement} ms, fin ${Date.now() - t0} ms`);
+  return recette;
+}
+
+/* La découverte ne doit jamais retarder la localisation : passé son budget,
+   la phase continue avec le seul répertoire de l'IGN, et rien n'est perdu
+   qu'une source facultative. */
+async function recetteOuverteBornee(code) {
+  let minuteur;
+  const delai = new Promise((ok) => { minuteur = setTimeout(() => {
+    console.warn(`[demo-generate] open data ${code} : découverte abandonnée après ${OUVERT_BUDGET_MS} ms`);
+    ok([]);
+  }, OUVERT_BUDGET_MS); });
   try {
-    /* Dernier recours : les designations precedentes ont toutes echoue, donc ce
-       qu'on cherche ici est CE QUE LES ANNUAIRES CONNAISSENT, pas la meilleure
-       description du lieu. Mesure sur Ploudalmezeau : « secteur de l'ancienne
-       gare » est la bonne reponse en francais et n'existe sur aucune carte,
-       alors que la meme page cite « rue de Kerjolys », qui se geocode du
-       premier coup. D'ou l'insistance sur la VOIE. */
-    const system = `Tu localises des projets urbains dans la commune de ${commune.nom}. Les designations evidentes ont deja ete essayees sans succes : ce qu'on te demande est une adresse qui existe REELLEMENT sur une carte.
+    return await Promise.race([recetteOuverte(code).catch((e) => {
+      console.warn(`[demo-generate] open data ${code} indisponible :: ${e?.message}`);
+      return [];
+    }), delai]);
+  } finally { clearTimeout(minuteur); }
+}
 
-Pour CHAQUE projet (index conservé), cherche dans l'extrait fourni une VOIE nommee - rue, avenue, boulevard, place, chemin, route, quai - et rends-la. C'est le seul type de lieu qu'un annuaire d'adresses connait a coup sur. A defaut de voie, rends le nom exact d'un equipement (« Centre nautique Robert Sautin »), puis seulement en dernier ressort un lieu-dit.
+/* Les lieux de la recette. Les objets qui portent le même nom dans un même jeu
+   forment un seul lieu (une ZAC multisite, les lots d'une opération) ; un objet
+   sans nom ne se distingue pas et reste dehors. La clé tient au jeu et au nom,
+   pas au rang : elle se retrouve d'une invocation à l'autre. */
+async function lieuxOuverts(code, recette) {
+  const admin = await communeAdministrative(code);
+  const lieux = []; const geometries = new Map();
+  await Promise.all(recette.map(async (r) => {
+    let objets;
+    try { objets = await objetsDansLaCommune(r.url, admin.contour); } catch (e) {
+      console.warn(`[demo-generate] open data « ${r.titre} » indisponible :: ${e?.message}`);
+      return;
+    }
+    const parNom = new Map();
+    for (const f of objets) {
+      const nom = String(f.properties?.[r.champ] ?? '').replace(/\s+/g, ' ').trim();
+      const cle = unaccentLower(nom);
+      if (!nom || cle === unaccentLower(admin.nom)) continue;
+      if (!parNom.has(cle)) parNom.set(cle, { nom, geoms: [] });
+      parNom.get(cle).geoms.push(f.geometry);
+    }
+    for (const [cle, l] of [...parNom].slice(0, OUVERT_LIEUX_PAR_JEU_MAX)) {
+      const k = `ouvert:${r.id}:${cle}`;
+      lieux.push({ n: l.nom, t: r.nature, c: 'operation', k });
+      geometries.set(k, fusionnerGeometries(l.geoms));
+    }
+  }));
+  lieux.sort((a, b) => a.t.localeCompare(b.t, 'fr') || a.n.localeCompare(b.n, 'fr'));
+  return { lieux, geometries };
+}
 
-Ne rends JAMAIS un nom de secteur, de quartier ou d'operation (« secteur de l'ancienne gare », « ecoquartier »): ces noms ne figurent sur aucune carte et la recherche echouera encore. Ne rends jamais non plus l'adresse ou l'on consulte un dossier, ou se tient une enquete publique ou une permanence (mairie, services techniques) : c'est l'adresse d'un guichet, pas celle du projet. Si l'extrait ne cite ni voie ni equipement, rends une chaine vide : une position fausse est pire qu'une absence.`;
-    const user = JSON.stringify(projets.map((p, i) => ({
-      index: i,
-      titre: p.title,
-      description: (p.description || '').slice(0, 300),
-      extrait: (p.source_excerpt || '').slice(0, 1200),
-    })), null, 1);
-    const out = await openAIStructured(
-      [{ role: 'system', content: system }, { role: 'user', content: user }],
-      'lieux_projets', PLACES_SCHEMA, 1200, 40000, 0.1, OPENAI_VISION_MODEL
-    );
-    const parIndex = new Map((out.lieux || []).map((x) => [x.index, String(x.lieu || '').trim()]));
-    return projets.map((_, i) => parIndex.get(i) || '');
-  } catch (e) {
-    console.warn('[demo-generate] recours IA localisation :', e?.message);
-    return projets.map(() => '');
-  }
+/* ─── Rattachement des projets au répertoire, par l'IA ─── */
+const RATTACHEMENT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    rattachements: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          projet: { type: 'integer' },
+          situation: { type: 'string', description: 'Les mots de la source qui disent où se fait CE projet, recopiés (rue, équipement, secteur, angle de rues, lieux-dits). Chaîne vide si la source ne le dit pas.' },
+          lieux: {
+            type: 'array',
+            description: 'Le ou les lieux du répertoire qui sont le projet ou qui le portent. Liste vide si aucun.',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                index: { type: 'integer' },
+                nom: { type: 'string', description: 'Le nom du lieu tel qu\'il est écrit dans le répertoire, recopié.' },
+              },
+              required: ['index', 'nom'],
+            },
+          },
+          croisement: { type: 'boolean', description: 'Vrai si le projet est à l\'angle des deux voies données dans lieux.' },
+          adresse_du_projet: { type: 'boolean', description: 'Vrai si l\'adresse numérotée fournie pour ce projet est bien celle où il se fait (et non celle d\'un guichet, du siège d\'un maître d\'ouvrage ou d\'un lieu de consultation).' },
+        },
+        required: ['projet', 'situation', 'lieux', 'croisement', 'adresse_du_projet'],
+      },
+    },
+  },
+  required: ['rattachements'],
+};
+/* Au-delà, la liste de projets d'un même appel est découpée en lots envoyés
+   en parallèle. Chaque lot relit le répertoire entier, mais c'est la longueur
+   de la RÉPONSE qui fait la durée : à Vienne, un lot de 22 projets (800 jetons
+   en sortie) a dépassé 18 s et sa reprise a porté la tranche à 27 s. Un seul
+   essai par tranche : un lot qui n'a pas répondu est repris à la suivante. */
+const RATTACHEMENT_LOT = 15;
+const RATTACHEMENT_TIMEOUT_MS = 19000;
+const RATTACHEMENT_LIEUX_MAX = 4;
+/* Le modèle du rattachement, le poste le plus cher de la génération (un
+   répertoire de 10 000 à 17 000 jetons relu à chaque lot). Il reste sur
+   gpt-4o, mesures du 10/11/2026 à l'appui.
+   Rejoué sur les états réels de fin1 (quatre communes, 117 projets, même
+   répertoire et mêmes extraits pour chaque modèle) :
+   - gpt-4.1, 20 % moins cher, rattache 103 projets au même lieu que gpt-4o.
+     Il en gagne quelques-uns (la mairie de Faugères, l'angle avenue Berthelot
+     et quai Pasteur du city stade d'Estressin, la ZAC Centre-ville de Noyal)
+     et en perd (le boulevard du Rhône rabattu sur la rue du Rhône du centre,
+     l'école neuve de Faugères posée sur la salle du Palais de Bacchus). Mais
+     il recopie dans « situation » des phrases entières là où gpt-4o donne le
+     nom du lieu (« restauration de l'église Saint-Christophe de Faugères »
+     contre « Église Saint-Christophe », « Travaux sur le pont de la Seiche »
+     contre « Pont de la Seiche »), et il la remplit pour des projets que
+     gpt-4o laisse sans lieu (« jardin communautaire », « zone inondable »).
+     Or cette situation est la requête du dernier recours, Nominatim : en
+     génération complète, l'église Saint-Christophe, projet de référence de
+     Faugères, est restée sans emplacement ;
+   - gpt-4.1-mini laisse cinq projets de Noyal sans lieu (dont l'église
+     Saint-Léonard et la D82 du réseau express vélo) et en place trois à faux
+     à Vienne (square Albert Vassy, boulevard des Alpes, Estressin).
+   Le cache d'OpenAI aurait pu diviser le prix du répertoire, identique d'un
+   lot à l'autre : avec une clé de routage (prompt_cache_key) et le deuxième
+   lot envoyé 0,8 s, 1,5 s, 4 s puis 9 s après le premier, gpt-4.1 n'a servi
+   aucun jeton depuis son cache, gpt-4.1-mini 7 000 sur 9 000. Les essais
+   n'ont pas porté sur gpt-4o. */
+const RATTACHEMENT_MODEL = process.env.DEMO_RATTACHEMENT_MODEL || OPENAI_MODEL;
+/* L'extrait entier part à l'IA (1 800 signes autour de la citation) : le
+   cœur seul coupait justement les phrases qui situent. Mesuré à Noyal : « à
+   l'angle de la rue du Gué et de la rue des Thermes » (Dialog) et la liste
+   des secteurs du chantier d'eau potable tombaient hors des 700 signes gardés. */
+async function rattacherUnLot(commune, lieux, projets) {
+  const liste = lieux.map((l, i) => `${i}|${l.n}${l.t ? `|${l.t}` : ''}`).join('\n');
+  const system = `Tu situes des projets de la commune de ${commune.nom} sur sa carte. Voici le répertoire des lieux de la commune relevés dans les données nationales de l'IGN et dans l'open data des collectivités (opérations d'aménagement, zones d'aménagement concerté, secteurs de projet), un par ligne : index|nom|nature.
+
+${liste}
+
+Pour chaque projet, recopie d'abord dans « situation » les mots de la source qui disent où il se fait. Puis donne dans « lieux » l'index et le nom recopié de chaque lieu du répertoire nommé dans cette situation, et d'abord du lieu du répertoire qui EST le projet ou qui le porte : la voie où ont lieu les travaux, l'équipement construit ou rénové, la zone d'activités, le quartier ou le lieu-dit aménagé, la route numérotée qu'emprunte une liaison. Un quartier ou une ZAC dont le nom manque au répertoire n'empêchent pas le rattachement : donne les voies que la source cite comme celles de ce quartier ou de ce projet (voies nouvelles, voies aménagées). Un même lieu peut s'écrire autrement dans la source (« RD82 » pour « D82 », « école Le Chat Perché » pour « École Primaire le Chat Perche ») : rattache-le quand même. Le répertoire décrit la commune d'aujourd'hui : un équipement récent peut y figurer déjà, et un objet sans nom y est désigné par sa nature quand il est le seul de son espèce dans la commune. Quand le projet couvre plusieurs voies ou plusieurs sites nommés, donne-les tous, ${RATTACHEMENT_LIEUX_MAX} au plus.
+
+Quand la source situe le projet à l'angle ou au carrefour de deux voies du répertoire, donne ces deux voies dans « lieux » et mets « croisement » à vrai ; sinon « croisement » est faux.
+
+Laisse « lieux » vide quand aucun lieu du répertoire ne porte le projet. Ne choisis jamais un lieu que la source cite à propos d'autre chose, un lieu voisin faute de mieux, ni l'adresse d'un guichet, d'une permanence ou d'un lieu où l'on consulte un dossier : une position fausse est pire qu'une absence.`;
+  const user = JSON.stringify(projets.map(({ k, p }) => ({
+    projet: k,
+    titre: p.title,
+    lieu: p.place || '',
+    adresse: p.address || '',
+    requete: p.geo_query || '',
+    extrait: String(p.source_excerpt || '').replace(/\s+/g, ' '),
+  })), null, 1);
+  const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
+    'rattachement_lieux', RATTACHEMENT_SCHEMA, 200 + 120 * projets.length, RATTACHEMENT_TIMEOUT_MS, 0, RATTACHEMENT_MODEL, 1);
+  return out.rattachements || [];
+}
+
+/* L'index rendu par l'IA est contrôlé par le nom qu'elle recopie. Dans une
+   liste de plusieurs centaines de lieux classés par ordre alphabétique, elle
+   se trompe parfois d'une ligne : à Noyal, « rue des Thermes », écrite en
+   toutes lettres dans sa propre réponse, est revenue avec l'index de la rue
+   des Voyageurs, sa voisine dans la liste. Quand nom et index divergent, le
+   nom fait foi s'il désigne exactement une entrée ; sinon le lieu est ignoré. */
+function indexVerifie(lieux, { index, nom }) {
+  const cle = unaccentLower(nom).replace(/[^a-z0-9]+/g, ' ').trim();
+  const nomDe = (l) => unaccentLower(l.n).replace(/[^a-z0-9]+/g, ' ').trim();
+  if (Number.isInteger(index) && lieux[index] && nomDe(lieux[index]) === cle) return index;
+  const memes = lieux.map((l, i) => (nomDe(l) === cle ? i : -1)).filter((i) => i >= 0);
+  return memes.length === 1 ? memes[0] : -1;
+}
+
+/* Rend, pour chaque indice de projet demandé, { lieux: [index valides],
+   adresse: bool }, ou null quand le lot n'a pas pu être traité. Le code
+   VÉRIFIE la réponse : un index hors de la liste est ignoré, jamais deviné. */
+async function rattacherAuxLieux(commune, lieux, projets, indices) {
+  const nLots = Math.max(1, Math.ceil(indices.length / RATTACHEMENT_LOT));
+  const taille = Math.ceil(indices.length / nLots);
+  const lots = [];
+  for (let k = 0; k < indices.length; k += taille) lots.push(indices.slice(k, k + taille));
+  const resultat = new Map();
+  await Promise.all(lots.map(async (lot) => {
+    try {
+      const reponses = await rattacherUnLot(commune, lieux, lot.map((i) => ({ k: i, p: projets[i] })));
+      for (const r of reponses) {
+        if (!lot.includes(r.projet)) continue;
+        const valides = [...new Set((r.lieux || []).map((x) => indexVerifie(lieux, x)).filter((x) => x >= 0))]
+          .slice(0, RATTACHEMENT_LIEUX_MAX);
+        resultat.set(r.projet, { lieux: valides, croisement: !!r.croisement && valides.length === 2, adresse: !!r.adresse_du_projet, situation: String(r.situation || '').slice(0, 200) });
+      }
+      // Un projet oublié par la réponse est traité comme « aucun lieu »
+      for (const i of lot) if (!resultat.has(i)) resultat.set(i, { lieux: [], croisement: false, adresse: false });
+    } catch (e) {
+      console.warn(`[demo-generate] rattachement aux lieux indisponible pour ${lot.length} projet(s) :: ${e?.message}`);
+      for (const i of lot) resultat.set(i, null);
+    }
+  }));
+  return resultat;
 }
 
 /* Requêtes de localisation d'un projet, de la plus fiable à la plus faible :
    adresse postale relevée dans la source, requête optimisée par l'IA, lieu,
    lieux nommés lus littéralement dans le texte, et le titre en DERNIER.
 
-   Le titre était en quatrième position, donc devant les lieux réellement écrits
-   dans la source. Or c'est la formulation la plus faible de toutes : un titre
-   d'opération décrit ce qu'on fait, pas où. « Construction des pistes de
-   padel », soumis tel quel à un annuaire, ne pouvait rendre qu'un résultat au
-   hasard, et l'étage Nominatim n'essaie QUE la première formulation de cette
-   liste. C'est la position dans ce tableau qui a produit la punaise fausse de
-   Conflans, pas le géocodeur. */
+   Elles ne servent plus qu'au dernier étage, la BAN, pour les projets que le
+   répertoire des lieux n'a pas portés. Le titre reste en dernier : c'est la
+   formulation la plus faible de toutes, un titre d'opération décrit ce qu'on
+   fait, pas où. « Construction des pistes de padel », soumis tel quel à un
+   annuaire, ne pouvait rendre qu'un résultat au hasard (la punaise fausse de
+   Conflans). */
 function locationQueries(project, communeNom = '') {
   const fromTitle = String(project.title || '')
     .replace(/^(r[eé]am[eé]nagement|am[eé]nagement|construction|r[eé]novation|r[eé]habilitation|extension|d[eé]molition|reconstruction|cr[eé]ation|installation|requalification|v[eé]g[eé]talisation|ouverture|restructuration|renouvellement|modification|transfert|r[eé]fection)\s+(de\s+la|de\s+l['’]|du|des|de|d['’]|d'|un|une)?\s*/i, '')
@@ -3022,36 +4425,36 @@ async function empreinteVueAerienne(bbox) {
    couverture, mesurée dans la même génération plutôt qu'inscrite en dur : le
    jour où l'IGN change d'encodeur, une empreinte figée dans le code aurait
    déclaré la France entière hors couverture.
-   En cas de service injoignable, on répond non : mieux vaut aucune vue aérienne
-   que des fiches pointant sur une image morte. */
+   Si le service ne répond pas à la sonde, on ne sait rien de la couverture, et
+   on répond oui. Répondre non privait toute la commune de vue aérienne pour une
+   lenteur passagère du service (Saint-Genis-Laval et Faugères sur le banc, le
+   10/11/2026, deux communes couvertes) ; et aucune fiche ne peut pour autant
+   pointer sur une image morte ou vide, puisque la phase de création télécharge
+   chaque vue aérienne, écarte celles qui ne viennent pas et celles qui sont
+   vides (AERIEN_OCTETS_MIN). */
 async function couvertureVueAerienne(lat, lng) {
   try {
-    const [ici, rien] = await Promise.all([
-      empreinteVueAerienne([lat - IGN_SONDE_DELTA, lng - IGN_SONDE_DELTA, lat + IGN_SONDE_DELTA, lng + IGN_SONDE_DELTA]),
-      empreinteVueAerienne(IGN_SONDE_VIDE),
-    ]);
-    if (!ici || !rien) return false;
+    /* Deux essais : une seule réponse lente du service suffisait à priver
+       toute la commune de vue aérienne (Saint-Genis-Laval, 10/11/2026 : deux
+       fiches sans aucune image alors que la commune est couverte). */
+    let ici = null; let rien = null;
+    for (let essai = 0; essai < 2 && (!ici || !rien); essai++) {
+      [ici, rien] = await Promise.all([
+        ici || empreinteVueAerienne([lat - IGN_SONDE_DELTA, lng - IGN_SONDE_DELTA, lat + IGN_SONDE_DELTA, lng + IGN_SONDE_DELTA]),
+        rien || empreinteVueAerienne(IGN_SONDE_VIDE),
+      ]);
+    }
+    if (!ici || !rien) {
+      console.warn('[demo-generate] sonde de couverture aérienne sans réponse : vues aériennes gardées, vérifiées à la création');
+      return true;
+    }
     return ici !== rien;
   } catch (e) {
     console.warn('[demo-generate] sonde de couverture aérienne :', e?.message);
-    return false;
+    return true;
   }
 }
 
-// Images de la SOURCE du projet (article de presse, page mairie) : les plus
-// pertinentes car elles illustrent littéralement le projet. Démo : la licence
-// n'est pas un critère ici. L'image og/principale (index 0) est mise en avant.
-async function sourceImageCandidates(url) {
-  const page = await fetchCapped(url, { headers: UA }, 6000, 500000);
-  if (!page) return [];
-  const credit = `Source : ${hostOf(page.url) || 'web'}`;
-  return extractImageUrls(page.data, page.url, 5)
-    .map((u, i) => ({ url: u, title: i === 0 ? 'illustration de la source' : 'image de la source', credit }));
-}
-
-// Candidats autour du projet : d'abord les images de sa source (les plus
-// pertinentes), puis le geosearch Commons, complété par une recherche texte
-// si besoin. Dédupliqués, plafonnés. Le juge vision tranche ensuite.
 /* Images de la page de la mairie qui parle DE CE projet.
    Wikimedia Commons ne contient pas les equipements municipaux francais
    (verifie : chercher « Lycee Lesage Vannes » y rend des scans de bulletins
@@ -3103,140 +4506,534 @@ function mairiePageImages(project, pages = []) {
 }
 
 
-/* Candidats d'illustration d'UN projet, par ordre de confiance decroissante.
-   Le pool d'images generiques du site de la mairie a ete supprime : verse
-   indifferemment dans le pool de chaque projet, il produisait l'essentiel des
-   mauvaises attributions (une photo de Conleau prise sur la page d'accueil
-   servait de visuel a un square) et faisait reencoder les memes images autant
-   de fois qu'il y a de projets. Ne restent que des sources rattachables.
+/* ─── ILLUSTRATIONS : trouver, mesurer et juger les images d'un projet ───
 
-   Ces candidats sont ceux qui passent devant le juge visuel, donc ceux qui
-   pretendent montrer LE PROJET. La vue aerienne, elle, ne pretend rien de tel
-   et n'entre pas dans ce lot : elle est posee plus loin, sans jugement. */
-const CANDIDATS_MAX = 8;
+   Ce que faisait l'étape précédente, et pourquoi elle perdait les images
+   (mesure du banc d'essai le 10/11/2026, sept communes, 99 fiches) :
+   1. l'extraction ne voyait pas les images chargées à la demande. Dans
+      `<img data-error-src="data:..." data-src="photo.jpg">`, le motif
+      `(?:data-src|src)=` trouvait d'abord le `src=` de `data-error-src`, une
+      image vide, et la vraie photo disparaissait. Les galeries (lien vers
+      l'image en grand, `srcset`) et la balise `og:image:url` étaient ignorées ;
+   2. les images partaient chez OpenAI sous forme d'adresse, et c'est OpenAI
+      qui allait les chercher. Un seul refus du serveur faisait échouer tout
+      l'appel : à Bègles, le site de la ville répond 403 à ce robot, et les
+      seize fiches sont tombées en vue aérienne sans qu'aucune image ait été
+      regardée ;
+   3. seule la page principale du projet était lue, jamais ses autres sources
+      ni les PDF qu'il cite.
+   Désormais toutes les sources du projet sont ouvertes, chaque image est
+   téléchargée et mesurée ici, puis envoyée au juge sous forme de données :
+   une image illisible est écartée seule, sans emporter les autres. */
 
-async function gatherImageCandidates(project, communeNom, mairiePages = []) {
-  // Bloc de la page de la mairie qui parle de CE projet : la meilleure source
-  const fromPage = mairiePageImages(project, mairiePages);
-  // Images de la page source du projet elle-meme
-  const fromSource = project.source_url ? await sourceImageCandidates(project.source_url) : [];
+/* Deux niveaux de taille. En dessous du premier, c'est une icône ou une
+   vignette de liste : agrandie à la largeur d'une fiche, elle serait
+   illisible, on l'écarte. Entre les deux, l'image est petite pour une
+   couverture (elle s'affiche sur toute la largeur d'une fiche de téléphone) :
+   elle passe quand même devant le juge, mais ne sert que si aucune image du
+   projet de bonne taille n'existe. Une vraie image un peu floue vaut mieux que
+   la vue aérienne ; une icône agrandie, non. */
+const ILLUS_LARGEUR_ICONE = 200;
+const ILLUS_HAUTEUR_ICONE = 150;
+const ILLUS_LARGEUR_MIN = 400;
+/* Même logique pour le format. La couverture est recadrée au format de la vue
+   aérienne (16/9) : une image qui n'en garderait pas le tiers est un bandeau,
+   écarté ; une qui n'en garderait pas la moitié (une photo en hauteur) ne sert
+   qu'à défaut d'une image mieux cadrée. */
+const ILLUS_FORMAT_COUVERTURE = IGN_LARGEUR_PX / IGN_HAUTEUR_PX;
+const ILLUS_PART_VISIBLE_MIN = 1 / 3;
+const ILLUS_PART_VISIBLE_BONNE = 0.5;
+// Variante visée dans un `srcset` : assez pour la couverture, sans télécharger
+// l'original de plusieurs mégaoctets quand le site en propose une plus légère.
+const ILLUS_LARGEUR_VISEE = 1000;
+const ILLUS_OCTETS_MAX = 6000000;
+const ILLUS_PAGES_PAR_PROJET = 4;
+const ILLUS_PDF_PAR_PROJET = 2;
+const ILLUS_IMAGES_PAR_PDF = 4;
+const ILLUS_TELECHARGEES_MAX = 14;
+const ILLUS_JUGEES_MAX = 8;
+/* Une image présente sur au moins la moitié des pages lues d'un même site fait
+   partie de son gabarit (logo, bandeau d'en-tête, image de partage par défaut) :
+   elle ne peut illustrer aucun projet en particulier. Il faut au moins trois
+   pages du site pour en juger. */
+const ILLUS_GABARIT_PAGES_MIN = 3;
+const IMAGE_FICHIER_RE = /\.(jpe?g|png|webp)$/i;
 
-  /* Recherche par NOM sur Wikimedia Commons, en dernier ressort. C'est le seul
-     chemin restant vers une vraie photo d'un objet nomme : une passerelle, une
-     gare, une eglise en restauration. On ne la tente que si le projet designe
-     un lieu nomme, sans quoi la requete se reduit au nom de la commune et ne
-     rend que du hasard, exactement ce que la recherche par proximite faisait. */
-  let commons = [];
-  const lieu = String(project.place || project.geo_query || '').trim();
-  if (!fromPage.length && !fromSource.length && motsSignificatifs(lieu).size) {
-    commons = await commonsTextCandidates(`${lieu} ${communeNom}`.trim());
+/* Largeur et hauteur d'une image, lues dans son en-tête. Seuls les formats que
+   la vision accepte sont reconnus (JPEG, PNG, WebP) : le reste rend null. */
+function dimensionsImage(buffer) {
+  const type = typeImageReel(buffer);
+  if (!type || !['jpg', 'png', 'webp'].includes(type.ext)) return null;
+  const o = new Uint8Array(buffer);
+  const u16be = (i) => (o[i] << 8) | o[i + 1];
+  const u16le = (i) => o[i] | (o[i + 1] << 8);
+  const u24le = (i) => o[i] | (o[i + 1] << 8) | (o[i + 2] << 16);
+  const u32be = (i) => o[i] * 16777216 + (o[i + 1] << 16) + (o[i + 2] << 8) + o[i + 3];
+  if (type.ext === 'png') return o.length >= 24 ? { ...type, w: u32be(16), h: u32be(20) } : null;
+  if (type.ext === 'webp') {
+    if (o.length < 30) return null;
+    const bloc = String.fromCharCode(o[12], o[13], o[14], o[15]);
+    if (bloc === 'VP8 ') return { ...type, w: u16le(26) & 0x3fff, h: u16le(28) & 0x3fff };
+    if (bloc === 'VP8L') {
+      const b = o[21] | (o[22] << 8) | (o[23] << 16) | (o[24] << 24);
+      return { ...type, w: (b & 0x3fff) + 1, h: ((b >> 14) & 0x3fff) + 1 };
+    }
+    if (bloc === 'VP8X') return { ...type, w: u24le(24) + 1, h: u24le(27) + 1 };
+    return null;
   }
-
-  const seen = new Set();
-  const all = [];
-  for (const c of [...fromPage, ...fromSource, ...commons]) {
-    if (seen.has(c.url) || all.length >= CANDIDATS_MAX) continue;
-    seen.add(c.url);
-    all.push(c);
+  // JPEG : on parcourt les segments jusqu'au premier en-tête de trame (SOFn)
+  let i = 2;
+  while (i + 9 < o.length) {
+    if (o[i] !== 0xff) { i++; continue; }
+    const m = o[i + 1];
+    if (m === 0xff) { i++; continue; }
+    if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; }
+    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+      return { ...type, w: u16be(i + 7), h: u16be(i + 5) };
+    }
+    i += 2 + u16be(i + 2);
   }
-  return all;
+  return null;
 }
 
-/* Repli thematique : quand aucun visuel du projet n'existe, une photo
-   GENERIQUE du type d'ouvrage vaut mieux qu'une vignette vide, a condition
-   d'etre annoncee comme telle. Personne ne photographie la chaufferie d'un
-   lycee, mais une chaufferie reste parlante. Le credit dit explicitement
-   « illustration generique » pour ne jamais laisser croire a une photo du
-   projet lui-meme.
+const partVisible = (w, h) => Math.min((w / h) / ILLUS_FORMAT_COUVERTURE, ILLUS_FORMAT_COUVERTURE / (w / h));
 
-   Un SEUL appel IA remplace les 18 familles qui etaient ecrites en dur, et qui
-   avaient deux defauts. Couverture : giratoire, tribunal, caserne, theatre,
-   eglise, port, gare routiere, decheterie, skatepark, station d'epuration ne
-   correspondaient a aucune ligne, donc aucune image. Langue : les requetes
-   etaient en francais alors que Wikimedia Commons est indexe massivement en
-   anglais (« biomass boiler plant » rend infiniment plus que « chaufferie bois
-   collective »). Cout : environ 700 tokens en entree, un appel par generation. */
-const THEMES_SCHEMA = {
+// Rend la raison du refus, ou null si l'image peut servir de couverture
+function formatRefuse(w, h) {
+  if (!w || !h || w < ILLUS_LARGEUR_ICONE || h < ILLUS_HAUTEUR_ICONE) return 'petite';
+  if (partVisible(w, h) < ILLUS_PART_VISIBLE_MIN) return 'bandeau';
+  return null;
+}
+
+// Image acceptée mais mal taillée pour une couverture : elle ne sert qu'à défaut
+const estSecondaire = (img) => img.w < ILLUS_LARGEUR_MIN || partVisible(img.w, img.h) < ILLUS_PART_VISIBLE_BONNE;
+
+/* Même image sous deux tailles : les gestionnaires de contenu suffixent le nom
+   du fichier par ses dimensions (`photo-400x267.jpg`). La clé les confond. */
+function cleImage(u) {
+  return coverKey(u).replace(/-\d{2,5}x\d{2,5}(?=\.[a-z0-9]+$)/, '');
+}
+
+function decoderAttribut(v) {
+  return String(v || '')
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&quot;/gi, '"').replace(/&apos;/gi, "'").replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&');
+}
+
+// Attributs d'une balise, dans l'ordre où ils sont écrits
+function attributsDe(balise) {
+  const a = {};
+  const re = /([^\s"'<>/=]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
+  let m;
+  while ((m = re.exec(balise)) !== null) {
+    const nom = m[1].toLowerCase();
+    if (!(nom in a)) a[nom] = decoderAttribut(m[2] ?? m[3] ?? m[4] ?? '');
+  }
+  return a;
+}
+
+/* Variante d'un `srcset` : la plus petite qui atteint la largeur visée, sinon
+   la plus grande. Les entrées sont séparées par une virgule suivie d'une
+   adresse et d'un descripteur, les adresses pouvant elles-mêmes contenir des
+   virgules. */
+function varianteDeSrcset(valeur) {
+  const entrees = String(valeur || '').split(/,(?=\s*\S+(?:\s+\d+(?:\.\d+)?[wx])?\s*(?:,|$))/)
+    .map((e) => e.trim().split(/\s+/))
+    .filter((e) => e[0] && !/^data:/i.test(e[0]))
+    .map(([url, d = '1x']) => ({ url, w: /w$/.test(d) ? parseFloat(d) : parseFloat(d) * ILLUS_LARGEUR_VISEE / 2 }));
+  if (!entrees.length) return null;
+  entrees.sort((a, b) => a.w - b.w);
+  return (entrees.find((e) => e.w >= ILLUS_LARGEUR_VISEE) || entrees[entrees.length - 1]).url;
+}
+
+const estAdresseImage = (v) => {
+  if (!v || /^data:/i.test(v)) return false;
+  try { return IMAGE_FICHIER_RE.test(new URL(v, 'https://x.fr').pathname); } catch { return false; }
+};
+
+/* Images d'une page, dans l'ordre où un lecteur les voit : l'image de partage
+   d'abord (celle que le site a choisie pour représenter la page), puis celles
+   du contenu principal (<main> quand la page en a un). Pour chaque balise, la
+   meilleure source disponible : variante d'un `srcset`, attribut de chargement
+   différé, lien vers l'image en grand d'une galerie, puis `src`. Aucun tri sur
+   le nom des fichiers : ce sont la taille mesurée, la récurrence sur le site et
+   le juge visuel qui décident. */
+function imagesDuHtml(html, baseUrl) {
+  const out = [];
+  const vus = new Set();
+  const pousser = (src, legende = '') => {
+    if (!src || /^data:/i.test(src)) return;
+    let abs;
+    try { abs = new URL(src.trim(), baseUrl).toString(); } catch { return; }
+    if (!/^https?:/.test(abs)) return;
+    const cle = cleImage(abs);
+    if (vus.has(cle)) return;
+    vus.add(cle);
+    out.push({ url: abs, legende: String(legende || '').replace(/\s+/g, ' ').trim().slice(0, 160) });
+  };
+  for (const k of ['og:image', 'og:image:url', 'og:image:secure_url', 'twitter:image', 'twitter:image:src']) {
+    const v = metaContent(html, k);
+    if (v) { pousser(decoderAttribut(v), 'image de partage de la page'); break; }
+  }
+  const principal = /<main[\s>][\s\S]*?<\/main>/i.exec(html)?.[0] || html;
+  const re = /<(img|source|a)\b[^>]*>|url\(\s*['"]?([^'")]+)['"]?\s*\)/gi;
+  let m;
+  while ((m = re.exec(principal)) !== null) {
+    if (m[2]) { if (estAdresseImage(decoderAttribut(m[2]))) pousser(decoderAttribut(m[2])); continue; }
+    const tag = m[1].toLowerCase();
+    const a = attributsDe(m[0]);
+    const legende = a.alt || a['data-caption'] || a.title || a['aria-label'] || '';
+    const srcset = a.srcset || a['data-srcset'] || a['data-lazy-srcset'];
+    const differe = Object.entries(a).find(([k, v]) => k.startsWith('data-') && !k.includes('srcset') && estAdresseImage(v))?.[1];
+    if (tag === 'a') {
+      if (!estAdresseImage(a.href)) continue;
+      pousser(varianteDeSrcset(a['data-srcset']) || a.href, legende);
+    } else if (tag === 'source') {
+      pousser(varianteDeSrcset(srcset), legende);
+    } else {
+      pousser(varianteDeSrcset(srcset) || differe || a.src, legende);
+    }
+  }
+  return out;
+}
+
+/* Télécharge une image et la mesure. Rend { octets, ct, ext, w, h } ou
+   { refus } avec la raison, pour que l'entonnoir dise où chaque image s'est
+   perdue. La page d'où vient l'image est donnée comme provenance : certains
+   serveurs refusent une image demandée sans elle. */
+async function telechargerImage(url, provenance, original = true) {
+  const r = await fetchCapped(url, {
+    headers: { ...UA, Accept: 'image/webp,image/png,image/jpeg;q=0.9,*/*;q=0.5', ...(provenance ? { Referer: provenance } : {}) },
+  }, FETCH_TIMEOUT_MS, ILLUS_OCTETS_MAX, true);
+  if (!r?.data?.byteLength) return { refus: 'chargement' };
+  if (r.data.byteLength >= ILLUS_OCTETS_MAX) return { refus: 'lourde' };
+  const d = dimensionsImage(r.data);
+  if (!d) return { refus: 'format' };
+  /* Une vignette dont le nom porte ses dimensions (`photo-300x200.jpg`) a
+     presque toujours son original à côté, sans le suffixe : on le tente. */
+  const sansTaille = url.replace(/-\d{2,5}x\d{2,5}(?=\.[a-z0-9]+(?:[?#]|$))/i, '');
+  if (original && d.w < ILLUS_LARGEUR_MIN && sansTaille !== url) {
+    const grand = await telechargerImage(sansTaille, provenance, false);
+    if (!grand.refus && grand.w > d.w) return { ...grand, url: sansTaille };
+  }
+  const refus = formatRefuse(d.w, d.h);
+  if (refus) return { refus, w: d.w, h: d.h };
+  return { octets: new Uint8Array(r.data), ct: d.ct, ext: d.ext, w: d.w, h: d.h };
+}
+
+/* ── Images tirées des PDF du projet ──
+   Un magazine municipal ou une présentation publique porte souvent la seule
+   perspective d'un projet. On n'ouvre que la page qui contient la citation
+   rattachée au projet : un magazine de soixante pages parle de vingt autres
+   choses, et ses autres images n'ont aucune raison d'aller sur cette fiche. */
+const compacter = (s) => unaccentLower(s).replace(/[^a-z0-9]+/g, '');
+
+/* Pages d'un PDF qui contiennent une citation. Le texte est comparé sans
+   espaces ni ponctuation, parce que l'extraction coupe les mots en fin de
+   ligne (« sco-\nlaire ») ; trois fenêtres de quarante signes prises dans la
+   citation suffisent à la reconnaître sans exiger qu'elle soit d'un seul tenant. */
+function pagesDeLaCitation(textesDesPages, citations) {
+  const fenetres = [];
+  for (const c of citations) {
+    const k = compacter(c);
+    if (k.length < 30) continue;
+    const L = Math.min(40, k.length);
+    for (const debut of [0, Math.floor((k.length - L) / 2), k.length - L]) fenetres.push(k.slice(debut, debut + L));
+  }
+  if (!fenetres.length) return [];
+  const pages = [];
+  textesDesPages.forEach((t, i) => {
+    const k = compacter(t);
+    if (fenetres.some((f) => k.includes(f))) pages.push(i + 1);
+  });
+  return pages;
+}
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(octets) {
+  let c = 0xffffffff;
+  for (let i = 0; i < octets.length; i++) c = CRC_TABLE[(c ^ octets[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+/* Image brute d'un PDF (pixels décodés par pdf.js) enregistrée en PNG, réduite
+   par moyenne de blocs entiers quand elle dépasse largement la largeur visée.
+   Pas de bibliothèque d'image dans les fonctions : zlib suffit au PNG. */
+function pixelsEnPng(data, w, h, canaux) {
+  const k = Math.max(1, Math.floor(w / ILLUS_LARGEUR_VISEE));
+  const W = Math.floor(w / k);
+  const H = Math.floor(h / k);
+  const gris = canaux === 1;
+  const sortie = gris ? 1 : 3;
+  const ligne = W * sortie + 1;
+  const brut = Buffer.alloc(ligne * H);
+  for (let y = 0; y < H; y++) {
+    brut[y * ligne] = 0;
+    for (let x = 0; x < W; x++) {
+      for (let c = 0; c < sortie; c++) {
+        let somme = 0;
+        for (let dy = 0; dy < k; dy++) {
+          const base = ((y * k + dy) * w + x * k) * canaux + c;
+          for (let dx = 0; dx < k; dx++) somme += data[base + dx * canaux];
+        }
+        brut[y * ligne + 1 + x * sortie + c] = Math.round(somme / (k * k));
+      }
+    }
+  }
+  const bloc = (type, contenu) => {
+    const corps = Buffer.concat([Buffer.from(type, 'ascii'), contenu]);
+    const taille = Buffer.alloc(4); taille.writeUInt32BE(contenu.length);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(corps));
+    return Buffer.concat([taille, corps, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4);
+  ihdr[8] = 8; ihdr[9] = gris ? 0 : 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    bloc('IHDR', ihdr), bloc('IDAT', deflateSync(brut)), bloc('IEND', Buffer.alloc(0)),
+  ]);
+  return { octets: new Uint8Array(png), ct: 'image/png', ext: 'png', w: W, h: H };
+}
+
+/* Images de la page d'un PDF qui cite le projet. Passe par la même file que la
+   lecture des PDF : pdf.js chargé une fois, un document en mémoire à la fois. */
+function imagesDuPdf(url, citations) {
+  const travail = _filePdf.then(async () => {
+    const r = await fetchCapped(url, { headers: UA }, 20000, PDF_OCTETS_MAX, true);
+    if (!r?.data || r.data.byteLength >= PDF_OCTETS_MAX) return { refus: 'chargement', images: [] };
+    const octets = new Uint8Array(r.data);
+    if (String.fromCharCode(...octets.slice(0, 5)) !== '%PDF-') return { refus: 'pas un pdf', images: [] };
+    let pdf = null;
+    try {
+      _pdfjs ||= import('unpdf').then(async (m) => { await m.getResolvedPDFJS(); return m; });
+      const { extractText, extractImages, getDocumentProxy } = await _pdfjs;
+      pdf = await getDocumentProxy(octets);
+      const { text } = await extractText(pdf, { mergePages: false });
+      const pages = pagesDeLaCitation(Array.isArray(text) ? text : [String(text || '')], citations).slice(0, 2);
+      if (!pages.length) return { refus: 'citation introuvable', images: [] };
+      const images = [];
+      const refus = [];
+      for (const n of pages) {
+        for (const im of await extractImages(pdf, n)) {
+          const motif = formatRefuse(im.width, im.height);
+          if (motif) { refus.push(motif); continue; }
+          if (![1, 3, 4].includes(im.channels)) { refus.push('format'); continue; }
+          images.push({ ...pixelsEnPng(im.data, im.width, im.height, im.channels), page: n });
+          if (images.length >= ILLUS_IMAGES_PAR_PDF) break;
+        }
+        if (images.length >= ILLUS_IMAGES_PAR_PDF) break;
+      }
+      return { pages, images, refusImages: refus };
+    } catch (e) {
+      console.warn(`[demo-media] PDF illisible pour ses images : ${url} :: ${e?.message}`);
+      return { refus: 'illisible', images: [] };
+    } finally {
+      try { await pdf?.destroy(); } catch { /* déjà libéré */ }
+    }
+  });
+  _filePdf = travail.catch(() => null);
+  return travail;
+}
+
+/* Une image tirée d'un PDF n'a pas d'adresse : elle est déposée là où la phase
+   de création ira la chercher. En production, dans le stockage public ; sur le
+   banc d'essai (aucune écriture permise), sur le disque à côté des états. */
+async function deposerImage(img) {
+  const nom = `${(await sha256Hex(img.octets)).slice(0, 24)}.${img.ext}`;
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return uploadToStorage(`demo/illustrations/${nom}`, img.octets, img.ct);
+  }
+  if (process.env.DEMO_ETATS_DIR) {
+    const fs = await import('node:fs');
+    const dossier = `${process.env.DEMO_ETATS_DIR}-images`;
+    fs.mkdirSync(dossier, { recursive: true });
+    fs.writeFileSync(`${dossier}/${nom}`, img.octets);
+    return `${dossier}/${nom}`;
+  }
+  return null;
+}
+
+/* ── Le juge ──
+   Il reçoit les images elles-mêmes, pas leurs adresses, avec la page d'où
+   chacune vient et sa légende. Il classe chaque image plutôt que de choisir
+   « la meilleure » d'un lot : l'ancienne consigne acceptait « une vue
+   représentative du secteur », et un cône de chantier, un tuyau ou une caméra
+   passaient pour l'illustration d'une rue, d'une conduite d'eau ou d'un
+   dispositif de vidéoprotection. */
+const ILLUS_JUGEMENT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    themes: {
+    images: {
       type: 'array',
       items: {
         type: 'object',
         additionalProperties: false,
         properties: {
-          index: { type: 'integer', description: 'Index du projet dans la liste fournie' },
-          query_en: { type: 'string', description: 'Requête Wikimedia Commons EN ANGLAIS décrivant le TYPE d\'ouvrage, jamais le projet précis ni la commune. Exemples : "biomass boiler plant", "public swimming pool France", "roundabout France". Chaîne vide si le projet ne correspond à aucun type d\'ouvrage photographiable.' },
-          libelle_fr: { type: 'string', description: 'Le type d\'ouvrage en français, précédé de son article, pour le crédit affiché : "une chaufferie", "un giratoire", "une caserne de pompiers".' },
+          index: { type: 'integer' },
+          montre: { type: 'string' },
+          nature: { type: 'string', enum: ['projet', 'lieu', 'generique', 'autre'] },
         },
-        required: ['index', 'query_en', 'libelle_fr'],
+        required: ['index', 'montre', 'nature'],
       },
     },
+    meilleure: { type: 'integer' },
   },
-  required: ['themes'],
+  required: ['images', 'meilleure'],
 };
 
-async function themesGeneriques(communeNom, projets) {
-  const vide = projets.map(() => null);
-  if (!projets.length) return vide;
-  try {
-    const system = `Pour chaque projet urbain de la commune de ${communeNom}, identifie le TYPE D'OUVRAGE qu'il produit, puis donne une requête de recherche photo EN ANGLAIS qui rendra des photos de ce type d'ouvrage sur Wikimedia Commons.
+/* Modèle du juge des illustrations. Mesure du banc le 10/11/2026 : gpt-4o
+   classait « projet » la première image d'une page même quand c'était une
+   photo d'illustration (un cône de chantier), et « générique » la même image
+   plus bas dans la liste. gpt-4.1 coûte moins cher par jeton d'entrée et
+   compte une image en basse définition au même prix. */
+const ILLUS_JUGE_MODEL = process.env.DEMO_ILLUS_JUGE_MODEL || 'gpt-4.1';
 
-Tu ne cherches PAS une photo du projet lui-même : elle n'existe pas. Tu cherches une photo d'un ouvrage du même type, qui servira d'illustration explicitement créditée comme générique.
+/* Le juge décrit chaque image avant de la classer : sans cette description,
+   il classait « projet » un tableau de financement, une légende de carte ou
+   des mains posées sur un plan, du seul fait qu'ils venaient de la page du
+   projet. */
+async function jugerLesImages(project, communeNom, images) {
+  const content = [{
+    type: 'input_text',
+    text: `Projet à ${communeNom} : « ${project.title} ». ${project.description || ''}${project.place ? ` Lieu : ${project.place}.` : ''}
 
-- query_en : en anglais, 2 à 5 mots, le type d'ouvrage seul. Jamais le nom du projet, jamais le nom de la commune, jamais un nom propre. Ajoute "France" seulement si l'architecture française change vraiment le résultat.
-- libelle_fr : le même type d'ouvrage en français avec son article, tel qu'il sera lu dans « Illustration générique (…) ».
-- Si le projet ne produit aucun ouvrage photographiable (une étude, une concertation, un plan), rends une chaîne vide pour query_en : mieux vaut aucune image qu'une image hors sujet.`;
-    const user = JSON.stringify(projets.map((p, i) => ({
-      index: i,
-      titre: p.title,
-      description: (p.description || '').slice(0, 200),
-    })), null, 1);
-    const out = await openAIStructured(
-      [{ role: 'system', content: system }, { role: 'user', content: user }],
-      'themes_illustration', THEMES_SCHEMA, 1400, 40000, 0.2
-    );
-    const parIndex = new Map();
-    for (const t of out.themes || []) {
-      const requete = String(t.query_en || '').trim();
-      if (requete) parIndex.set(t.index, { requete, libelle: String(t.libelle_fr || 'un ouvrage public').trim() });
-    }
-    return projets.map((_, i) => parIndex.get(i) || null);
-  } catch (e) {
-    // Aucun repli codé en dur : sans thème, la fiche reste sans photo, ce qui
-    // est le comportement honnête. Une table de 18 regex ne couvrait de toute
-    // façon qu'une partie des cas.
-    console.warn('[demo-generate] thèmes d\'illustration :', e?.message);
-    return vide;
-  }
+Voici ${images.length} image(s) trouvée(s) dans les sources de ce projet, numérotées de 0 à ${images.length - 1}, chacune avec la page ou le document d'où elle vient. Pour chacune, décris d'abord en quelques mots ce qu'elle montre (« montre »), puis donne sa nature :
+- « projet » : elle montre ce projet-ci, à cet endroit-ci. Ce qui est construit, installé, réaménagé, restauré ou réparé, avant, pendant ou après les travaux (le bâtiment à restaurer, le pont à réparer, l'équipement construit, la rue réaménagée), son chantier, une perspective, une maquette ou un plan du projet.
+- « lieu » : elle montre l'endroit concerné, reconnaissable, mais pas ce que le projet y ajoute ou y change (le toit avant la pose des panneaux, le terrain vide avant le stade, le plan des déviations pendant le chantier).
+- « generique » : rien n'y permet de reconnaître ce lieu ou ce projet. Un logo, un pictogramme, une affiche, un tableau de chiffres, un texte, une légende de carte, une bannière du site, un portrait, ou une photo d'illustration qui irait aussi bien avec n'importe quel article du même genre (cône de chantier, tuyaux, caméra, mains sur un plan, engin, outil).
+- « autre » : un autre lieu ou un autre projet.
+Une image tirée d'un PDF vient d'une page qui parle du projet mais souvent aussi d'autres sujets (un journal, un magazine) : ne la classe « projet » que si l'image elle-même ou ce qu'elle montre permet de la rattacher à ce projet-ci.
+Juge chaque image pour elle-même : sa place dans la liste ne dit rien de sa nature, et l'image principale d'une page peut être une photo d'illustration achetée à une banque d'images, ce que son nom de fichier laisse parfois deviner.
+Dans « meilleure », donne l'index de l'image « projet » qui ferait le mieux comprendre le projet à un habitant qui ne le connaît pas : une perspective ou une photo de l'ouvrage ou du chantier plutôt qu'un plan, un plan plutôt qu'un document ancien. Réponds -1 s'il n'y a aucune image « projet ». Une image hors sujet sur la fiche est pire que pas d'image du tout.`,
+  }];
+  images.forEach((c, i) => {
+    // Le nom du fichier trahit souvent une photo de banque d'images
+    const fichier = c.url ? nomDeFichier(c.url) : '';
+    content.push({ type: 'input_text', text: `Image ${i}, ${c.provenance}${fichier ? `, fichier « ${fichier.slice(0, 90)} »` : ''}${c.legende ? `, légende : « ${c.legende} »` : ''}` });
+    content.push({ type: 'input_image', image_url: `data:${c.ct};base64,${Buffer.from(c.octets).toString('base64')}`, detail: 'low' });
+  });
+  const out = await openAIStructured([{ role: 'user', content }], 'jugement_images', ILLUS_JUGEMENT_SCHEMA, 120 + 60 * images.length, 30000, 0, ILLUS_JUGE_MODEL);
+  const natures = images.map((_, i) => out.images?.find((x) => x.index === i)?.nature || 'autre');
+  const montre = images.map((_, i) => out.images?.find((x) => x.index === i)?.montre || '');
+  return { natures, montre, meilleure: Number.isInteger(out.meilleure) ? out.meilleure : -1 };
 }
 
-// L'IA REGARDE vraiment les photos et choisit celle qui illustre ce projet
-// précis, ou aucune (-1). C'est le juge de pertinence : mieux vaut rien qu'une
-// image hors sujet. Coût vision assumé, la crédibilité de la démo prime.
-async function pickBestImageWithAI(project, communeNom, candidates) {
-  // Ecarte les formats que la vision rejette : un seul suffirait a faire
-  // echouer TOUT l'appel et a perdre tous les autres candidats
-  const usable = candidates.filter((c) => !VISION_UNSUPPORTED_RE.test(c.url));
-  if (!usable.length) return null;
-  try {
-    const content = [{
-      type: 'input_text',
-      text: `Projet urbain à ${communeNom} : "${project.title}". ${project.description || ''}${project.place ? ` Lieu concerné : ${project.place}.` : ''}\n\nVoici ${usable.length} photo(s) numérotée(s) de 0 à ${usable.length - 1}. Choisis l'index de celle qui illustre le mieux CE lieu ou CE projet (le bâtiment, la rue, le quartier ou l'équipement concerné, ou une vue représentative du secteur). Si aucune ne correspond vraiment, réponds -1. Ne choisis jamais par défaut : une photo hors sujet est pire que pas de photo.`,
-    }];
-    usable.forEach((c, i) => {
-      content.push({ type: 'input_text', text: `Image ${i} - ${c.title}` });
-      // detail 'low' : 85 tokens par image au lieu de ~1100 en détail auto.
-      // Juger « cette photo montre-t-elle ce parking / cette rue » ne demande
-      // pas la pleine résolution, et ce juge concentrait la moitié du coût IA.
-      content.push({ type: 'input_image', image_url: c.url, detail: 'low' });
-    });
-    const out = await openAIStructured([{ role: 'user', content }], 'choix_image', IMAGE_CHOICE_SCHEMA, 60, 30000, 0.2, OPENAI_VISION_MODEL);
-    const idx = out.best_index;
-    if (typeof idx !== 'number' || idx < 0 || idx >= usable.length) return null;
-    return usable[idx];
-  } catch { return null; }
+/* Pages et documents d'un projet à ouvrir pour ses images : sa source
+   principale, puis ses autres sources, sauf les avis de marché (aucune image).
+   Chaque document garde les citations qui le rattachent au projet, pour
+   retrouver la bonne page d'un PDF. */
+function documentsDuProjet(p) {
+  const docs = [];
+  const ajouter = (url) => {
+    if (!url || docs.some((d) => d.url === url) || docs.length >= ILLUS_PAGES_PAR_PROJET) return;
+    const citations = (p.citations || []).filter((c) => c.url === url).map((c) => c.citation);
+    if (url === p.source_url && p.evidence_quote) citations.push(p.evidence_quote);
+    docs.push({ url, citations });
+  };
+  ajouter(p.source_url);
+  for (const s of p.sources || []) if (s.type !== 'marche') ajouter(s.url);
+  return docs;
+}
+
+/* Images candidates d'un projet, téléchargées et mesurées, dans l'ordre de
+   confiance : sa page principale, ses autres pages, le bloc de la mairie qui
+   le décrit, les pages des PDF qui le citent, et Wikimedia Commons en dernier
+   recours, par le nom du lieu. Rend aussi le décompte de ce qui a été écarté et
+   pourquoi : c'est l'entonnoir que le banc d'essai lit. */
+async function imagesDuProjet(p, communeNom, media, indexMairie, autres = new Set()) {
+  const gabarit = new Set(media.gabarit || []);
+  const journal = { trouvees: 0, gabarit: 0, refus: {}, pdf: 0, pdfRefus: [] };
+  const refuser = (motif) => { journal.refus[motif] = (journal.refus[motif] || 0) + 1; };
+  const docs = documentsDuProjet(p);
+  const pistes = [];
+  const pdfs = [];
+  for (const d of docs) {
+    const page = media.pages?.[d.url];
+    if (!page) continue;
+    if (page.pdf) { pdfs.push(d); continue; }
+    for (const im of page.images) {
+      journal.trouvees++;
+      if (gabarit.has(cleImage(im.url))) { journal.gabarit++; continue; }
+      pistes.push({ ...im, provenance: `page « ${page.titre || hostOf(d.url)} » (${hostOf(d.url)})`, page: d.url, principale: d.url === p.source_url });
+    }
+  }
+  /* Le bloc de la mairie est rattaché au projet par les mots de son titre, donc
+     avec une part de hasard : une image publiée sur la page d'un AUTRE projet
+     revient à celui-là, pas à celui-ci. */
+  const siennes = new Set(pistes.map((x) => cleImage(x.url)));
+  for (const c of mairiePageImages(p, indexMairie)) {
+    journal.trouvees++;
+    if (gabarit.has(cleImage(c.url))) { journal.gabarit++; continue; }
+    if (autres.has(cleImage(c.url)) && !siennes.has(cleImage(c.url))) { journal.ailleurs = (journal.ailleurs || 0) + 1; continue; }
+    pistes.push({ url: c.url, legende: '', provenance: c.title, page: null, credit: c.credit });
+  }
+
+  const retenues = [];
+  const deja = new Set();
+  const garder = (img, meta) => {
+    // La même image publiée sous deux adresses ne passe qu'une fois devant le juge
+    const empreinte = `${img.w}x${img.h}:${img.octets.byteLength}`;
+    if (deja.has(empreinte)) return;
+    deja.add(empreinte);
+    retenues.push({ ...img, ...meta });
+  };
+  const vues = new Set();
+  const aOuvrir = pistes.filter((x) => !vues.has(cleImage(x.url)) && vues.add(cleImage(x.url))).slice(0, ILLUS_TELECHARGEES_MAX);
+  for (let k = 0; k < aOuvrir.length && retenues.length < ILLUS_JUGEES_MAX; k += 4) {
+    const lot = await Promise.all(aOuvrir.slice(k, k + 4).map(async (x) => ({ x, img: await telechargerImage(x.url, x.page) })));
+    for (const { x, img } of lot) {
+      if (img.refus) { refuser(img.refus); continue; }
+      if (retenues.length < ILLUS_JUGEES_MAX) garder(img, { url: img.url || x.url, legende: x.legende, provenance: x.provenance, principale: !!x.principale, page: x.page, credit: x.credit || `Source : ${hostOf(x.page || x.url)}` });
+    }
+  }
+  const tireesDesPdf = [];
+  for (const d of pdfs.slice(0, ILLUS_PDF_PAR_PROJET)) {
+    if (!d.citations.length) { journal.pdfRefus.push('sans citation'); continue; }
+    const r = await imagesDuPdf(d.url, d.citations);
+    if (r.refus) journal.pdfRefus.push(r.refus);
+    for (const m of r.refusImages || []) refuser(`pdf ${m}`);
+    for (const img of r.images) {
+      journal.pdf++;
+      tireesDesPdf.push({ ...img, url: null, pdf: d.url, page: d.url, pageDuPdf: img.page, legende: '', principale: d.url === p.source_url,
+        provenance: `document PDF « ${nomDeFichier(d.url)} », page ${img.page}, qui peut traiter d'autres sujets`,
+        credit: `Source : ${hostOf(d.url)}, document « ${nomDeFichier(d.url)} »` });
+    }
+  }
+  /* Les images des PDF gardent au moins la moitié des places devant le juge :
+     une page de site peut aligner huit photos d'ambiance avant que la
+     perspective du projet n'apparaisse dans le document qu'il cite. */
+  if (tireesDesPdf.length) {
+    const pourLesPdf = Math.min(tireesDesPdf.length, ILLUS_JUGEES_MAX / 2);
+    retenues.splice(ILLUS_JUGEES_MAX - pourLesPdf);
+    for (const img of tireesDesPdf) if (retenues.length < ILLUS_JUGEES_MAX) garder(img, {});
+  }
+
+  /* Wikimedia Commons, par le NOM du lieu, quand aucune source du projet n'a
+     donné d'image : le seul chemin vers une vraie photo d'un objet nommé (une
+     église en restauration, une passerelle). Ces photos passent devant le juge
+     comme les autres : aucune n'est posée sans avoir été regardée. */
+  const lieu = String(p.place || p.geo_query || '').trim();
+  if (!retenues.length && motsSignificatifs(lieu).size) {
+    for (const c of await commonsTextCandidates(`${lieu} ${communeNom}`.trim())) {
+      if (retenues.length >= ILLUS_JUGEES_MAX) break;
+      const img = await telechargerImage(c.url);
+      if (img.refus) { refuser(img.refus); continue; }
+      garder(img, { url: img.url || c.url, legende: c.title, provenance: 'Wikimedia Commons, recherche par le nom du lieu', credit: c.credit });
+    }
+  }
+  return { retenues, journal };
 }
 
 /* ─── Écriture Supabase ─── */
@@ -3471,7 +5268,9 @@ async function coreSources(send, step, insee, runState) {
          continue sur la presse et les marches publics. */
       if (m.bloque) {
         step('mairie', 'skip', 'Site officiel de la mairie',
-          `${m.host} bloque la lecture automatique · recensement poursuivi sur la presse et les marchés publics`);
+          m.injoignable
+            ? `${m.host} ne répond pas pour le moment · recensement poursuivi sur la presse et les marchés publics`
+            : `${m.host} bloque la lecture automatique · recensement poursuivi sur la presse et les marchés publics`);
         return m;
       }
       /* Identité visuelle : une finition, sautée passé l'échéance, `m.logoUrl`
@@ -3778,6 +5577,8 @@ const TRANCHES_VIDES_MAX = 2;
 // descendre depuis une page de projets est bien plus prometteur que descendre
 // depuis une page quelconque.
 const PRIORITE = { forte: 3, moyenne: 1, nulle: 0 };
+// Priorite d'une candidate dont l'intitule annonce une operation, des le tri
+const PRIORITE_OPERATION = 2;
 
 async function coreExplore(send, step, state) {
   const { commune, mairie } = state;
@@ -3803,8 +5604,14 @@ async function coreExplore(send, step, state) {
     // lui-meme via son lien « Accueil » et repassait par la file pour rien.
     const candidates = (mairie.candidates || []).filter((l) => normaliserUrl(l.url) !== racine);
     const gardees = await ecarterLesHorsSujet(commune.nom, candidates);
-    for (const l of gardees) file.ajouter(l.url, l.label, 0);
+    /* Un intitule qui annonce a lui seul une operation passe en tete, juste
+       apres les pages qu'une page de projets recommande : 97 des 120 pages
+       ainsi designees ont donne un projet au rejeu du tri (voir
+       ecarterLesHorsSujet). Les autres restent en file, a lire ensuite. */
+    for (const l of gardees) file.ajouter(l.url, l.label, l.operation ? PRIORITE_OPERATION : 0);
     file.marquerVue(racine);
+    explo.siteHierarchique = gardees.siteHierarchique
+      ?? candidates.filter((l) => estUnCarrefour(l.url)).length <= CARREFOURS_MAX;
     explo.amorcee = true;
     console.log(`[demo-generate] exploration ${commune.nom} : ${candidates.length} candidate(s), ${candidates.length - gardees.length} ecartee(s) sur l'intitule, ${file.restantes} a ouvrir`);
     /* L'ACCUEIL est depouille lui aussi, une fois : une petite commune presente
@@ -3823,6 +5630,24 @@ async function coreExplore(send, step, state) {
     }
     // Les candidates sont dans la file : leur copie du brouillon a fini d'exister
     state.mairie.candidates = [];
+  }
+
+  /* Les liens DECOUVERTS en lisant passent par le meme tri que les candidates
+     de depart. Ils entraient sans aucun filtre, et c'est par eux que la
+     lecture se perdait : mesure le 10/11/2026 sur vienne.fr, une fois les
+     candidates triees, 128 pages decouvertes ont encore ete lues, dont 104
+     pour rien ; 94 etaient des fiches « /download/... » recommandees par les
+     pages d'urbanisme (zonages du PLU, dossiers d'antennes relais,
+     reglements). Le tri se fait par paquet, en tete de tranche, sur ce que la
+     tranche precedente a recolte. */
+  if (explo.aTrier?.length) {
+    const paquet = explo.aTrier;
+    explo.aTrier = [];
+    const gardees = await ecarterLesHorsSujet(commune.nom, paquet, {
+      hierarchique: explo.etage === 'epci' ? true : (explo.siteHierarchique ?? true),
+    });
+    for (const l of gardees) file.ajouter(l.url, l.label, Math.max(l.priorite || 0, l.operation ? PRIORITE_OPERATION : 0));
+    console.log(`[demo-generate] liens decouverts : ${paquet.length} soumis au tri, ${paquet.length - gardees.length} ecarte(s)`);
   }
 
   step('ai1', 'start',
@@ -3866,145 +5691,247 @@ async function coreExplore(send, step, state) {
   let traitees = 0;
 
   const assezDeMatiere = () => EXPLO_BRUTS_MAX > 0 && explo.bruts.length >= EXPLO_BRUTS_MAX;
-  while (file.restantes && Date.now() - t0 < PHASE_BUDGET_MS && explo.pagesLues < EXPLO_PAGES_MAX
-    && (!assezDeMatiere() || explo.repechageFait)) {
-    const lot = file.vague(VAGUE_TAILLE);
-    if (!lot.length) break;
+  /* Empreintes des textes deja lus, pour ne jamais payer deux fois la meme
+     page servie sous deux adresses. Elles voyagent en tableau dans l'etat
+     serialise, d'une tranche a l'autre. */
+  const empreintes = new Set(explo.empreintes || []);
+  /* Liens decouverts pendant cette tranche, en attente du tri. Une adresse
+     deja en file ou deja lue n'y passe pas : elle ne fait que remonter sa
+     priorite, comme avant. */
+  const aTrier = new Map();
+  const proposer = (l, priorite) => {
+    if (file.connue(l.url)) { file.ajouter(l.url, l.label, priorite); return; }
+    if (!estUnePageExplorable(l.url, file.hote)) return;
+    const cle = normaliserUrl(l.url);
+    const deja = aTrier.get(cle);
+    if (deja) deja.priorite = Math.max(deja.priorite, priorite);
+    else aTrier.set(cle, { url: l.url, label: l.label, priorite });
+  };
 
-    const resultats = await inChunks(lot, VAGUE_TAILLE, async (candidate) => {
-      const page = await fetchCapped(candidate.url, { headers: UA }, 6000, 400000);
-      if (!page) return { echec: candidate };
-      /* Une page de la mairie qui redirige HORS du site n'est pas une page de
-         la mairie : la lire la verserait a l'allowlist d'attestation, et une
-         fiche pourrait citer un site tiers comme source officielle. */
-      if (hostOf(page.url) !== hostOf(`https://${hoteEtage}`)) return { ecartee: true };
-      const brut = stripHtml(page.data).slice(0, PAGE_TEXT_BRUT_CHARS);
-      const texte = retirerGabaritConnu(brut, gabarit);
-      // Une page qui ne dit rien de plus que le gabarit du site n'a aucun
-      // contenu propre : on ne paie pas une lecture pour l'apprendre.
-      if (texte.length < GABARIT_RESTE_MIN || looksLikeCode(texte)) return { ecartee: true };
+  /* Lecture d'un document PDF de la commune. Il passe par la meme lecture
+     qu'une page, tranche par tranche (voir lirePdf), et rend un resultat de la
+     meme forme : sans gabarit a apprendre, sans liens ni visuels a suivre. */
+  const lireUnDocument = async (candidate) => {
+    const lu = await lirePdf(commune, candidate).catch(() => null);
+    if (!lu) return { ecartee: true };
+    if (process.env.DEMO_DUMP) console.log(`[demo-pages] ${lu.projets.length} projet(s) | document | ${candidate.url}`);
+    return {
+      candidate, page: { url: candidate.url, data: '' }, lu, texte: lu.texte.slice(0, PAGE_TEXT_BRUT_CHARS),
+      echantillon: null, horsSieges: [], images: [], blocs: [],
+    };
+  };
 
-      const liens = [];
-      collectPageLinks(page.data, page.url, hoteEtage, liens);
-      /* On soumet tous les liens PAS ENCORE LUS, y compris ceux qui attendent
-         deja dans la file : c'est ainsi qu'une page de sommaire fait remonter
-         ses fiches detaillees en tete, au lieu de les laisser au fond d'une
-         file alimentee par le sitemap. */
-      /* Les 60 sieges de la soumission vont d'abord aux liens INCONNUS de la
-         file : une candidate deja en attente sera lue de toute facon, elle n'a
-         besoin que d'une eventuelle remontee de priorite. */
-      const nouveaux = liens
-        .filter((l) => !file.dejaOuverte(l.url) && !navSet.has(normaliserUrl(l.url)))
-        .filter((l) => !etageEpci || nommeLaCommune(l))
-        .sort((x, y) => Number(file.connue(x.url)) - Number(file.connue(y.url)));
-      /* Les documents de la page partent AVEC elle au jugement : c'est le seul
-         moment ou quelqu'un a sous les yeux a la fois le texte de la page et la
-         liste de ses fichiers. */
-      const documents = collectPdfLinks(page.data, page.url);
+  const lireUne = async (candidate) => {
+    // Un PDF choisi parmi les documents du site part directement a sa lecture
+    if (estUnPdf(candidate.url)) return lireUnDocument(candidate);
+    const page = await fetchCapped(candidate.url, { headers: UA }, 6000, 400000);
+    if (!page) return { echec: candidate };
+    /* Une page de la mairie qui redirige HORS du site n'est pas une page de
+       la mairie : la lire la verserait a l'allowlist d'attestation, et une
+       fiche pourrait citer un site tiers comme source officielle. */
+    if (hostOf(page.url) !== hostOf(`https://${hoteEtage}`)) return { ecartee: true };
+    /* La MEME page sous une autre adresse. Une redirection mene souvent
+       plusieurs adresses du sitemap vers une seule page : sur
+       saintgenislaval.fr, 88 adresses « decision-ndeg2025-... » redirigent
+       toutes vers la liste des actes administratifs, qui etait lue 89 fois. L'adresse d'arrivee est marquee vue des la reception (ce
+       passage est synchrone, deux lecteurs ne peuvent pas la reclamer
+       ensemble), et une adresse d'arrivee deja vue n'est pas relue. Le
+       controle precede celui du type : un meme document servi sous deux
+       adresses n'est pas lu deux fois non plus. */
+    if (normaliserUrl(page.url) !== candidate.cle) {
+      if (file.dejaOuverte(page.url)) return { ecartee: true, doublon: page.url };
+      file.marquerVue(page.url);
+    }
+    /* Ce qui n'est pas du HTML n'est pas une page : un PDF servi sans
+       extension (saintgenislaval.fr/print/pdf/node/415 rend application/pdf)
+       passait par stripHtml et partait a la lecture sous forme d'octets
+       compresses. Mesure le 10/11/2026 : 20 lectures de ce genre sur ce seul
+       site, aucune n'a rien donne. Un PDF ainsi reconnu part a la lecture des
+       documents, a son adresse d'arrivee ; le reste est ecarte. Le texte deja
+       recu, borne et decode comme du texte, n'est pas un PDF exploitable :
+       lirePdf le recharge en octets. */
+    const type = String(page.headers?.get?.('content-type') || '');
+    if (/application\/(x-)?pdf/i.test(type)) return lireUnDocument({ ...candidate, url: page.url });
+    if (type && !/html|xml|text\//i.test(type)) return { ecartee: true };
+    const brut = stripHtml(page.data).slice(0, PAGE_TEXT_BRUT_CHARS);
+    /* Meme texte, meme page, quelle que soit l'adresse : les CMS publient une
+       page sous son alias et sous son chemin technique sans redirection. */
+    const empreinte = createHash('sha1').update(brut).digest('hex').slice(0, 16);
+    if (empreintes.has(empreinte)) return { ecartee: true, doublon: page.url };
+    empreintes.add(empreinte);
+    const texte = retirerGabaritConnu(brut, gabarit);
+    // Une page qui ne dit rien de plus que le gabarit du site n'a aucun
+    // contenu propre : on ne paie pas une lecture pour l'apprendre.
+    if (texte.length < GABARIT_RESTE_MIN || looksLikeCode(texte)) return { ecartee: true };
 
-      try {
-        const lu = await lirePage(commune, { url: page.url, title: candidate.label, text: texte }, nouveaux, 'mairie', documents);
-        if (process.env.DEMO_DUMP) {
-          // Rendement page par page : la matiere premiere du reglage de l'arret
-          console.log(`[demo-pages] ${lu.projets.length} projet(s) | interet ${lu.interet} | ${candidate.priorite > 0 ? 'chaude' : 'froide'} | ${page.url}`);
-        }
-        /* L'echantillon de gabarit ne part qu'avec une lecture ABOUTIE : verse
-           avant l'appel, une page remise en file apres echec retrouvait son
-           propre texte dans le gabarit a la relecture, et en ressortait vide. */
-        return {
-          candidate, page, lu, texte,
-          echantillon: brut.slice(0, 4000),
-          horsSieges: nouveaux.slice(PAGE_LIENS_SOUMIS),
-          images: extractImageUrls(page.data, page.url, 24),
-          blocs: extractPageBlocks(page.data, page.url),
-        };
-      } catch (e) {
-        console.warn(`[demo-generate] lecture impossible : ${candidate.url} :: ${e?.message}`);
-        return { echec: candidate };
+    const liens = [];
+    collectPageLinks(page.data, page.url, hoteEtage, liens);
+    /* On soumet tous les liens PAS ENCORE LUS, y compris ceux qui attendent
+       deja dans la file : c'est ainsi qu'une page de sommaire fait remonter
+       ses fiches detaillees en tete, au lieu de les laisser au fond d'une
+       file alimentee par le sitemap. */
+    /* Les 60 sieges de la soumission vont d'abord aux liens INCONNUS de la
+       file : une candidate deja en attente sera lue de toute facon, elle n'a
+       besoin que d'une eventuelle remontee de priorite. */
+    const nouveaux = liens
+      .filter((l) => !file.dejaOuverte(l.url) && !navSet.has(normaliserUrl(l.url)))
+      .filter((l) => !etageEpci || nommeLaCommune(l))
+      .sort((x, y) => Number(file.connue(x.url)) - Number(file.connue(y.url)));
+    /* Les documents de la page partent AVEC elle au jugement : c'est le seul
+       moment ou quelqu'un a sous les yeux a la fois le texte de la page et la
+       liste de ses fichiers. Tous ceux qu'on a croises sont aussi rendus, pour
+       le choix des documents a lire une fois le site epuise. */
+    const documentsVus = collectPdfLinks(page.data, page.url, DOCS_PAR_PAGE_VUS);
+    const documents = documentsVus.slice(0, PDF_PAR_PAGE_MAX);
+
+    try {
+      const lu = await lirePage(commune, { url: page.url, title: candidate.label, text: texte }, nouveaux, 'mairie', documents);
+      if (process.env.DEMO_DUMP) {
+        // Rendement page par page : la matiere premiere du reglage de l'arret
+        console.log(`[demo-pages] ${lu.projets.length} projet(s) | interet ${lu.interet} | ${candidate.priorite > 0 ? 'chaude' : 'froide'} | ${page.url}`);
       }
-    });
+      /* L'echantillon de gabarit ne part qu'avec une lecture ABOUTIE : verse
+         avant l'appel, une page remise en file apres echec retrouvait son
+         propre texte dans le gabarit a la relecture, et en ressortait vide. */
+      return {
+        candidate, page, lu, texte, documentsVus,
+        echantillon: brut.slice(0, 4000),
+        horsSieges: nouveaux.slice(PAGE_LIENS_SOUMIS),
+        images: extractImageUrls(page.data, page.url, 24),
+        blocs: extractPageBlocks(page.data, page.url),
+      };
+    } catch (e) {
+      console.warn(`[demo-generate] lecture impossible : ${candidate.url} :: ${e?.message}`);
+      // La page sera relue : son texte ne doit pas passer pour deja lu
+      empreintes.delete(empreinte);
+      return { echec: candidate };
+    }
+  };
 
-    /* Les pages en echec sont MISES DE COTE, et ne retournent en file qu'a la
-       FIN de la tranche : remises immediatement, elles restaient en tete du
-       classement et etaient repiochees quelques secondes plus tard, dans la
-       meme fenetre de coupure, ou leur seconde chance se consumait pour rien.
-       Ce sont precisement les pages les plus prioritaires qui mouraient en
-       premier. */
-    for (const r of resultats) {
+  // Ce qu'une page lue apporte : projets, dossiers, liens a suivre, visuels.
+  const traiter = (r) => {
+    explo.pagesLues++;
+    /* Une trouvaille PAR page lue : le compteur de sources de l'ecran dit
+       le vrai compte (il comptait une vague de cinq pour une), et le fil
+       montre chaque page ouverte au lieu d'un cumul. */
+    send({ type: 'finding', kind: 'page', title: r.candidate.label || r.page.url, domain: hostOf(r.page.url) });
+    // Un document n'a pas d'echantillon : il ne porte pas le gabarit du site
+    if (r.echantillon && (explo.echantillons = explo.echantillons || []).length < GABARIT_ECHANTILLONS) {
+      explo.echantillons.push(r.echantillon);
+    }
+    for (const p of r.lu.projets) {
+      if (etageEpci) {
+        /* Les pages d'amorce de l'etage (rubriques d'amenagement) parlent de
+           toute la metropole : le verrou sur les LIENS ne suffit pas, les
+           projets vitrines qu'elles decrivent elles-memes (La Duchere, place
+           Grandclement...) entraient dans la recolte d'une petite commune et
+           voyageaient jusqu'au filet du geocodage pour rien. Un projet de
+           l'etage qui ne nomme la commune ni dans son texte ni par sa page
+           source est un projet d'ailleurs : il ne quitte pas la page. */
+        const texteDuProjet = `${p.title || ''} ${p.place || ''} ${p.address || ''} ${p.geo_query || ''} ${p.description || ''}`;
+        if (!nommeLaCommune({ url: p.source_url || '', label: texteDuProjet })) continue;
+        // La source est l'intercommunalite : l'attestation reste officielle,
+        // le lecteur de la fiche voit d'ou elle vient.
+        p.sources = [{ url: p.source_url, type: 'intercommunalite' }];
+      }
+      // Les dates de la page, relevees pendant qu'on l'a en main : la selection en a besoin
+      if (r.page?.data) { p.page_publiee = dateDePublication(r.page.data); p.page_modifiee = dateDeMiseAJour(r.page.data); }
+      explo.bruts.push(p);
+      send({ type: 'ai-item', phase: 'ai1', title: p.title, quote: (p.evidence_quote || '').slice(0, 220), domain: hostOf(p.source_url) });
+    }
+    /* Les dossiers que la lecture a reconnus sur cette page. Ils sont deja
+       juges pertinents : ils entrent tels quels, avec l'adresse de leur page,
+       et se montrent a l'ecran au fur et a mesure. */
+    for (const d of r.lu.dossiers || []) {
+      if (state.mairie.pdfs.length >= PDF_TOTAL_MAX) break;
+      if (state.mairie.pdfs.some((p) => p.url === d.url)) continue;
+      state.mairie.pdfs.push(d);
+      send({ type: 'finding', kind: 'pdf', title: d.label, domain: 'document officiel' });
+    }
+    /* Les liens que cette page recommande. La priorite ne decide plus de ce
+       qu'on lira - la file est destinee a etre videe - seulement de l'ordre :
+       une page designee par une page de projets a des chances de donner plus
+       vite, autant commencer par elle. */
+    for (const l of r.lu.suivants) proposer(l, PRIORITE[r.lu.interet] ?? 1);
+    /* Tous les PDF croises sont notes : quand le site sera epuise, un seul
+       jugement choisira ceux qui valent d'etre lus. */
+    for (const d of r.documentsVus || []) {
+      const vus = (explo.docsVus = explo.docsVus || []);
+      if (vus.length >= DOCS_VUS_MAX) break;
+      if (!vus.some((x) => x.url === d.url)) vus.push({ url: d.url, label: d.label || '', page: r.candidate.label || '' });
+    }
+    /* Les liens qu'on n'a PAS pu soumettre au modele, au-dela des 60 sieges,
+       n'en disparaissent pas pour autant : sur une page qui parle
+       d'amenagement, ils entrent en file a priorite basse. Elle est faite
+       pour etre videe, et ses gardes bornent deja le cout. */
+    if (r.lu.interet !== 'nulle' && r.horsSieges?.length) {
+      for (const l of r.horsSieges) proposer(l, 0);
+    }
+    // L'index d'images sert plus tard à rattacher un visuel officiel au projet
+    if (r.images.length || r.blocs.length) {
+      /* Index des visuels, pour la phase des illustrations. Le TEXTE y est
+         conserve, ampute mais present : c'est lui qui permet de reconnaitre
+         que cette page parle de ce projet-la. Sans lui, seul le rattachement
+         par bloc fonctionnait, et le repli « page entiere » ne se declenchait
+         jamais - releve sur Lyon, deux vraies photos sur sept la ou toutes
+         les fiches issues du site de la ville en avaient une. */
+      if (state.mairie.pages.length < INDEX_PAGES_MAX) {
+        state.mairie.pages.push({
+          url: r.page.url,
+          title: r.candidate.label,
+          text: r.texte.slice(0, INDEX_TEXTE_MAX),
+          images: r.images.slice(0, 8),
+          blocs: r.blocs.filter((b) => b.images?.length).slice(0, INDEX_BLOCS_MAX),
+        });
+      }
+    }
+    if (!state.mairie.urls.includes(r.page.url)) state.mairie.urls.push(r.page.url);
+  };
+
+  /* LECTEURS EN CONTINU, et non plus par vagues. Une vague de cinq attendait
+     la plus lente de ses cinq pages avant d'en ouvrir une sixieme : une page
+     lente (site qui traine, reprise de l'IA) immobilisait quatre places. Ici,
+     cinq lecteurs puisent chacun dans la file des qu'ils ont fini, ce qui
+     garde exactement cinq connexions ouvertes au plus, la mesure de
+     VAGUE_TAILLE, sans temps mort. Chaque lecteur prend la meilleure
+     candidate du moment : une page qui vient d'en recommander d'autres les
+     fait passer devant sans attendre la fin d'une vague. */
+  let enCours = 0;
+  const enAttente = [];
+  const reveiller = () => { while (enAttente.length) enAttente.shift()(); };
+  const peutOuvrir = () => Date.now() - t0 < PHASE_BUDGET_MS
+    && explo.pagesLues + enCours < EXPLO_PAGES_MAX
+    && (!assezDeMatiere() || explo.repechageFait);
+  const lecteur = async () => {
+    while (peutOuvrir()) {
+      const [candidate] = file.vague(1);
+      if (!candidate) {
+        // File vide pour l'instant : une lecture en cours peut encore la nourrir
+        if (!enCours) break;
+        await new Promise((ok) => enAttente.push(ok));
+        continue;
+      }
+      enCours++;
+      let r = null;
+      try { r = await lireUne(candidate); } catch { r = { echec: candidate }; }
+      enCours--;
+      /* Les pages en echec sont MISES DE COTE, et ne retournent en file qu'a la
+         FIN de la tranche : remises immediatement, elles restaient en tete du
+         classement et etaient repiochees quelques secondes plus tard, dans la
+         meme fenetre de coupure, ou leur seconde chance se consumait pour rien.
+         Ce sont precisement les pages les plus prioritaires qui mouraient en
+         premier. */
       if (r?.echec) echecs.push(r.echec);
-      if (r && !r.echec) traitees++;
+      else if (r) traitees++;
+      if (r?.doublon && process.env.DEMO_DUMP) console.log(`[demo-doublon] ${candidate.url} -> ${r.doublon}`);
+      if (r && !r.echec && !r.ecartee) traiter(r);
+      reveiller();
     }
-
-    for (const r of resultats) {
-      if (!r || r.echec || r.ecartee) continue;
-      explo.pagesLues++;
-      /* Une trouvaille PAR page lue : le compteur de sources de l'ecran dit
-         le vrai compte (il comptait une vague de cinq pour une), et le fil
-         montre chaque page ouverte au lieu d'un cumul. */
-      send({ type: 'finding', kind: 'page', title: r.candidate.label || r.page.url, domain: hostOf(r.page.url) });
-      if ((explo.echantillons = explo.echantillons || []).length < GABARIT_ECHANTILLONS) {
-        explo.echantillons.push(r.echantillon);
-      }
-      for (const p of r.lu.projets) {
-        if (etageEpci) {
-          /* Les pages d'amorce de l'etage (rubriques d'amenagement) parlent de
-             toute la metropole : le verrou sur les LIENS ne suffit pas, les
-             projets vitrines qu'elles decrivent elles-memes (La Duchere, place
-             Grandclement...) entraient dans la recolte d'une petite commune et
-             voyageaient jusqu'au filet du geocodage pour rien. Un projet de
-             l'etage qui ne nomme la commune ni dans son texte ni par sa page
-             source est un projet d'ailleurs : il ne quitte pas la page. */
-          const texteDuProjet = `${p.title || ''} ${p.place || ''} ${p.address || ''} ${p.geo_query || ''} ${p.description || ''}`;
-          if (!nommeLaCommune({ url: p.source_url || '', label: texteDuProjet })) continue;
-          // La source est l'intercommunalite : l'attestation reste officielle,
-          // le lecteur de la fiche voit d'ou elle vient.
-          p.sources = [{ url: p.source_url, type: 'intercommunalite' }];
-        }
-        explo.bruts.push(p);
-        send({ type: 'ai-item', phase: 'ai1', title: p.title, quote: (p.evidence_quote || '').slice(0, 220), domain: hostOf(p.source_url) });
-      }
-      /* Les dossiers que la lecture a reconnus sur cette page. Ils sont deja
-         juges pertinents : ils entrent tels quels, avec l'adresse de leur page,
-         et se montrent a l'ecran au fur et a mesure. */
-      for (const d of r.lu.dossiers || []) {
-        if (state.mairie.pdfs.length >= PDF_TOTAL_MAX) break;
-        if (state.mairie.pdfs.some((p) => p.url === d.url)) continue;
-        state.mairie.pdfs.push(d);
-        send({ type: 'finding', kind: 'pdf', title: d.label, domain: 'document officiel' });
-      }
-      /* Les liens que cette page recommande. La priorite ne decide plus de ce
-         qu'on lira - la file est destinee a etre videe - seulement de l'ordre :
-         une page designee par une page de projets a des chances de donner plus
-         vite, autant commencer par elle. */
-      for (const l of r.lu.suivants) file.ajouter(l.url, l.label, PRIORITE[r.lu.interet] ?? 1);
-      /* Les liens qu'on n'a PAS pu soumettre au modele, au-dela des 60 sieges,
-         n'en disparaissent pas pour autant : sur une page qui parle
-         d'amenagement, ils entrent en file a priorite basse. Elle est faite
-         pour etre videe, et ses gardes bornent deja le cout. */
-      if (r.lu.interet !== 'nulle' && r.horsSieges?.length) {
-        for (const l of r.horsSieges) file.ajouter(l.url, l.label, 0);
-      }
-      // L'index d'images sert plus tard à rattacher un visuel officiel au projet
-      if (r.images.length || r.blocs.length) {
-        /* Index des visuels, pour la phase des illustrations. Le TEXTE y est
-           conserve, ampute mais present : c'est lui qui permet de reconnaitre
-           que cette page parle de ce projet-la. Sans lui, seul le rattachement
-           par bloc fonctionnait, et le repli « page entiere » ne se declenchait
-           jamais - releve sur Lyon, deux vraies photos sur sept la ou toutes
-           les fiches issues du site de la ville en avaient une. */
-        if (state.mairie.pages.length < INDEX_PAGES_MAX) {
-          state.mairie.pages.push({
-            url: r.page.url,
-            title: r.candidate.label,
-            text: r.texte.slice(0, INDEX_TEXTE_MAX),
-            images: r.images.slice(0, 8),
-            blocs: r.blocs.filter((b) => b.images?.length).slice(0, INDEX_BLOCS_MAX),
-          });
-        }
-      }
-      if (!state.mairie.urls.includes(r.page.url)) state.mairie.urls.push(r.page.url);
-    }
-  }
+    reveiller();
+  };
+  await Promise.all(Array.from({ length: VAGUE_TAILLE }, lecteur));
+  explo.empreintes = [...empreintes];
+  explo.aTrier = [...aTrier.values()];
 
   /* Les echecs retournent en file MAINTENANT, hors de la fenetre de coupure
      qui les a fait tomber : ils seront relus a la tranche suivante, et leur
@@ -4022,10 +5949,15 @@ async function coreExplore(send, step, state) {
   if (assezDeMatiere() && !explo.repechageFait) {
     explo.repechageFait = true;
     const restantes = FileExploration.restaurer(explo.file);
-    const candidates = [...restantes.candidates.values()];
+    // Les liens decouverts pas encore tries font partie de ce qui reste
+    const candidates = [...restantes.candidates.values(), ...(explo.aTrier || [])];
+    explo.aTrier = [];
     const enOr = await repecherLesTitresEnOr(commune.nom, candidates);
     if (enOr.length) {
-      const garde = new FileExploration({ hote: mairie.host });
+      /* La file du repechage prend l'hote de l'etage en cours : pendant
+         l'etage intercommunal, une file a l'hote de la mairie refusait les
+         pages repechees, qui ne sont pas sur son site. */
+      const garde = new FileExploration({ hote: hoteEtage });
       garde.vues = restantes.vues;
       for (const l of enOr) garde.ajouter(l.url, l.label, 3);
       explo.file = garde.serialiser();
@@ -4036,10 +5968,33 @@ async function coreExplore(send, step, state) {
       state.__continue = true;
       return state;
     }
-    explo.file = new FileExploration({ hote: mairie.host }).serialiser();
+    explo.file = new FileExploration({ hote: hoteEtage }).serialiser();
   }
 
-  let fini = !file.restantes
+  /* Site de la commune epuise sans abondance (file vide et aucun lien en
+     attente de tri) : c'est le moment de lire ses documents. Un seul
+     jugement, sur le grand modele, avec la date du jour et la liste de ce que
+     le site a deja livre : c'est lui qui decide si des documents valent
+     encore d'etre lus, et lesquels. */
+  if (!file.restantes && !explo.aTrier.length && !etageEpci && !explo.docsChoisis && !assezDeMatiere()
+    && explo.tours < EXPLO_TOURS_MAX && (explo.docsVus || []).length) {
+    explo.docsChoisis = true;
+    const choisis = await choisirLesDocumentsALire(commune, explo.docsVus, explo.bruts.map((b) => b.title));
+    explo.docsVus = [];
+    const suite = FileExploration.restaurer(explo.file);
+    let ajoutes = 0;
+    for (const d of choisis) if (suite.ajouter(d.url, d.label, PRIORITE.forte + 1, { document: true })) ajoutes++;
+    if (ajoutes) {
+      explo.file = suite.serialiser();
+      console.log(`[demo-generate] documents : ${ajoutes} PDF a lire sur le site de ${commune.nom}`);
+      step('ai1', 'done', 'Lecture en cours', `site parcouru, lecture de ${ajoutes} document(s) officiel(s) : procès-verbaux, bulletins, dossiers`);
+      state.__continue = true;
+      return state;
+    }
+  }
+
+  // Le site n'est parcouru que si la file ET les liens en attente de tri sont vides
+  let fini = (!file.restantes && !explo.aTrier.length)
     || explo.pagesLues >= EXPLO_PAGES_MAX
     || explo.tours >= EXPLO_TOURS_MAX
     || explo.tranchesVides >= TRANCHES_VIDES_MAX
@@ -4145,133 +6100,497 @@ La citation doit etre recopiee mot pour mot depuis l'objet ou la description de 
   }
 }
 
-/* ARBITRAGE des rapprochements douteux.
+/* RAPPROCHEMENT ET VÉRIFICATION, en un seul jugement sur le fond.
 
-   Le tri mecanique tranche les cas nets sans rien couter. Restent les paires
-   qui partagent un seul mot caracteristique sans partager leur lieu, ou qui
-   n'en partagent aucun tout en designant peut-etre le meme endroit. On ne
-   soumet alors que les TITRES et les lieux, jamais les pages : c'est un appel
-   court, sur une liste courte, et il ne se declenche pas quand il n'y a aucun
-   doute a lever. */
-const DOUTES_SCHEMA = {
+   La lecture page par page décrit la même opération autant de fois qu'elle a
+   de pages : la rubrique des projets, l'actualité qui annonce le chantier,
+   l'arrêté de circulation, le plan de financement, l'avis de marché,
+   l'inauguration. Elle laisse aussi passer ce qui n'a rien à faire sur une
+   carte de projets (une antenne relais d'opérateur, un élagage, un projet de
+   la commune voisine).
+
+   Ces deux questions étaient traitées à part et sur les seuls titres : un tri
+   lexical (mots communs, liste de mots sans caractère), un arbitrage des paires
+   en doute, puis un contrôle des « résidus ». Mesure sur Vienne : 101
+   descriptions donnaient 205 paires en doute, et la requalification de la
+   place de l'Hôtel de Ville, lue sur trois pages, a été fondue dans la place
+   François Mitterrand puis écartée. À Noyal, « Les Robinsons » et
+   « Construction d'un nouvel accueil de loisirs », le même équipement,
+   restaient deux fiches : rien dans les titres ne le disait, tout dans les
+   descriptions.
+
+   L'IA reçoit donc toutes les descriptions avec leur lieu, leur adresse, leur
+   texte et leur page, et rend en une passe les opérations réelles (leurs
+   membres, leur nom, la description qui les présente le mieux) et, pour
+   chaque description écartée, sa raison. Le code ne juge rien : il vérifie que
+   la réponse couvre chaque description une fois et une seule, puis fond. */
+const RAPPROCHEMENT_MODEL = process.env.DEMO_RAPPROCHEMENT_MODEL || 'gpt-4.1';
+/* Descriptions jugées dans un même appel. Au-delà, la liste est découpée en
+   lots qui gardent ensemble les descriptions d'une même page, puis les
+   opérations des lots sont rapprochées entre elles par le même jugement.
+   Mesure sur Vienne : 108 descriptions en un seul appel, toutes rangées (une
+   seule rangée deux fois, corrigée), pour 12 000 jetons lus. Le plafond reste
+   proche de ce qui a été mesuré : au-delà, rien ne dit encore qu'un appel
+   lit aussi bien le milieu de la liste. */
+const RAPPROCHEMENT_LOT_MAX = Number(process.env.DEMO_RAPPROCHEMENT_LOT_MAX) || 120;
+const RAISONS_D_ECART = {
+  pas_une_operation: 'pas une opération d\'aménagement',
+  hors_commune: 'hors de la commune',
+  acte_administratif: 'simple acte administratif',
+};
+const RAPPROCHEMENT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    memes: {
+    operations: {
       type: 'array',
-      description: 'Index des paires qui designent le MEME chantier physique.',
-      items: { type: 'integer' },
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          membres: { type: 'array', items: { type: 'integer' }, description: 'Index de TOUTES les descriptions de cette opération.' },
+          principal: { type: 'integer', description: 'Index, parmi les membres, de la description qui présente le mieux l\'opération dans son ensemble.' },
+          titre: { type: 'string', description: 'Nom de l\'opération.' },
+        },
+        required: ['membres', 'principal', 'titre'],
+      },
+    },
+    ecartes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer' },
+          raison: { type: 'string', enum: Object.keys(RAISONS_D_ECART) },
+          precision: { type: 'string', description: 'Quelques mots qui disent ce que c\'est.' },
+        },
+        required: ['index', 'raison', 'precision'],
+      },
     },
   },
-  required: ['memes'],
+  required: ['operations', 'ecartes'],
 };
-// Paires soumises par appel d'arbitrage : au-dela, le modele rate le milieu de
-// la liste, exactement comme pour le tri des liens.
-const DOUTES_PAR_LOT = 40;
 
-async function arbitrerLesDoutes(commune, projets, groupes, doutes) {
-  if (!doutes.length) return groupes;
-  const decrire = (i) => `${projets[i].title}${projets[i].geo_query ? ` (lieu : ${projets[i].geo_query})` : ''}`;
-  /* Tous les doutes sont arbitres, par LOTS : la troncature a quarante paires
-     laissait sur une metropole plus de la moitie des doutes sans arbitrage,
-     donc autant de doublons potentiels publies. */
+function consigneRapprochement(communeNom) {
+  return `Tu prépares la carte des projets d'aménagement de ${communeNom}. La lecture du site de la commune, de celui de son intercommunalité, des avis de marchés publics et de la presse a relevé les descriptions numérotées qui suivent. Une même opération y figure souvent plusieurs fois, parce que plusieurs pages en parlent : la présentation du projet, chaque étape du chantier, ses tranches, son plan de financement, sa concertation, l'arrêté qui ferme la rue pendant les travaux, l'avis de marché, l'inauguration.
+
+Range chaque description, une fois et une seule, soit dans une opération, soit parmi les descriptions écartées.
+
+Une opération est un aménagement physique et durable d'un lieu situé à ${communeNom} : construire, rénover, agrandir, requalifier un bâtiment, une voie, une place, un parc, un équipement ou un quartier, que ce soit annoncé, en cours ou livré récemment. Les petites opérations comptent aussi (une aire de jeux, la réfection d'une rue, une borne de recharge) : sur la carte d'un village, ce sont souvent les seules.
+
+Mets dans la même opération toutes les descriptions du même objet au même endroit, même quand leurs titres ne se ressemblent pas : lis les descriptions, c'est là que tu verras qu'un équipement nommé par son nom propre et « la construction d'un nouvel équipement » près du même groupe scolaire sont la même chose. Un arrêté, un plan de financement, un avis de marché, une étude, un diagnostic, des fouilles, une protection réglementaire ou une concertation qui portent sur une opération de la liste rejoignent cette opération au lieu d'être écartés.
+
+Deux objets distincts restent deux opérations, même voisins, même annoncés sur la même page et dans les mêmes termes : deux opérations qui portent chacune leur nom propre (deux zones d'aménagement, deux places, deux programmes de logements de maîtres d'ouvrage différents), une école et la rue qui la dessert, deux bâtiments d'un même quartier. Ne fonds deux descriptions que si elles désignent manifestement le même objet. Dans le doute, laisse-les séparées : fondre deux opérations en efface une de la carte.
+
+Écarte une description, avec sa raison, seulement quand elle ne décrit aucune opération et ne se rattache à aucune opération de la liste :
+- pas_une_operation : un événement, une animation, la présentation d'un équipement qui existe déjà (horaires, fonctionnement), un service, une aide, l'entretien courant (élagage, traitement des arbres, nettoyage), une réparation ponctuelle, ou l'intervention d'un opérateur ou d'un concessionnaire de réseau (antenne relais, électricité, gaz, télécommunications) ;
+- hors_commune : l'opération se situe dans une autre commune ;
+- acte_administratif : un acte qui ne s'accompagne d'aucun aménagement décrit dans la liste (un changement de stationnement ou de sens de circulation, une procédure ou une protection réglementaire sans travaux).
+
+Donne à chaque opération le nom le plus juste, celui qu'un habitant reconnaît : ce qu'on fait et où, avec le nom propre de l'opération ou de l'équipement quand une description le donne (par exemple « Requalification de la place du Marché » ou « Construction de l'école des Tilleuls »). Une phrase nominale, sans le nom de la commune, sans date, sans tiret long, sans majuscules autres que celles des noms propres et des sigles. Le principal est la description qui présente le mieux l'opération dans son ensemble, de préférence une page de la commune plutôt qu'un avis de marché ou un arrêté.`;
+}
+
+/* Les lots gardent ensemble les descriptions d'une même page : une page qui
+   décrit trois opérations voisines doit être lue d'un seul tenant pour qu'on
+   les distingue. Les pages restent dans l'ordre de la lecture. */
+function lotsParPage(projets, taille) {
+  const parPage = new Map();
+  for (const p of projets) {
+    const cle = normaliserUrl(p.source_url);
+    if (!parPage.has(cle)) parPage.set(cle, []);
+    parPage.get(cle).push(p);
+  }
   const lots = [];
-  for (let i = 0; i < doutes.length; i += DOUTES_PAR_LOT) lots.push(doutes.slice(i, i + DOUTES_PAR_LOT));
+  let courant = [];
+  for (const groupe of parPage.values()) {
+    if (courant.length && courant.length + groupe.length > taille) { lots.push(courant); courant = []; }
+    courant.push(...groupe);
+  }
+  if (courant.length) lots.push(courant);
+  return lots;
+}
+
+/* Un seul appel sur une liste qui tient dans un lot. La réponse est vérifiée
+   avant d'être crue : une description revendiquée deux fois reste dans la
+   première opération qui la nomme, une description à la fois rangée et écartée
+   reste rangée, et une description oubliée devient une opération à elle seule.
+   Dans les trois cas, le biais est de garder : une fiche de trop se voit, une
+   fiche perdue ne se voit pas. */
+async function jugerLeRapprochement(commune, projets) {
+  const liste = projets.map((p, i) => ({
+    index: i,
+    titre: p.title || '',
+    lieu: p.geo_query || p.place || '',
+    adresse: p.address || '',
+    description: p.description || '',
+    page: p.source_url || '',
+    ...(p.origine === 'marche' ? { avis_de_marche_du: p.marcheDate || '' } : {}),
+    ...(p.origine === 'presse' ? { presse: true } : {}),
+  }));
+  let out;
   try {
-    const system = `Deux descriptions peuvent designer le MEME chantier de la commune de ${commune.nom}, vu par deux sources differentes, ou deux chantiers DISTINCTS.
-
-Rends les index des paires qui designent le meme chantier physique, au meme endroit. Dans le doute, ne les rapproche pas : fusionner deux operations distinctes fait disparaitre un projet de la carte, alors que les laisser separees ne coute qu'une fiche en double, qu'un dernier controle attrapera plus loin.
-
-Deux descriptions du MEME OBJET sont le MEME chantier, meme si le lieu est formule autrement : « renovation des petites serres » et « restauration des petites serres du parc » designent les memes serres ; une creche nommee et la meme creche avec son adresse sont la meme creche. Deux tranches d'une meme operation aussi.
-En revanche un equipement et la voie qui le dessert sont DISTINCTS, et deux equipements differents d'un meme quartier aussi.`;
-    const verdictsParLot = await inChunks(lots, 2, async (lot) => {
-      const user = lot.map(([i, j], k) => `${k}. A = ${decrire(i)} | B = ${decrire(j)}`).join('\n');
-      const out = await openAIStructured(
-        [{ role: 'system', content: system }, { role: 'user', content: user }],
-        'rapprochement_doutes', DOUTES_SCHEMA, 1000, 40000, 0.1
-      );
-      return (out.memes || [])
-        .filter((k) => Number.isInteger(k) && k >= 0 && k < lot.length)
-        .map((k) => lot[k]);
-    });
-    const aFondre = verdictsParLot.flat();
-    if (!aFondre.length) return groupes;
-
-    /* Les groupes sont refondus : deux projets declares identiques doivent
-       rejoindre le meme groupe, y compris quand chacun appartenait deja a un
-       groupe distinct forme par le tri mecanique. */
-    const groupeDe = new Map();
-    groupes.forEach((g, idx) => { for (const p of g) groupeDe.set(p, idx); });
-    const parent = groupes.map((_, i) => i);
-    const racine = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
-    for (const [i, j] of aFondre) {
-      const gi = groupeDe.get(projets[i]);
-      const gj = groupeDe.get(projets[j]);
-      if (gi === undefined || gj === undefined) continue;
-      const ri = racine(gi); const rj = racine(gj);
-      if (ri !== rj) parent[rj] = ri;
-    }
-    const refondus = new Map();
-    groupes.forEach((g, idx) => {
-      const r = racine(idx);
-      if (!refondus.has(r)) refondus.set(r, []);
-      refondus.get(r).push(...g);
-    });
-    return [...refondus.values()];
+    out = await openAIStructured(
+      [{ role: 'system', content: consigneRapprochement(commune.nom) }, { role: 'user', content: JSON.stringify(liste) }],
+      'rapprochement_operations', RAPPROCHEMENT_SCHEMA, 600 + 60 * projets.length, 150000, 0, RAPPROCHEMENT_MODEL, 3
+    );
   } catch (e) {
-    console.warn(`[demo-generate] arbitrage des rapprochements indisponible :: ${e?.message}`);
-    return groupes;
+    /* Sans jugement, chaque description garde sa fiche : des doublons se
+       voient sur la carte, une opération effacée ne se voit pas. */
+    console.warn(`[demo-generate] rapprochement indisponible, ${projets.length} description(s) gardees telles quelles :: ${e?.message}`);
+    out = { operations: [], ecartes: [] };
+  }
+
+  const n = projets.length;
+  const range = new Array(n).fill(false);
+  const anomalies = { doubles: 0, oublies: 0, horsListe: 0 };
+  const groupes = [];
+  for (const op of out.operations || []) {
+    const membres = [];
+    for (const i of op.membres || []) {
+      if (!Number.isInteger(i) || i < 0 || i >= n) { anomalies.horsListe++; continue; }
+      if (range[i]) { if (!membres.includes(i)) anomalies.doubles++; continue; }
+      range[i] = true;
+      membres.push(i);
+    }
+    if (!membres.length) continue;
+    const principal = membres.includes(op.principal) ? op.principal : membres[0];
+    groupes.push({ membres: membres.map((i) => projets[i]), principal: projets[principal], titre: String(op.titre || '').trim() });
+  }
+  const ecartes = [];
+  for (const e of out.ecartes || []) {
+    const i = e.index;
+    if (!Number.isInteger(i) || i < 0 || i >= n) { anomalies.horsListe++; continue; }
+    if (range[i]) { anomalies.doubles++; continue; }
+    range[i] = true;
+    ecartes.push({ projet: projets[i], raison: e.raison, precision: String(e.precision || '').trim() });
+  }
+  for (let i = 0; i < n; i++) {
+    if (range[i]) continue;
+    anomalies.oublies++;
+    groupes.push({ membres: [projets[i]], principal: projets[i], titre: '' });
+  }
+  if (anomalies.doubles || anomalies.oublies || anomalies.horsListe) {
+    console.warn(`[demo-generate] rapprochement : reponse corrigee sur ${n} descriptions (${anomalies.doubles} rangee(s) deux fois, ${anomalies.oublies} oubliee(s), ${anomalies.horsListe} index hors liste)`);
+  }
+  /* Chaque opération garde la trace de TOUTES ses descriptions, avec la page
+     et la date de chacune : la sélection qui suit juge l'opération sur ce que
+     disent ses pages, la plus récente comprise, et non sur la seule description
+     retenue par la fusion (la plus longue, souvent la plus ancienne). */
+  const lues = (p) => p.descriptions_lues || [{
+    titre: p.title || '', description: p.description || '', page: p.source_url || '',
+    publiee: p.page_publiee || '', modifiee: p.page_modifiee || '', avis_du: p.marcheDate || '',
+  }];
+  return {
+    projets: groupes.map((g) => ({
+      ...fondre(g.membres, { titre: g.titre, principal: g.principal }),
+      descriptions_lues: g.membres.flatMap(lues),
+    })),
+    ecartes,
+  };
+}
+
+/**
+ * Regroupe les descriptions par opération réelle et écarte ce qui n'en est pas.
+ * Au-delà d'un lot, chaque lot est jugé à part, puis les opérations obtenues
+ * sont rapprochées entre elles : une opération décrite par deux pages tombées
+ * dans deux lots différents se retrouve ainsi au second tour.
+ * @returns {Promise<{projets: Array<Object>, ecartes: Array<Object>}>}
+ */
+async function rapprocherLesDescriptions(commune, projets) {
+  if (!projets.length) return { projets: [], ecartes: [] };
+  if (projets.length <= RAPPROCHEMENT_LOT_MAX) return jugerLeRapprochement(commune, projets);
+  const lots = lotsParPage(projets, RAPPROCHEMENT_LOT_MAX);
+  const resultats = await inChunks(lots, 2, (lot) => jugerLeRapprochement(commune, lot));
+  const operations = resultats.flatMap((r) => r.projets);
+  const ecartes = resultats.flatMap((r) => r.ecartes);
+  /* Le second tour ne porte que sur des opérations déjà fondues. S'il n'en
+     réduit pas le nombre en dessous de la liste de départ, on s'arrête là :
+     redécouper la même liste tournerait en rond. */
+  if (operations.length >= projets.length) return { projets: operations, ecartes };
+  const second = await rapprocherLesDescriptions(commune, operations);
+  return { projets: second.projets, ecartes: [...ecartes, ...second.ecartes] };
+}
+
+/* DATES DES PAGES, pour la sélection.
+
+   La lecture relève la date de publication et de mise à jour de chaque page
+   qu'elle a en main ; il reste les pages de la presse, et les descriptions
+   reprises d'un état enregistré avant ce relevé. Leur page est relue ici, une
+   fois (la lecture est partagée avec la rédaction), dans un temps borné : une
+   page qui ne répond pas laisse sa description sans date, ce que la sélection
+   sait traiter. Les PDF ne sont pas relus : leur date de fichier n'est pas
+   celle de leur contenu, qui l'écrit lui-même. */
+const DATATION_BUDGET_MS = 10000;
+async function daterLesPages(projets) {
+  const aDater = [...new Set(projets
+    .filter((p) => !p.page_publiee && !p.page_modifiee && p.origine !== 'marche' && /^https?:\/\//.test(p.source_url || '') && !estUnPdf(p.source_url))
+    .map((p) => p.source_url))];
+  if (!aDater.length) return;
+  const dates = new Map();
+  await inChunks(aDater, 8, async (url) => {
+    const lu = await Promise.race([lireSource(url), new Promise((ok) => setTimeout(() => ok(null), 8000))]);
+    if (lu) dates.set(url, lu);
+  }, Date.now() + DATATION_BUDGET_MS);
+  for (const p of projets) {
+    const lu = dates.get(p.source_url);
+    if (lu && !p.page_publiee && !p.page_modifiee) { p.page_publiee = lu.publiee || ''; p.page_modifiee = lu.modifiee || ''; }
   }
 }
 
-/* CONTROLE FINAL sur les titres.
+/* SÉLECTION DES PROJETS DE LA CARTE.
 
-   La lecture page par page, sur le modele leger, laisse passer quelques
-   residus que la consigne interdit pourtant : mesure sur Lyon, « La salsa
-   cubaine » et « SORCIERE ! », deux evenements culturels, figuraient parmi les
-   cinquante-trois fiches. Devant un elu, une seule suffit a discrediter la
-   carte. Un appel court, sur les seuls titres, ecarte ces residus ; son biais
-   est de GARDER, l'extraction ayant deja filtre l'essentiel. */
-const RESIDUS_SCHEMA = {
+   Le rapprochement range les descriptions par opération ; il ne dit pas si
+   l'opération a sa place sur la carte. Mesure du banc du 10/11/2026 (quatre
+   communes, juges stricts) : environ une fiche sur deux était du remplissage.
+   Cinq micro-fiches découpées dans une page de petits travaux de l'été 2025 à
+   Saint-Genis-Laval (coussins berlinois, fosses d'arbres, un passage piéton),
+   des pages de présentation de parcs (un city-stade rénové en 2024, des vignes
+   plantées en 2013, un parcours santé de 2022), l'aire d'accueil des gens du
+   voyage de Noyal ouverte en 2010, les moulins de Faugères restaurés en 1998.
+
+   L'IA juge donc chaque opération sur trois questions, dans cet ordre : où en
+   est-elle aujourd'hui (d'après la plus récente de ses pages, avec sa date),
+   quelle est son ampleur à l'échelle de CETTE commune, et un habitant
+   l'appellerait-il un projet de sa commune. Le code ne juge rien : il vérifie
+   que chaque opération reçoit un verdict, garde celles qui n'en ont pas, et
+   classe les gardées par ampleur. Pas de plafond : une ville qui mène trente
+   projets réels les montre tous, un village qui en a trois les garde. */
+const SELECTION_MODEL = process.env.DEMO_SELECTION_MODEL || RAPPROCHEMENT_MODEL;
+const VERDICTS = {
+  garder: 'projet de la commune',
+  ancienne: 'opération achevée depuis longtemps',
+  existant: 'présentation d\'un lieu qui existe',
+  entretien: 'entretien ou réparation',
+  ponctuelle: 'intervention ponctuelle sans suite',
+  proposition: 'proposition sans décision',
+  dispositif: 'dispositif ou service, pas un aménagement',
+  recapitulatif: 'liste d\'opérations sans aménagement propre',
+};
+const AMPLEURS = ['structurante', 'notable', 'modeste', 'minime'];
+const SELECTION_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    ecarter: {
+    operations: {
       type: 'array',
-      description: 'Index des entrees qui ne sont manifestement PAS des operations d\'amenagement.',
-      items: { type: 'integer' },
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer' },
+          meme_operation_que: { type: 'integer', description: 'Index d\'une AUTRE opération de la liste qui désigne manifestement le même objet au même endroit, ou -1.' },
+          derniere_etape: { type: 'string', description: 'La plus récente étape que les descriptions rapportent, avec sa date telle qu\'elles l\'écrivent ou, à défaut, la date de la page ou du document qui la rapporte. Vide si rien n\'est daté.' },
+          date_iso: { type: 'string', description: 'La date de cette étape sous la forme AAAA-MM-JJ, AAAA-MM ou AAAA. Vide si elle n\'est pas datée.' },
+          etat: { type: 'string', enum: ['a_l_etude', 'annoncee', 'en_travaux', 'livree', 'abandonnee', 'inconnu'], description: 'Où en est l\'opération AUJOURD\'HUI.' },
+          achevement_constate: { type: 'boolean', description: 'true si une description dit que l\'opération est achevée, livrée, ouverte ou inaugurée.' },
+          suite_annoncee: { type: 'boolean', description: 'true si une description annonce une suite : une tranche, une phase, un équipement de plus.' },
+          operation_d_ensemble: { type: 'boolean', description: 'true pour une opération d\'ensemble menée par tranches sur dix ans et plus (zone d\'aménagement, quartier en renouvellement urbain) ; false pour un bâtiment, une voie, une place, un parc.' },
+          ampleur: { type: 'string', enum: AMPLEURS },
+          /* La justification vient AVANT le verdict : écrite après, elle ne
+             faisait que l'habiller ; écrite avant, elle l'oblige à appliquer
+             la consigne (l'étape, sa date face aux bornes, la nature de
+             l'opération) de la même façon pour toutes. */
+          precision: { type: 'string', description: 'Une phrase qui applique la consigne : l\'étape retenue, sa date comparée aux dates repères, la nature de l\'opération.' },
+          verdict: { type: 'string', enum: Object.keys(VERDICTS) },
+        },
+        required: ['index', 'meme_operation_que', 'derniere_etape', 'date_iso', 'etat', 'achevement_constate', 'suite_annoncee', 'operation_d_ensemble', 'ampleur', 'precision', 'verdict'],
+      },
     },
   },
-  required: ['ecarter'],
+  required: ['operations'],
 };
 
-async function ecarterLesResidus(commune, projets) {
-  if (projets.length < 2) return projets;
-  try {
-    const system = `Voici les titres des fiches retenues pour la carte des projets d'amenagement de ${commune.nom}. La quasi-totalite sont de vraies operations : ton travail est seulement d'ecarter les intrus MANIFESTES.
+function consigneSelection(commune, aujourdhui) {
+  const habitants = commune.population ? ` (${commune.population.toLocaleString('fr-FR')} habitants)` : '';
+  /* Les bornes sont des dates calculées ici : comparer deux dates est sûr,
+     compter des mois ne l'est pas (mesure sur Noyal : des travaux de novembre
+     2024 donnés pour « 12 mois » en novembre 2026). */
+  const ilYa = (mois) => { const d = new Date(); d.setMonth(d.getMonth() - mois); return d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }); };
+  const [dixHuit, deux] = [ilYa(18), ilYa(24)];
+  return `Nous sommes le ${aujourdhui}. Tu choisis les opérations qui figureront sur la carte des projets de ${commune.nom}${habitants}. Un élu qui ouvre cette carte doit y reconnaître les projets de sa commune : ce qu'un habitant appellerait un projet de sa commune, en préparation, en cours ou tout juste livré. Une carte encombrée d'opérations finies depuis longtemps, de présentations d'équipements ou de petits travaux de quelques jours cache les vrais projets.
 
-ECARTE : un spectacle, un concert, un cours ou un atelier, un festival, une exposition, une animation saisonniere, une election, un dispositif evenementiel sans chantier, une INAUGURATION seule (le chantier est fini), et la simple PRESENTATION d'un equipement existant (horaires, tarifs, reservation) sans operation de travaux.
-NE TOUCHE A RIEN d'autre. Sont des amenagements, meme quand le titre ne le crie pas : une restauration de patrimoine, une fresque murale, une aire de jeux, une vegetalisation de cours d'ecole ou de rue, une ferme urbaine, la suppression de feux ou la pietonnisation d'un carrefour, un equipement, une voirie, une concertation sur l'avenir d'une rue. Dans le doute, garde : ecarter a tort fait disparaitre un vrai projet de la carte.`;
-    const user = projets.map((p, i) => `${i}. ${p.title}${p.description ? ` - ${String(p.description).slice(0, 90)}` : ''}`).join('\n');
-    const out = await openAIStructured(
-      [{ role: 'system', content: system }, { role: 'user', content: user }],
-      'residus_titres', RESIDUS_SCHEMA, 800, 40000, 0.1
-    );
-    const ecartes = new Set((out.ecarter || []).filter((i) => Number.isInteger(i) && i >= 0 && i < projets.length));
-    if (ecartes.size) {
-      console.log(`[demo-generate] residus ecartes au controle final : ${[...ecartes].map((i) => projets[i].title).join(' | ')}`);
-    }
-    return projets.filter((_, i) => !ecartes.has(i));
-  } catch (e) {
-    console.warn(`[demo-generate] controle final indisponible :: ${e?.message}`);
-    return projets;
+Chaque opération t'est donnée avec toutes les descriptions relevées à son sujet, chacune avec sa page et, quand on la connaît, la date de publication de cette page, la date de sa dernière modification, la date de parution de l'avis de marché, et les documents PDF que porte la page (intitulé et adresse). Rends un verdict pour CHACUNE des opérations, de l'index 0 au dernier, sans en sauter aucune. Juge chaque opération dans l'ordre des champs.
+
+meme_operation_que : le rapprochement qui a formé cette liste laisse parfois le même objet en deux opérations (un équipement nommé par son nom propre et « la construction d'un nouvel équipement » au même endroit). Si une autre opération de la liste désigne manifestement le même objet au même endroit, donne son index ; sinon -1. Deux objets voisins, ou une opération et la rue qui la dessert, restent distincts.
+
+derniere_etape : la plus récente étape que les descriptions rapportent, datée. La date qui compte est celle que la description écrit ; à défaut, la date de publication d'une actualité, ou celle d'un document qui porte sur l'opération (souvent écrite dans son adresse, par exemple « /2022/06/ » pour juin 2022). Une page décrit SON présent, pas le nôtre : ce qu'une page de 2023 annonçait « pour juin » est passé, et une date écrite sans année se lit par rapport à la date de sa page. La date de modification d'une page dit seulement quand la page a été retouchée : une rubrique (finances, travaux, marchés) complétée cette année garde des informations anciennes, et cette date ne date jamais ce que la page décrit.
+
+date_iso : la date de cette étape, sous la forme AAAA-MM-JJ, AAAA-MM ou AAAA (« rentrée 2025 » donne 2025-09, « été 2024 » 2024-07).
+
+etat : où en est l'opération aujourd'hui, d'après cette étape.
+
+achevement_constate, suite_annoncee, operation_d_ensemble : ce que disent les descriptions, sans rien supposer.
+
+ampleur, à l'échelle de cette commune :
+- structurante : elle transforme un quartier ou dote la commune d'un équipement majeur (zone d'aménagement, programme de renouvellement urbain, ligne de transport, nouveau groupe scolaire, grand équipement) ;
+- notable : un bâtiment construit, agrandi ou rénové en profondeur, une rue, une place ou un parc réaménagé ;
+- modeste : un aménagement durable mais limité (aire de jeux, borne de recharge, plateau ralentisseur, réfection d'une rue, rénovation d'un équipement sportif) ;
+- minime : une intervention de quelques jours qui ne change pas durablement le lieu.
+Dans un village de quelques centaines d'habitants, la réfection d'une rue ou une borne de recharge est notable ; dans une ville de plusieurs dizaines de milliers d'habitants, elle est modeste.
+
+precision : une phrase qui applique la règle du verdict, en comparant la date de l'étape aux dates repères ci-dessous.
+
+verdict :
+- garder : un projet en préparation, en cours, ou livré il y a un an environ, c'est-à-dire en ${dixHuit} ou après, ou un projet livré dont une suite est annoncée ;
+- ancienne : l'opération a été livrée avant ${dixHuit} et rien n'est annoncé après ; ou bien sa plus récente information est si ancienne que, compte tenu de la durée habituelle de ses études et de ses travaux, une opération de cette nature est forcément achevée depuis plus d'un an : quelques semaines de travaux annoncées avant ${deux}, un plan de financement, une demande de subvention ou un avis de marché de tels travaux daté d'avant ${deux}, un bâtiment dont les études étaient en cours il y a cinq ans ou plus. Ces documents sont datés : leur date suffit à juger. Seule une opération d'ensemble menée par tranches sur dix ans et plus (zone d'aménagement, quartier en renouvellement urbain, programme de renouvellement urbain) ne se tient pour achevée que si une description le dit (livraison, inauguration, clôture), car son échéance annoncée glisse souvent et un programme « jusqu'en 2024 » peut se poursuivre ; un bâtiment, même grand, n'en est pas une ;
+- existant : la description présente un lieu ou un équipement qui existe déjà (son histoire, ses usages, son fonctionnement) sans travaux en préparation, en cours ou récents ;
+- entretien : de l'entretien courant ou une réparation qui remet un lieu en état sans le transformer, et qu'un habitant de cette commune ne citerait pas comme un projet ;
+- ponctuelle : une intervention de quelques jours sans suite (déplacer un ralentisseur, poser des bornes, fermer une rue une journée), même faite par la commune ;
+- proposition : une idée soumise au vote ou à l'avis des habitants dont rien ne dit qu'elle a été retenue, ou un souhait sans décision. Une page qui soumet des idées au vote ne dit pas lesquelles l'ont emporté : si une autre description annonce les lauréats, seules celles-là sont des projets ;
+- dispositif : une aide, un accompagnement, une campagne auprès des propriétaires, un service ou une démarche qui n'aménage aucun lieu précis ;
+- recapitulatif : la description ne fait qu'énumérer des opérations distinctes (programme d'investissement, bilan de mandat, budget) sans décrire un aménagement à elle.
+
+Applique la même mesure à toutes les opérations : deux opérations livrées à la même date reçoivent le même verdict. Une petite commune n'a parfois que trois projets, tous modestes : ce sont ses projets, garde-les. N'écarte une opération pour son âge que si une date le montre : sans date, garde-la. Dans le doute entre garder et écarter, garde.`;
+}
+
+/* VÉRIFICATION DE L'ÂGE PAR LE CALCUL.
+
+   L'IA date la dernière étape de chaque opération et dit ce que les
+   descriptions constatent ; comparer cette date à celle du jour est un calcul,
+   et le code le refait. Mesure du banc du 10/11/2026, sur des consignes qui
+   donnaient pourtant les dates repères en clair : l'école Jean Moulin de
+   Vienne, livrée à la rentrée 2025, écartée comme ancienne ; un city-stade
+   rénové au printemps 2024 gardé ; le renouvellement urbain de la Vallée de
+   Gère écarté sur l'échéance « jusqu'en 2024 » d'une page de 2024, alors
+   qu'aucune page ne le dit achevé. Le verdict de l'IA est corrigé dans ces
+   seuls cas, où il contredit la règle qu'elle a reçue :
+   - une opération d'ensemble n'est jamais tenue pour achevée sur une échéance,
+     seulement sur un achèvement constaté ;
+   - une opération dont la dernière étape a moins de FENETRE_LIVRAISON_MOIS
+     n'est pas ancienne ;
+   - une opération livrée, constatée achevée, sans suite annoncée, dont la
+     livraison a plus de FENETRE_LIVRAISON_MOIS, est ancienne.
+   Une date partielle se lit à la fin de sa période (« 2025 » vaut décembre
+   2025) : dans le doute, l'opération paraît plus récente, donc gardée.
+
+   La fenêtre traduit le « livré depuis un an environ » du propriétaire : un
+   an, et six mois de marge pour l'« environ », ce qui garde une école livrée à
+   la rentrée de l'an dernier. */
+const FENETRE_LIVRAISON_MOIS = 18;
+function ageEnMois(iso) {
+  const d = dateIso(iso);
+  if (!d) return null;
+  const fin = new Date(Date.UTC(Number(d.annee), d.mois ? Number(d.mois) - 1 : 11, d.jour ? Number(d.jour) : 28, 12));
+  return (Date.now() - fin.getTime()) / (30.44 * 86400000);
+}
+function verifierLAge(sel) {
+  const age = ageEnMois(sel.date_iso);
+  if (sel.verdict === 'ancienne' && sel.operation_d_ensemble && !sel.achevement_constate) {
+    sel.verdict = 'garder'; sel.corrige = 'opération d\'ensemble dont aucune description ne constate l\'achèvement';
+  } else if (sel.verdict === 'ancienne' && age !== null && age <= FENETRE_LIVRAISON_MOIS) {
+    sel.verdict = 'garder'; sel.corrige = `dernière étape datée de ${Math.round(age)} mois`;
+  } else if (sel.verdict === 'garder' && sel.etat === 'livree' && sel.achevement_constate && !sel.suite_annoncee
+    && !sel.operation_d_ensemble && age !== null && age > FENETRE_LIVRAISON_MOIS) {
+    sel.verdict = 'ancienne'; sel.corrige = `livrée il y a ${Math.round(age)} mois, sans suite annoncée`;
   }
 }
 
-/* Le vocabulaire d'amenagement ne caracterise aucun projet en particulier :
-   « renovation », « travaux » et « ville » se retrouvent dans un titre sur
-   deux. Il est retire avant tout rapprochement. */
-const MOTS_SANS_CARACTERE = GENERIC_PROJECT_WORDS;
+/**
+ * Juge chaque opération : actualité, ampleur, et place sur la carte.
+ * @param {Array<{url: string, label: string, page: string}>} pdfs - documents retenus par la lecture, avec leur page
+ * @returns {Promise<{gardees: Array<Object>, ecartees: Array<Object>}>}
+ */
+async function selectionnerLesProjets(commune, operations, pdfs = []) {
+  if (!operations.length) return { gardees: [], ecartees: [] };
+  const aujourdhui = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const dateDe = (iso) => (iso ? dateLisible(iso) : '');
+  const documentsDe = new Map();
+  for (const d of pdfs) {
+    const cle = normaliserUrl(d.page || '');
+    if (!documentsDe.has(cle)) documentsDe.set(cle, []);
+    documentsDe.get(cle).push({ intitule: d.label || nomDeFichier(d.url), adresse: d.url });
+  }
+  const fiche = (p, i) => ({
+    index: i,
+    titre: p.title || '',
+    lieu: p.place || p.geo_query || '',
+    descriptions: (p.descriptions_lues || [{ titre: p.title, description: p.description, page: p.source_url }]).map((d) => ({
+      titre: d.titre || '',
+      description: d.description || '',
+      page: d.page || '',
+      ...(d.avis_du ? { avis_de_marche_paru_le: d.avis_du } : {}),
+      ...(d.publiee ? { page_publiee_le: dateDe(d.publiee) } : {}),
+      ...(d.modifiee && d.modifiee !== d.publiee ? { page_modifiee_le: dateDe(d.modifiee) } : {}),
+      ...(documentsDe.get(normaliserUrl(d.page || ''))?.length ? { documents_de_la_page: documentsDe.get(normaliserUrl(d.page || '')).slice(0, 10) } : {}),
+    })),
+  });
+  const juger = (indices) => openAIStructured(
+    [{ role: 'system', content: consigneSelection(commune, aujourdhui) }, { role: 'user', content: JSON.stringify(indices.map((i) => fiche(operations[i], i))) }],
+    'selection_projets', SELECTION_SCHEMA, 800 + 150 * indices.length, 150000, 0, SELECTION_MODEL, 3
+  );
+  const verdicts = new Map();
+  const ranger = (out, attendus) => {
+    for (const v of out?.operations || []) {
+      if (attendus.has(v.index) && !verdicts.has(v.index)) verdicts.set(v.index, v);
+    }
+  };
+  const tous = operations.map((_, i) => i);
+  try {
+    ranger(await juger(tous), new Set(tous));
+    /* Une longue liste revient parfois incomplète (mesure sur Noyal : 37
+       verdicts pour 46 opérations, les neuf dernières sautées). Les oubliées
+       sont jugées une seconde fois, seules, plutôt que gardées d'office. */
+    const oubliees = tous.filter((i) => !verdicts.has(i));
+    if (oubliees.length) ranger(await juger(oubliees), new Set(oubliees));
+  } catch (e) {
+    // Sans jugement, ce qui n'en a pas reçu est gardé : une fiche de trop se voit, une fiche perdue ne se voit pas
+    console.warn(`[demo-generate] selection incomplete, ${operations.length - verdicts.size} operation(s) gardees sans verdict :: ${e?.message}`);
+  }
+  operations.forEach((p, i) => {
+    const v = verdicts.get(i);
+    p.selection = v
+      ? {
+        etat: v.etat, ampleur: v.ampleur, derniere_etape: String(v.derniere_etape || '').trim(), date_iso: String(v.date_iso || '').trim(),
+        achevement_constate: Boolean(v.achevement_constate), suite_annoncee: Boolean(v.suite_annoncee), operation_d_ensemble: Boolean(v.operation_d_ensemble),
+        verdict: VERDICTS[v.verdict] ? v.verdict : 'garder', precision: String(v.precision || '').trim(),
+      }
+      : { verdict: 'garder', precision: 'opération sans verdict, gardée' };
+    verifierLAge(p.selection);
+  });
+  const rang = (p) => { const k = AMPLEURS.indexOf(p.selection.ampleur); return k < 0 ? AMPLEURS.length : k; };
+
+  /* Les doublons signalés sont fondus, chaque groupe sous l'opération lue la
+     première. L'opération fondue est gardée si l'un de ses membres l'est, avec
+     la plus grande ampleur de ses membres gardés : une description ancienne du
+     même équipement n'efface pas sa description actuelle. */
+  const chef = operations.map((_, i) => i);
+  const racine = (i) => (chef[i] === i ? i : (chef[i] = racine(chef[i])));
+  for (const [i, v] of verdicts) {
+    const j = v.meme_operation_que;
+    if (Number.isInteger(j) && j >= 0 && j < operations.length && j !== i) {
+      const [a, b] = [racine(i), racine(j)].sort((x, y) => x - y);
+      chef[b] = a;
+    }
+  }
+  const groupes = new Map();
+  operations.forEach((p, i) => {
+    const r = racine(i);
+    if (!groupes.has(r)) groupes.set(r, []);
+    groupes.get(r).push(p);
+  });
+  const fondues = [...groupes.values()].map((g) => {
+    if (g.length === 1) return g[0];
+    const gardes = g.filter((p) => p.selection.verdict === 'garder');
+    const porteur = g[0];
+    const op = fondre(g, { titre: porteur.title, principal: porteur });
+    op.descriptions_lues = g.flatMap((p) => p.descriptions_lues || []);
+    op.selection = gardes.length
+      ? { ...[...gardes].sort((a, b) => rang(a) - rang(b))[0].selection, fondue_avec: g.slice(1).map((p) => p.title) }
+      : { ...porteur.selection, fondue_avec: g.slice(1).map((p) => p.title) };
+    return op;
+  });
+  const nFondues = operations.length - fondues.length;
+  if (nFondues) console.log(`[demo-generate] selection : ${nFondues} doublon(s) fondu(s) :: ${fondues.filter((p) => p.selection.fondue_avec).map((p) => `${p.title} <- ${p.selection.fondue_avec.join(' ; ')}`).join(' | ')}`);
+  const gardees = fondues.filter((p) => p.selection.verdict === 'garder');
+  const ecartees = fondues.filter((p) => p.selection.verdict !== 'garder');
+  if (verdicts.size < operations.length) console.warn(`[demo-generate] selection : ${operations.length - verdicts.size} operation(s) sans verdict, gardees`);
+  /* Les plus structurantes d'abord : la localisation et l'illustration
+     travaillent dans l'ordre de la liste, et une carte se lit par ses grands
+     projets. À ampleur égale, l'ordre de la lecture est gardé. */
+  gardees.sort((a, b) => rang(a) - rang(b));
+  return { gardees, ecartees };
+}
 
 async function coreAi(send, step, state) {
   const { commune, mairie, news, boamp } = state;
@@ -4293,8 +6612,12 @@ async function coreAi(send, step, state) {
 
   step('ai2', 'start', 'Rapprochement et vérification', 'Un même chantier décrit par plusieurs pages ne fait qu\'une fiche');
 
-  // Les avis de marches, en un appel : liste compacte, aucun risque de volume
-  const avis = await depouillerLesAvis(commune, boamp);
+  /* Les avis de marches, en un appel : liste compacte, aucun risque de volume.
+     Pendant ce temps, les pages encore sans date sont datees pour la selection. */
+  const [avis] = await Promise.all([
+    depouillerLesAvis(commune, boamp),
+    daterLesPages([...(state.explo?.bruts || []), ...(state.presseProjets || [])]),
+  ]);
   if (avis.length) console.log(`[demo-generate] avis de marches depouilles : ${avis.length} projet(s)`);
 
   const bruts = [...(state.explo?.bruts || []), ...avis, ...(state.presseProjets || [])];
@@ -4308,40 +6631,52 @@ async function coreAi(send, step, state) {
   ].map(normaliserUrl));
   const allowedHosts = new Set([...allowedUrls].map(hostOf).filter(Boolean));
 
-  let retenus = bruts.filter((p) =>
+  const retenus = bruts.filter((p) =>
     p.confidence !== 'basse'
     && (allowedUrls.has(normaliserUrl(p.source_url)) || allowedHosts.has(hostOf(p.source_url)))
   );
 
-  // Garde-fou concessionnaires : la consigne demande d'ecarter les
-  // interventions de reseau, le modele en laisse passer (releve : « renovation
-  // d'un cable electrique moyenne tension par ENEDIS » presentee comme un
-  // projet urbain). Remplacer une conduite n'est pas un amenagement.
-  const avantConcess = retenus.length;
-  retenus = retenus.filter((p) => !estInterventionReseau(p, commune.nom));
-  if (retenus.length < avantConcess) {
-    console.log(`[demo-generate] interventions de concessionnaire ecartees : ${avantConcess - retenus.length}`);
+  /* RAPPROCHEMENT ET VÉRIFICATION : l'IA regroupe les descriptions par
+     opération réelle et écarte ce qui n'en est pas une (voir
+     rapprocherLesDescriptions). Elle juge aussi les interventions de
+     concessionnaire de réseau, que des expressions régulières sur des noms de
+     marques écartaient ici auparavant. */
+  const { projets: operations, ecartes: nonRetenus } = await rapprocherLesDescriptions(commune, retenus);
+  let projects = operations;
+  const fusionnes = retenus.length - nonRetenus.length - projects.length;
+  const parRaison = {};
+  for (const e of nonRetenus) parRaison[e.raison] = (parRaison[e.raison] || 0) + 1;
+  console.log(`[demo-generate] rapprochement : ${retenus.length} descriptions -> ${projects.length} operations (${fusionnes} fondue(s), ${nonRetenus.length} ecartee(s) : ${Object.entries(parRaison).map(([r, k]) => `${k} ${RAISONS_D_ECART[r] || r}`).join(', ') || 'aucune'})`);
+  if (nonRetenus.length) {
+    console.log(`[demo-generate] descriptions ecartees : ${nonRetenus.map((e) => `${e.projet.title} (${e.precision || RAISONS_D_ECART[e.raison]})`).join(' | ')}`);
   }
 
-  /* RAPPROCHEMENT. C'est la contrepartie de la lecture page par page : le meme
-     ecoquartier figure sur la rubrique « nos projets », sur l'actualite qui
-     annonce le chantier et dans l'avis de marche. Trois pages distinctes,
-     aucune lue deux fois, et pourtant trois entrees a fondre en une.
-     Ce que la mecanique laisse en doute part a l'arbitrage, sur les seuls
-     titres, ce qui est court et sur. */
-  const { groupes, doutes } = regrouper(retenus, MOTS_SANS_CARACTERE);
-  const groupesFinaux = doutes.length ? await arbitrerLesDoutes(commune, retenus, groupes, doutes) : groupes;
-  let projects = groupesFinaux.map((g) => fondre(g, MOTS_SANS_CARACTERE));
-  projects = await ecarterLesResidus(commune, projects);
-  const fusionnes = retenus.length - projects.length;
-  console.log(`[demo-generate] rapprochement : ${retenus.length} descriptions -> ${projects.length} projets (${fusionnes} fondu(s), ${doutes.length} doute(s) arbitre(s))`);
+  /* SELECTION : ce qu'un habitant appellerait un projet de sa commune, actuel
+     et significatif (voir selectionnerLesProjets). Elle passe avant
+     l'arbitrage des marches, pour que la reserve d'avis qui peut regarnir une
+     carte courte ne contienne que des operations retenues. */
+  const { gardees, ecartees: horsCarte } = await selectionnerLesProjets(commune, projects, mairie.pdfs || []);
+  projects = gardees;
+  console.log(`[demo-generate] selection : ${gardees.length} operation(s) gardee(s), ${horsCarte.length} ecartee(s)`);
+  for (const p of horsCarte) console.log(`[demo-selection] ecartee (${VERDICTS[p.selection.verdict]}, ${p.selection.ampleur || '?'}) ${p.title} :: ${p.selection.derniere_etape} :: ${p.selection.precision}${p.selection.corrige ? ` :: corrigé : ${p.selection.corrige}` : ''}`);
+  for (const p of gardees) console.log(`[demo-selection] gardee (${p.selection.etat || '?'}, ${p.selection.ampleur || '?'}) ${p.title} :: ${p.selection.derniere_etape}${p.selection.corrige ? ` :: corrigé : ${p.selection.corrige}` : ''}`);
+  state.stats.selection = {
+    gardees: gardees.length,
+    ecartees: horsCarte.map((p) => ({ titre: p.title, verdict: p.selection.verdict, ampleur: p.selection.ampleur, derniere_etape: p.selection.derniere_etape, precision: p.selection.precision, ...(p.selection.corrige ? { corrige: p.selection.corrige } : {}) })),
+  };
+  for (const p of [...gardees, ...horsCarte]) delete p.descriptions_lues;
 
-  /* La matiere de l'article : les phrases relevees sur chaque page qui parle du
-     projet. Elle remplace l'extrait composite d'autrefois, qui etait decoupe a
-     l'aveugle dans un corpus commun. */
+  /* La matiere de l'article : l'extrait de la page qui presente le mieux
+     l'operation, suivi des citations relevees mot pour mot sur ses autres
+     pages. Chaque page de l'operation a ainsi sa phrase dans la matiere,
+     au lieu de la seule page porteuse. */
   for (const p of projects) {
-    p.source_excerpt = (p.page_excerpt || [p.description, p.evidence_quote].filter(Boolean).join('\n\n'))
+    const principal = (p.page_excerpt || [p.description, p.evidence_quote].filter(Boolean).join('\n\n'))
       .slice(0, SOURCE_EXCERPT_CHARS);
+    const autres = (p.citations || [])
+      .map((c) => c.citation)
+      .filter((c) => c && !principal.includes(c));
+    p.source_excerpt = [principal, ...autres.map((c) => `« ${c} »`)].join('\n\n');
     delete p.page_excerpt;
   }
 
@@ -4428,10 +6763,170 @@ async function coreAi(send, step, state) {
 /* Trois methodes, toutes precises. Le niveau « quartier identifie » a ete
    retire avec l'etage IRIS : une emprise de secteur statistique n'est pas la
    position d'un projet. */
+
+/* ─── Affinage des emprises par les données nationales ─────────────────────
+
+   Le geocodage pose souvent une epingle la ou la commune a un vrai contour :
+   un perimetre de ZAC publie au Geoportail de l'urbanisme, l'emprise d'une
+   ecole dans la BD TOPO, le trace d'une rue. Ces sources couvrent toute la
+   France et ne demandent pas de cle. Mesure sur Noyal-Chatillon-sur-Seiche :
+   la ZAC Centre-Ville etait dessinee comme une rue, celle de l'Ise comme une
+   epingle, alors que leurs perimetres sont publies.
+
+   L'IA dit d'abord quelle FORME a chaque projet sur une carte (perimetre
+   d'operation, batiment, voie, ponctuel) ; on ne cherche ensuite que la forme
+   annoncee, et seulement au pied de la position deja trouvee : on corrige un
+   contour, jamais un emplacement. Une source qui ne repond pas laisse au
+   projet sa geometrie d'origine. */
+const EMPRISE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    formes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          index: { type: 'integer' },
+          forme: { type: 'string', enum: ['perimetre', 'batiment', 'voie', 'ponctuel'] },
+        },
+        required: ['index', 'forme'],
+      },
+    },
+  },
+  required: ['formes'],
+};
+const AFFINAGE_BUDGET_MS = 12000;
+const GEOPF_WFS = 'https://data.geopf.fr/wfs/ows';
+// Au-dela, une « emprise » n'est plus celle d'un equipement mais d'une zone entiere
+const BATIMENT_SURFACE_MAX_M2 = 200000;
+// Demi-cote de la recherche autour de la position trouvee (environ 200 m)
+const RAYON_RECHERCHE_DEG = 0.0018;
+
+async function formesDesProjets(commune, projets) {
+  try {
+    const system = `Pour chaque projet de ${commune.nom}, dis quelle forme il prend sur une carte : « perimetre » pour une opération d'aménagement d'ensemble sur tout un secteur (ZAC, lotissement, quartier en renouvellement, zone d'activités), « batiment » pour la construction ou la rénovation d'un bâtiment ou d'un équipement avec son terrain (école, gymnase, église, salle, crèche, mais aussi un immeuble ou une résidence, même situés dans une ZAC), « voie » pour des travaux sur une rue, une route, une piste cyclable, un pont ou un quai, « ponctuel » pour tout le reste (borne, plantation, mobilier, réseau enterré).`;
+    const user = JSON.stringify(projets.map((p, i) => ({ index: i, titre: p.title, lieu: p.place || '', adresse: p.address || '', description: (p.description || '').slice(0, 240) })));
+    const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
+      'formes_projets', EMPRISE_SCHEMA, 1500, 30000, 0.1, OPENAI_MODEL_LIGHT, 2);
+    const parIndex = new Map((out.formes || []).map((f) => [f.index, f.forme]));
+    return projets.map((_, i) => parIndex.get(i) || 'ponctuel');
+  } catch (e) {
+    console.warn(`[demo-generate] formes des projets indisponibles :: ${e?.message}`);
+    return projets.map(() => 'ponctuel');
+  }
+}
+
+function anneauxDe(g) {
+  if (g?.type === 'Polygon') return [g.coordinates[0]];
+  if (g?.type === 'MultiPolygon') return g.coordinates.map((p) => p[0]);
+  return [];
+}
+function pointDansAnneau([x, y], anneau) {
+  let dedans = false;
+  for (let i = 0, j = anneau.length - 1; i < anneau.length; j = i++) {
+    const [xi, yi] = anneau[i]; const [xj, yj] = anneau[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) dedans = !dedans;
+  }
+  return dedans;
+}
+const contientPoint = (g, pt) => anneauxDe(g).some((a) => pointDansAnneau(pt, a));
+function surfaceM2(g) {
+  let total = 0;
+  for (const a of anneauxDe(g)) {
+    const kx = 111320 * Math.cos(a[0][1] * Math.PI / 180); const ky = 110540;
+    let s = 0;
+    for (let i = 1; i < a.length; i++) s += (a[i - 1][0] * kx) * (a[i][1] * ky) - (a[i][0] * kx) * (a[i - 1][1] * ky);
+    total += Math.abs(s) / 2;
+  }
+  return total;
+}
+
+// Perimetres de ZAC du Geoportail de l'urbanisme qui contiennent la position :
+// une requete ponctuelle repond en une a deux secondes, la commune entiere en
+// plus de dix (elle ramene aussi tous les zonages d'assainissement).
+async function perimetreDeZac(pt) {
+  const r = await fetchWithTimeout('https://apicarto.ign.fr/api/gpu/info-surf', {
+    method: 'POST', headers: { ...UA, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ geom: { type: 'Point', coordinates: pt } }),
+  }, 8000);
+  if (!r.ok) return null;
+  const d = await lireJson(r, 8000, 20000000);
+  return (d.features || []).filter((f) => f.properties?.typeinf === '02').map((f) => f.geometry)
+    .sort((a, b) => surfaceM2(a) - surfaceM2(b))[0] || null;
+}
+
+async function wfsAutour(couche, [lng, lat], filtre = '') {
+  const q = new URLSearchParams({
+    SERVICE: 'WFS', VERSION: '2.0.0', REQUEST: 'GetFeature', TYPENAMES: couche, OUTPUTFORMAT: 'application/json', COUNT: '200',
+    CQL_FILTER: `BBOX(geometrie,${lat - RAYON_RECHERCHE_DEG},${lng - RAYON_RECHERCHE_DEG},${lat + RAYON_RECHERCHE_DEG},${lng + RAYON_RECHERCHE_DEG})${filtre}`,
+  });
+  const r = await fetchWithTimeout(`${GEOPF_WFS}?${q}`, { headers: UA }, 7000);
+  if (!r.ok) return [];
+  return (await lireJson(r, 7000, 8000000)).features || [];
+}
+
+// La plus petite zone d'interet de la BD TOPO (ecole, stade, eglise...) qui contient la position
+async function empriseDeBatiment(pt) {
+  const zones = (await wfsAutour('BDTOPO_V3:zone_d_activite_ou_d_interet', pt))
+    .filter((f) => contientPoint(f.geometry, pt) && surfaceM2(f.geometry) <= BATIMENT_SURFACE_MAX_M2)
+    .sort((a, b) => surfaceM2(a.geometry) - surfaceM2(b.geometry));
+  return zones[0]?.geometry || null;
+}
+
+// La voie nommee de la BD TOPO, proche de la position, dont le projet cite le nom
+async function traceDeVoie(pt, texte, insee) {
+  const voies = await wfsAutour('BDTOPO_V3:voie_nommee', pt, insee ? ` AND insee_commune='${insee}'` : '');
+  const meule = unaccentLower(texte);
+  const nommees = voies.filter((f) => {
+    const nom = unaccentLower(f.properties?.nom_voie_ban || '');
+    const directeur = unaccentLower(f.properties?.mot_directeur || '');
+    return nom && (meule.includes(nom) || (directeur.length >= 4 && meule.includes(directeur)));
+  });
+  return nommees.length === 1 ? nommees[0].geometry : null;
+}
+
+async function affinerLesEmprises(commune, located, bbox) {
+  const echeance = Date.now() + AFFINAGE_BUDGET_MS;
+  const formes = await formesDesProjets(commune, located);
+  const besoin = (f, g) => ((f === 'perimetre' || f === 'batiment') && !/Polygon/.test(g.type))
+    || (f === 'voie' && !/Line/.test(g.type));
+  const aFaire = located.map((_, i) => i).filter((i) => besoin(formes[i], located[i].geometry));
+  if (!aFaire.length) return 0;
+  let affines = 0;
+  await inChunks(aFaire, 6, async (i) => {
+    if (Date.now() > echeance) return;
+    const p = located[i];
+    const c = centroidOf(p.geometry);
+    const pt = [c.lng, c.lat];
+    let g = null; let methode = null;
+    try {
+      if (formes[i] === 'perimetre') {
+        g = await perimetreDeZac(pt);
+        methode = 'perimetre';
+      } else if (formes[i] === 'batiment') {
+        g = await empriseDeBatiment(pt); methode = 'emprise';
+      } else if (formes[i] === 'voie') {
+        g = await traceDeVoie(pt, `${p.title} ${p.place || ''} ${p.address || ''} ${p.geo_query || ''}`, commune.code); methode = 'trace';
+      }
+    } catch { g = null; }
+    // Même plafond que les lieux du répertoire : la forme est simplifiée
+    // plutôt que refusée quand elle est trop lourde.
+    const allegee = g && extentAcceptable(g, bbox) ? allegerLaGeometrie(g) : null;
+    if (allegee) {
+      p.geometry = allegee; p.method = methode; affines++;
+    }
+  }, echeance);
+  return affines;
+}
+
 const METHOD_LABELS = {
   emprise: 'emprise réelle trouvée',
   trace: 'tracé réel trouvé',
   adresse: 'adresse précise',
+  perimetre: 'périmètre officiel trouvé',
+  lieu: 'lieu-dit officiel',
 };
 
 /* Deux fiches designent-elles le MEME chantier ?
@@ -4449,65 +6944,71 @@ function memeChantier(a, b, distanceM) {
 
 /* Phase LOCALISATION.
 
-   Elle est DECOUPEE EN TRANCHES : Nominatim impose un rythme d'une requete par
-   seconde, et depuis que le nombre de projets n'est plus plafonne, une commune
-   bien dotee demande plus de temps qu'une invocation ne peut en tenir. Chaque
-   invocation travaille pendant un budget borne puis rend la main ; le client
-   rappelle la meme phase, qui reprend a son curseur. Auparavant, le budget
-   epuise faisait simplement basculer TOUS les projets suivants en « non
-   localisable » (mesure sur Oyonnax : 15 punaises perdues sur 18).
+   Quatre étages, dans l'ordre :
+   1. le répertoire des lieux nommés de la commune, relevé une seule fois dans
+      la BD TOPO (voir releverLeRepertoire) ;
+   2. le rattachement de chaque projet à l'un de ces lieux, par l'IA, en un
+      appel découpé en lots parallèles ;
+   3. l'assemblage : la vraie géométrie du lieu désigné, ou l'adresse BAN
+      quand la source donne un numéro, puisqu'un numéro désigne un bâtiment et
+      non la rue entière ;
+   4. Nominatim, borné à dix requêtes, pour les lieux que la source écrit mais
+      que le répertoire ne nomme pas (bâtiments, lieux de culte) ;
+   5. la BAN sur les formulations du projet, pour les projets que l'IA n'a pas
+      pu juger.
+   Ce qui n'a toujours pas de lieu est écarté.
+
+   Elle est DECOUPEE EN TRANCHES : chaque invocation travaille pendant un
+   budget borne puis rend la main ; le client rappelle la meme phase, qui
+   reprend a son etape. Le releve du repertoire et l'appel a l'IA tiennent
+   chacun dans une tranche, l'affinage final dans la sienne.
 
    Elle parle AU FIL DE L'EAU : chaque projet part a l'ecran des qu'il est
-   place. L'ancienne version n'emettait rien avant la fin du dedoublonnage,
-   soit une minute entiere pendant laquelle le bandeau restait fige devant le
-   prospect. Le dedoublonnage est desormais incremental, ce qui rend l'emission
-   immediate sans jamais afficher une punaise absente de la carte finale. */
+   place, apres un dedoublonnage incremental qui n'affiche jamais une punaise
+   absente de la carte finale. */
 const PHASE_BUDGET_MS = 22000;
-const NOMINATIM_RATE_MS = 1050;
 /* Deux fiches ne peuvent pas occuper le meme point : au-dela d'un projet, une
    position partagee est un repli du geocodeur, pas l'adresse du chantier. */
 const POSITION_MIN_M = 45;
 // Filet anti-boucle : au-dela, on finalise avec ce qu'on a plutot que de
 // rappeler la phase indefiniment.
 const GEO_MAX_TOURS = 14;
-/* Nombre de formulations tentees par projet a l'etage Nominatim.
-   Une seule ne suffit pas : la premiere est souvent la forme complete
-   (« stade Claude-Fichot »), que l'annuaire ne connait pas sous ce nom, quand
-   la seconde est le nom propre seul (« Claude-Fichot »), qui rend l'equipement.
-   Les essais sont ordonnes par RANG, pas par projet : tous les projets tentent
-   leur meilleure formulation avant qu'aucun n'en tente une seconde, pour qu'un
-   budget de tranche epuise ne prive personne de son premier essai. */
-const NOMINATIM_ESSAIS = 2;
+/* L'appel a l'IA ne part que s'il peut finir dans la tranche ; sinon il
+   ouvre la suivante, qui commence avec un budget entier. */
+const RATTACHEMENT_DEPART_MAX_MS = PHASE_BUDGET_MS - RATTACHEMENT_TIMEOUT_MS;
+// Requetes Nominatim au plus par generation (une par seconde : dix secondes)
+const NOMINATIM_MAX = 10;
+// Un lot que l'IA n'a pas pu traiter est retente une fois a la tranche suivante.
+const RATTACHEMENT_REPRISES = 1;
+const GEO_VERSION = 2;
 
 /* Brouillon ecrit par une version anterieure du code.
-   L'etat de la phase de localisation voyage en base entre les tranches, et une
-   mise en production peut tomber au milieu d'une generation. Les champs absents
-   doivent etre recrees, sinon un `.push` sur `undefined` fait echouer la
-   reprise. De meme, `aTester` contenait de simples indices avant de contenir
-   des paires [projet, rang] : le destructurer sur un nombre leve une exception
-   et la generation se terminait en echec, brouillon intact et IA deja payee. */
-function migrerEtatGeo(geo, queries) {
+   L'etat de la phase voyage en base entre les tranches, et une mise en
+   production peut tomber au milieu d'une generation. Un etat des anciens
+   etages (annuaire d'adresses projet par projet) garde ses projets deja
+   situes et renvoie ceux qui restent au repertoire ; les champs absents sont
+   recrees, sinon un `.push` sur `undefined` fait echouer la reprise. */
+function migrerEtatGeo(geo) {
   if (!geo) return geo;
-  if (!Array.isArray(geo.titresFusionnes)) geo.titresFusionnes = [];
-  if (!Array.isArray(geo.titresSuperposes)) geo.titresSuperposes = [];
-  if (!Array.isArray(geo.titresAbandonnes)) geo.titresAbandonnes = [];
-  if (!Array.isArray(geo.aTester)) geo.aTester = [];
-  if (geo.etape === 'nominatim' && geo.aTester.length && !Array.isArray(geo.aTester[0])) {
-    geo.aTester = essaisNominatim(queries);
-    geo.curseur = 0;
+  for (const k of ['titresFusionnes', 'titresSuperposes', 'titresAbandonnes', 'reste']) {
+    if (!Array.isArray(geo[k])) geo[k] = [];
   }
+  if (geo.version !== GEO_VERSION) {
+    geo.version = GEO_VERSION;
+    geo.etape = 'repertoire';
+    geo.aTester = geo.reste.slice();
+    delete geo.curseur;
+    delete geo.lieuxIa;
+  }
+  if (!Array.isArray(geo.aTester)) geo.aTester = geo.reste.slice();
+  if (!geo.choix) geo.choix = {};
+  if (!geo.reprisesIa) geo.reprisesIa = 0;
   return geo;
 }
 
-function essaisNominatim(queries) {
-  const paires = [];
-  for (let rang = 0; rang < NOMINATIM_ESSAIS; rang++) {
-    for (let i = 0; i < queries.length; i++) {
-      if (queries[i].length > rang) paires.push([i, rang]);
-    }
-  }
-  return paires;
-}
+const methodeDe = (g) => (/Line/.test(g.type) ? 'trace' : /Polygon/.test(g.type) ? 'emprise' : 'lieu');
+// Les projets que l'IA a jugés : ceux-là ne repassent pas par la BAN (voir l'étage 4)
+const jugeParLIa = (geo, i) => !!geo.choix?.[i];
 
 async function coreGeo(send, step, state) {
   const { projects, bbox } = state;
@@ -4516,26 +7017,21 @@ async function coreGeo(send, step, state) {
     code: state.commune.code,
     centre: { coordinates: [state.commune.lng, state.commune.lat] },
   };
-  const queries = projects.map((p) => locationQueries(p, state.commune.nom));
-  if (process.env.DEMO_DUMP && !state.geo) {
-    // Ce que le geocodeur va reellement chercher. Sans cette trace, un projet
-    // non localise ne dit pas s'il manquait de lieu ou si l'annuaire a echoue.
-    projects.forEach((p, i) => {
-      console.log(`[demo-geo] "${p.title}" -> ${queries[i].length ? queries[i].join(' | ') : 'AUCUNE REQUETE'}`);
-      console.log(`[demo-geo]   extrait : ${(p.source_excerpt || '').slice(0, 400).replace(/\s+/g, ' ')}`);
-    });
-  }
 
   // Etat de la phase, serialisable : il voyage d'une tranche a l'autre
   const geo = state.geo || (state.geo = {
-    etape: 'nominatim',
-    curseur: 0,
-    /* A l'etage Nominatim, des paires [indice de projet, rang de formulation].
-       Les etages suivants remplacent ce tableau par de simples indices. */
-    aTester: essaisNominatim(queries),
+    version: GEO_VERSION,
+    etape: 'repertoire',
+    // Indices des projets que l'etape en cours doit traiter
+    aTester: projects.map((_, i) => i),
     // Indices encore sans position, tous etages confondus
     reste: projects.map((_, i) => i),
-    lieuxIa: null,
+    /* Le repertoire compact : { n: nom, t: nature, c: couche, k: cle }. Ses
+       geometries ne voyagent pas, elles sont relues par cle (repertoireDe). */
+    lieux: null,
+    // Reponse de l'IA par indice de projet : { lieux: [index], adresse: bool }
+    choix: {},
+    reprisesIa: 0,
     fusionnes: 0,
     superposes: 0,
     /* Les TITRES des projets ecartes, pas seulement leur nombre. L'ecran de
@@ -4550,13 +7046,13 @@ async function coreGeo(send, step, state) {
     tours: 0,
   });
 
-  migrerEtatGeo(geo, queries);
+  migrerEtatGeo(geo);
   state.located = state.located || [];
   geo.tours++;
 
   const premiereTranche = geo.tours === 1;
   if (premiereTranche) {
-    step('geo', 'start', 'Localisation des projets', `${projects.length} projet(s) à situer, emprises réelles OpenStreetMap et adresses officielles BAN`);
+    step('geo', 'start', 'Localisation des projets', `${projects.length} projet(s) à situer parmi les lieux nommés des données nationales de l'IGN et les adresses officielles BAN`);
   } else {
     step('geo', 'start', 'Localisation des projets', `${state.located.length} situé(s), ${geo.reste.length} en cours...`);
   }
@@ -4564,12 +7060,12 @@ async function coreGeo(send, step, state) {
   /* Accepte un projet localisé : dédoublonnage incrémental, puis émission
      immédiate. Rend true si le projet a rejoint la carte. */
   const accepter = (i, loc) => {
+    /* Une emprise géante ne tient pas dans le brouillon relu à chaque tranche :
+       elle est simplifiée, et ne retombe en point que si la simplification ne
+       suffit pas. */
+    const allegee = allegerLaGeometrie(loc.geometry);
     const c = centroidOf(loc.geometry);
-    // Une emprise géante ne tient pas dans le brouillon relu à chaque tranche :
-    // elle retombe en point, comme avant, mais plus tôt.
-    if (JSON.stringify(loc.geometry).length >= 15000) {
-      loc.geometry = { type: 'Point', coordinates: [c.lng, c.lat] };
-    }
+    loc.geometry = allegee || { type: 'Point', coordinates: [c.lng, c.lat] };
     const projet = { ...projects[i], ...loc };
 
     for (const deja of state.located) {
@@ -4580,16 +7076,13 @@ async function coreGeo(send, step, state) {
         return false;
       }
       /* Une position DÉJÀ OCCUPÉE n'est pas celle de ce projet-ci.
-         J'avais relâché cette règle en pensant à deux bâtiments d'un même
-         groupe scolaire. La réalité mesurée est autre : sur Saint-Denis (974),
-         CINQ fiches ont atterri sur exactement le même polygone, à la sixième
-         décimale près. Ce n'étaient pas cinq projets voisins, mais cinq avis
-         de marché sans lieu propre (« bâtiments communaux », « les écoles »,
-         « les cimetières », « voiries ») que le géocodeur a tous rabattus sur
-         le même repli. Un emplacement partagé par plusieurs projets n'est la
-         position d'aucun : c'est exactement la position fabriquée que le reste
-         du système s'interdit. Le projet est donc écarté, et compté comme
-         « emplacement non vérifiable », ce qu'il est réellement. */
+         Mesuré sur Saint-Denis (974) : CINQ fiches avaient atterri sur
+         exactement le même polygone, à la sixième décimale près. Ce n'étaient
+         pas cinq projets voisins, mais cinq avis de marché sans lieu propre
+         (« bâtiments communaux », « les écoles », « les cimetières »,
+         « voiries ») rabattus sur le même repli. Un emplacement partagé par
+         plusieurs projets n'est la position d'aucun. Le projet est donc
+         écarté, et compté comme « emplacement non vérifiable ». */
       if (d < POSITION_MIN_M) {
         geo.superposes++;
         geo.titresSuperposes.push(projet.title);
@@ -4621,40 +7114,148 @@ async function coreGeo(send, step, state) {
   };
 
   const t0 = Date.now();
-  const budgetEpuise = () => Date.now() - t0 > PHASE_BUDGET_MS;
+  const ecoule = () => Date.now() - t0;
+  const budgetEpuise = () => ecoule() > PHASE_BUDGET_MS;
 
-  // Passe a l'etage suivant : on repart de ce qui n'a pas encore de position
   const etapeSuivante = (nom) => {
     geo.etape = nom;
-    geo.curseur = 0;
     geo.aTester = geo.reste.slice();
   };
 
   while (geo.etape !== 'final' && !budgetEpuise() && geo.tours <= GEO_MAX_TOURS) {
-    /* Etage 1, Nominatim : seule source d'emprises et de traces reels, donc on
-       lui reserve le budget, mais UNE requete par projet et au rythme impose
-       par sa politique d'usage (1 requete/seconde). */
-    if (geo.etape === 'nominatim') {
-      if (geo.curseur >= geo.aTester.length) { etapeSuivante('ban'); continue; }
-      const [i, rang] = geo.aTester[geo.curseur++];
-      // Le projet a pu etre place par un essai precedent
-      if (!geo.reste.includes(i) || !queries[i][rang]) continue;
-      const hit = await nominatimLookup(queries[i][rang], communeShim, bbox);
-      if (hit) { retirerDuReste(i); accepter(i, hit); }
-      // Le rythme appartient a la boucle, pas au lookup : place dans le lookup,
-      // il n'etait applique qu'en cas d'echec.
-      await sleep(NOMINATIM_RATE_MS);
+    /* Etage 1 : le repertoire. Indisponible (Geoplateforme muette), la phase
+       se rabat sur la BAN seule plutot que de tout ecarter. */
+    if (geo.etape === 'repertoire') {
+      if (!geo.lieux) {
+        /* La recette de l'open data est jugée une seule fois, pendant que le
+           relevé de l'IGN tourne : les deux tiennent ensemble dans la tranche.
+           Elle reste ensuite dans l'état, pour que les tranches suivantes
+           relisent les mêmes lieux sans refaire juger l'IA. */
+        if (geo.recetteOuverte === undefined) {
+          const [recette] = await Promise.all([
+            recetteOuverteBornee(state.commune.code),
+            repertoireDe(state.commune.code).catch(() => null),
+          ]);
+          geo.recetteOuverte = recette;
+        }
+        try {
+          /* Une seconde chance apres une pause : le repertoire porte presque
+             toute la localisation, et une coupure de quelques secondes (DNS
+             muet, Geoplateforme saturee) suffisait a vider la carte. Mesure
+             le 10/11/2026 : 48 projets attestes a Noyal, aucun situe. */
+          const rep = await repertoireDe(state.commune.code, geo.recetteOuverte)
+            .catch(async () => { await new Promise((ok) => setTimeout(ok, 3000)); return repertoireDe(state.commune.code, geo.recetteOuverte); });
+          geo.lieux = rep.lieux;
+        } catch (e) {
+          console.warn(`[demo-generate] répertoire des lieux indisponible pour ${state.commune.nom} :: ${e?.message}`);
+          geo.lieux = [];
+        }
+      }
+      if (!geo.lieux.length) { etapeSuivante('ban'); continue; }
+      const operations = geo.lieux.filter((l) => l.c === 'operation').length;
+      step('geo', 'start', 'Localisation des projets', `${geo.lieux.length} lieux nommés de la commune relevés${operations ? `, dont ${operations} opération(s) d'aménagement publiées par les collectivités` : ''}, rattachement de ${geo.reste.length} projet(s)...`);
+      etapeSuivante('rattachement');
       continue;
     }
 
-    /* Etage 2, BAN : officielle, scopee sur la commune, sans quota. Elle
-       rattrape tout le reste en une poignee de secondes, donc en parallele. */
+    // Etage 2 : l'IA rattache les projets aux lieux du repertoire
+    if (geo.etape === 'rattachement') {
+      if (!geo.aTester.length) { geo.etape = 'assemblage'; geo.aTester = geo.reste.slice(); continue; }
+      if (ecoule() > RATTACHEMENT_DEPART_MAX_MS) break;
+      const res = await rattacherAuxLieux(state.commune, geo.lieux, projects, geo.aTester);
+      const echoues = [];
+      for (const i of geo.aTester) {
+        const r = res.get(i);
+        if (r) geo.choix[i] = r; else echoues.push(i);
+      }
+      if (echoues.length && geo.reprisesIa < RATTACHEMENT_REPRISES) {
+        geo.reprisesIa++;
+        geo.aTester = echoues;
+        break;
+      }
+      geo.etape = 'assemblage';
+      geo.aTester = geo.reste.slice();
+      continue;
+    }
+
+    /* Etage 3 : l'assemblage. La geometrie du lieu designe, ou l'adresse BAN
+       quand la source donne un numero que l'IA confirme comme celui du projet
+       et que le lieu designe n'est qu'une voie (ou rien) : un numero designe
+       un batiment, pas la rue entiere. */
+    if (geo.etape === 'assemblage') {
+      let rep;
+      try { rep = await repertoireDe(state.commune.code, geo.recetteOuverte); } catch (e) {
+        console.warn(`[demo-generate] répertoire des lieux à relire indisponible :: ${e?.message}`);
+        etapeSuivante('ban');
+        continue;
+      }
+      const lot = geo.aTester.slice();
+      const adresses = await inChunks(lot, 8, async (i) => {
+        const p = projects[i];
+        if (!geo.choix[i]?.adresse || !AVEC_NUMERO_RE.test(String(p.address || ''))) return null;
+        return banGeocode(p.address, communeShim, bbox);
+      });
+      lot.forEach((i, k) => {
+        if (!geo.reste.includes(i)) return;
+        const choix = geo.choix[i];
+        const noms = (choix?.lieux || []).map((x) => geo.lieux[x]).filter(Boolean);
+        const geoms = noms.map((l) => rep.geometries.get(l.k));
+        const angle = choix?.croisement && geoms.every(Boolean) ? pointDeCroisement(geoms[0], geoms[1]) : null;
+        const g = angle || fusionnerGeometries(geoms);
+        const adresse = adresses[k];
+        /* Le contour d'une opération publiée par la collectivité est son
+           périmètre officiel, et l'écran le dit comme tel. */
+        const perimetre = !angle && g && /Polygon/.test(g.type) && noms[0]?.c === 'operation';
+        let loc = null;
+        if (adresse && (!g || /Line/.test(g.type))) loc = adresse;
+        // L'angle de deux rues est une adresse, pas un lieu-dit : il en prend le libellé à l'écran.
+        else if (g) loc = { geometry: g, method: angle ? 'adresse' : perimetre ? 'perimetre' : methodeDe(g), lieu_repertoire: noms.map((l) => l.n).join(angle ? ' x ' : ' + ') };
+        if (process.env.DEMO_DUMP) {
+          console.log(`[demo-geo] "${projects[i].title}" « ${choix?.situation || ''} » -> ${loc ? `${loc.lieu_repertoire || `adresse ${projects[i].address}`} (${loc.method})` : 'aucun lieu'}`);
+        }
+        if (loc) { retirerDuReste(i); accepter(i, loc); }
+      });
+      /* Ce que le répertoire ne nomme pas, mais dont la source écrit le lieu,
+         passe au dernier recours Nominatim (étage 4). Le lieu interrogé est
+         la « situation » que l'IA a recopiée de la source, jamais le titre. */
+      geo.etape = 'nominatim';
+      geo.aTester = geo.reste
+        .filter((i) => motsSignificatifs(geo.choix[i]?.situation || '', state.commune.nom).size > 0)
+        .slice(0, NOMINATIM_MAX);
+      continue;
+    }
+
+    /* Etage 4, Nominatim : un dernier recours, borné. La BD TOPO ne nomme ni
+       les bâtiments ni la plupart des lieux de culte. Mesuré le 10/11/2026 :
+       sans cet étage, l'église Saint-Christophe de Faugères et la Maison
+       Ricard de Saint-Genis-Laval, situées par OpenStreetMap dans la version
+       précédente, restaient sans emplacement. Une requête par seconde, imposée
+       par sa politique d'usage, et au plus NOMINATIM_MAX requêtes par
+       génération : l'étage ne peut plus occuper la moitié de la durée. */
+    if (geo.etape === 'nominatim') {
+      const i = geo.aTester.shift();
+      if (i === undefined) { etapeSuivante('ban'); continue; }
+      if (!geo.reste.includes(i)) continue;
+      const hit = await nominatimLookup(geo.choix[i].situation, communeShim, bbox);
+      if (process.env.DEMO_DUMP) console.log(`[demo-geo] nominatim « ${geo.choix[i].situation} » -> ${hit ? `${hit.method} ${hit.geometry.type}` : 'rien'}`);
+      if (hit) { retirerDuReste(i); accepter(i, { ...hit, lieu_repertoire: `OpenStreetMap : ${geo.choix[i].situation}` }); }
+      continue;
+    }
+
+    /* Etage 5, BAN sur les formulations du projet : officielle, scopee sur la
+       commune, sans quota, en parallele. Elle ne sert qu'aux projets que l'IA
+       n'a pas pu juger (repertoire ou IA indisponibles). Un projet pour lequel
+       l'IA a repondu « aucun lieu » n'y passe pas : la BAN ne connait que des
+       voies et des numeros, que le repertoire contient deja, et elle reprenait
+       justement ce que l'IA avait ecarte. Mesure a Noyal (10/11/2026) : la
+       « rue de Vern », adresse de la salle d'une reunion publique, devenait
+       l'emplacement de l'operation Coeur de Ville, a 261 m de son perimetre. */
     if (geo.etape === 'ban') {
-      const lot = geo.aTester.slice(geo.curseur, geo.curseur + 8);
-      geo.curseur += lot.length;
-      if (!lot.length) { etapeSuivante('ia'); continue; }
+      geo.aTester = geo.aTester.filter((i) => !jugeParLIa(geo, i));
+      const lot = geo.aTester.splice(0, 8);
+      if (!lot.length) { geo.etape = 'final'; continue; }
       const trouves = await inChunks(lot, 8, async (i) => {
-        for (const q of queries[i]) {
+        for (const q of locationQueries(projects[i], state.commune.nom)) {
           const hit = await banGeocode(q, communeShim, bbox);
           if (hit) return { i, hit };
         }
@@ -4665,54 +7266,13 @@ async function coreGeo(send, step, state) {
       }
       continue;
     }
-
-    /* L'etage des quartiers IRIS de l'INSEE a ete RETIRE.
-
-       Il posait le projet sur l'emprise d'un secteur statistique entier, ce qui
-       revient a colorier un quartier de plusieurs centaines de metres pour un
-       chantier ponctuel. Mesure sur Venissieux : la ligne de tramway T10 et
-       Grand Parilly - Puisoz etaient rendus ainsi. Devant un elu qui connait
-       son territoire, une tache large affichee a la place d'un projet precis se
-       lit comme une approximation, pas comme une information.
-       Un projet qu'on ne sait situer qu'a la maille du quartier est desormais
-       ecarte, comme tous les autres emplacements non verifiables. */
-
-    /* Dernier recours : on redemande a l'IA. Elle a lu les sources et
-       sait souvent nommer un lieu geocodable que les champs structures n'ont
-       pas rendu. Un seul appel pour tous les projets restants. */
-    if (geo.etape === 'ia') {
-      if (!geo.lieuxIa) {
-        const restants = geo.reste.slice();
-        const propositions = restants.length ? await askAiForPlaces(state.commune, restants.map((i) => projects[i])) : [];
-        geo.lieuxIa = restants
-          .map((i, k) => ({ i, lieu: propositions[k] }))
-          .filter((x) => x.lieu && x.lieu.length >= 3 && !adresseDeGuichet(x.lieu, projects[x.i].source_excerpt));
-        // BAN d'abord, en parallele et sans quota
-        const trouves = await inChunks(geo.lieuxIa, 8, async ({ i, lieu }) => {
-          const hit = await banGeocode(lieu, communeShim, bbox);
-          return hit ? { i, hit } : null;
-        });
-        for (const r of trouves) {
-          if (r && geo.reste.includes(r.i)) { retirerDuReste(r.i); accepter(r.i, r.hit); }
-        }
-        geo.curseur = 0;
-        continue;
-      }
-      // Nominatim ensuite, en serie et au rythme impose, pour les lieux NOMMES
-      // (« quartier de la Plaine ») que la BAN n'indexe pas.
-      if (geo.curseur >= geo.lieuxIa.length) { geo.etape = 'final'; continue; }
-      const { i, lieu } = geo.lieuxIa[geo.curseur++];
-      if (!geo.reste.includes(i)) continue;
-      const hit = await nominatimLookup(lieu, communeShim, bbox);
-      if (hit) { retirerDuReste(i); accepter(i, hit); }
-      await sleep(NOMINATIM_RATE_MS);
-      continue;
-    }
   }
 
-  // Budget epuise mais travail inacheve : on rend la main, la tranche suivante
-  // reprend exactement ou celle-ci s'arrete.
-  if (geo.etape !== 'final' && geo.tours < GEO_MAX_TOURS) {
+  /* Budget epuise mais travail inacheve : on rend la main, la tranche suivante
+     reprend exactement ou celle-ci s'arrete. L'affinage final a lui aussi sa
+     tranche quand celle-ci n'a plus de quoi le tenir. */
+  const resteAFaire = geo.etape !== 'final' || ecoule() > PHASE_BUDGET_MS - AFFINAGE_BUDGET_MS;
+  if (resteAFaire && geo.tours < GEO_MAX_TOURS) {
     step('geo', 'done', 'Localisation en cours', `${state.located.length} projet(s) situé(s) jusqu'ici`);
     state.__continue = true;
     return state;
@@ -4751,13 +7311,12 @@ async function coreGeo(send, step, state) {
     geo.titresAbandonnes.push(...geo.reste.map((i) => projects[i].title));
     const depart = projects.length;
     projects.push(...reserve);
-    // On repart uniquement sur les nouveaux venus, à l'étage le plus complet.
-    geo.etape = 'nominatim';
-    geo.curseur = 0;
+    /* On repart uniquement sur les nouveaux venus, depuis le répertoire : il
+       est déjà relevé, la tranche suivante passe donc tout de suite à l'IA. */
+    geo.etape = 'repertoire';
     geo.reste = reserve.map((_, k) => depart + k);
-    geo.aTester = essaisNominatim(projects.map((p) => locationQueries(p, state.commune.nom)))
-      .filter(([i]) => i >= depart);
-    geo.lieuxIa = null;
+    geo.aTester = geo.reste.slice();
+    geo.reprisesIa = 0;
     step('geo', 'done', 'Localisation en cours', `${state.located.length} projet(s) situé(s), reprise sur les marchés publics`);
     state.projects = projects;
     state.__continue = true;
@@ -4784,6 +7343,12 @@ async function coreGeo(send, step, state) {
     send({ type: 'error', kind: 'sans-projet', message: messageSansProjet(state.commune.nom) });
     return null;
   }
+
+  const affines = await affinerLesEmprises(state.commune, located, bbox).catch((e) => {
+    console.warn(`[demo-generate] affinage des emprises impossible :: ${e?.message}`);
+    return 0;
+  });
+  if (affines) console.log(`[demo-generate] ${affines} emprise(s) affinée(s) par les données nationales`);
 
   /* Le compte devient DEFINITIF ici, le geocodage etant la derniere etape qui
      puisse reduire la liste. C'est donc le moment d'annoncer une carte courte :
@@ -4876,6 +7441,11 @@ function coverKey(u) {
    Rend null si le service ne couvre pas la commune, ou si ce cadrage exact a
    déjà servi à un autre projet, ce qui n'arrive qu'entre deux projets voisins
    au mètre près. */
+// Filet anti-boucle de la phase : elle lit d'abord toutes les sources, puis juge
+// quatre projets par tranche, ce qui peut demander plus de tranches que la
+// localisation.
+const MEDIA_MAX_TOURS = 30;
+
 function vueAerienneDe(projet, disponible, used) {
   if (!disponible) return null;
   const url = vueAerienneUrl(projet.geometry);
@@ -4885,8 +7455,8 @@ function vueAerienneDe(projet, disponible, used) {
 
 async function coreMedia(send, step, state) {
   const located = state.located;
-  const pages = state.mairie?.pages || [];
-  const media = state.media || (state.media = { curseur: 0, illustrated: 0, aeriennes: 0, used: [], tours: 0 });
+  const indexMairie = state.mairie?.pages || [];
+  const media = state.media || (state.media = { curseur: 0, illustrated: 0, aeriennes: 0, used: [], tours: 0, pages: {}, gabarit: null, entonnoir: [] });
   media.tours++;
 
   /* La couverture aérienne est sondée UNE fois et retenue sur l'état racine :
@@ -4898,52 +7468,159 @@ async function coreMedia(send, step, state) {
   }
 
   if (media.tours === 1) {
-    console.log(`[demo-generate] media: ${located.length} projets, ${pages.length} page(s) mairie indexée(s)`);
-    step('media', 'start', 'Recherche des illustrations des projets', 'Chaque image est choisie par l\'IA selon le sujet');
+    console.log(`[demo-generate] media: ${located.length} projets, ${indexMairie.length} page(s) mairie indexée(s)`);
+    step('media', 'start', 'Recherche des illustrations des projets', 'Nous ouvrons les sources de chaque projet et regardons leurs images');
   } else {
     step('media', 'start', 'Recherche des illustrations', `${media.illustrated} trouvée(s), ${located.length - media.curseur} projet(s) restant(s)`);
   }
-
   const t0 = Date.now();
-  const used = new Set(media.used);
 
-  // Concurrence 4 : a 6 appels vision simultanes, les connexions sortantes du
-  // bac a sable de fonctions partaient en UND_ERR_CONNECT_TIMEOUT en rafale
+  /* 1. Lecture de toutes les sources de tous les projets, avant tout jugement :
+     c'est en comparant les pages d'un même site qu'on reconnaît son gabarit
+     (une image présente sur la moitié des pages n'illustre aucun projet). */
+  const aLire = [...new Set(located.flatMap((p) => documentsDuProjet(p).map((d) => d.url)))].filter((u) => !(u in media.pages));
+  for (let k = 0; k < aLire.length && Date.now() - t0 < PHASE_BUDGET_MS; k += 6) {
+    await Promise.all(aLire.slice(k, k + 6).map(async (url) => {
+      /* Une seconde tentative après une pause : six lectures de front sur le
+         même site essuient parfois un refus passager, et une page perdue ici
+         l'est pour toutes les fiches qui la citent (Vienne, 10/11/2026 : deux
+         perspectives perdues d'une mesure à l'autre). */
+      let r = await fetchCapped(url, { headers: UA }, FETCH_TIMEOUT_MS, SOURCE_PAGE_OCTETS, true);
+      if (!r?.data) {
+        await sleep(1500);
+        r = await fetchCapped(url, { headers: UA }, FETCH_TIMEOUT_MS, SOURCE_PAGE_OCTETS, true);
+      }
+      if (!r?.data) { media.pages[url] = { images: [], echec: true }; return; }
+      const octets = new Uint8Array(r.data);
+      if (String.fromCharCode(...octets.slice(0, 5)) === '%PDF-' || estUnPdf(url)) { media.pages[url] = { pdf: true, images: [] }; return; }
+      const html = new TextDecoder('utf-8', { fatal: false }).decode(octets);
+      media.pages[url] = { titre: titreDeLaPage(html), images: imagesDuHtml(html, r.url || url).slice(0, 30) };
+    }));
+  }
+  if (aLire.some((u) => !(u in media.pages))) {
+    step('media', 'done', 'Illustrations en cours', 'Lecture des sources des projets');
+    state.__continue = true;
+    return state;
+  }
+  if (!media.gabarit) {
+    const lues = Object.values(media.pages);
+    console.log(`[demo-generate] media: ${lues.length} source(s) ouverte(s), dont ${lues.filter((x) => x.pdf).length} PDF et ${lues.filter((x) => x.echec).length} illisible(s)`);
+    /* Les pages de l'index de la mairie comptent aussi : relevées pendant
+       l'exploration, elles montrent le gabarit du site sur des dizaines de
+       pages, là où les sources des projets n'en sont qu'une poignée. */
+    const toutes = { ...Object.fromEntries(indexMairie.map((pg) => [pg.url, { images: (pg.images || []).map((u) => ({ url: u })) }])), ...media.pages };
+    const parSite = new Map();
+    for (const [url, page] of Object.entries(toutes)) {
+      if (page.pdf || page.echec) continue;
+      const site = parSite.get(hostOf(url)) || parSite.set(hostOf(url), { pages: 0, vues: new Map() }).get(hostOf(url));
+      site.pages++;
+      for (const cle of new Set(page.images.map((im) => cleImage(im.url)))) site.vues.set(cle, (site.vues.get(cle) || 0) + 1);
+    }
+    media.gabarit = [];
+    for (const site of parSite.values()) {
+      if (site.pages < ILLUS_GABARIT_PAGES_MIN) continue;
+      for (const [cle, n] of site.vues) if (n >= Math.max(ILLUS_GABARIT_PAGES_MIN, site.pages / 2)) media.gabarit.push(cle);
+    }
+  }
+
+  /* 2. Jugement, projet par projet, quatre à la fois : au-delà, les connexions
+     sortantes du bac à sable de fonctions partaient en UND_ERR_CONNECT_TIMEOUT. */
+  // Images publiées sur les pages propres de chaque projet
+  const proprietaires = new Map();
+  located.forEach((p, i) => {
+    for (const d of documentsDuProjet(p)) {
+      for (const im of media.pages[d.url]?.images || []) {
+        const cle = cleImage(im.url);
+        (proprietaires.get(cle) || proprietaires.set(cle, new Set()).get(cle)).add(i);
+      }
+    }
+  });
+  // Pages et documents que plusieurs projets citent comme source
+  const citees = new Map();
+  for (const p of located) for (const d of documentsDuProjet(p)) citees.set(d.url, (citees.get(d.url) || 0) + 1);
+  const partagees = new Set([...citees].filter(([, n]) => n > 1).map(([u]) => u));
+  const chezLesAutres = (i) => new Set([...proprietaires].filter(([, qui]) => [...qui].some((j) => j !== i)).map(([cle]) => cle));
+
+  const used = new Set(media.used);
   while (media.curseur < located.length && Date.now() - t0 < PHASE_BUDGET_MS) {
     const lot = [];
     for (let k = 0; k < 4 && media.curseur < located.length; k++) lot.push(media.curseur++);
     const choix = await inChunks(lot, 4, async (i) => {
       const p = located[i];
-      const candidates = await gatherImageCandidates(p, state.commune.nom, pages);
-      const img = candidates.length ? await pickBestImageWithAI(p, state.commune.nom, candidates) : null;
-      if (process.env.DEMO_DUMP) {
-        const origines = candidates.map((x) => (/wikimedia|wikipedia/.test(x.url) ? 'commons' : 'site')).join(',');
-        console.log(`[demo-media] "${p.title}" : ${candidates.length} candidats [${origines}] -> ${img ? 'RETENU ' + img.title : 'aucun'}`);
+      const { retenues, journal } = await imagesDuProjet(p, state.commune.nom, media, indexMairie, chezLesAutres(i));
+      let jugement = { natures: [], montre: [], meilleure: -1 };
+      if (retenues.length) {
+        try { jugement = await jugerLesImages(p, state.commune.nom, retenues); } catch (e) {
+          console.warn(`[demo-media] juge indisponible pour "${p.title}" : ${e?.message}`);
+        }
       }
-      return { i, img };
+      return { i, retenues, journal, jugement };
     });
+
     // Le rattachement est séquentiel : `used` interdit la même photo sur deux
     // fiches, et cette décision ne peut pas se prendre en parallèle.
-    for (const { i, img } of choix) {
-      const retenu = img && !used.has(coverKey(img.url))
-        ? { url: img.url, credit: img.credit, source: 'photo' }
-        : vueAerienneDe(located[i], state.ignAerien, used);
-      if (!retenu) continue;
-      used.add(coverKey(retenu.url));
-      located[i].coverSrc = retenu.url;
-      located[i].coverCredit = retenu.credit;
+    for (const { i, retenues, journal, jugement } of choix) {
+      const deNature = (n) => retenues.map((img, k) => ({ img, k })).filter(({ k }) => jugement.natures[k] === n);
+      const projet = deNature('projet').sort((a, b) => (b.k === jugement.meilleure) - (a.k === jugement.meilleure));
+      // Une image tirée d'un PDF n'a pas d'adresse : sa clé est sa taille
+      const cle = (img) => (img.url ? cleImage(img.url) : `pdf:${img.w}x${img.h}:${img.octets.byteLength}`);
+      const libre = (liste) => liste.find(({ img }) => !used.has(cle(img)))?.img;
+      /* Ordre de préférence : une image du projet ; puis une photo du lieu
+         publiée sur la page principale du projet quand cette page lui est
+         consacrée (le bâtiment à réhabiliter, la rue avant les travaux), qui en
+         dit plus qu'une vue du ciel ; puis la vue aérienne du lieu exact, juste
+         par construction ; enfin, là où l'IGN ne couvre pas, une photo du lieu
+         trouvée ailleurs. Sur une page qui traite de plusieurs projets ou d'un
+         autre sujet (le budget de l'année, la rubrique urbanisme), « le lieu »
+         était le bandeau du site ou la carte de toute la commune. */
+      const bonnes = (liste) => liste.filter(({ img }) => !estSecondaire(img));
+      const petites = (liste) => liste.filter(({ img }) => estSecondaire(img));
+      let retenu = null;
+      const lieux = deNature('lieu');
+      const surSaPage = lieux.filter(({ img }) => img.principale && !partagees.has(img.page));
+      const photo = libre(bonnes(projet)) || libre(petites(projet));
+      const lieuSur = libre(bonnes(surSaPage));
+      if (photo) retenu = { img: photo, source: 'photo' };
+      else if (lieuSur) retenu = { img: lieuSur, source: 'lieu' };
+      else {
+        const aerien = vueAerienneDe(located[i], state.ignAerien, used);
+        if (aerien) retenu = { aerien };
+        else {
+          const lieu = libre(bonnes(lieux)) || libre(petites(lieux));
+          if (lieu) retenu = { img: lieu, source: 'lieu' };
+        }
+      }
+      let url = null; let credit = null; let source = null;
+      if (retenu?.aerien) ({ url, credit, source } = retenu.aerien);
+      else if (retenu?.img) {
+        url = retenu.img.url || await deposerImage(retenu.img).catch(() => null);
+        credit = retenu.img.credit;
+        source = retenu.source;
+        if (url) used.add(cle(retenu.img));
+      }
+      const resultat = !url ? 'aucune' : source === 'aerien' ? 'aerien' : source === 'lieu' ? 'lieu' : retenu.img.url ? 'projet' : 'projet-pdf';
+      const natures = jugement.natures.reduce((a, n) => ({ ...a, [n]: (a[n] || 0) + 1 }), {});
+      media.entonnoir.push({ i, titre: located[i].title, ...journal, jugees: retenues.length, natures, resultat });
+      if (process.env.DEMO_DUMP) {
+        console.log(`[demo-media] "${located[i].title}" : ${journal.trouvees} trouvées, ${journal.gabarit} gabarit, ${journal.ailleurs || 0} d'un autre projet, refus ${JSON.stringify(journal.refus)}, ${journal.pdf} de PDF${journal.pdfRefus.length ? ` (${journal.pdfRefus.join(', ')})` : ''}, ${retenues.length} jugées ${JSON.stringify(natures)} -> ${resultat}${url && source !== 'aerien' ? ` ${retenu.img.provenance} ${retenu.img.w}x${retenu.img.h}` : ''}`);
+        retenues.forEach((img, k) => console.log(`[demo-media]    ${k} ${jugement.natures[k] || '-'} ${img.w}x${img.h} ${img.url || img.provenance} :: ${jugement.montre[k] || ''}`));
+      }
+      if (!url) continue;
+      used.add(coverKey(url));
+      located[i].coverSrc = url;
+      located[i].coverCredit = credit;
       media.illustrated++;
-      if (retenu.source === 'aerien') media.aeriennes++;
+      if (source === 'aerien') media.aeriennes++;
       const c = centroidOf(located[i].geometry);
       // coverSrc + coordonnées : le front pose la photo directement sur la carte
       send({
         type: 'media-item',
         title: located[i].title,
-        credit: retenu.credit,
-        coverSrc: retenu.url,
+        credit,
+        coverSrc: url,
         lat: c.lat,
         lng: c.lng,
-        source: retenu.source,
+        source: source === 'aerien' ? 'aerien' : 'photo',
         // Conservé pour les écrans déjà ouverts au moment d'une mise en ligne
         generique: false,
       });
@@ -4951,59 +7628,20 @@ async function coreMedia(send, step, state) {
   }
   media.used = [...used];
 
-  if (media.curseur < located.length && media.tours < GEO_MAX_TOURS) {
+  if (media.curseur < located.length && media.tours < MEDIA_MAX_TOURS) {
     step('media', 'done', 'Illustrations en cours', `${media.illustrated} illustration(s) trouvée(s)`);
     state.__continue = true;
     return state;
   }
   delete state.__continue;
 
-  /* Repli thematique pour les projets restes sans visuel. Une seule recherche
-     Commons par THEME distinct, pas par projet : deux ecoles partagent la meme
-     requete. Le credit annonce explicitement l'image comme generique.
-
-     Depuis la vue aerienne, ce repli ne sert plus que la ou l'IGN ne couvre pas
-     la commune. Une photo d'une AUTRE piscine se repere en un instant devant un
-     elu, la ou la vue aerienne de sa propre commune se verifie ; on ne descend
-     donc a ce rang que faute de mieux. Sur une generation ordinaire, cet appel
-     a l'IA ne part plus du tout. */
-  const sansImage = located.map((p, i) => ({ p, i })).filter(({ p }) => !p.coverSrc);
-  if (sansImage.length) {
-    const themes = await themesGeneriques(state.commune.nom, sansImage.map(({ p }) => p));
-    const parRequete = new Map();
-    sansImage.forEach(({ i }, k) => {
-      const t = themes[k];
-      if (!t?.requete) return;
-      if (!parRequete.has(t.requete)) parRequete.set(t.requete, { libelle: t.libelle, cibles: [] });
-      parRequete.get(t.requete).cibles.push(i);
-    });
-    if (parRequete.size) {
-      const entrees = [...parRequete.entries()];
-      const resultats = await inChunks(entrees, 4, async ([requete]) => commonsTextCandidates(requete));
-      entrees.forEach(([, info], k) => {
-        const dispo = (resultats[k] || []).filter((c) => !VISION_UNSUPPORTED_RE.test(c.url) && !used.has(coverKey(c.url)));
-        // Une image differente par projet quand la recherche en offre plusieurs
-        info.cibles.forEach((idx, rang) => {
-          const c = dispo[rang % Math.max(dispo.length, 1)];
-          if (!c || used.has(coverKey(c.url))) return;
-          used.add(coverKey(c.url));
-          located[idx].coverSrc = c.url;
-          located[idx].coverCredit = `Illustration générique (${info.libelle}) - ${c.credit}`;
-          media.illustrated++;
-          const pt = centroidOf(located[idx].geometry);
-          send({ type: 'media-item', title: located[idx].title, credit: located[idx].coverCredit, coverSrc: c.url, lat: pt.lat, lng: pt.lng, source: 'generique', generique: true });
-        });
-      });
-      console.log(`[demo-generate] media: repli thématique appliqué sur ${entrees.reduce((s, [, i2]) => s + i2.cibles.length, 0)} projet(s)`);
-    }
-  }
-
   const illustrated = media.illustrated;
   const aeriennes = media.aeriennes;
   const photos = illustrated - aeriennes;
   console.log(`[demo-generate] media: ${illustrated}/${located.length} illustrés dont ${aeriennes} vue(s) aérienne(s) (${media.tours} tranche(s))`);
+  if (process.env.DEMO_DUMP) console.log(`[demo-entonnoir] ${JSON.stringify(media.entonnoir)}`);
   step('media', illustrated ? 'done' : 'skip', 'Illustrations trouvées',
-    `${illustrated}/${located.length} projets illustrés${aeriennes ? ` (${photos} visuel(s) officiel(s), ${aeriennes} vue(s) aérienne(s) du lieu)` : ' (image choisie par l\'IA)'}`);
+    `${illustrated}/${located.length} projets illustrés${aeriennes ? ` (${photos} image(s) des sources, ${aeriennes} vue(s) aérienne(s) du lieu)` : ''}`);
   // Refuser une photo hors sujet est une décision, pas un échec : on l'affiche
   if (located.length - illustrated > 0) {
     send({ type: 'rejected', kind: 'photo', count: located.length - illustrated });
@@ -5022,11 +7660,21 @@ async function coreMedia(send, step, state) {
 }
 
 /* Phase RÉDACTION, découpée en tranches comme la localisation et les
-   illustrations. Un article se recherche puis s'écrit en cinq à dix secondes :
-   dix-sept articles ne tiennent plus dans une invocation, alors que trois
-   appels de lot y tenaient. Trois articles à la fois, pas davantage : le bac à
-   sable des fonctions rompt ses connexions sortantes au-delà. */
+   illustrations. Un article se lit, s'extrait puis s'écrit en cinq à quarante
+   secondes selon le nombre de ses sources : vingt-cinq articles ne tiennent pas
+   dans une invocation. Trois articles à la fois, pas davantage : le bac à sable
+   des fonctions rompt ses connexions sortantes au-delà. */
 const ARTICLES_CONCURRENCE = 3;
+
+// Tiret cadratin ou demi-cadratin entre deux mots : une virgule ; en tete de ligne : rien
+function sansTiretLong(texte) {
+  if (typeof texte !== 'string') return texte;
+  return texte
+    .replace(/(\d)[ \t]*[\u2013\u2014][ \t]*(\d)/g, '$1-$2')
+    .replace(/^([ \t]*)[\u2013\u2014][ \t]*/gm, '$1')
+    .replace(/[ \t]*[\u2013\u2014][ \t]*/g, ', ')
+    .replace(/,\s*,/g, ',');
+}
 
 async function coreRedact(send, step, state) {
   const located = state.located;
@@ -5042,28 +7690,43 @@ async function coreRedact(send, step, state) {
 
   const t0 = Date.now();
   const pdfs = state.mairie?.pdfs || [];
-  const mairieHost = state.mairie?.host || '';
 
-  while (redac.curseur < located.length && Date.now() - t0 < PHASE_BUDGET_MS) {
-    const lot = [];
-    for (let k = 0; k < ARTICLES_CONCURRENCE && redac.curseur < located.length; k++) lot.push(redac.curseur++);
-    const ecrits = await inChunks(lot, ARTICLES_CONCURRENCE, async (i) => {
+  /* Trois places de redaction tenues en continu : chacune prend le projet
+     suivant des qu'elle a fini le sien. Les vagues de trois attendaient leur
+     article le plus lent avant d'en lancer d'autres, alors qu'un article prend
+     de cinq a quarante secondes selon ses sources : les places liberees
+     restaient vides jusqu'a la fin de la vague. Le nombre d'articles
+     menes de front ne change pas, ni la regle de la tranche : une place ne
+     prend plus de projet passe le budget de temps. */
+  await Promise.all(Array.from({ length: ARTICLES_CONCURRENCE }, async () => {
+    while (redac.curseur < located.length && Date.now() - t0 < PHASE_BUDGET_MS) {
+      const i = redac.curseur++;
+      let a = null;
       try {
-        const markdown = await redigerArticle(state.commune, located[i], pdfs, mairieHost);
+        /* Les autres fiches de la carte partent avec le projet : l'extraction
+           rend à chacune les passages qui la concernent (voir extraireLesFaits). */
+        const autres = located.filter((_, k) => k !== i);
+        const { markdown, description, etat } = await redigerArticle(state.commune, located[i], pdfs, autres);
         send({ type: 'article-item', title: located[i].title });
-        return { index: i, title: located[i].title, markdown };
+        a = { index: i, title: located[i].title, markdown, description, etat };
       } catch (e) {
         // Un article manquant est un manque, pas une panne : la fiche existe
         // quand même, avec sa description et sa photo.
         console.error(`[demo-generate] article "${located[i].title}" :`, e.message);
-        return null;
       }
-    });
-    for (const a of ecrits) {
       // Un rejeu de tranche ne doit pas creer de doublon
-      if (a && !state.articles.some((x) => x.index === a.index)) state.articles.push(a);
+      if (!a || state.articles.some((x) => x.index === a.index)) continue;
+      /* La description de la fiche venait de la page lue a l'exploration, au
+         temps de cette page (« ouverture prevue en 2025 » pour un equipement
+         ouvert en fevrier 2026). Celle du redacteur est ecrite depuis les faits
+         verifies, a la date du jour : elle la remplace. */
+      if (a.description) { located[a.index].description_lue = located[a.index].description; located[a.index].description = a.description; }
+      delete a.description;
+      state.articles.push(a);
     }
-  }
+  }));
+  // Les articles arrivent dans l'ordre ou ils finissent : rangés par projet
+  state.articles.sort((x, y) => x.index - y.index);
 
   if (redac.curseur < located.length && redac.tours < GEO_MAX_TOURS) {
     step('articles', 'done', 'Rédaction en cours', `${state.articles.length} article(s) écrit(s)`);
@@ -5072,6 +7735,16 @@ async function coreRedact(send, step, state) {
   }
   delete state.__continue;
 
+  /* Les titres et descriptions viennent des pages lues, les articles du
+     modele : les uns comme les autres portent des tirets longs (« Avenue
+     General Leclerc – Tranche 3 »), que la charte d'ecriture des fiches
+     exclut. Un tiret entre deux mots devient une virgule, partout ou le texte
+     est publie. */
+  for (const p of located) {
+    p.title = sansTiretLong(p.title);
+    p.description = sansTiretLong(p.description);
+  }
+  for (const a of state.articles) a.markdown = sansTiretLong(a.markdown);
   console.log(`[demo-generate] articles : ${state.articles.length}/${located.length} (${redac.tours} tranche(s))`);
   step('articles', state.articles.length ? 'done' : 'skip', 'Articles rédigés', `${state.articles.length} article(s) de présentation`);
   state.redac = null;
@@ -5092,12 +7765,30 @@ async function saveDraft(ville, insee, communeNom, ipHash, status, state) {
   }]);
 }
 
+/* Banc d'essai : DEMO_ETATS_DIR enregistre l'etat apres chaque tranche, tel
+   que la production l'ecrirait dans demo_instances (meme serialisation). */
+async function etatDuBanc(nom, state) {
+  const dossier = process.env.DEMO_ETATS_DIR;
+  if (!dossier || !state || process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  const fs = await import('node:fs');
+  fs.mkdirSync(dossier, { recursive: true });
+  fs.writeFileSync(`${dossier}/${nom}.json`, corpsJson(state));
+}
+
 async function runSources(send, step, insee, ipHash, runState) {
   // cumulerTokens n'était appelé que par runPhase : la phase sources, qui
   // consomme pourtant de l'IA (choix du logo, tri des marchés), n'était jamais
   // comptée et le journal sous-estimait la dépense de toute une étape.
-  const state = cumulerTokens(await coreSources(send, step, insee, runState));
+  /* Banc d'essai (voie locale seulement) : DEMO_REPRISE_ETAT repart d'un etat
+     enregistre par une generation precedente, a la phase DEMO_REPRISE_DEPUIS
+     (coreGeo, coreMedia ou coreRedact). Rejouer les dernieres phases sans
+     refaire la lecture du site coute dix fois moins cher. */
+  const reprise = !process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.DEMO_REPRISE_ETAT
+    ? JSON.parse((await import('node:fs')).readFileSync(process.env.DEMO_REPRISE_ETAT, 'utf8'))
+    : null;
+  const state = reprise || cumulerTokens(await coreSources(send, step, insee, runState));
   if (!state) return;
+  if (!reprise) await etatDuBanc('coreSources', state);
   // Le run voyage dans le brouillon : les cinq invocations suivantes sont des
   // processus distincts, c'est le seul fil qui les relie a la meme generation.
   if (runState?.id) {
@@ -5118,10 +7809,19 @@ async function runSources(send, step, insee, ipHash, runState) {
     /* Local : pas de persistance possible, on enchaîne tout dans l'invocation.
        Les phases découpées en tranches sont rejouées sur place tant qu'elles
        demandent la main, exactement comme le ferait le client en production. */
+    const ordre = ['coreExplore', 'coreGeo', 'coreMedia', 'coreRedact'];
+    const depuis = reprise ? ordre.indexOf(process.env.DEMO_REPRISE_DEPUIS) : 0;
     const enchainer = async (core, s) => {
+      if (ordre.indexOf(core.name) < depuis) return s;
       let courant = s;
-      for (let tour = 0; tour < GEO_MAX_TOURS && courant; tour++) {
+      /* Chaque phase s'arrete d'elle-meme (ses propres plafonds de tranches et
+         de pages). La limite ici n'est qu'un garde-fou contre une boucle : a
+         14 tours, elle coupait une exploration de metropole passee par
+         l'etage intercommunal puis le repechage, et la localisation recevait
+         un etat inacheve (Vienne, 10/11/2026). */
+      for (let tour = 0; tour < 60 && courant; tour++) {
         courant = await core(send, step, courant);
+        await etatDuBanc(`${core.name}-${tour}`, courant);
         if (!courant?.__continue) return courant;
         delete courant.__continue;
       }
@@ -5138,7 +7838,9 @@ async function runSources(send, step, insee, ipHash, runState) {
     /* La rédaction est elle aussi découpée en tranches depuis qu'elle fait un
        appel par projet : sans `enchainer`, la voie locale n'écrivait plus que
        les trois premiers articles. */
-    const s5 = await enchainer(coreRedact, s4);
+    /* Banc d'essai : DEMO_REPRISE_JUSQUA=coreMedia arrete la reprise apres les
+       illustrations, pour les mesurer sans payer la redaction. */
+    const s5 = process.env.DEMO_REPRISE_JUSQUA === 'coreMedia' ? s4 : await enchainer(coreRedact, s4);
     if (!s5) return;
     // Audit local : DEMO_DUMP=1 déverse les artefacts complets (projets
     // localisés, illustrations retenues, articles rédigés) dans les logs
@@ -5972,6 +8674,42 @@ export const config = { path: '/api/demo-generate' };
  * génération complète, donc jamais vérifiés. Rien d'autre ne les importe.
  */
 export const _internals = {
+  extractImageUrls,
+  imagesDuHtml,
+  dimensionsImage,
+  formatRefuse,
+  varianteDeSrcset,
+  telechargerImage,
+  imagesDuPdf,
+  pagesDeLaCitation,
+  pixelsEnPng,
+  documentsDuProjet,
+  imagesDuProjet,
+  jugerLesImages,
+  mairiePageImages,
+  cleImage,
+  fetchCapped,
+  coreMedia,
+  coreAi,
+  rapprocherLesDescriptions,
+  daterLesPages,
+  selectionnerLesProjets,
+  verifierLAge,
+  ageEnMois,
+  dateDeLaSourceVerifiee,
+  repartirLaPlace,
+  lotsParPage,
+  affinerLesEmprises,
+  perimetreDeZac,
+  empriseDeBatiment,
+  traceDeVoie,
+  contientPoint,
+  surfaceM2,
+  citationRetrouvee,
+  pourCitation,
+  sourcesDuProjet,
+  extraireLesFaits,
+  redigerArticle,
   INSEE_RE,
   findSiteLogo,
   attributHtml,
@@ -5979,9 +8717,11 @@ export const _internals = {
   choisirLogoEtCouleur,
   couleurDepuisSvg,
   inChunks,
+  repartirParRubrique,
   lireFluxBorne,
   lireJson,
   corpsJson,
+  sansMoitieOrpheline,
   MAIRIE_BUDGET_MS,
   isSafePublicUrl,
   slugify,
@@ -6005,7 +8745,6 @@ export const _internals = {
   pointDuRejeu,
   REPERE_MIN_PX,
   arbitrerMarches,
-  domainesAutorises,
   nomDistinctifEpci,
   MARCHES_CIBLE,
   typeImageReel,
@@ -6014,9 +8753,19 @@ export const _internals = {
   collectPageLinks,
   collectPdfLinks,
   nomDeFichier,
-  essaisNominatim,
   migrerEtatGeo,
+  coreGeo,
+  nominatimLookup,
   communeDuResultat,
+  motsSignificatifs,
+  releverLeRepertoire,
+  recetteOuverte,
+  lieuxOuverts,
+  repertoireDe,
+  ressourceLisible,
+  rattacherAuxLieux,
+  allegerLaGeometrie,
+  fusionnerGeometries,
   METHOD_LABELS,
   sansPrefixeGenerique,
   nomCoherent,
