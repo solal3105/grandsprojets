@@ -28,6 +28,7 @@ import { deflateSync } from 'node:zlib';
 // Socle de rédaction partagé avec l'outil de l'admin : structure de l'article,
 // nettoyage des liens, construction du bloc de sources citées.
 import { promptArticle, retirerLesLiens, blocSources, hoteLisible } from './lib/redaction.mjs';
+import { echeanceDeLInvocation, prochaineEtape, ecrituresEnSerie, ageDuBrouillonMin } from './lib/demo-tranches.mjs';
 import {
   chargerReseau, reseauEnGeojson, zoneParInsee,
   STYLE_COUCHE_TRANSPORTS, NOM_COUCHE_TRANSPORTS, CATEGORIE_TRANSPORTS,
@@ -1738,6 +1739,22 @@ function logUsage(label, usage) {
   console.log(`[demo-tokens] ${label} input=${i} output=${o} total=${i + o}`);
 }
 
+/* L'etat tel qu'on l'enregistre en cours d'invocation : avec la consommation
+   deja faite, sans l'ajouter a l'etat lui-meme (cumulerTokens le fera une
+   seule fois, en fin d'invocation). */
+function avecLesTokensEnCours(state) {
+  const stats = state.stats || {};
+  return {
+    ...state,
+    stats: {
+      ...stats,
+      tokens_in: (stats.tokens_in || 0) + _tokens.input,
+      tokens_out: (stats.tokens_out || 0) + _tokens.output,
+      appels_ia: (stats.appels_ia || 0) + _tokens.appels,
+    },
+  };
+}
+
 // Ajoute la consommation de CETTE invocation au cumul deja porte par l'etat
 function cumulerTokens(state) {
   if (!state) return state;
@@ -2303,7 +2320,6 @@ async function moissonnerLaPresse(send, step, state) {
    Saint-Genis-Laval (180 faits) et de la Vallée de Gère à Vienne étaient
    coupés, et la fiche restait sans article. */
 const ARTICLE_MAX_TOKENS = 4000;
-const ARTICLE_TIMEOUT_MS = 60000;
 /* Le modèle de la recherche de presse, seul appel qui garde l'outil de
    recherche web : la rédaction n'en a plus. Mesure du 10/11/2026 sur les
    quatre communes du banc, étage presse rejoué en entier (recherche puis
@@ -2338,8 +2354,13 @@ const FAITS_MODEL = process.env.DEMO_FAITS_MODEL || 'gpt-4.1-mini';
 /* Un grand projet donne plus de cent faits : à 4 000 jetons, l'extraction du
    Vallon de Saint-Genis-Laval était coupée et la fiche restait sans article. */
 const FAITS_MAX_TOKENS = 10000;
-const FAITS_TIMEOUT_MS = 90000;
-const FAITS_LOT_CHARS = 25000;
+/* Taille d'un lot d'extraction. Un lot est un appel, et un appel doit répondre
+   bien avant le mur de 60 s d'une invocation (voir DUREES_DES_ETAPES). Le
+   13/11/2026 à Villeurbanne, des lots de 25 000 signes rendaient jusqu'à
+   4 300 jetons : c'est la longueur de la réponse qui fait la durée d'un
+   appel, et elle suit la taille du lot. Les lots d'un projet partent
+   ensemble, l'attente ne s'allonge donc pas. */
+const FAITS_LOT_CHARS = 15000;
 // Bornes de lecture d'un projet : de quoi tenir dans un appel du petit modèle
 const SOURCES_LUES_MAX = 8;
 const PDF_PAR_PROJET_MAX = 6;
@@ -2675,7 +2696,10 @@ function contexteDuPassage(s, citation) {
   return t.slice(Math.max(0, at - CONTEXTE_AVANT), at + String(citation).length + CONTEXTE_APRES);
 }
 
-async function verifierLeRattachement(commune, projet, faits, parId, autres) {
+/* Une étape de la rédaction : les lots partent ensemble et échouent ensemble.
+   Une vérification manquée se retente à l'invocation suivante, au lieu de
+   laisser passer en silence le rattachement de l'extracteur. */
+async function verifierLeRattachement(commune, projet, faits, parId, autres, timeoutMs) {
   if (!faits.length) return faits;
   const codes = ['P', 'aucune', ...autres.map((_, k) => `O${k + 1}`)];
   const schema = {
@@ -2710,20 +2734,19 @@ Tu n'as pas à remplir la fiche : un passage qui ne parle pas de P doit en sorti
   const lots = [];
   for (let k = 0; k < faits.length; k += RATTACHEMENT_FAITS_LOT) lots.push(faits.slice(k, k + RATTACHEMENT_FAITS_LOT));
   const verdicts = new Map();
-  await Promise.all(lots.map(async (lot) => {
+  /* Tous les lots vont à leur terme avant qu'on conclue : un lot en échec ne
+     laisse pas les autres courir après la fin de l'étape. */
+  const issues = await Promise.allSettled(lots.map(async (lot) => {
     const user = JSON.stringify(lot.map((f) => {
       const src = parId.get(f.source);
       return { id: f.id, source: src?.titre || hostOf(src?.url || ''), passage: f.citation, contexte: contexteDuPassage(src, f.citation) };
     }));
-    try {
-      const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
-        'rattachement_faits', schema, 400 + 60 * lot.length, FAITS_TIMEOUT_MS, 0, FAITS_MODEL, 2);
-      for (const v of out.passages || []) verdicts.set(v.id, v);
-    } catch (e) {
-      // Sans second regard, les passages gardent le rattachement de l'extracteur
-      console.warn(`[demo-generate] verification du rattachement impossible pour "${projet.title}" :: ${e?.message}`);
-    }
+    const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
+      'rattachement_faits', schema, 400 + 60 * lot.length, timeoutMs, 0, FAITS_MODEL, 1);
+    for (const v of out.passages || []) verdicts.set(v.id, v);
   }));
+  const echec = issues.find((x) => x.status === 'rejected');
+  if (echec) throw echec.reason;
   const nomDe = (code) => (code === 'aucune' ? 'aucune opération de la carte' : autres[Number(String(code).slice(1)) - 1]?.title || code);
   for (const f of faits) {
     const v = verdicts.get(f.id);
@@ -2740,10 +2763,13 @@ Tu n'as pas à remplir la fiche : un passage qui ne parle pas de P doit en sorti
    devenaient 5 km qui « vont être aménagés ») ; la contrôler par ses nombres
    rejetait 8 faits justes sur 28 au boulevard du Rhône, dont tout le plan de
    financement. Sans elle, la sortie est aussi deux fois plus courte.
+
+   L'extraction est une étape de la rédaction par lot de sources (voir
+   coreRedact) : chaque lot est un appel, enregistré dès qu'il répond.
    @param {Array<Object>} autres - les autres opérations de la carte, qui ont leur propre fiche */
-async function extraireLesFaits(commune, projet, sources, aujourdhui, autres = []) {
+function consigneDesFaits(commune, projet, autres, aujourdhui) {
   const listeAutres = autres.map((o, k) => `O${k + 1} : ${o.title}${o.place ? ` (${o.place})` : ''}`).join('\n');
-  const system = `Tu relèves, pour les habitants de ${commune.nom}, tout ce que les sources fournies établissent sur UN projet : « ${projet.title} »${projet.place ? ` (${projet.place})` : ''}.
+  return `Tu relèves, pour les habitants de ${commune.nom}, tout ce que les sources fournies établissent sur UN projet : « ${projet.title} »${projet.place ? ` (${projet.place})` : ''}.
 
 Relève TOUS les faits utiles sur ce projet, sans en omettre aucun, un fait par élément d'information. Parcours chaque source phrase par phrase : chaque phrase qui dit quelque chose du projet donne au moins un fait.
 - programme : ce qui est construit, transformé ou installé, avec ses chiffres (logements, surfaces, longueurs, places, classes, équipements, matériaux annoncés), et les rues, lieux et itinéraires concernés ;
@@ -2761,18 +2787,29 @@ Dans « documents », donne les identifiants des PDF qui portent sur ce projet p
 Dans « sources », donne pour chaque source son intitulé et la date qu'elle se donne à elle-même : la date de séance d'un procès-verbal ou d'une délibération, la date d'un article, d'un budget, d'un bulletin ou d'un plan, recopiée telle que son texte l'écrit. La date de publication d'une page en ligne n'est pas à recopier : laisse vide si le texte n'écrit pas de date pour lui-même.
 Nous sommes le ${aujourdhui}.`;
 
-  const parId = new Map(sources.map((s) => [s.id, s]));
-  const lots = lotsDeSources(sources);
-  const schema = schemaDesFaits(autres.length);
-  const sorties = await Promise.all(lots.map((lot) => openAIStructured([
-    { role: 'system', content: system },
-    { role: 'user', content: lot.map((s) => `=== ${s.id} : ${s.nature === 'pdf' ? 'document PDF' : 'page'}${s.titre ? ` « ${s.titre} »` : ''}${s.nature === 'page' && s.publiee ? `, publiée en ligne le ${dateLisible(s.publiee)}` : ''}\n${s.lu}`).join('\n\n') },
-  ], 'faits_projet', schema, FAITS_MAX_TOKENS, FAITS_TIMEOUT_MS, 0, FAITS_MODEL, 2).catch((e) => {
-    // Un lot perdu coûte ses faits, pas l'article : les autres lots suffisent souvent
-    console.warn(`[demo-generate] extraction perdue pour "${projet.title}" (${lot.map((x) => x.id).join(', ')}) :: ${e?.message}`);
-    return { faits: [], documents: [], sources: [] };
-  })));
+}
 
+/* Un lot de sources, un appel : sa réponse brute, contrôlée ensuite par
+   releverLesFaits. Le morceau d'une source coupée est annoncé comme tel. */
+function extraireUnLot(commune, projet, lot, parId, autres, timeoutMs) {
+  const system = consigneDesFaits(commune, projet, autres, aujourdhuiEnLettres());
+  const texte = lot.map(({ id, debut, fin }) => {
+    const s = parId.get(id);
+    const partie = debut > 0 || fin < s.lu.length ? ' (extrait)' : '';
+    return `=== ${s.id} : ${s.nature === 'pdf' ? 'document PDF' : 'page'}${s.titre ? ` « ${s.titre} »` : ''}${partie}${s.nature === 'page' && s.publiee ? `, publiée en ligne le ${dateLisible(s.publiee)}` : ''}\n${s.lu.slice(debut, fin)}`;
+  }).join('\n\n');
+  return openAIStructured([{ role: 'system', content: system }, { role: 'user', content: texte }],
+    'faits_projet', schemaDesFaits(autres.length), FAITS_MAX_TOKENS, timeoutMs, 0, FAITS_MODEL, 1);
+}
+
+// Réponse d'un lot qui n'a pas pu être lu : il coûte ses faits, pas l'article
+const LOT_SANS_FAITS = { faits: [], documents: [], sources: [] };
+
+/* Les réponses de tous les lots d'un projet, contrôlées : chaque source reçoit
+   son intitulé et sa date vérifiée, chaque fait est gardé si sa citation est
+   retrouvée dans sa source et qu'il porte bien sur le projet. Rend aussi les
+   PDF que l'extracteur rattache au projet, triés plus tard (retenirLesFaits). */
+function releverLesFaits(sorties, parId, autres) {
   for (const d of sorties.flatMap((o) => o.sources || [])) {
     const s = parId.get(d.source);
     if (!s) continue;
@@ -2797,36 +2834,54 @@ Nous sommes le ${aujourdhui}.`;
     if (motif) rejetes.push({ ...f, motif });
     else { gardes.push({ ...f, id: `F${gardes.length + 1}` }); vues.push(forme); }
   }
-  /* Second regard sur le rattachement des passages gardés (voir
-     verifierLeRattachement), puis renumérotation des faits restants. */
-  await verifierLeRattachement(commune, projet, gardes, parId, autres);
-  for (const f of gardes.filter((x) => x.motif)) rejetes.push(f);
-  const retenus = gardes.filter((x) => !x.motif).map((f, k) => ({ ...f, id: `F${k + 1}` }));
-  gardes.length = 0;
-  gardes.push(...retenus);
-  /* Un document officiel listé sous l'article est un PDF que l'extracteur
-     rattache au projet ET qui porte au moins un fait gardé : le budget de toute
-     la commune n'est plus présenté comme le dossier d'une école parce qu'une de
-     ses lignes a été lue pour elle. */
-  const avecFaits = new Set(gardes.map((f) => f.source));
-  const documents = sorties.flatMap((o) => o.documents || []).map((id) => parId.get(id))
-    .filter((s) => s?.nature === 'pdf' && avecFaits.has(s.id));
-  return { faits: gardes, rejetes: rejetes.filter((r) => r.motif !== 'doublon'), documents: [...new Set(documents)] };
+  return { gardes, rejetes, documents: [...new Set(sorties.flatMap((o) => o.documents || []))] };
+}
+
+/* Après le second regard (verifierLeRattachement) : les faits refusés
+   rejoignent les rejetés, les autres sont renumérotés. Un document officiel
+   listé sous l'article est un PDF que l'extracteur rattache au projet ET qui
+   porte au moins un fait gardé : le budget de toute la commune n'est plus
+   présenté comme le dossier d'une école parce qu'une de ses lignes a été lue
+   pour elle. */
+function retenirLesFaits(gardes, rejetes, documents, parId) {
+  const faits = gardes.filter((x) => !x.motif).map((f, k) => ({ ...f, id: `F${k + 1}` }));
+  const refuses = [...rejetes, ...gardes.filter((x) => x.motif)].filter((r) => r.motif !== 'doublon');
+  const avecFaits = new Set(faits.map((f) => f.source));
+  const pdfs = documents.filter((id) => parId.get(id)?.nature === 'pdf' && avecFaits.has(id));
+  return { faits, rejetes: refuses, documents: pdfs };
 }
 
 /* Les sources d'un projet partent en plusieurs appels d'extraction, lancés
    ensemble, d'au plus FAITS_LOT_CHARS signes chacun. Mesure du 10/11/2026 sur
    le Vallon de Saint-Genis-Laval (13 sources, 90 000 signes en un appel) :
    122 s d'attente, dont un premier essai coupé à 60 s, et 40 citations sur 84
-   rejetées parce que le modèle, noyé, résumait au lieu de recopier. */
+   rejetées parce que le modèle, noyé, résumait au lieu de recopier.
+   Une source plus longue qu'un lot est coupée en morceaux, à la fin d'une
+   phrase ou d'une ligne : un projet à une seule source de 90 000 signes
+   partait sinon en un seul appel, que rien ne bornait. Un lot est une liste de
+   morceaux { id, debut, fin } : c'est ce que le brouillon garde.
+   @returns {Array<Array<{id: string, debut: number, fin: number}>>} */
 function lotsDeSources(sources) {
+  const morceaux = [];
+  for (const s of sources) {
+    for (let debut = 0; debut < s.lu.length;) {
+      let fin = Math.min(s.lu.length, debut + FAITS_LOT_CHARS);
+      if (fin < s.lu.length) {
+        const coupe = Math.max(s.lu.lastIndexOf('. ', fin - 2), s.lu.lastIndexOf('\n', fin - 1));
+        if (coupe > debut + FAITS_LOT_CHARS / 2) fin = coupe + 1;
+      }
+      morceaux.push({ id: s.id, debut, fin });
+      debut = fin;
+    }
+  }
   const lots = [];
   let courant = [];
   let taille = 0;
-  for (const s of sources) {
-    if (courant.length && taille + s.lu.length > FAITS_LOT_CHARS) { lots.push(courant); courant = []; taille = 0; }
-    courant.push(s);
-    taille += s.lu.length;
+  for (const m of morceaux) {
+    const longueur = m.fin - m.debut;
+    if (courant.length && taille + longueur > FAITS_LOT_CHARS) { lots.push(courant); courant = []; taille = 0; }
+    courant.push(m);
+    taille += longueur;
   }
   if (courant.length) lots.push(courant);
   return lots;
@@ -2851,29 +2906,24 @@ const ARTICLE_SCHEMA = {
   required: ['etat_aujourdhui', 'markdown', 'description', 'faits_utilises'],
 };
 
-/**
- * Article d'un projet, écrit à partir des faits relevés dans ses sources.
- * @param {Array<Object>} autres - les autres opérations de la carte, pour que
- *   l'extraction rende à chacune les passages qui la concernent
- * @returns {Promise<{markdown: string, description: string}>}
- */
 /* Les reperes des faits (F11, F25...) servent au redacteur a citer ses
    preuves ; ils ne doivent pas paraitre dans le texte publie. Le modele les
    ecrit seuls, en liste, ou suivis de la date de leur source : « (F11, 12
    janvier 2026; F25, 9 septembre 2026) », forme vue a Vienne le 10/11/2026. */
 const MARQUEURS_DE_FAITS = /\s*\((?:\s*(?:et\s+)?F\d+(?:\s*,\s*[^;,()]*\d{4})?\s*[,;]?)+\s*\)/g;
 
-async function redigerArticle(commune, projet, tousLesPdfs, autres = []) {
-  const aujourdhui = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  const sources = await sourcesDuProjet(projet, tousLesPdfs);
-  if (!sources.length) throw new Error('aucune source lisible');
-  const { faits, rejetes, documents } = await extraireLesFaits(commune, projet, sources, aujourdhui, autres);
-  console.log(`[demo-faits] "${projet.title}" : ${sources.length} source(s), ${faits.length} fait(s) gardé(s), ${rejetes.length} rejeté(s)${rejetes.length ? ` :: ${rejetes.map((r) => `${r.motif} « ${String(r.citation).slice(0, 80)} »`).join(' ; ')}` : ''}`);
-  if (process.env.DEMO_FAITS_DETAIL) console.log(`[demo-faits-detail] ${JSON.stringify({ projet: projet.title, sources: sources.map((s) => ({ id: s.id, url: s.url, publiee: s.publiee, datee: s.datee || '', datee_ecrite: s.datee_ecrite || '', chars: s.texte.length, lu: s.lu.length })), faits, rejetes })}`);
-  // Sans fait retrouvé dans une source, il n'y a rien à écrire que la description ne dise déjà
-  if (!faits.length) throw new Error('aucun fait retrouvé dans les sources');
+const aujourdhuiEnLettres = () => new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  const parId = new Map(sources.map((s) => [s.id, s]));
+/**
+ * Article d'un projet, écrit à partir des faits retenus dans ses sources :
+ * la dernière étape de sa rédaction (voir coreRedact), un seul appel.
+ * @param {Array<Object>} faits - les faits retenus (retenirLesFaits)
+ * @param {Array<string>} documents - identifiants des PDF officiels du projet
+ * @param {Map<string, Object>} parId - les sources du projet par identifiant
+ * @returns {Promise<{markdown: string, description: string, etat: string}>}
+ */
+async function ecrireLArticle(commune, projet, faits, documents, parId, timeoutMs) {
+  const aujourdhui = aujourdhuiEnLettres();
   /* L'âge de la source est calculé ici plutôt que laissé au rédacteur : mesure
      du 10/11/2026, une page de novembre 2023 qui annonçait des aménagements « à
      venir » était racontée au présent, « le projet est en cours ». La date est
@@ -2897,7 +2947,7 @@ FAITS VÉRIFIÉS (${faits.length}), du plus ancien au plus récent, les faits sa
 ${JSON.stringify(liste, null, 1)}`;
 
   const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
-    'article_projet', ARTICLE_SCHEMA, ARTICLE_MAX_TOKENS, ARTICLE_TIMEOUT_MS, 0.3, REDACTION_MODEL, 2);
+    'article_projet', ARTICLE_SCHEMA, ARTICLE_MAX_TOKENS, timeoutMs, 0.3, REDACTION_MODEL, 1);
   /* Les identifiants de faits n'ont rien à faire sous les yeux d'un habitant ;
      le rédacteur en sème parfois entre parenthèses malgré la consigne. */
   const markdown = retirerLesLiens(String(out.markdown || '').replace(MARQUEURS_DE_FAITS, '').trim());
@@ -2907,7 +2957,7 @@ ${JSON.stringify(liste, null, 1)}`;
      d'abord ; un PDF rattaché comme document officiel n'y est pas répété. */
   const utilises = new Set((out.faits_utilises || []).filter((id) => faits.some((f) => f.id === id)));
   const employes = faits.filter((f) => !utilises.size || utilises.has(f.id));
-  const dossiers = [...documents];
+  const dossiers = documents.map((id) => parId.get(id)).filter(Boolean);
   for (const f of employes) {
     const s = parId.get(f.source);
     if (s?.nature === 'pdf' && !dossiers.includes(s)) dossiers.push(s);
@@ -3743,7 +3793,7 @@ async function adresseDansLaBoite(res, b) {
     const point = champs.find((f) => f.type === 'geo_point_2d')?.name;
     if (point) u.searchParams.set('where', `in_bbox(${point}, ${b.minLat}, ${b.minLng}, ${b.maxLat}, ${b.maxLng})`);
   } else if (res.mode === 'wfs') {
-    for (const k of [...u.searchParams.keys()]) if (/^(bbox|srsname)$/i.test(k)) u.searchParams.delete(k);
+    for (const k of Array.from(u.searchParams.keys())) if (/^(bbox|srsname)$/i.test(k)) u.searchParams.delete(k);
     // En WFS 2.0, l'URN du système de référence impose l'ordre latitude, longitude dans la boîte
     u.searchParams.set('BBOX', `${b.minLat},${b.minLng},${b.maxLat},${b.maxLng},urn:ogc:def:crs:EPSG::4326`);
     u.searchParams.set('SRSNAME', 'EPSG:4326');
@@ -3876,7 +3926,7 @@ Dis ensuite quel champ porte le NOM PROPRE de chaque objet (« ZAC des Prés »,
     const x = parIndex.get(i);
     if (!x) return { motif: 'non jugé' };
     if (!x.operations) return { motif: 'pas des opérations' };
-    if (!x.champ || !descriptions[i].champs[x.champ] || !/^nom propre/.test(x.valeurs)) return { motif: 'aucun champ ne porte de nom' };
+    if (!x.champ || !descriptions[i].champs[x.champ] || !String(x.valeurs).startsWith('nom propre')) return { motif: 'aucun champ ne porte de nom' };
     return { champ: x.champ, nature: String(x.nature || '').trim().slice(0, 90) };
   });
 }
@@ -4642,7 +4692,7 @@ function varianteDeSrcset(valeur) {
   const entrees = String(valeur || '').split(/,(?=\s*\S+(?:\s+\d+(?:\.\d+)?[wx])?\s*(?:,|$))/)
     .map((e) => e.trim().split(/\s+/))
     .filter((e) => e[0] && !/^data:/i.test(e[0]))
-    .map(([url, d = '1x']) => ({ url, w: /w$/.test(d) ? parseFloat(d) : parseFloat(d) * ILLUS_LARGEUR_VISEE / 2 }));
+    .map(([url, d = '1x']) => ({ url, w: d.endsWith('w') ? parseFloat(d) : parseFloat(d) * ILLUS_LARGEUR_VISEE / 2 }));
   if (!entrees.length) return null;
   entrees.sort((a, b) => a.w - b.w);
   return (entrees.find((e) => e.w >= ILLUS_LARGEUR_VISEE) || entrees[entrees.length - 1]).url;
@@ -5075,10 +5125,12 @@ async function deleteWhere(table, params) {
 }
 
 async function updateInstance(ville, patch) {
+  // Toute écriture du brouillon date son activité : voir ageDuBrouillonMin
+  const corps = patch.payload ? { ...patch, payload: { ...patch.payload, _vuLe: Date.now() } } : patch;
   const r = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/demo_instances?ville=eq.${encodeURIComponent(ville)}`, {
     method: 'PATCH',
     headers: serviceHeaders(),
-    body: corpsJson(patch),
+    body: corpsJson(corps),
   });
   if (!r.ok) throw new Error(`Mise à jour demo_instances : ${r.status}`);
 }
@@ -6242,7 +6294,7 @@ async function jugerLeRapprochement(commune, projets) {
   }
 
   const n = projets.length;
-  const range = new Array(n).fill(false);
+  const range = Array.from({ length: n }, () => false);
   const anomalies = { doubles: 0, oublies: 0, horsListe: 0 };
   const groupes = [];
   for (const op of out.operations || []) {
@@ -7659,12 +7711,57 @@ async function coreMedia(send, step, state) {
   return state;
 }
 
-/* Phase RÉDACTION, découpée en tranches comme la localisation et les
-   illustrations. Un article se lit, s'extrait puis s'écrit en cinq à quarante
-   secondes selon le nombre de ses sources : vingt-cinq articles ne tiennent pas
-   dans une invocation. Trois articles à la fois, pas davantage : le bac à sable
-   des fonctions rompt ses connexions sortantes au-delà. */
-const ARTICLES_CONCURRENCE = 3;
+/* Phase RÉDACTION, découpée en ÉTAPES, chacune enregistrée dès qu'elle est
+   finie. Un article se fait en quatre temps : lire les sources du projet, en
+   extraire les faits (un appel par lot), vérifier à quel projet se rapporte
+   chaque fait, écrire. Le 13/11/2026 à Villeurbanne, un article à huit sources
+   prenait une minute d'un seul tenant et n'était enregistré qu'à la fin de sa
+   tranche : chaque invocation était tuée à 60 s avec tout son travail, et la
+   reprise recommençait les mêmes articles. Désormais une étape ne part que si
+   sa durée maximale tient avant l'échéance de l'invocation, et ce qui est
+   fini est déjà dans le brouillon quand vient la suivante. */
+const DUREES_DES_ETAPES = {
+  // Pages à 8 s et PDF à 20 s, lus ensemble, puis leur analyse
+  sources: 25000,
+  // Un lot de FAITS_LOT_CHARS signes
+  extraction: 40000,
+  // Soixante passages par lot, une courte réponse par passage
+  rattachement: 30000,
+  // Jusqu'à ARTICLE_MAX_TOKENS jetons d'article
+  ecriture: 45000,
+};
+/* Étapes menées de front. Une étape attend l'IA presque tout son temps :
+   c'est leur nombre qui fait le débit, puisque chaque invocation ne laisse à
+   chaque place que le temps d'une ou deux étapes. L'ancienne rédaction en
+   menait déjà autant (trois articles et tous leurs lots) : le 13/11/2026 à
+   Villeurbanne, neuf appels partis ensemble sont tous revenus. */
+const ETAPES_DE_FRONT = 10;
+/* Projets entamés à la fois : chacun garde ses sources dans le brouillon,
+   réécrit à chaque étape, jusqu'à son article. */
+const PROJETS_OUVERTS_MAX = 6;
+// Un appel qui échoue se retente une fois, à l'invocation suivante, puis on fait sans
+const ESSAIS_PAR_ETAPE = 2;
+/* Filet de dépense. Chaque invocation de la rédaction avance, sinon le
+   contrôle des tranches sans avancée l'arrête (voir runPhase) ; vingt-cinq
+   projets demandent une vingtaine d'invocations. */
+const REDACTION_MAX_TOURS = 40;
+
+// Un projet qui n'aura pas d'article, sans que ce soit une panne
+class SansArticle extends Error {}
+
+/* Une source telle que le brouillon la garde : le texte que l'extracteur lit
+   (`lu`), sans le reste. C'est le seul où une citation peut avoir été prise,
+   et il est borné (CORPUS_CHARS par projet), là où le texte complet d'un PDF
+   de budget pèse plusieurs centaines de milliers de signes. */
+function sourceEnregistrable(s) {
+  return {
+    id: s.id, url: s.url, nature: s.nature, titre: s.titre || '', publiee: s.publiee || '', lu: s.lu,
+    ...(s.datee ? { datee: s.datee, datee_ecrite: s.datee_ecrite } : {}),
+  };
+}
+function sourcesRelues(enregistrees) {
+  return new Map(enregistrees.map((s) => [s.id, { ...s, texte: s.lu, normalisee: pourCitation(s.lu) }]));
+}
 
 // Tiret cadratin ou demi-cadratin entre deux mots : une virgule ; en tete de ligne : rien
 function sansTiretLong(texte) {
@@ -7676,62 +7773,172 @@ function sansTiretLong(texte) {
     .replace(/,\s*,/g, ',');
 }
 
-async function coreRedact(send, step, state) {
+/* Une étape de la rédaction d'un projet. Elle modifie l'état du projet en
+   place ; l'appelant enregistre le brouillon après chacune. */
+async function executerEtape(e, state, ctx) {
+  const { located, redac } = state;
+  const projet = located[e.i];
+  const p = redac.projets[e.i] || (redac.projets[e.i] = { etape: 'sources', essais: {} });
+  const autres = located.filter((_, k) => k !== e.i);
+  const duree = DUREES_DES_ETAPES[e.type];
+
+  if (e.type === 'sources') {
+    const sources = await sourcesDuProjet(projet, state.mairie?.pdfs || []);
+    if (!sources.length) throw new SansArticle('aucune source lisible');
+    p.sources = sources.map(sourceEnregistrable);
+    p.lots = lotsDeSources(sources);
+    p.sorties = p.lots.map(() => null);
+    p.etape = 'extraction';
+    return;
+  }
+
+  const parId = ctx.sourcesDe(e.i, p);
+  if (e.type === 'extraction') {
+    p.sorties[e.k] = await extraireUnLot(state.commune, projet, p.lots[e.k], parId, autres, duree);
+    if (p.sorties.every(Boolean)) apresLExtraction(p, parId, autres);
+    return;
+  }
+  if (e.type === 'rattachement') {
+    await verifierLeRattachement(state.commune, projet, p.gardes, parId, autres, duree);
+    retenir(p, projet, parId);
+    return;
+  }
+  const { markdown, description, etat } = await ecrireLArticle(state.commune, projet, p.faits, p.documents, parId, duree);
+  ctx.send({ type: 'article-item', title: projet.title });
+  /* La description de la fiche venait de la page lue a l'exploration, au
+     temps de cette page (« ouverture prevue en 2025 » pour un equipement
+     ouvert en fevrier 2026). Celle du redacteur est ecrite depuis les faits
+     verifies, a la date du jour : elle la remplace. */
+  if (description) { projet.description_lue = projet.description; projet.description = description; }
+  state.articles.push({ index: e.i, title: projet.title, markdown, etat });
+  terminer(redac, e.i);
+}
+
+// Tous les lots ont répondu : les faits contrôlés attendent leur second regard
+function apresLExtraction(p, parId, autres) {
+  const { gardes, rejetes, documents } = releverLesFaits(p.sorties, parId, autres);
+  // Les dates vérifiées des sources sont gardées avec elles
+  p.sources = [...parId.values()].map(sourceEnregistrable);
+  Object.assign(p, { gardes, rejetes, documentsProposes: documents, etape: 'rattachement' });
+  delete p.sorties;
+  delete p.lots;
+}
+
+function retenir(p, projet, parId) {
+  const { faits, rejetes, documents } = retenirLesFaits(p.gardes, p.rejetes, p.documentsProposes, parId);
+  console.log(`[demo-faits] "${projet.title}" : ${parId.size} source(s), ${faits.length} fait(s) gardé(s), ${rejetes.length} rejeté(s)${rejetes.length ? ` :: ${rejetes.map((r) => `${r.motif} « ${String(r.citation).slice(0, 80)} »`).join(' ; ')}` : ''}`);
+  if (process.env.DEMO_FAITS_DETAIL) console.log(`[demo-faits-detail] ${JSON.stringify({ projet: projet.title, sources: [...parId.values()].map((s) => ({ id: s.id, url: s.url, publiee: s.publiee, datee: s.datee || '', datee_ecrite: s.datee_ecrite || '', lu: s.lu.length })), faits, rejetes })}`);
+  // Sans fait retrouvé dans une source, il n'y a rien à écrire que la description ne dise déjà
+  if (!faits.length) throw new SansArticle('aucun fait retrouvé dans les sources');
+  Object.assign(p, { faits, documents, etape: 'ecriture' });
+  delete p.gardes;
+  delete p.rejetes;
+  delete p.documentsProposes;
+}
+
+// Le projet sort de la rédaction, avec ou sans article : son état de travail est libéré
+function terminer(redac, i) {
+  if (!redac.finis.includes(i)) redac.finis.push(i);
+  delete redac.projets[i];
+}
+
+/* Une étape qui a échoué. Un manque n'est pas une panne : un lot illisible
+   coûte ses faits, une vérification impossible laisse le rattachement de
+   l'extracteur, un projet sans source ni article garde sa fiche, avec sa
+   description et sa photo. Un échec passager se retente d'abord. */
+function apresUnEchec(e, err, state, ctx) {
+  const { located, redac } = state;
+  const projet = located[e.i];
+  const p = redac.projets[e.i];
+  if (!(err instanceof SansArticle) && p) {
+    const cle = e.type === 'extraction' ? `lot:${e.k}` : e.type;
+    p.essais[cle] = (p.essais[cle] || 0) + 1;
+    console.warn(`[demo-generate] rédaction de "${projet.title}", étape ${cle}, essai ${p.essais[cle]}/${ESSAIS_PAR_ETAPE} :: ${err?.message}`);
+    if (p.essais[cle] < ESSAIS_PAR_ETAPE) return;
+    const parId = p.sources ? ctx.sourcesDe(e.i, p) : null;
+    if (e.type === 'extraction') {
+      p.sorties[e.k] = LOT_SANS_FAITS;
+      if (p.sorties.every(Boolean)) apresLExtraction(p, parId, located.filter((_, k) => k !== e.i));
+      return;
+    }
+    if (e.type === 'rattachement') {
+      try { retenir(p, projet, parId); return; } catch (fin) { err = fin; }
+    }
+  }
+  console.error(`[demo-generate] article "${projet.title}" :`, err?.message);
+  terminer(redac, e.i);
+}
+
+async function coreRedact(send, step, state, ctx = {}) {
   const located = state.located;
-  const redac = state.redac || (state.redac = { curseur: 0, tours: 0 });
-  redac.tours++;
   state.articles = state.articles || [];
+  const redac = state.redac || (state.redac = { tours: 0, projets: {}, finis: [] });
+  /* Brouillon de la version précédente, en cours au moment d'une mise en
+     ligne : son curseur dit quels projets elle avait déjà traités. */
+  if (!redac.projets) {
+    redac.finis = Array.from({ length: Math.min(redac.curseur || 0, located.length) }, (_, k) => k);
+    redac.projets = {};
+    delete redac.curseur;
+  }
+  redac.tours++;
 
   step('articles', 'start',
     redac.tours === 1 ? 'Rédaction des articles de présentation' : 'Rédaction en cours',
     redac.tours === 1
       ? 'Un article par projet, écrit à partir des sources officielles consultées'
-      : `${state.articles.length} article(s) écrit(s), ${located.length - redac.curseur} restant(s)`);
+      : `${state.articles.length} article(s) écrit(s), ${located.length - redac.finis.length} restant(s)`);
 
-  const t0 = Date.now();
-  const pdfs = state.mairie?.pdfs || [];
-
-  /* Trois places de redaction tenues en continu : chacune prend le projet
-     suivant des qu'elle a fini le sien. Les vagues de trois attendaient leur
-     article le plus lent avant d'en lancer d'autres, alors qu'un article prend
-     de cinq a quarante secondes selon ses sources : les places liberees
-     restaient vides jusqu'a la fin de la vague. Le nombre d'articles
-     menes de front ne change pas, ni la regle de la tranche : une place ne
-     prend plus de projet passe le budget de temps. */
-  await Promise.all(Array.from({ length: ARTICLES_CONCURRENCE }, async () => {
-    while (redac.curseur < located.length && Date.now() - t0 < PHASE_BUDGET_MS) {
-      const i = redac.curseur++;
-      let a = null;
-      try {
-        /* Les autres fiches de la carte partent avec le projet : l'extraction
-           rend à chacune les passages qui la concernent (voir extraireLesFaits). */
-        const autres = located.filter((_, k) => k !== i);
-        const { markdown, description, etat } = await redigerArticle(state.commune, located[i], pdfs, autres);
-        send({ type: 'article-item', title: located[i].title });
-        a = { index: i, title: located[i].title, markdown, description, etat };
-      } catch (e) {
-        // Un article manquant est un manque, pas une panne : la fiche existe
-        // quand même, avec sa description et sa photo.
-        console.error(`[demo-generate] article "${located[i].title}" :`, e.message);
+  if (ctx.conclure) {
+    const restants = located.map((_, i) => i).filter((i) => !redac.finis.includes(i));
+    console.error(`[demo-generate] rédaction conclue sans ${restants.length} article(s) : les dernières invocations n'ont rien pu enregistrer`);
+    for (const i of restants) terminer(redac, i);
+  } else {
+    const echeance = ctx.echeance ?? Date.now() + PHASE_BUDGET_MS;
+    const enCours = new Set();
+    const attentes = [];
+    // Les sources relues d'un projet, une fois par invocation
+    const relues = new Map();
+    const ctxEtape = {
+      send,
+      sourcesDe: (i, p) => {
+        if (!relues.has(i)) relues.set(i, sourcesRelues(p.sources));
+        return relues.get(i);
+      },
+    };
+    /* Les places prennent la première étape qui tient dans le temps restant.
+       Une place sans étape attend qu'une autre finisse, car la fin d'une
+       étape en ouvre souvent une autre (le dernier lot ouvre la vérification). */
+    await Promise.all(Array.from({ length: ETAPES_DE_FRONT }, async () => {
+      for (;;) {
+        const e = prochaineEtape(redac, located.length, enCours, echeance - Date.now(), DUREES_DES_ETAPES, PROJETS_OUVERTS_MAX);
+        if (!e) {
+          if (!enCours.size) return;
+          await new Promise((r) => attentes.push(r));
+          continue;
+        }
+        enCours.add(e.cle);
+        try {
+          await executerEtape(e, state, ctxEtape);
+        } catch (err) {
+          apresUnEchec(e, err, state, ctxEtape);
+        }
+        if (!redac.projets[e.i]) relues.delete(e.i);
+        enCours.delete(e.cle);
+        ctx.sauver?.();
+        attentes.splice(0).forEach((r) => r());
       }
-      // Un rejeu de tranche ne doit pas creer de doublon
-      if (!a || state.articles.some((x) => x.index === a.index)) continue;
-      /* La description de la fiche venait de la page lue a l'exploration, au
-         temps de cette page (« ouverture prevue en 2025 » pour un equipement
-         ouvert en fevrier 2026). Celle du redacteur est ecrite depuis les faits
-         verifies, a la date du jour : elle la remplace. */
-      if (a.description) { located[a.index].description_lue = located[a.index].description; located[a.index].description = a.description; }
-      delete a.description;
-      state.articles.push(a);
-    }
-  }));
+    }));
+  }
   // Les articles arrivent dans l'ordre ou ils finissent : rangés par projet
   state.articles.sort((x, y) => x.index - y.index);
 
-  if (redac.curseur < located.length && redac.tours < GEO_MAX_TOURS) {
-    step('articles', 'done', 'Rédaction en cours', `${state.articles.length} article(s) écrit(s)`);
-    state.__continue = true;
-    return state;
+  if (redac.finis.length < located.length) {
+    if (redac.tours < REDACTION_MAX_TOURS) {
+      step('articles', 'done', 'Rédaction en cours', `${state.articles.length} article(s) écrit(s)`);
+      state.__continue = true;
+      return state;
+    }
+    console.error(`[demo-generate] rédaction arrêtée après ${redac.tours} tranches, ${located.length - redac.finis.length} projet(s) sans article`);
   }
   delete state.__continue;
 
@@ -7893,13 +8100,24 @@ async function runSources(send, step, insee, ipHash, runState) {
    autre sur sa troisieme atteignait donc 2 sur 2 et la generation etait
    abandonnee, alors qu'elle avancait normalement entre les deux. */
 function oublierLesEchecs(payload, route) {
-  const cle = `_attempts_${route}`;
-  if (!payload || payload[cle] === undefined) return payload;
-  const { [cle]: _, ...reste } = payload;
+  const cles = [`_attempts_${route}`, `_sansAvancee_${route}`];
+  if (!payload || cles.every((c) => payload[c] === undefined)) return payload;
+  const reste = { ...payload };
+  for (const c of cles) delete reste[c];
   return reste;
 }
 
-async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase, selfPhase, route }, runState) {
+/* Invocations d'une phase qui se sont succédé sans rien enregistrer. Une
+   invocation tuée par la plateforme n'atteint pas le `catch` du handler : le
+   compteur d'échecs ci-dessus ne la voit pas, et l'écran relançait la même
+   phase à l'aveugle (neuf fois sur la rédaction de Villeurbanne, le
+   13/11/2026). Ce compteur est posé dans le brouillon à l'entrée de chaque
+   invocation et retiré par tout enregistrement qui avance (oublierLesEchecs) :
+   s'il atteint son plafond, les invocations précédentes sont mortes sans
+   laisser de trace, et rappeler la phase ne ferait que repayer. */
+const TRANCHES_SANS_AVANCEE_MAX = 2;
+
+async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase, selfPhase, route, peutConclure = false }, runState) {
   const instance = await getInstance({ ville });
   /* Le run est retrouvé AVANT tout contrôle : sans cela, un abandon sur
      « analyse introuvable » laissait la ligne du journal en `running`, donc
@@ -7911,7 +8129,7 @@ async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase
   }
 
   let statut = instance?.status;
-  const ageMin = instance ? (Date.now() - new Date(instance.created_at).getTime()) / 60000 : Infinity;
+  const ageMin = ageDuBrouillonMin(instance);
 
   /* Guérison d'un verrou resté en place. Une invocation tuée en plein vol laisse
      le statut de transit `running-<suite>` : son catch n'a pas pu le relâcher.
@@ -7953,12 +8171,39 @@ async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase
      l'execution, ce qui fait echouer le controle `status !== expect` du second
      appel. Le brouillon est conserve pour permettre une reprise. */
   const enCours = `running-${nextStatus}`;
-  await updateInstance(ville, { status: enCours });
+  const cleSansAvancee = `_sansAvancee_${route}`;
+  const sansAvancee = instance.payload[cleSansAvancee] || 0;
+  if (sansAvancee >= TRANCHES_SANS_AVANCEE_MAX && !peutConclure) {
+    console.error(`[demo-generate] ${ville} : ${sansAvancee} invocations de suite sans avancée sur phase=${route}, arrêt`);
+    await updateInstance(ville, { status: expect, payload: oublierLesEchecs(instance.payload, route) });
+    send({
+      type: 'error',
+      message: "La génération n'a pas pu aboutir pour cette commune. Réessayez plus tard, ou passez nous voir pour une démo guidée.",
+      retryable: false,
+      debug: `phase=${route} :: ${sansAvancee} invocations interrompues sans avancée`,
+    });
+    return;
+  }
+  instance.payload[cleSansAvancee] = sansAvancee + 1;
+  await updateInstance(ville, { status: enCours, payload: instance.payload });
+
+  /* Ce que le cœur sait de son invocation : l'heure à laquelle il doit avoir
+     fini, de quoi enregistrer son avancée sans attendre la fin de sa tranche,
+     et s'il doit conclure avec ce qu'il a. Seule la rédaction s'en sert. */
+  const ecritures = ecrituresEnSerie(() => updateInstance(ville, { payload: avecLesTokensEnCours(oublierLesEchecs(instance.payload, route)) }));
+  const ctx = {
+    echeance: echeanceDeLInvocation(runState?.debutInvocation ?? Date.now()),
+    sauver: () => ecritures.demander(),
+    conclure: sansAvancee >= TRANCHES_SANS_AVANCEE_MAX,
+  };
 
   let state;
   try {
-    state = cumulerTokens(await core(send, step, instance.payload));
+    state = await core(send, step, instance.payload, ctx);
+    await ecritures.vider();
+    state = cumulerTokens(state);
   } catch (e) {
+    await ecritures.vider();
     // On rend la phase rejouable : sans cela l'instance resterait verrouillee
     await updateInstance(ville, { status: expect });
     throw e;
@@ -8011,7 +8256,7 @@ async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase
 const runAi = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'ai', expect: 'draft-sources', core: coreExplore, nextStatus: 'draft-ai', nextPhase: 'locate', selfPhase: 'ai' }, rs);
 const runLocate = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'locate', expect: 'draft-ai', core: coreGeo, nextStatus: 'draft-locate', nextPhase: 'media', selfPhase: 'locate' }, rs);
 const runMedia = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'media', expect: 'draft-locate', core: coreMedia, nextStatus: 'draft-media', nextPhase: 'redact', selfPhase: 'media' }, rs);
-const runRedact = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'redact', expect: 'draft-media', core: coreRedact, nextStatus: 'draft', nextPhase: 'create', selfPhase: 'redact' }, rs);
+const runRedact = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'redact', expect: 'draft-media', core: coreRedact, nextStatus: 'draft', nextPhase: 'create', selfPhase: 'redact', peutConclure: true }, rs);
 
 /* Article du projet numero i, ou rien.
    Le repli positionnel `articles[i]` a ete retire : la liste d'articles est
@@ -8437,7 +8682,7 @@ export default async (req, context) => {
          partage par toutes les branches : le `finally` s'en sert pour clore un
          run reste ouvert, ce qui est precisement le cas des echecs qu'on ne
          voyait pas. */
-      const runState = { id: null, startedAt: Date.now(), closed: false, lastError: null, definitif: false };
+      const runState = { id: null, startedAt: Date.now(), debutInvocation: Date.now(), closed: false, lastError: null, definitif: false };
 
       const send = (obj) => {
         // Toute erreur envoyee au client est aussi tracee serveur : plus aucun
@@ -8502,7 +8747,7 @@ export default async (req, context) => {
             'running-draft-media': ['draft-locate', 'media'],
             'running-draft': ['draft-media', 'redact'],
           };
-          const ageMin = already ? (Date.now() - new Date(already.created_at).getTime()) / 60000 : Infinity;
+          const ageMin = ageDuBrouillonMin(already);
           if (already && REPRISE_TRANSIT[already.status] && ageMin < 15) {
             const [etat] = REPRISE_TRANSIT[already.status];
             await updateInstance(already.ville, { status: etat });
@@ -8708,8 +8953,14 @@ export const _internals = {
   citationRetrouvee,
   pourCitation,
   sourcesDuProjet,
-  extraireLesFaits,
-  redigerArticle,
+  lotsDeSources,
+  FAITS_LOT_CHARS,
+  DUREES_DES_ETAPES,
+  releverLesFaits,
+  retenirLesFaits,
+  sourceEnregistrable,
+  sourcesRelues,
+  coreRedact,
   INSEE_RE,
   findSiteLogo,
   attributHtml,
