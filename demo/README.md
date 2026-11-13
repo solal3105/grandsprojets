@@ -335,6 +335,24 @@ Suivi : `select followup_status, followup_reason, count(*) from demo_leads group
   reprend à son curseur. Sans cela, le déplafonnement du nombre de projets
   ferait perdre tous les projets au-delà du budget. Filet anti-boucle : 14
   tranches maximum, après quoi on finalise avec ce qu'on a
+- **La rédaction avance par étapes enregistrées** : un article se fait en
+  quatre étapes (lire ses sources, extraire les faits par lots de 15 000
+  signes, vérifier leur rattachement, écrire), et chacune est enregistrée dans
+  le brouillon dès qu'elle est finie. Une étape ne part que si sa durée
+  maximale (`DUREES_DES_ETAPES`) tient avant l'échéance de l'invocation, posée
+  5 s avant le mur de 60 s de la plateforme (`lib/demo-tranches.mjs`). Le
+  13/11/2026 à Villeurbanne, un article à huit sources prenait une minute d'un
+  seul tenant, n'était enregistré qu'en fin de tranche, et la rédaction a été
+  tuée neuf fois de suite sans rien garder
+- **Une phase qui n'avance plus s'arrête** : une invocation tuée par la
+  plateforme n'atteint aucun `catch`. Chaque invocation pose donc
+  `_sansAvancee_<phase>` dans le brouillon en entrant, et tout enregistrement
+  qui avance le retire. À deux invocations de suite sans avancée, la rédaction
+  conclut avec les articles déjà écrits, et les autres phases s'arrêtent sur
+  une erreur définitive au lieu d'être rappelées à l'aveugle
+- **Un brouillon récent se juge à sa dernière écriture** (`_vuLe`, posé par
+  chaque écriture du brouillon), pas à sa création : une génération de plus
+  d'un quart d'heure n'est plus prise pour abandonnée et relancée de zéro
 - **Reprises bornées** : 4 par phase, et 12 au total pour une génération, ce
   second compteur n'étant jamais rechargé. Le compteur par phase seul rendait
   possible une boucle sans fin qui repayait l'IA à chaque tour
