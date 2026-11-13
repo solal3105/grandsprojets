@@ -28,14 +28,12 @@ export function echeanceDeLInvocation(debut) {
 /**
  * La prochaine étape de rédaction qu'on peut lancer, ou null.
  *
- * Un article se fait en quatre étapes, enregistrées chacune dès qu'elle est
- * finie : lire ses sources, en extraire les faits (un appel par lot de
- * sources, les lots d'un même projet partent ensemble), vérifier à quel projet
- * se rapporte chaque fait, écrire. Une étape ne part que si sa durée maximale
+ * Un article se fait en deux étapes, enregistrées chacune dès qu'elle est
+ * finie : lire ses sources, puis écrire. Une étape ne part que si sa durée maximale
  * tient dans le temps qui reste : elle n'est donc jamais coupée par le mur.
  * Les projets sont pris dans l'ordre, pour que les articles arrivent un à un.
  *
- * @param {{projets: Object<string, {etape: string, sorties?: Array}>, finis: number[]}} redac
+ * @param {{projets: Object<string, {etape: string}>, finis: number[]}} redac
  * @param {number} nbProjets
  * @param {Set<string>} enCours - clés des étapes lancées et pas encore finies
  * @param {number} resteMs - temps restant avant l'échéance
@@ -43,7 +41,7 @@ export function echeanceDeLInvocation(debut) {
  * @param {number} [ouvertsMax] - projets entamés à la fois au plus : chacun garde
  *   ses sources dans le brouillon jusqu'à son article, et finir les projets
  *   entamés fait arriver les articles plus tôt que d'en ouvrir d'autres
- * @returns {{i: number, type: string, k?: number, cle: string} | null}
+ * @returns {{i: number, type: string, cle: string} | null}
  */
 export function prochaineEtape(redac, nbProjets, enCours, resteMs, durees, ouvertsMax = Infinity) {
   const finis = new Set(redac.finis);
@@ -56,12 +54,6 @@ export function prochaineEtape(redac, nbProjets, enCours, resteMs, durees, ouver
     const p = redac.projets[i];
     if (!p && !ouverts.has(i) && ouverts.size >= ouvertsMax) continue;
     const etape = p?.etape || 'sources';
-    if (etape === 'extraction') {
-      if (durees.extraction > resteMs) continue;
-      const k = p.sorties.findIndex((s, n) => s === null && !enCours.has(`${i}:lot:${n}`));
-      if (k >= 0) return { i, type: 'extraction', k, cle: `${i}:lot:${k}` };
-      continue;
-    }
     const cle = `${i}:${etape}`;
     if (enCours.has(cle) || durees[etape] > resteMs) continue;
     return { i, type: etape, cle };
