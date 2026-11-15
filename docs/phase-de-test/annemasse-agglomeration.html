@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Open Projets - Phase de test gratuite, Annemasse Agglomération</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  /* Document sobre : le logo porte seul la couleur de la marque. Pas de dégradé,
+     pas de pastille, pas de surtitre en capitales espacées, pas de mot coloré
+     dans le texte ; la hiérarchie tient aux titres. */
+  :root {
+    --dark: #111111;
+    --gray-text: #444444;
+    --gray-muted: #6B6B6B;
+    --gray-border: rgba(0, 0, 0, 0.12);
+  }
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: #fff; color: var(--dark);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 9.8pt; line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    position: relative; width: 210mm; height: 297mm; padding: 18mm 22mm 16mm;
+    overflow: hidden; break-after: page; display: flex; flex-direction: column;
+  }
+  .page:last-child { break-after: auto; }
+  .page > * { flex-shrink: 0; }
+  h1, h2 { font-family: "Space Grotesk", Inter, sans-serif; font-weight: 600; color: var(--dark); margin: 0; letter-spacing: -0.02em; }
+  h1 { font-size: 22pt; line-height: 1.2; margin: 10mm 0 10px; max-width: 16cm; }
+  h2 { font-size: 13pt; line-height: 1.3; margin: 18px 0 6px; }
+  p { margin: 0 0 8px; color: var(--gray-text); }
+  .lead { font-size: 11pt; color: var(--dark); max-width: 16cm; margin-bottom: 4px; }
+  a { color: inherit; }
+
+  .brand { display: flex; align-items: center; gap: 11px; padding-bottom: 12px; border-bottom: 1px solid var(--gray-border); }
+  .brand svg { width: 30px; height: auto; display: block; }
+  .brand__name { font-family: "Space Grotesk", sans-serif; font-size: 12.5pt; font-weight: 600; letter-spacing: -0.03em; }
+  .brand__by { margin-left: auto; font-size: 8.5pt; color: var(--gray-muted); }
+
+  ul { margin: 4px 0 8px; padding-left: 18px; }
+  li { color: var(--gray-text); margin-bottom: 6px; padding-left: 2px; }
+  li::marker { color: var(--dark); }
+
+  .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; }
+  .sign div { border: 1px solid var(--gray-border); border-radius: 10px; padding: 14px 16px; min-height: 40mm; }
+  .sign p { margin: 0 0 3px; }
+  .sign .who { color: var(--dark); font-weight: 600; margin-bottom: 8px; }
+  .sign .line { margin-top: 12px; color: var(--gray-muted); font-size: 9pt; }
+
+  .foot {
+    margin-top: auto; padding-top: 10px; border-top: 1px solid var(--gray-border);
+    display: flex; justify-content: space-between; font-size: 8pt; color: var(--gray-muted);
+  }
+</style>
+</head>
+<body>
+<section class="page">
+  <div class="brand">
+    <svg  viewBox="0 0 568 531" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Logo Open Projets">
+      <path d="M409.02 346.761L398.849 349.951L440.009 322.511C464.501 306.183 481.174 280.477 486.095 251.457C491.965 216.845 480.492 181.516 456.469 155.917C453.155 152.385 449.85 148.846 446.603 145.355C419.139 115.827 380.226 99.5343 339.935 101.192C304.184 102.663 259.736 104.311 224.142 105.054C202.426 105.508 180.822 108.158 159.768 113.498L108.708 126.45C84.1024 132.692 62.3533 147.121 47.0379 167.366C29.3519 190.744 21.5556 220.133 25.3281 249.203L29.4571 281.021L9.20524 222.695C3.11145 205.145 0 186.699 0 168.121C0 110.806 29.4997 57.5262 78.0761 27.1071L79.9055 25.9615C106.996 8.99688 138.315 0 170.279 0H364.244C376.671 0 389.06 1.37949 401.183 4.11313C463.597 18.1868 512.591 66.5031 527.533 128.715L529.04 134.989C550.936 226.156 498.484 318.706 409.02 346.761Z" fill="url(#g0p0)"/>
+      <path d="M146.881 530.713L146.045 527.266C134.524 479.813 134.811 430.259 146.881 382.942L227 359.5L381 352.5L334.425 370.276C255.258 400.49 188.991 457.179 146.881 530.713Z" fill="url(#g1p0)"/>
+      <path d="M163.268 394.465L141.394 408.865L147.566 370.757C152.373 341.08 166.011 313.54 186.7 291.728C214.947 261.948 254.189 245.083 295.234 245.083H323.477C333.937 245.083 344.277 242.861 353.814 238.563L361.599 235.055C424.283 206.805 414.293 114.87 347.005 100.743L365.337 99.402C423.844 95.121 476.37 135.112 487.81 192.65C506.768 274.294 446.728 353.026 362.977 356.344L270.499 360.008C232.286 361.522 195.21 373.436 163.268 394.465Z" fill="url(#g2p0)"/>
+      <path d="M76.5882 358.198L39.059 299.963C30.0056 285.915 23.9487 270.15 21.267 253.654C12.2504 198.188 42.4556 143.778 94.299 122.098L109.219 115.858C126.568 108.603 145.186 104.867 163.992 104.867H230.354L211.17 106.296C187.453 108.062 164.612 116.003 144.915 129.331C102.912 157.752 80.1645 207.146 85.871 257.539L100.5 386.725L76.5882 358.198Z" fill="url(#g3p0)"/>
+      <defs>
+        <radialGradient id="g0p0" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(283.967 174.975) rotate(67.2649) scale(315.554 307.782)">
+          <stop stop-color="#CE2445"/><stop offset="0.475962" stop-color="#FF0037"/><stop offset="1" stop-color="#C00B34"/>
+        </radialGradient>
+        <linearGradient id="g1p0" x1="202.98" y1="349.95" x2="202.98" y2="530.713" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#389035"/><stop offset="0.456731" stop-color="#489C56"/><stop offset="1" stop-color="#5AAB7D"/>
+        </linearGradient>
+        <linearGradient id="g2p0" x1="350.834" y1="91.9063" x2="350.834" y2="407.097" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#F36133"/><stop offset="0.399038" stop-color="#F2B327"/><stop offset="1" stop-color="#D4483E"/>
+        </linearGradient>
+        <linearGradient id="g3p0" x1="118.123" y1="104.867" x2="118.123" y2="395.314" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#5D3FF3"/><stop offset="1" stop-color="#5D3FF3"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    <span class="brand__name">Open Projets</span>
+    <span class="brand__by">Édité par VAZY</span>
+  </div>
+
+  <h1>Annemasse Agglomération teste gratuitement Open Projets Chantiers et arrêtés jusqu'à la fin de l'année 2026</h1>
+  <p class="lead">VAZY, éditeur d'Open Projets, met la solution à disposition d'Annemasse Agglomération et de deux de ses communes, Annemasse et Ville-la-Grand, sans contrepartie financière. Ce document fixe la durée du test, les collectivités concernées, ce que la gratuité couvre et ce qui se passe à son terme.</p>
+
+  <h2>Le test dure du 5 octobre au 31 décembre 2026</h2>
+  <p>La phase de test commence le lundi 5 octobre 2026 et se termine le jeudi 31 décembre 2026 au soir, soit un peu moins de trois mois. Elle s'arrête d'elle-même à cette date : aucune des trois collectivités n'a de démarche à faire pour y mettre fin.</p>
+
+  <h2>Trois collectivités participent au test</h2>
+  <p>Annemasse Agglomération utilise la solution pour les chantiers et arrêtés qui relèvent d'elle. La ville d'Annemasse (37&#8239;628 habitants) et la ville de Ville-la-Grand (9&#8239;514 habitants) l'utilisent pour les leurs.</p>
+
+
+  <h2>La gratuité couvre la solution complète</h2>
+  <p>Pendant toute la phase de test, les trois collectivités utilisent la solution entière, sans fonction bridée ni version réduite.</p>
+  <ul>
+    <li>Les entreprises déposent leurs demandes de permission de voirie en ligne, avec la période et l'emprise dessinée sur une carte. Le service gestionnaire et la commune les instruisent dans un fil daté que tous lisent.</li>
+    <li>Les arrêtés de circulation sortent rédigés au modèle Cerfa, avec le plan de l'emprise.</li>
+    <li>Chaque chantier autorisé est suivi jusqu'à la réouverture de la rue, sur une carte qui se filtre par date et par état.</li>
+    <li>Les entreprises accèdent à leur portail sur simple invitation par courriel, sans mot de passe à gérer.</li>
+    <li>Chaque collectivité reçoit les comptes d'agents nécessaires pour que tous ses services concernés participent au test.</li>
+    <li>VAZY accompagne la mise en route : création des comptes, invitation des premières entreprises et réponses aux questions des agents pendant toute la période.</li>
+  </ul>
+  <p>La solution s'utilise depuis un navigateur, à l'adresse openprojets-chantiers.com. Il n'y a rien à installer sur les postes.</p>
+  <div class="foot"><span>Open Projets, phase de test gratuite, Annemasse Agglomération</span><span>1 / 2</span></div>
+</section>
+
+<section class="page">
+  <div class="brand">
+    <svg  viewBox="0 0 568 531" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Logo Open Projets">
+      <path d="M409.02 346.761L398.849 349.951L440.009 322.511C464.501 306.183 481.174 280.477 486.095 251.457C491.965 216.845 480.492 181.516 456.469 155.917C453.155 152.385 449.85 148.846 446.603 145.355C419.139 115.827 380.226 99.5343 339.935 101.192C304.184 102.663 259.736 104.311 224.142 105.054C202.426 105.508 180.822 108.158 159.768 113.498L108.708 126.45C84.1024 132.692 62.3533 147.121 47.0379 167.366C29.3519 190.744 21.5556 220.133 25.3281 249.203L29.4571 281.021L9.20524 222.695C3.11145 205.145 0 186.699 0 168.121C0 110.806 29.4997 57.5262 78.0761 27.1071L79.9055 25.9615C106.996 8.99688 138.315 0 170.279 0H364.244C376.671 0 389.06 1.37949 401.183 4.11313C463.597 18.1868 512.591 66.5031 527.533 128.715L529.04 134.989C550.936 226.156 498.484 318.706 409.02 346.761Z" fill="url(#g0p1)"/>
+      <path d="M146.881 530.713L146.045 527.266C134.524 479.813 134.811 430.259 146.881 382.942L227 359.5L381 352.5L334.425 370.276C255.258 400.49 188.991 457.179 146.881 530.713Z" fill="url(#g1p1)"/>
+      <path d="M163.268 394.465L141.394 408.865L147.566 370.757C152.373 341.08 166.011 313.54 186.7 291.728C214.947 261.948 254.189 245.083 295.234 245.083H323.477C333.937 245.083 344.277 242.861 353.814 238.563L361.599 235.055C424.283 206.805 414.293 114.87 347.005 100.743L365.337 99.402C423.844 95.121 476.37 135.112 487.81 192.65C506.768 274.294 446.728 353.026 362.977 356.344L270.499 360.008C232.286 361.522 195.21 373.436 163.268 394.465Z" fill="url(#g2p1)"/>
+      <path d="M76.5882 358.198L39.059 299.963C30.0056 285.915 23.9487 270.15 21.267 253.654C12.2504 198.188 42.4556 143.778 94.299 122.098L109.219 115.858C126.568 108.603 145.186 104.867 163.992 104.867H230.354L211.17 106.296C187.453 108.062 164.612 116.003 144.915 129.331C102.912 157.752 80.1645 207.146 85.871 257.539L100.5 386.725L76.5882 358.198Z" fill="url(#g3p1)"/>
+      <defs>
+        <radialGradient id="g0p1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(283.967 174.975) rotate(67.2649) scale(315.554 307.782)">
+          <stop stop-color="#CE2445"/><stop offset="0.475962" stop-color="#FF0037"/><stop offset="1" stop-color="#C00B34"/>
+        </radialGradient>
+        <linearGradient id="g1p1" x1="202.98" y1="349.95" x2="202.98" y2="530.713" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#389035"/><stop offset="0.456731" stop-color="#489C56"/><stop offset="1" stop-color="#5AAB7D"/>
+        </linearGradient>
+        <linearGradient id="g2p1" x1="350.834" y1="91.9063" x2="350.834" y2="407.097" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#F36133"/><stop offset="0.399038" stop-color="#F2B327"/><stop offset="1" stop-color="#D4483E"/>
+        </linearGradient>
+        <linearGradient id="g3p1" x1="118.123" y1="104.867" x2="118.123" y2="395.314" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#5D3FF3"/><stop offset="1" stop-color="#5D3FF3"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    <span class="brand__name">Open Projets</span>
+    <span class="brand__by">Édité par VAZY</span>
+  </div>
+
+  <h2 style="margin-top: 10mm;">Le test ne coûte rien et n'engage à rien</h2>
+  <ul>
+    <li>Aucune facture n'est émise, ni à l'agglomération ni aux deux villes, pour la période du 5 octobre au 31 décembre 2026.</li>
+    <li>Chaque collectivité reste libre de ne pas poursuivre, sans avoir à s'en justifier.</li>
+    <li>Le test ne devient pas un abonnement payant à son terme. Une suite payante ne peut naître que d'une commande distincte, passée selon les règles de la commande publique.</li>
+    <li>Les données saisies appartiennent à la collectivité qui les a saisies. VAZY ne s'en sert que pour faire fonctionner le service et ne les transmet à personne.</li>
+    <li>Les arrêtés produits pendant le test sont préparés par l'outil, puis relus et signés par l'autorité compétente, qui en garde la responsabilité comme pour tout arrêté.</li>
+  </ul>
+
+  <h2>Un bilan commun clôt le test en janvier 2027</h2>
+  <p>Nous proposons un bilan dans la première quinzaine de janvier 2027, avec les services de l'agglomération, d'Annemasse et de Ville-la-Grand. Nous y regarderons le nombre de dossiers traités, les délais d'instruction et les difficultés rencontrées par les agents comme par les entreprises.</p>
+  <p>Si les collectivités poursuivent, les dossiers et les comptes créés pendant le test sont conservés tels quels. Si elles ne poursuivent pas, VAZY supprime les données à leur demande, après leur avoir laissé le temps de récupérer les arrêtés produits.</p>
+
+  <h2>Bon pour accord</h2>
+  <div class="sign">
+    <div>
+      <p class="who">Pour VAZY, éditeur d'Open Projets</p>
+      <p>Loïc Robbiani, associé</p>
+      <p>loic@vazy.app</p>
+      <p class="line">Date et signature</p>
+    </div>
+    <div>
+      <p class="who">Pour Annemasse Agglomération</p>
+      <p>Nom et fonction</p>
+      <p class="line">Date et signature</p>
+    </div>
+  </div>
+  <div class="foot"><span>Open Projets, phase de test gratuite, Annemasse Agglomération</span><span>2 / 2</span></div>
+</section>
+
+</body>
+</html>

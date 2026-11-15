@@ -370,8 +370,8 @@ export const modules = [
       titre: 'Open Projets Chantiers, espace de travail en démonstration',
       consigne: "L'espace de travail des permissions de voirie, ouvert sur sa démonstration : un jeu de données est déjà en place, sans compte, et vos essais restent sur votre appareil.",
     },
-    h1: "Vos permissions de voirie et vos arrêtés de circulation s'instruisent en ligne",
-    tagline: "Les entreprises déposent, vos services et vos communes instruisent dans un fil daté, et chaque chantier est suivi jusqu'à la réouverture de la rue.",
+    h1: 'Gérez en ligne vos permissions de voirie et vos arrêtés de circulation',
+    tagline: "Les entreprises déposent leur demande en ligne, vos services et vos communes l'instruisent ensemble, et l'arrêté sort rédigé avec le plan de l'emprise.",
     titres: { combine: 'Ce module travaille avec les autres', },
     problem: "Une demande de voirie circule en pièces jointes, entre le gestionnaire, la commune et l'entreprise. Personne ne sait où en est le dossier, et l'arrêté se retape à chaque fois.",
     produces: "Chaque demande devient un dossier unique et horodaté, que partagent tous ceux qui le traitent. Les permissions et les arrêtés en sortent rédigés, au modèle Cerfa, avec le plan de l'emprise.",
@@ -379,7 +379,7 @@ export const modules = [
      * demonstration publique, celle qui s'ouvre sans compte. */
     features: [
       {
-        titre: "Un même dossier porte la permission, l'arrêté et le suivi de chantier",
+        titre: "La permission de voirie, l'arrêté de circulation et le suivi du chantier dans un seul dossier",
         texte: "Permission de voirie, arrêté de circulation, suivi de chantier : le même dossier porte les trois, et tous ceux qui le traitent lisent le même fil.",
         points: [
           "La demande porte sa période, sa description et son emprise dessinée sur une carte.",
@@ -391,7 +391,7 @@ export const modules = [
         },
       },
       {
-        titre: "L'entreprise dépose et suit ses dossiers elle-même",
+        titre: 'Les entreprises déposent leur demande de permission de voirie en ligne',
         texte: "Elle choisit au nom de qui elle dépose, retrouve ses demandes avec leur état, et voit à quelle étape chacune se trouve.",
         points: [
           "Une invitation par courriel suffit à ouvrir l'accès, sans mot de passe à gérer.",
@@ -403,7 +403,7 @@ export const modules = [
         },
       },
       {
-        titre: 'Tous les chantiers autorisés se rangent sur un même fond',
+        titre: 'Tous les chantiers autorisés du territoire sur une seule carte',
         texte: "Chaque dossier prend la couleur de l'étape où il en est, et la carte se filtre par date comme par état.",
         points: [
           "Une légende donne chaque état, de la décision attendue à la fin définitive.",
@@ -415,10 +415,10 @@ export const modules = [
         },
       },
       {
-        titre: 'Une partie du module est ouverte à tous, sans compte',
+        titre: "Un générateur d'arrêtés de circulation gratuit, sans compte",
         texte: "Vous dites votre situation, vous donnez une adresse, et l'acte arrive rédigé : visas, considérants, articles et signalisation.",
         points: [
-          "Neuf situations sont couvertes, de la tranchée au tournage de film.",
+          "Douze situations sont couvertes, de la tranchée à l'intervention d'urgence.",
           "Le dossier sort en huit pièces, avec des textes de loi datés du jour.",
         ],
         capture: {
