@@ -28,6 +28,7 @@ import { deflateSync } from 'node:zlib';
 // Socle de rédaction partagé avec l'outil de l'admin : structure de l'article,
 // nettoyage des liens, construction du bloc de sources citées.
 import { promptArticle, retirerLesLiens, blocSources, hoteLisible } from './lib/redaction.mjs';
+import { echeanceDeLInvocation, prochaineEtape, ecrituresEnSerie, ageDuBrouillonMin } from './lib/demo-tranches.mjs';
 import {
   chargerReseau, reseauEnGeojson, zoneParInsee,
   STYLE_COUCHE_TRANSPORTS, NOM_COUCHE_TRANSPORTS, CATEGORIE_TRANSPORTS,
@@ -446,6 +447,12 @@ function stripHtml(html) {
     .replace(/&gt;/gi, '>')
     .replace(/&(?:quot|apos|#39);/gi, "'")
     .replace(/&[a-z]+\d*;/gi, ' ')
+    /* Une image écrite en clair dans le texte (« data:image/png;base64,... »,
+       souvent une balise échappée en entités, que le retrait des balises ne
+       voit pas) n'est pas du texte : sur la page de la chapelle de Chuzelles,
+       84 000 signes d'image prenaient presque toute la place de lecture du
+       projet. */
+    .replace(/data:[\w.+-]+\/[\w.+-]+;base64,[A-Za-z0-9+/=]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -1730,12 +1737,29 @@ function resetTokens() {
   _tokens.input = 0; _tokens.output = 0; _tokens.appels = 0;
 }
 
-function logUsage(label, usage) {
+function logUsage(label, usage, model = '') {
   if (!usage) return;
   const i = usage.input_tokens ?? 0;
   const o = usage.output_tokens ?? 0;
   _tokens.input += i; _tokens.output += o; _tokens.appels += 1;
-  console.log(`[demo-tokens] ${label} input=${i} output=${o} total=${i + o}`);
+  // Le modèle et les jetons servis par le cache font le prix réel de l'appel
+  console.log(`[demo-tokens] ${label} input=${i} cached=${usage.input_tokens_details?.cached_tokens ?? 0} output=${o} total=${i + o}${model ? ` model=${model}` : ''}`);
+}
+
+/* L'etat tel qu'on l'enregistre en cours d'invocation : avec la consommation
+   deja faite, sans l'ajouter a l'etat lui-meme (cumulerTokens le fera une
+   seule fois, en fin d'invocation). */
+function avecLesTokensEnCours(state) {
+  const stats = state.stats || {};
+  return {
+    ...state,
+    stats: {
+      ...stats,
+      tokens_in: (stats.tokens_in || 0) + _tokens.input,
+      tokens_out: (stats.tokens_out || 0) + _tokens.output,
+      appels_ia: (stats.appels_ia || 0) + _tokens.appels,
+    },
+  };
 }
 
 // Ajoute la consommation de CETTE invocation au cumul deja porte par l'etat
@@ -1798,13 +1822,16 @@ class ReponseTronquee extends Error {
 
 // Appel structuré non streamé : renvoie l'objet JSON validé (json_schema strict).
 // Température basse par défaut : taches de fidélité (extraction, jugement)
-async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs = 120000, temperature = 0.2, model = OPENAI_MODEL, tries = 5) {
+/* `temperature` à null pour un modèle à raisonnement, qui la refuse ;
+   `reglages` porte alors son effort de raisonnement. */
+async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs = 120000, temperature = 0.2, model = OPENAI_MODEL, tries = 5, reglages = {}) {
   const r = await postOpenAI({
     model,
     input,
     text: { format: { type: 'json_schema', name: schemaName, schema, strict: true } },
     max_output_tokens: maxTokens,
-    temperature,
+    ...(temperature === null ? {} : { temperature }),
+    ...reglages,
   }, timeoutMs, tries);
   if (!r.ok) {
     // Le corps de la reponse dit POURQUOI (image illisible, format refuse) :
@@ -1813,7 +1840,7 @@ async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs 
     throw new Error(`IA indisponible (${r.status}) ${String(detail).slice(0, 300)}`);
   }
   const data = JSON.parse(await readBody(r));
-  logUsage(schemaName, data.usage);
+  logUsage(schemaName, data.usage, data.model);
   if (data.status === 'incomplete' && data.incomplete_details?.reason === 'max_output_tokens') {
     throw new ReponseTronquee(schemaName);
   }
@@ -2192,7 +2219,7 @@ async function chercherLaPresse(commune, epciNom, mairieHost) {
   const r = await postOpenAI(corps, PRESSE_TIMEOUT_MS);
   if (!r.ok) throw new Error(`recherche presse indisponible (${r.status})`);
   const data = JSON.parse(await readBody(r));
-  logUsage('presse_recherche', data.usage);
+  logUsage(`presse_recherche recherches=${(data.output || []).filter((o) => o.type === 'web_search_call').length}`, data.usage, data.model);
   const { annotations } = texteEtCitations(data);
   const vus = new Set();
   const articles = [];
@@ -2271,39 +2298,30 @@ async function moissonnerLaPresse(send, step, state) {
 }
 
 
-/* ─── RÉDACTION D'UN ARTICLE, EN DEUX TEMPS ───
+/* ─── RÉDACTION D'UN ARTICLE ───
 
-   Un article par projet, écrit en deux appels : d'abord les faits, ensuite la
-   prose.
+   Un article par projet, en deux étapes : le code lit les sources du projet
+   (pages citées et PDF de ces pages, avec leur date de publication), puis un
+   seul appel lit leur texte et écrit l'article.
 
-   Pourquoi. Le rédacteur recevait le titre, la description, un extrait de 1 800
-   signes et une recherche web restreinte aux domaines du projet, et devait
-   rendre 300 à 500 mots. Mesure du banc d'essai du 10/11/2026 (quatre
-   communes, juges stricts) : la recherche n'était presque jamais lancée (2
-   recherches pour 73 articles), l'extrait était souvent du menu de site (cours
-   Brillier à Vienne : 1 800 signes de navigation de l'agglomération), et le
-   modèle remplissait la longueur demandée avec ce qu'il imaginait : « pont
-   coupé à toute circulation » alors qu'une seconde page dit que la passerelle
-   reste ouverte, « le montant n'est pas précisé » alors que le PDF de la page le
-   donne, « les riverains constateront un changement ».
+   Banc d'essai du 13/11/2026 (48 projets de 177 communes, notes à l'aveugle
+   sur 20, audit indépendant). La rédaction précédente tirait d'abord des
+   faits recopiés mot pour mot, par lots de 15 000 signes, faisait vérifier à
+   quel projet se rapportait chacun, puis les donnait au rédacteur sans leur
+   contexte, avec la consigne de tous les employer. Elle écrivait des listes,
+   des redites et des futurs périmés, prenait un avenant pour le coût total et
+   « le 24 décembre précédent » pour une date du jour : 9,8 sur 40 projets
+   jamais vus pendant les réglages, pour 0,0075 $ par article. Le rédacteur
+   qui lit le texte des pages et la liste des autres opérations de la carte
+   obtient 12,9, ses erreurs graves passent de 5 projets sur 40 à 1, pour
+   0,0067 $ ; un appel dure 6 s en médiane et 16 s au plus.
 
-   1. Le code lit lui-même TOUTES les sources du projet (pages citées et PDF de
-      ces pages), avec leur date de publication.
-   2. Un petit modèle en tire la liste exhaustive des faits utiles, rangés par
-      rubrique, chacun avec la citation qui le porte. Le code retrouve chaque
-      citation dans le texte de sa source et jette le fait dont la citation est
-      introuvable.
-   3. Le rédacteur n'a que ces faits, sans recherche : il les relie et les met
-      en français. La longueur suit la matière.
-
-   La relecture des chiffres après coup (une phrase retirée par chiffre non
-   attesté, plus un appel de vérification) est supprimée : elle ne voyait que
-   les chiffres, et elle vidait des articles justes. */
-/* Un article suit maintenant sa matière : à 1 600 jetons, ceux du Vallon de
-   Saint-Genis-Laval (180 faits) et de la Vallée de Gère à Vienne étaient
-   coupés, et la fiche restait sans article. */
-const ARTICLE_MAX_TOKENS = 4000;
-const ARTICLE_TIMEOUT_MS = 60000;
+   Le rédacteur peut aussi répondre que les sources ne disent presque rien du
+   projet : une tribune de quelques lignes, un remerciement. La fiche garde
+   alors sa description, sans article qui n'apprendrait rien de plus. */
+/* Plafond de sortie d'un article, raisonnement compris : gpt-5.4-mini compte
+   ses jetons de raisonnement dans la sortie. */
+const ARTICLE_MAX_TOKENS = 6000;
 /* Le modèle de la recherche de presse, seul appel qui garde l'outil de
    recherche web : la rédaction n'en a plus. Mesure du 10/11/2026 sur les
    quatre communes du banc, étage presse rejoué en entier (recherche puis
@@ -2329,40 +2347,17 @@ function texteEtCitations(data) {
   }
   return { texte: texte.trim(), annotations };
 }
-const REDACTION_MODEL = process.env.DEMO_REDACTION_MODEL || 'gpt-4.1-mini';
-/* L'extracteur. Mesure du 10/11/2026 sur le cours Brillier à Vienne (sept
-   pages) : gpt-4o-mini relève 8 faits et oublie les quatre financeurs,
-   gpt-4.1-mini en relève 22, dont les 32 000 € du Département pour le vélo et
-   les 171 167 € pour la chaussée, pour 0,008 $ au lieu de 0,003 $. */
-const FAITS_MODEL = process.env.DEMO_FAITS_MODEL || 'gpt-4.1-mini';
-/* Un grand projet donne plus de cent faits : à 4 000 jetons, l'extraction du
-   Vallon de Saint-Genis-Laval était coupée et la fiche restait sans article. */
-const FAITS_MAX_TOKENS = 10000;
-const FAITS_TIMEOUT_MS = 90000;
-const FAITS_LOT_CHARS = 25000;
+/* Le rédacteur, à raisonnement bas. Au banc du 13/11/2026, gpt-5.4-mini
+   obtenait 12,4 sur 20 là où gpt-4.1-mini obtenait 9,1 avec la même entrée,
+   qu'il mêlait aux opérations voisines ; gpt-5.4 coûtait d'avance plus que la
+   rédaction précédente et n'a pas été retenu. */
+const REDACTION_MODEL = process.env.DEMO_REDACTION_MODEL || 'gpt-5.4-mini';
 // Bornes de lecture d'un projet : de quoi tenir dans un appel du petit modèle
 const SOURCES_LUES_MAX = 8;
 const PDF_PAR_PROJET_MAX = 6;
 const CORPUS_CHARS = 90000;
 const SOURCE_PAGE_OCTETS = 800000;
 const SOURCE_PDF_OCTETS = 15000000;
-const RUBRIQUES = ['programme', 'calendrier', 'acteurs', 'etat', 'effets'];
-
-/* Forme de comparaison d'une citation : lettres et chiffres seulement, sans
-   accents ni ponctuation. Le modèle recopie fidèlement les mots mais change
-   volontiers une apostrophe, un guillemet ou une espace insécable ; ces
-   écarts-là ne changent pas ce que dit le passage. */
-const pourCitation = (t) => unaccentLower(String(t || '')).replace(/[^a-z0-9]+/g, ' ').trim();
-
-/* La citation se trouve-t-elle dans la source ? Une coupure marquée par des
-   points de suspension est admise, chaque morceau devant figurer dans la
-   source : c'est ainsi qu'un modèle rassemble deux phrases d'une même page qui
-   portent ensemble un fait (sur le cours Brillier, le pilotage et les « 18 mois
-   de travaux » sont dits dans deux phrases, dans l'ordre inverse). */
-function citationRetrouvee(citation, sourceNormalisee) {
-  const morceaux = String(citation || '').split(/\.{3}|…|\[\s*\.\.\.\s*\]/).map(pourCitation).filter(Boolean);
-  return morceaux.length > 0 && morceaux.every((m) => sourceNormalisee.includes(m));
-}
 
 // Date de publication déclarée par la page (Open Graph, schema.org, <time>)
 function dateDePublication(html) {
@@ -2506,9 +2501,15 @@ async function sourcesDuProjet(projet, tousLesPdfs) {
     .filter((u) => /^https?:\/\//.test(u || '')))].slice(0, SOURCES_LUES_MAX);
   const lues = await Promise.all(pages.map(lireSource));
   const sources = [];
+  /* Une même page revient sous deux adresses qui ne diffèrent que par un
+     paramètre : au banc du 13/11/2026, la page de la chapelle de Chuzelles
+     était lue deux fois et prenait deux parts de la place. Un texte déjà lu
+     n'est pas relu. */
+  const dejaLu = (texte) => sources.some((s) => s.texte === texte);
   pages.forEach((url, i) => {
-    if (lues[i]?.texte) sources.push({ url, nature: /\.pdf(\?|#|$)/i.test(url) ? 'pdf' : 'page', ...lues[i] });
-    else if (url === projet.source_url && projet.source_excerpt) sources.push({ url, nature: 'page', texte: projet.source_excerpt, publiee: '', titre: '', pdfs: [] });
+    if (lues[i]?.texte) {
+      if (!dejaLu(lues[i].texte)) sources.push({ url, nature: /\.pdf(\?|#|$)/i.test(url) ? 'pdf' : 'page', ...lues[i] });
+    } else if (url === projet.source_url && projet.source_excerpt) sources.push({ url, nature: 'page', texte: projet.source_excerpt, publiee: '', titre: '', pdfs: [] });
   });
   const pagesLues = new Set(pages);
   const candidats = [
@@ -2522,81 +2523,11 @@ async function sourcesDuProjet(projet, tousLesPdfs) {
   }
   const pdfsLus = await Promise.all(pdfs.map((d) => lireSource(d.url)));
   pdfs.forEach((d, i) => {
-    if (pdfsLus[i]?.texte) sources.push({ ...pdfsLus[i], url: d.url, nature: 'pdf', titre: d.label || nomDeFichier(d.url) });
+    if (pdfsLus[i]?.texte && !dejaLu(pdfsLus[i].texte)) sources.push({ ...pdfsLus[i], url: d.url, nature: 'pdf', titre: d.label || nomDeFichier(d.url) });
   });
-  sources.forEach((s, i) => { s.id = `S${i + 1}`; s.normalisee = pourCitation(s.texte); });
+  sources.forEach((s, i) => { s.id = `S${i + 1}`; });
   repartirLaPlace(sources, CORPUS_CHARS);
   return sources;
-}
-
-/* ATTRIBUTION D'UN PASSAGE. Mesure du banc du 10/11/2026 : l'extracteur
-   répondait à « ce passage porte-t-il sur le projet ? » par oui presque
-   toujours, puisqu'on venait de lui demander des faits sur ce projet. La fiche
-   de l'école Le Chat Perché à Noyal recevait ainsi 947 570 € du budget 2026
-   qui vont à l'accueil de loisirs d'une autre école, la cantine et l'entretien
-   des espaces verts ; celle de la vidéoprotection, la mutuelle des agents. Un
-   budget, un procès-verbal ou un bulletin liste des lignes voisines, et rien
-   dans une question à une seule réponse ne les en distinguait.
-
-   L'extracteur reçoit donc les autres opérations de la carte, et dit pour
-   chaque passage à laquelle il se rapporte : le projet demandé, une autre
-   opération nommée, ou aucune. Une ligne de budget qui nomme l'accueil de
-   loisirs a désormais une place où aller. Seuls les passages rendus au projet
-   demandé sont gardés. */
-function schemaDesFaits(nAutres) {
-  const operations = ['P', 'aucune', ...Array.from({ length: nAutres }, (_, k) => `O${k + 1}`)];
-  return {
-    type: 'object',
-    additionalProperties: false,
-    properties: {
-      faits: {
-        type: 'array',
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            citation: { type: 'string', description: 'Passage de la source recopié mot pour mot, qui porte ce fait.' },
-            source: { type: 'string', description: 'Identifiant de la source (S1, S2...).' },
-            /* Nommer l'objet du passage avant de le ranger : une page de la
-               Ville sur le cours Brillier parle aussi du monument aux morts et
-               de la halte fluviale, que l'extracteur versait au cours Brillier
-               tant qu'il n'avait pas à dire de quoi parlait chaque passage. */
-            objet: { type: 'string', description: 'Les mots de la source qui nomment ce dont parle le passage (le chantier, l\'équipement, le lieu, l\'intitulé de la ligne ou du point), recopiés tels quels depuis le passage ou depuis le titre de la section où il se trouve. Vide si rien ne le nomme.' },
-            operation: { type: 'string', enum: operations, description: '« P » si le passage parle du projet demandé, « O1 », « O2 »... s\'il parle d\'une autre opération de la liste, « aucune » s\'il parle d\'autre chose.' },
-            rubrique: { type: 'string', enum: RUBRIQUES },
-          },
-          required: ['citation', 'source', 'objet', 'operation', 'rubrique'],
-        },
-      },
-      documents: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Identifiants des sources PDF qui portent sur ce projet précis.',
-      },
-      /* L'intitulé et la date de chaque source. Le <h1> des pages porte souvent
-         des capitales et des crochets (« [TRAVAUX] Fermeture du pont »), que la
-         charte d'écriture exclut ; le modèle les récrit sans toucher au sens.
-         La date est celle que le document écrit pour lui-même : la date de
-         dépôt d'un PDF n'est pas celle de la séance qu'il rapporte (Faugères :
-         les délibérations du 20 août 2026, déposées en octobre, étaient dites
-         « d'octobre 2026 »). */
-      sources: {
-        type: 'array',
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            source: { type: 'string' },
-            titre: { type: 'string', description: 'Intitulé court en typographie courante : majuscule initiale et noms propres seulement, sans crochets ni capitales.' },
-            date_ecrite: { type: 'string', description: 'La date que le document se donne à lui-même, recopiée mot pour mot depuis son texte : date de la séance d\'un procès-verbal ou d\'une délibération, date d\'un article, date d\'un budget, d\'un bulletin ou d\'un plan. Vide si son texte n\'en écrit pas.' },
-            date_iso: { type: 'string', description: 'Cette même date sous la forme AAAA-MM-JJ, AAAA-MM ou AAAA. Vide si date_ecrite est vide.' },
-          },
-          required: ['source', 'titre', 'date_ecrite', 'date_iso'],
-        },
-      },
-    },
-    required: ['faits', 'documents', 'sources'],
-  };
 }
 
 /* Une date partielle (AAAA, AAAA-MM) ou complète, lue sans fuseau. Rendue
@@ -2605,31 +2536,6 @@ function dateIso(iso) {
   const m = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(String(iso || '').trim());
   if (!m || Number(m[2] || 1) > 12 || Number(m[3] || 1) > 31) return null;
   return { annee: m[1], mois: m[2] || '', jour: m[3] || '' };
-}
-
-/* La date écrite par le document est-elle bien la sienne ? Elle doit figurer
-   dans son texte, et la forme AAAA-MM-JJ que le modèle en donne doit en
-   reprendre l'année et le jour : un modèle qui lit « séance du 20 août » dans
-   un PV de 2026 ne peut pas rendre 2025-10-01. */
-function dateDeLaSourceVerifiee(s, d) {
-  const iso = dateIso(d?.date_iso);
-  const ecrite = String(d?.date_ecrite || '').trim();
-  if (!iso || !ecrite || !citationRetrouvee(ecrite, s.normalisee)) return '';
-  const chiffres = ecrite.match(/\d+/g) || [];
-  if (!chiffres.includes(iso.annee)) return '';
-  if (iso.jour && !chiffres.some((c) => Number(c) === Number(iso.jour))) return '';
-  return [iso.annee, iso.mois, iso.jour].filter(Boolean).join('-');
-}
-
-// « il y a 3 ans », « il y a 5 mois » : l'écart entre la date d'une source et aujourd'hui
-function ancienneteDe(iso) {
-  const d = dateIso(iso);
-  if (!d) return '';
-  const ref = new Date(`${d.annee}-${d.mois || '07'}-${d.jour || '15'}T12:00:00Z`);
-  const mois = Math.round((Date.now() - ref.getTime()) / (30.44 * 86400000));
-  if (mois < 1) return 'moins d\'un mois';
-  if (mois < 24) return `${mois} mois`;
-  return `${Math.floor(mois / 12)} ans`;
 }
 
 // 2026-08-20 → « 20 août 2026 », 2026-08 → « août 2026 », 2026 → « 2026 »
@@ -2642,286 +2548,87 @@ function dateLisible(iso) {
   return d.annee;
 }
 
-/* La date d'une source telle qu'on peut la présenter : celle que le document
-   écrit pour lui-même, sinon, pour une page, sa date de publication déclarée.
-   La date de création d'un fichier PDF n'est jamais retenue : c'est le jour de
-   son dépôt, pas celui de ce qu'il rapporte. */
-const dateDeLaSource = (s) => s?.datee || (s?.nature === 'page' ? s.publiee || '' : '');
-
-/* VÉRIFICATION DU RATTACHEMENT, par un second regard.
-
-   Mesure du 10/11/2026 sur l'école Le Chat Perché de Noyal, après que
-   l'extracteur a reçu la liste des autres opérations : il rangeait encore au
-   projet la ligne « ALSH CONSTRUCTION ALSH ESPACE VIE SOCIALE ET 2 CLASSES »
-   du budget, l'opération voisine pourtant dans sa liste, et les totaux de la
-   section d'investissement. Chargé de trouver des faits sur un projet, un
-   modèle trouve que tout en parle. La question est donc reposée à part, à un
-   modèle qui n'a rien à remplir : chaque passage gardé, avec ce qui l'entoure
-   dans sa source, se rapporte-t-il au projet, à une autre opération de la
-   carte, ou à rien de tout cela ? */
-const RATTACHEMENT_FAITS_LOT = 60;
-const CONTEXTE_AVANT = 400;
-const CONTEXTE_APRES = 200;
-function contexteDuPassage(s, citation) {
-  const t = s?.texte || '';
-  const debut = String(citation || '').slice(0, 30);
-  let at = debut ? t.indexOf(debut) : -1;
-  if (at < 0) {
-    // Apostrophes et espaces changés par le modèle : on cherche dans la forme normalisée
-    const n = s?.normalisee || '';
-    const k = n.indexOf(pourCitation(citation).slice(0, 30));
-    return k < 0 ? '' : n.slice(Math.max(0, k - CONTEXTE_AVANT), k + pourCitation(citation).length + CONTEXTE_APRES);
-  }
-  return t.slice(Math.max(0, at - CONTEXTE_AVANT), at + String(citation).length + CONTEXTE_APRES);
-}
-
-async function verifierLeRattachement(commune, projet, faits, parId, autres) {
-  if (!faits.length) return faits;
-  const codes = ['P', 'aucune', ...autres.map((_, k) => `O${k + 1}`)];
-  const schema = {
-    type: 'object',
-    additionalProperties: false,
-    properties: {
-      passages: {
-        type: 'array',
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            id: { type: 'string' },
-            ce_qu_il_nomme: { type: 'string', description: 'Ce que le passage et son contexte désignent, en quelques mots.' },
-            operation: { type: 'string', enum: codes },
-          },
-          required: ['id', 'ce_qu_il_nomme', 'operation'],
-        },
-      },
-    },
-    required: ['passages'],
-  };
-  const listeAutres = autres.map((o, k) => `O${k + 1} : ${o.title}${o.place ? ` (${o.place})` : ''}`).join('\n');
-  const system = `Tu vérifies une fiche de la carte des projets de ${commune.nom}. La fiche porte sur UN projet, désigné P : « ${projet.title} »${projet.place ? ` (${projet.place})` : ''}${projet.description ? `. ${String(projet.description).slice(0, 400)}` : ''}
-
-Les autres opérations de la commune ont chacune leur fiche :
-${listeAutres || '(aucune)'}
-
-On a relevé pour la fiche P les passages qui suivent, chacun avec son contexte dans sa source. Pour chacun, dis à quoi il se rapporte vraiment, d'après ce qu'il nomme et ce qui l'entoure : « P » s'il parle du projet P lui-même ; le code d'une autre opération s'il parle d'elle ; « aucune » s'il parle d'autre chose (le budget ou le fonctionnement de toute la commune, ses totaux, le personnel, un service, un chantier hors de la liste).
-
-Tu n'as pas à remplir la fiche : un passage qui ne parle pas de P doit en sortir. Dans un budget, un procès-verbal ou un bulletin, une ligne ou un paragraphe se rapporte à l'opération qu'il nomme ou à celle de la section où il se trouve, pas à P parce qu'il est voisin d'une ligne qui le nomme. Un même groupe scolaire, une même rue ou un même quartier peuvent porter deux opérations distinctes.`;
-  const lots = [];
-  for (let k = 0; k < faits.length; k += RATTACHEMENT_FAITS_LOT) lots.push(faits.slice(k, k + RATTACHEMENT_FAITS_LOT));
-  const verdicts = new Map();
-  await Promise.all(lots.map(async (lot) => {
-    const user = JSON.stringify(lot.map((f) => {
-      const src = parId.get(f.source);
-      return { id: f.id, source: src?.titre || hostOf(src?.url || ''), passage: f.citation, contexte: contexteDuPassage(src, f.citation) };
-    }));
-    try {
-      const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
-        'rattachement_faits', schema, 400 + 60 * lot.length, FAITS_TIMEOUT_MS, 0, FAITS_MODEL, 2);
-      for (const v of out.passages || []) verdicts.set(v.id, v);
-    } catch (e) {
-      // Sans second regard, les passages gardent le rattachement de l'extracteur
-      console.warn(`[demo-generate] verification du rattachement impossible pour "${projet.title}" :: ${e?.message}`);
-    }
-  }));
-  const nomDe = (code) => (code === 'aucune' ? 'aucune opération de la carte' : autres[Number(String(code).slice(1)) - 1]?.title || code);
-  for (const f of faits) {
-    const v = verdicts.get(f.id);
-    if (v && v.operation !== 'P') f.motif = `rattachement refusé : ${nomDe(v.operation)} (${String(v.ce_qu_il_nomme || '').slice(0, 60)})`;
-  }
-  return faits;
-}
-
-/* Les faits d'un projet, chacun retrouvé dans sa source.
-   Un fait est une citation : il est gardé si elle figure dans le texte de la
-   source qu'il désigne. L'extracteur ne reformule plus. Sa reformulation a été
-   essayée, et c'est elle qui trompait le rédacteur (sur le réseau express vélo
-   de Noyal, 5 km de liaison qui « permettent » déjà de rejoindre Rennes
-   devenaient 5 km qui « vont être aménagés ») ; la contrôler par ses nombres
-   rejetait 8 faits justes sur 28 au boulevard du Rhône, dont tout le plan de
-   financement. Sans elle, la sortie est aussi deux fois plus courte.
-   @param {Array<Object>} autres - les autres opérations de la carte, qui ont leur propre fiche */
-async function extraireLesFaits(commune, projet, sources, aujourdhui, autres = []) {
-  const listeAutres = autres.map((o, k) => `O${k + 1} : ${o.title}${o.place ? ` (${o.place})` : ''}`).join('\n');
-  const system = `Tu relèves, pour les habitants de ${commune.nom}, tout ce que les sources fournies établissent sur UN projet : « ${projet.title} »${projet.place ? ` (${projet.place})` : ''}.
-
-Relève TOUS les faits utiles sur ce projet, sans en omettre aucun, un fait par élément d'information. Parcours chaque source phrase par phrase : chaque phrase qui dit quelque chose du projet donne au moins un fait.
-- programme : ce qui est construit, transformé ou installé, avec ses chiffres (logements, surfaces, longueurs, places, classes, équipements, matériaux annoncés), et les rues, lieux et itinéraires concernés ;
-- calendrier : chaque date ou période (études, concertation, début et fin de chantier, phases, livraison, inauguration), recopiée comme la source l'écrit ;
-- acteurs : maître d'ouvrage, aménageur, architecte, bureau d'études, entreprises, financeurs, et chaque montant avec ce qu'il finance exactement (coût total, part de chaque financeur, poste concerné) ;
-- etat : où en est le projet à la date de la source (à l'étude, en concertation, en travaux, livré, inauguré, abandonné), et ce qui reste à faire ;
-- effets : ce qui change pour les habitants (fermetures, déviations, ce qui reste ouvert, horaires, stationnement, nouveaux usages).
-
-Chaque fait est une citation recopiée mot pour mot, d'un seul tenant, dans la source indiquée : une phrase ou un morceau de phrase qui contient tout le fait, assez longue pour qu'on comprenne de quoi elle parle et sans rien y changer.
-
-Pour chaque fait, recopie d'abord dans « objet » les mots de la source qui nomment ce dont il parle, tels qu'ils sont écrits dans le passage ou dans le titre de sa section (« ACCUEIL LOISIRS SUD EXT ECOLE LPP ALSH », « Restauration de l'église », « Point 4 : vidéoprotection »), jamais le nom du projet demandé s'il n'y figure pas ; puis dis dans « operation » à quelle opération ces mots se rapportent : « P » pour le projet demandé, le code d'une autre opération de la commune s'il parle d'elle, « aucune » s'il parle d'autre chose (le fonctionnement de la commune, le personnel, un service, un chantier qui n'est pas dans la liste). ${listeAutres ? `Les autres opérations de la commune, qui ont chacune leur fiche :\n${listeAutres}\n` : ''}
-Une page, un procès-verbal, un budget ou un bulletin parlent de beaucoup de choses à la fois. Un passage ne se rapporte au projet demandé que s'il en parle lui-même : il nomme son équipement, son lieu ou l'opération, ou il continue sans ambiguïté un paragraphe qui les nomme. La ligne voisine d'un budget, le point suivant d'un ordre du jour, l'article d'à côté d'un bulletin se rapportent à ce qu'ils nomment, même dans le même chapitre ou pour le même quartier. Les totaux et les sections d'un document budgétaire de toute la commune portent sur la commune, jamais sur le projet. Si une source corrige une annonce précédente, relève les deux faits.
-
-Dans « documents », donne les identifiants des PDF qui portent sur ce projet précis.
-Dans « sources », donne pour chaque source son intitulé et la date qu'elle se donne à elle-même : la date de séance d'un procès-verbal ou d'une délibération, la date d'un article, d'un budget, d'un bulletin ou d'un plan, recopiée telle que son texte l'écrit. La date de publication d'une page en ligne n'est pas à recopier : laisse vide si le texte n'écrit pas de date pour lui-même.
-Nous sommes le ${aujourdhui}.`;
-
-  const parId = new Map(sources.map((s) => [s.id, s]));
-  const lots = lotsDeSources(sources);
-  const schema = schemaDesFaits(autres.length);
-  const sorties = await Promise.all(lots.map((lot) => openAIStructured([
-    { role: 'system', content: system },
-    { role: 'user', content: lot.map((s) => `=== ${s.id} : ${s.nature === 'pdf' ? 'document PDF' : 'page'}${s.titre ? ` « ${s.titre} »` : ''}${s.nature === 'page' && s.publiee ? `, publiée en ligne le ${dateLisible(s.publiee)}` : ''}\n${s.lu}`).join('\n\n') },
-  ], 'faits_projet', schema, FAITS_MAX_TOKENS, FAITS_TIMEOUT_MS, 0, FAITS_MODEL, 2).catch((e) => {
-    // Un lot perdu coûte ses faits, pas l'article : les autres lots suffisent souvent
-    console.warn(`[demo-generate] extraction perdue pour "${projet.title}" (${lot.map((x) => x.id).join(', ')}) :: ${e?.message}`);
-    return { faits: [], documents: [], sources: [] };
-  })));
-
-  for (const d of sorties.flatMap((o) => o.sources || [])) {
-    const s = parId.get(d.source);
-    if (!s) continue;
-    if (String(d.titre || '').trim()) s.titre = String(d.titre).trim().slice(0, 140);
-    const datee = dateDeLaSourceVerifiee(s, d);
-    if (datee) { s.datee = datee; s.datee_ecrite = String(d.date_ecrite).trim(); }
-  }
-
-  const nomDe = (code) => (code === 'aucune' ? 'aucune opération de la carte' : autres[Number(String(code).slice(1)) - 1]?.title || code);
-  const gardes = [];
-  const rejetes = [];
-  const vues = [];
-  for (const f of sorties.flatMap((o) => o.faits || [])) {
-    const s = parId.get(f.source);
-    const forme = pourCitation(f.citation);
-    const motif = f.operation !== 'P' ? `autre opération (${nomDe(f.operation)})`
-      : !s ? 'source inconnue'
-        : !citationRetrouvee(f.citation, s.normalisee) ? 'citation introuvable'
-          // La même phrase reprise d'une page à l'autre ne fait qu'un fait
-          : vues.some((v) => v.includes(forme)) ? 'doublon'
-            : '';
-    if (motif) rejetes.push({ ...f, motif });
-    else { gardes.push({ ...f, id: `F${gardes.length + 1}` }); vues.push(forme); }
-  }
-  /* Second regard sur le rattachement des passages gardés (voir
-     verifierLeRattachement), puis renumérotation des faits restants. */
-  await verifierLeRattachement(commune, projet, gardes, parId, autres);
-  for (const f of gardes.filter((x) => x.motif)) rejetes.push(f);
-  const retenus = gardes.filter((x) => !x.motif).map((f, k) => ({ ...f, id: `F${k + 1}` }));
-  gardes.length = 0;
-  gardes.push(...retenus);
-  /* Un document officiel listé sous l'article est un PDF que l'extracteur
-     rattache au projet ET qui porte au moins un fait gardé : le budget de toute
-     la commune n'est plus présenté comme le dossier d'une école parce qu'une de
-     ses lignes a été lue pour elle. */
-  const avecFaits = new Set(gardes.map((f) => f.source));
-  const documents = sorties.flatMap((o) => o.documents || []).map((id) => parId.get(id))
-    .filter((s) => s?.nature === 'pdf' && avecFaits.has(s.id));
-  return { faits: gardes, rejetes: rejetes.filter((r) => r.motif !== 'doublon'), documents: [...new Set(documents)] };
-}
-
-/* Les sources d'un projet partent en plusieurs appels d'extraction, lancés
-   ensemble, d'au plus FAITS_LOT_CHARS signes chacun. Mesure du 10/11/2026 sur
-   le Vallon de Saint-Genis-Laval (13 sources, 90 000 signes en un appel) :
-   122 s d'attente, dont un premier essai coupé à 60 s, et 40 citations sur 84
-   rejetées parce que le modèle, noyé, résumait au lieu de recopier. */
-function lotsDeSources(sources) {
-  const lots = [];
-  let courant = [];
-  let taille = 0;
-  for (const s of sources) {
-    if (courant.length && taille + s.lu.length > FAITS_LOT_CHARS) { lots.push(courant); courant = []; taille = 0; }
-    courant.push(s);
-    taille += s.lu.length;
-  }
-  if (courant.length) lots.push(courant);
-  return lots;
-}
+const aujourdhuiEnLettres = () => new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
 const ARTICLE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    /* L'état du projet à la date du jour, établi AVANT d'écrire. Mesure du banc
-       du 10/11/2026 : l'accueil de loisirs de Noyal, livré et ouvert le 4
-       février 2026, était raconté au futur depuis les pages de son chantier ;
-       un projet de 2018 l'était au présent. */
-    etat_aujourdhui: { type: 'string', description: 'Où en est le projet aujourd\'hui, en une phrase, d\'après le fait le plus récent qui le dit, avec son identifiant et sa date.' },
-    markdown: {
-      type: 'string',
-      description: "L'article en markdown, et lui seul : aucun préambule, aucune phrase adressée au lecteur de la consigne.",
+    assez_de_matiere: { type: 'boolean', description: 'false si les sources ne disent presque rien de ce projet lui-même (une simple mention dans une liste, un remerciement, un titre), au point qu\'un article n\'apprendrait rien de plus que son nom ; true sinon.' },
+    /* L'état du projet à la date du jour, établi AVANT d'écrire : un
+       équipement livré était raconté au futur depuis les pages de son
+       chantier tant que le rédacteur n'avait pas à le dire d'abord. */
+    etat_aujourdhui: { type: 'string', description: 'Où en est le projet aujourd\'hui, en une phrase, d\'après la source la plus récente qui le dit, avec sa date.' },
+    markdown: { type: 'string', description: "L'article en markdown, et lui seul : aucun préambule, aucune phrase adressée au lecteur de la consigne." },
+    description: { type: 'string', description: 'Deux ou trois phrases pour la fiche du projet sur la carte : ce qu\'est le projet et où il en est aujourd\'hui, au temps juste.' },
+    sources_utilisees: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          source: { type: 'string', description: 'Identifiant de la source (S1, S2...).' },
+          titre: { type: 'string', description: 'Intitulé court en typographie courante : majuscule initiale et noms propres seulement, sans crochets ni capitales.' },
+        },
+        required: ['source', 'titre'],
+      },
     },
-    description: { type: 'string', description: 'Deux ou trois phrases pour la fiche du projet sur la carte : ce qu\'est le projet et où il en est aujourd\'hui, au temps juste, tirées des faits.' },
-    faits_utilises: { type: 'array', items: { type: 'string' }, description: 'Identifiants (F1, F2...) des faits employés dans l\'article.' },
   },
-  required: ['etat_aujourdhui', 'markdown', 'description', 'faits_utilises'],
+  required: ['assez_de_matiere', 'etat_aujourdhui', 'markdown', 'description', 'sources_utilisees'],
 };
 
-/**
- * Article d'un projet, écrit à partir des faits relevés dans ses sources.
- * @param {Array<Object>} autres - les autres opérations de la carte, pour que
- *   l'extraction rende à chacune les passages qui la concernent
- * @returns {Promise<{markdown: string, description: string}>}
- */
-/* Les reperes des faits (F11, F25...) servent au redacteur a citer ses
-   preuves ; ils ne doivent pas paraitre dans le texte publie. Le modele les
-   ecrit seuls, en liste, ou suivis de la date de leur source : « (F11, 12
-   janvier 2026; F25, 9 septembre 2026) », forme vue a Vienne le 10/11/2026. */
-const MARQUEURS_DE_FAITS = /\s*\((?:\s*(?:et\s+)?F\d+(?:\s*,\s*[^;,()]*\d{4})?\s*[,;]?)+\s*\)/g;
+/* Les identifiants des sources (S2, S5...) servent au rédacteur à dire ce
+   qu'il a employé ; ils n'ont rien à faire sous les yeux d'un habitant, et le
+   modèle en sème parfois entre parenthèses malgré la consigne. */
+const MARQUEURS_DE_SOURCES = /\s*\((?:\s*(?:et\s+)?S\d+\s*[,;]?)+\s*\)/g;
 
-async function redigerArticle(commune, projet, tousLesPdfs, autres = []) {
-  const aujourdhui = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  const sources = await sourcesDuProjet(projet, tousLesPdfs);
-  if (!sources.length) throw new Error('aucune source lisible');
-  const { faits, rejetes, documents } = await extraireLesFaits(commune, projet, sources, aujourdhui, autres);
-  console.log(`[demo-faits] "${projet.title}" : ${sources.length} source(s), ${faits.length} fait(s) gardé(s), ${rejetes.length} rejeté(s)${rejetes.length ? ` :: ${rejetes.map((r) => `${r.motif} « ${String(r.citation).slice(0, 80)} »`).join(' ; ')}` : ''}`);
-  if (process.env.DEMO_FAITS_DETAIL) console.log(`[demo-faits-detail] ${JSON.stringify({ projet: projet.title, sources: sources.map((s) => ({ id: s.id, url: s.url, publiee: s.publiee, datee: s.datee || '', datee_ecrite: s.datee_ecrite || '', chars: s.texte.length, lu: s.lu.length })), faits, rejetes })}`);
-  // Sans fait retrouvé dans une source, il n'y a rien à écrire que la description ne dise déjà
-  if (!faits.length) throw new Error('aucun fait retrouvé dans les sources');
-
-  const parId = new Map(sources.map((s) => [s.id, s]));
-  /* L'âge de la source est calculé ici plutôt que laissé au rédacteur : mesure
-     du 10/11/2026, une page de novembre 2023 qui annonçait des aménagements « à
-     venir » était racontée au présent, « le projet est en cours ». La date est
-     celle que la source écrit pour elle-même (séance, article), jamais celle du
-     dépôt d'un fichier. Les faits sont donnés du plus ancien au plus récent :
-     le dernier dit où en est le projet. */
-  const datee = (f) => dateDeLaSource(parId.get(f.source));
-  const ordonnes = [...faits].sort((x, y) => (datee(x) || '9999').localeCompare(datee(y) || '9999'));
-  const liste = ordonnes.map((f) => {
-    const d = datee(f);
-    return {
-      id: f.id, objet: f.objet, rubrique: f.rubrique, la_source_dit: f.citation,
-      source_datee_du: d ? dateLisible(d) : 'date inconnue',
-      ...(d ? { anciennete_de_la_source: ancienneteDe(d) } : {}),
-    };
-  });
-  const system = promptArticle({ commune: commune.nom, aujourdhui });
-  const user = `PROJET : ${projet.title}
-${projet.place ? `LIEU : ${projet.place}\n` : ''}COMMUNE : ${commune.nom}
-FAITS VÉRIFIÉS (${faits.length}), du plus ancien au plus récent, les faits sans date à la fin :
-${JSON.stringify(liste, null, 1)}`;
-
-  const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: user }],
-    'article_projet', ARTICLE_SCHEMA, ARTICLE_MAX_TOKENS, ARTICLE_TIMEOUT_MS, 0.3, REDACTION_MODEL, 2);
-  /* Les identifiants de faits n'ont rien à faire sous les yeux d'un habitant ;
-     le rédacteur en sème parfois entre parenthèses malgré la consigne. */
-  const markdown = retirerLesLiens(String(out.markdown || '').replace(MARQUEURS_DE_FAITS, '').trim());
-  if (!markdown) throw new Error('Article vide');
-
-  /* Les sources citées sous l'article sont celles des faits employés, pages
-     d'abord ; un PDF rattaché comme document officiel n'y est pas répété. */
-  const utilises = new Set((out.faits_utilises || []).filter((id) => faits.some((f) => f.id === id)));
-  const employes = faits.filter((f) => !utilises.size || utilises.has(f.id));
-  const dossiers = [...documents];
-  for (const f of employes) {
-    const s = parId.get(f.source);
-    if (s?.nature === 'pdf' && !dossiers.includes(s)) dossiers.push(s);
-  }
-  const citees = [...new Set(employes.map((f) => parId.get(f.source)))]
-    .filter((s) => s && s.nature !== 'pdf')
-    .map((s) => ({ url: s.url, title: s.titre || hoteLisible(s.url) }));
-  const blocDossier = dossiers.length
-    ? `\n\n## ${dossiers.length > 1 ? 'Les documents officiels sont en ligne' : 'Le document officiel est en ligne'}\n\n${dossiers.map((d) => `- [${d.titre || nomDeFichier(d.url)}](${d.url})`).join('\n')}\n`
-    : '';
-  const description = retirerLesLiens(String(out.description || '').replace(MARQUEURS_DE_FAITS, '').trim());
-  return { markdown: `${markdown}${blocDossier}${blocSources(citees)}`, description, etat: String(out.etat_aujourdhui || '').trim() };
+/* L'entrée du rédacteur : la fiche, puis chaque source avec ce qu'on sait
+   d'elle. La consigne et cette matière ne changent pas d'un essai à l'autre,
+   ce qui laisse jouer le cache d'OpenAI sur une reprise. */
+function entreeDuRedacteur(commune, projet, sources) {
+  const blocs = sources.map((s) => `=== ${s.id} : ${s.nature === 'pdf' ? 'document PDF' : 'page'}${s.titre ? ` « ${s.titre} »` : ''}, ${s.url}${s.publiee ? `, publiée en ligne le ${dateLisible(s.publiee) || s.publiee}` : ''}\n${s.lu}`).join('\n\n');
+  return `PROJET : ${projet.title}\n${projet.place ? `LIEU : ${projet.place}\n` : ''}COMMUNE : ${commune.nom}\n${projet.description ? `CE QU'EN DIT LA FICHE : ${projet.description}\n` : ''}\nSOURCES :\n\n${blocs}`;
 }
 
+/**
+ * Article d'un projet, écrit d'un seul appel à partir du texte de ses
+ * sources : la dernière étape de sa rédaction (voir coreRedact).
+ * @param {{nom: string}} commune
+ * @param {Object} projet - la fiche (title, place, description)
+ * @param {Array<Object>} sources - les sources lues (sourcesDuProjet), avec leur texte `lu`
+ * @param {Array<{title: string}>} autres - les autres opérations de la carte
+ * @param {number} timeoutMs
+ * @returns {Promise<{markdown: string, description: string, etat: string}>}
+ * @throws {SansArticle} si le rédacteur juge que les sources ne disent presque rien du projet
+ */
+async function ecrireLArticle(commune, projet, sources, autres, timeoutMs) {
+  const lues = sources.filter((s) => s.lu);
+  if (!lues.length) throw new SansArticle('aucune source lisible');
+  const system = promptArticle({ commune: commune.nom, autres, aujourdhui: aujourdhuiEnLettres() });
+  const out = await openAIStructured([{ role: 'system', content: system }, { role: 'user', content: entreeDuRedacteur(commune, projet, lues) }],
+    'article_projet', ARTICLE_SCHEMA, ARTICLE_MAX_TOKENS, timeoutMs, null, REDACTION_MODEL, 1, { reasoning: { effort: 'low' } });
+  if (out.assez_de_matiere === false) throw new SansArticle('les sources ne disent presque rien du projet');
+  const markdown = retirerLesLiens(String(out.markdown || '').replace(MARQUEURS_DE_SOURCES, '').trim());
+  if (!markdown) throw new Error('Article vide');
+
+  /* Les sources citées sous l'article sont celles que le rédacteur dit avoir
+     employées, pages d'abord ; un PDF employé est présenté comme document
+     officiel. La liste est construite ici : prié de citer ses sources
+     lui-même, un modèle écrit des jetons internes à la place des adresses. */
+  const parId = new Map(lues.map((s) => [s.id, s]));
+  const employees = [];
+  for (const u of out.sources_utilisees || []) {
+    const s = parId.get(u.source);
+    if (s && !employees.some((e) => e.s === s)) employees.push({ s, titre: String(u.titre || '').trim().slice(0, 140) });
+  }
+  const dossiers = employees.filter((e) => e.s.nature === 'pdf');
+  const pages = employees.filter((e) => e.s.nature !== 'pdf').map((e) => ({ url: e.s.url, title: e.titre || e.s.titre || hoteLisible(e.s.url) }));
+  const blocDossier = dossiers.length
+    ? `\n\n## ${dossiers.length > 1 ? 'Les documents officiels sont en ligne' : 'Le document officiel est en ligne'}\n\n${dossiers.map((e) => `- [${e.titre || e.s.titre || nomDeFichier(e.s.url)}](${e.s.url})`).join('\n')}\n`
+    : '';
+  const description = retirerLesLiens(String(out.description || '').replace(MARQUEURS_DE_SOURCES, '').trim());
+  return { markdown: `${markdown}${blocDossier}${blocSources(pages)}`, description, etat: String(out.etat_aujourdhui || '').trim() };
+}
 // Formats rejetes par la vision gpt-4o : un seul suffit a faire echouer TOUT
 // l'appel (png/jpeg/webp/gif uniquement acceptes)
 const VISION_UNSUPPORTED_RE = /\.(svg|avif|tiff?|ico|bmp|heic|heif)(\?|#|$)/i;
@@ -3743,7 +3450,7 @@ async function adresseDansLaBoite(res, b) {
     const point = champs.find((f) => f.type === 'geo_point_2d')?.name;
     if (point) u.searchParams.set('where', `in_bbox(${point}, ${b.minLat}, ${b.minLng}, ${b.maxLat}, ${b.maxLng})`);
   } else if (res.mode === 'wfs') {
-    for (const k of [...u.searchParams.keys()]) if (/^(bbox|srsname)$/i.test(k)) u.searchParams.delete(k);
+    for (const k of Array.from(u.searchParams.keys())) if (/^(bbox|srsname)$/i.test(k)) u.searchParams.delete(k);
     // En WFS 2.0, l'URN du système de référence impose l'ordre latitude, longitude dans la boîte
     u.searchParams.set('BBOX', `${b.minLat},${b.minLng},${b.maxLat},${b.maxLng},urn:ogc:def:crs:EPSG::4326`);
     u.searchParams.set('SRSNAME', 'EPSG:4326');
@@ -3876,7 +3583,7 @@ Dis ensuite quel champ porte le NOM PROPRE de chaque objet (« ZAC des Prés »,
     const x = parIndex.get(i);
     if (!x) return { motif: 'non jugé' };
     if (!x.operations) return { motif: 'pas des opérations' };
-    if (!x.champ || !descriptions[i].champs[x.champ] || !/^nom propre/.test(x.valeurs)) return { motif: 'aucun champ ne porte de nom' };
+    if (!x.champ || !descriptions[i].champs[x.champ] || !String(x.valeurs).startsWith('nom propre')) return { motif: 'aucun champ ne porte de nom' };
     return { champ: x.champ, nature: String(x.nature || '').trim().slice(0, 90) };
   });
 }
@@ -4642,7 +4349,7 @@ function varianteDeSrcset(valeur) {
   const entrees = String(valeur || '').split(/,(?=\s*\S+(?:\s+\d+(?:\.\d+)?[wx])?\s*(?:,|$))/)
     .map((e) => e.trim().split(/\s+/))
     .filter((e) => e[0] && !/^data:/i.test(e[0]))
-    .map(([url, d = '1x']) => ({ url, w: /w$/.test(d) ? parseFloat(d) : parseFloat(d) * ILLUS_LARGEUR_VISEE / 2 }));
+    .map(([url, d = '1x']) => ({ url, w: d.endsWith('w') ? parseFloat(d) : parseFloat(d) * ILLUS_LARGEUR_VISEE / 2 }));
   if (!entrees.length) return null;
   entrees.sort((a, b) => a.w - b.w);
   return (entrees.find((e) => e.w >= ILLUS_LARGEUR_VISEE) || entrees[entrees.length - 1]).url;
@@ -5075,10 +4782,12 @@ async function deleteWhere(table, params) {
 }
 
 async function updateInstance(ville, patch) {
+  // Toute écriture du brouillon date son activité : voir ageDuBrouillonMin
+  const corps = patch.payload ? { ...patch, payload: { ...patch.payload, _vuLe: Date.now() } } : patch;
   const r = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/demo_instances?ville=eq.${encodeURIComponent(ville)}`, {
     method: 'PATCH',
     headers: serviceHeaders(),
-    body: corpsJson(patch),
+    body: corpsJson(corps),
   });
   if (!r.ok) throw new Error(`Mise à jour demo_instances : ${r.status}`);
 }
@@ -6242,7 +5951,7 @@ async function jugerLeRapprochement(commune, projets) {
   }
 
   const n = projets.length;
-  const range = new Array(n).fill(false);
+  const range = Array.from({ length: n }, () => false);
   const anomalies = { doubles: 0, oublies: 0, horsListe: 0 };
   const groupes = [];
   for (const op of out.operations || []) {
@@ -7659,12 +7368,47 @@ async function coreMedia(send, step, state) {
   return state;
 }
 
-/* Phase RÉDACTION, découpée en tranches comme la localisation et les
-   illustrations. Un article se lit, s'extrait puis s'écrit en cinq à quarante
-   secondes selon le nombre de ses sources : vingt-cinq articles ne tiennent pas
-   dans une invocation. Trois articles à la fois, pas davantage : le bac à sable
-   des fonctions rompt ses connexions sortantes au-delà. */
-const ARTICLES_CONCURRENCE = 3;
+/* Phase RÉDACTION, découpée en ÉTAPES, chacune enregistrée dès qu'elle est
+   finie : lire les sources du projet, puis écrire son article. Le 13/11/2026
+   à Villeurbanne, un article à huit sources prenait une minute d'un seul
+   tenant et n'était enregistré qu'à la fin de sa tranche : chaque invocation
+   était tuée à 60 s avec tout son travail, et la reprise recommençait les
+   mêmes articles. Une étape ne part que si sa durée maximale tient avant
+   l'échéance de l'invocation, et ce qui est fini est déjà dans le brouillon
+   quand vient la suivante. */
+const DUREES_DES_ETAPES = {
+  // Pages à 8 s et PDF à 20 s, lus ensemble, puis leur analyse
+  sources: 25000,
+  /* Un appel du rédacteur : 6 s en médiane et 16 s au plus au banc du
+     13/11/2026, sur 48 projets lus jusqu'à CORPUS_CHARS signes */
+  ecriture: 40000,
+};
+/* Étapes menées de front. Une étape attend l'IA presque tout son temps :
+   c'est leur nombre qui fait le débit, puisque chaque invocation ne laisse à
+   chaque place que le temps d'une ou deux étapes. L'ancienne rédaction en
+   menait déjà autant (trois articles et tous leurs lots) : le 13/11/2026 à
+   Villeurbanne, neuf appels partis ensemble sont tous revenus. */
+const ETAPES_DE_FRONT = 10;
+/* Projets entamés à la fois : chacun garde ses sources dans le brouillon,
+   réécrit à chaque étape, jusqu'à son article. */
+const PROJETS_OUVERTS_MAX = 6;
+// Un appel qui échoue se retente une fois, à l'invocation suivante, puis on fait sans
+const ESSAIS_PAR_ETAPE = 2;
+/* Filet de dépense. Chaque invocation de la rédaction avance, sinon le
+   contrôle des tranches sans avancée l'arrête (voir runPhase) ; vingt-cinq
+   projets demandent une vingtaine d'invocations. */
+const REDACTION_MAX_TOURS = 40;
+
+// Un projet qui n'aura pas d'article, sans que ce soit une panne
+class SansArticle extends Error {}
+
+/* Une source telle que le brouillon la garde : le texte que le rédacteur lit
+   (`lu`), sans le reste. Il est borné (CORPUS_CHARS par projet), là où le
+   texte complet d'un PDF de budget pèse plusieurs centaines de milliers de
+   signes. */
+function sourceEnregistrable(s) {
+  return { id: s.id, url: s.url, nature: s.nature, titre: s.titre || '', publiee: s.publiee || '', lu: s.lu };
+}
 
 // Tiret cadratin ou demi-cadratin entre deux mots : une virgule ; en tete de ligne : rien
 function sansTiretLong(texte) {
@@ -7676,62 +7420,119 @@ function sansTiretLong(texte) {
     .replace(/,\s*,/g, ',');
 }
 
-async function coreRedact(send, step, state) {
+/* Une étape de la rédaction d'un projet. Elle modifie l'état du projet en
+   place ; l'appelant enregistre le brouillon après chacune. */
+async function executerEtape(e, state, ctx) {
+  const { located, redac } = state;
+  const projet = located[e.i];
+  const p = redac.projets[e.i] || (redac.projets[e.i] = { etape: 'sources', essais: {} });
+
+  if (e.type === 'sources') {
+    const sources = await sourcesDuProjet(projet, state.mairie?.pdfs || []);
+    if (!sources.length) throw new SansArticle('aucune source lisible');
+    p.sources = sources.map(sourceEnregistrable);
+    p.etape = 'ecriture';
+    return;
+  }
+
+  const autres = located.filter((_, k) => k !== e.i);
+  const { markdown, description, etat } = await ecrireLArticle(state.commune, projet, p.sources, autres, DUREES_DES_ETAPES.ecriture);
+  ctx.send({ type: 'article-item', title: projet.title });
+  /* La description de la fiche venait de la page lue a l'exploration, au
+     temps de cette page (« ouverture prevue en 2025 » pour un equipement
+     ouvert en fevrier 2026). Celle du redacteur est ecrite depuis les
+     sources, a la date du jour : elle la remplace. */
+  if (description) { projet.description_lue = projet.description; projet.description = description; }
+  state.articles.push({ index: e.i, title: projet.title, markdown, etat });
+  terminer(redac, e.i);
+}
+
+// Le projet sort de la rédaction, avec ou sans article : son état de travail est libéré
+function terminer(redac, i) {
+  if (!redac.finis.includes(i)) redac.finis.push(i);
+  delete redac.projets[i];
+}
+
+/* Une étape qui a échoué. Un manque n'est pas une panne : un projet sans
+   source lisible, ou dont les sources ne disent presque rien, garde sa fiche,
+   avec sa description et sa photo. Un échec passager se retente d'abord. */
+function apresUnEchec(e, err, state) {
+  const { located, redac } = state;
+  const projet = located[e.i];
+  const p = redac.projets[e.i];
+  if (err instanceof SansArticle) {
+    console.log(`[demo-generate] "${projet.title}" sans article : ${err.message}`);
+  } else if (p) {
+    p.essais[e.type] = (p.essais[e.type] || 0) + 1;
+    console.warn(`[demo-generate] rédaction de "${projet.title}", étape ${e.type}, essai ${p.essais[e.type]}/${ESSAIS_PAR_ETAPE} :: ${err?.message}`);
+    if (p.essais[e.type] < ESSAIS_PAR_ETAPE) return;
+    console.error(`[demo-generate] article "${projet.title}" :`, err?.message);
+  }
+  terminer(redac, e.i);
+}
+
+async function coreRedact(send, step, state, ctx = {}) {
   const located = state.located;
-  const redac = state.redac || (state.redac = { curseur: 0, tours: 0 });
-  redac.tours++;
   state.articles = state.articles || [];
+  const redac = state.redac || (state.redac = { tours: 0, projets: {}, finis: [] });
+  /* Brouillon de la version précédente, en cours au moment d'une mise en
+     ligne : son curseur dit quels projets elle avait déjà traités. */
+  if (!redac.projets) {
+    redac.finis = Array.from({ length: Math.min(redac.curseur || 0, located.length) }, (_, k) => k);
+    redac.projets = {};
+    delete redac.curseur;
+  }
+  redac.tours++;
 
   step('articles', 'start',
     redac.tours === 1 ? 'Rédaction des articles de présentation' : 'Rédaction en cours',
     redac.tours === 1
       ? 'Un article par projet, écrit à partir des sources officielles consultées'
-      : `${state.articles.length} article(s) écrit(s), ${located.length - redac.curseur} restant(s)`);
+      : `${state.articles.length} article(s) écrit(s), ${located.length - redac.finis.length} restant(s)`);
 
-  const t0 = Date.now();
-  const pdfs = state.mairie?.pdfs || [];
-
-  /* Trois places de redaction tenues en continu : chacune prend le projet
-     suivant des qu'elle a fini le sien. Les vagues de trois attendaient leur
-     article le plus lent avant d'en lancer d'autres, alors qu'un article prend
-     de cinq a quarante secondes selon ses sources : les places liberees
-     restaient vides jusqu'a la fin de la vague. Le nombre d'articles
-     menes de front ne change pas, ni la regle de la tranche : une place ne
-     prend plus de projet passe le budget de temps. */
-  await Promise.all(Array.from({ length: ARTICLES_CONCURRENCE }, async () => {
-    while (redac.curseur < located.length && Date.now() - t0 < PHASE_BUDGET_MS) {
-      const i = redac.curseur++;
-      let a = null;
-      try {
-        /* Les autres fiches de la carte partent avec le projet : l'extraction
-           rend à chacune les passages qui la concernent (voir extraireLesFaits). */
-        const autres = located.filter((_, k) => k !== i);
-        const { markdown, description, etat } = await redigerArticle(state.commune, located[i], pdfs, autres);
-        send({ type: 'article-item', title: located[i].title });
-        a = { index: i, title: located[i].title, markdown, description, etat };
-      } catch (e) {
-        // Un article manquant est un manque, pas une panne : la fiche existe
-        // quand même, avec sa description et sa photo.
-        console.error(`[demo-generate] article "${located[i].title}" :`, e.message);
+  if (ctx.conclure) {
+    const restants = located.map((_, i) => i).filter((i) => !redac.finis.includes(i));
+    console.error(`[demo-generate] rédaction conclue sans ${restants.length} article(s) : les dernières invocations n'ont rien pu enregistrer`);
+    for (const i of restants) terminer(redac, i);
+  } else {
+    const echeance = ctx.echeance ?? Date.now() + PHASE_BUDGET_MS;
+    const enCours = new Set();
+    const attentes = [];
+    const ctxEtape = { send };
+    /* Les places prennent la première étape qui tient dans le temps restant.
+       Une place sans étape attend qu'une autre finisse, car la fin d'une
+       étape en ouvre souvent une autre (la lecture des sources ouvre
+       l'écriture). */
+    await Promise.all(Array.from({ length: ETAPES_DE_FRONT }, async () => {
+      for (;;) {
+        const e = prochaineEtape(redac, located.length, enCours, echeance - Date.now(), DUREES_DES_ETAPES, PROJETS_OUVERTS_MAX);
+        if (!e) {
+          if (!enCours.size) return;
+          await new Promise((r) => attentes.push(r));
+          continue;
+        }
+        enCours.add(e.cle);
+        try {
+          await executerEtape(e, state, ctxEtape);
+        } catch (err) {
+          apresUnEchec(e, err, state);
+        }
+        enCours.delete(e.cle);
+        ctx.sauver?.();
+        attentes.splice(0).forEach((r) => r());
       }
-      // Un rejeu de tranche ne doit pas creer de doublon
-      if (!a || state.articles.some((x) => x.index === a.index)) continue;
-      /* La description de la fiche venait de la page lue a l'exploration, au
-         temps de cette page (« ouverture prevue en 2025 » pour un equipement
-         ouvert en fevrier 2026). Celle du redacteur est ecrite depuis les faits
-         verifies, a la date du jour : elle la remplace. */
-      if (a.description) { located[a.index].description_lue = located[a.index].description; located[a.index].description = a.description; }
-      delete a.description;
-      state.articles.push(a);
-    }
-  }));
+    }));
+  }
   // Les articles arrivent dans l'ordre ou ils finissent : rangés par projet
   state.articles.sort((x, y) => x.index - y.index);
 
-  if (redac.curseur < located.length && redac.tours < GEO_MAX_TOURS) {
-    step('articles', 'done', 'Rédaction en cours', `${state.articles.length} article(s) écrit(s)`);
-    state.__continue = true;
-    return state;
+  if (redac.finis.length < located.length) {
+    if (redac.tours < REDACTION_MAX_TOURS) {
+      step('articles', 'done', 'Rédaction en cours', `${state.articles.length} article(s) écrit(s)`);
+      state.__continue = true;
+      return state;
+    }
+    console.error(`[demo-generate] rédaction arrêtée après ${redac.tours} tranches, ${located.length - redac.finis.length} projet(s) sans article`);
   }
   delete state.__continue;
 
@@ -7893,13 +7694,24 @@ async function runSources(send, step, insee, ipHash, runState) {
    autre sur sa troisieme atteignait donc 2 sur 2 et la generation etait
    abandonnee, alors qu'elle avancait normalement entre les deux. */
 function oublierLesEchecs(payload, route) {
-  const cle = `_attempts_${route}`;
-  if (!payload || payload[cle] === undefined) return payload;
-  const { [cle]: _, ...reste } = payload;
+  const cles = [`_attempts_${route}`, `_sansAvancee_${route}`];
+  if (!payload || cles.every((c) => payload[c] === undefined)) return payload;
+  const reste = { ...payload };
+  for (const c of cles) delete reste[c];
   return reste;
 }
 
-async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase, selfPhase, route }, runState) {
+/* Invocations d'une phase qui se sont succédé sans rien enregistrer. Une
+   invocation tuée par la plateforme n'atteint pas le `catch` du handler : le
+   compteur d'échecs ci-dessus ne la voit pas, et l'écran relançait la même
+   phase à l'aveugle (neuf fois sur la rédaction de Villeurbanne, le
+   13/11/2026). Ce compteur est posé dans le brouillon à l'entrée de chaque
+   invocation et retiré par tout enregistrement qui avance (oublierLesEchecs) :
+   s'il atteint son plafond, les invocations précédentes sont mortes sans
+   laisser de trace, et rappeler la phase ne ferait que repayer. */
+const TRANCHES_SANS_AVANCEE_MAX = 2;
+
+async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase, selfPhase, route, peutConclure = false }, runState) {
   const instance = await getInstance({ ville });
   /* Le run est retrouvé AVANT tout contrôle : sans cela, un abandon sur
      « analyse introuvable » laissait la ligne du journal en `running`, donc
@@ -7911,7 +7723,7 @@ async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase
   }
 
   let statut = instance?.status;
-  const ageMin = instance ? (Date.now() - new Date(instance.created_at).getTime()) / 60000 : Infinity;
+  const ageMin = ageDuBrouillonMin(instance);
 
   /* Guérison d'un verrou resté en place. Une invocation tuée en plein vol laisse
      le statut de transit `running-<suite>` : son catch n'a pas pu le relâcher.
@@ -7953,12 +7765,39 @@ async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase
      l'execution, ce qui fait echouer le controle `status !== expect` du second
      appel. Le brouillon est conserve pour permettre une reprise. */
   const enCours = `running-${nextStatus}`;
-  await updateInstance(ville, { status: enCours });
+  const cleSansAvancee = `_sansAvancee_${route}`;
+  const sansAvancee = instance.payload[cleSansAvancee] || 0;
+  if (sansAvancee >= TRANCHES_SANS_AVANCEE_MAX && !peutConclure) {
+    console.error(`[demo-generate] ${ville} : ${sansAvancee} invocations de suite sans avancée sur phase=${route}, arrêt`);
+    await updateInstance(ville, { status: expect, payload: oublierLesEchecs(instance.payload, route) });
+    send({
+      type: 'error',
+      message: "La génération n'a pas pu aboutir pour cette commune. Réessayez plus tard, ou passez nous voir pour une démo guidée.",
+      retryable: false,
+      debug: `phase=${route} :: ${sansAvancee} invocations interrompues sans avancée`,
+    });
+    return;
+  }
+  instance.payload[cleSansAvancee] = sansAvancee + 1;
+  await updateInstance(ville, { status: enCours, payload: instance.payload });
+
+  /* Ce que le cœur sait de son invocation : l'heure à laquelle il doit avoir
+     fini, de quoi enregistrer son avancée sans attendre la fin de sa tranche,
+     et s'il doit conclure avec ce qu'il a. Seule la rédaction s'en sert. */
+  const ecritures = ecrituresEnSerie(() => updateInstance(ville, { payload: avecLesTokensEnCours(oublierLesEchecs(instance.payload, route)) }));
+  const ctx = {
+    echeance: echeanceDeLInvocation(runState?.debutInvocation ?? Date.now()),
+    sauver: () => ecritures.demander(),
+    conclure: sansAvancee >= TRANCHES_SANS_AVANCEE_MAX,
+  };
 
   let state;
   try {
-    state = cumulerTokens(await core(send, step, instance.payload));
+    state = await core(send, step, instance.payload, ctx);
+    await ecritures.vider();
+    state = cumulerTokens(state);
   } catch (e) {
+    await ecritures.vider();
     // On rend la phase rejouable : sans cela l'instance resterait verrouillee
     await updateInstance(ville, { status: expect });
     throw e;
@@ -8011,7 +7850,7 @@ async function runPhase(send, step, ville, { expect, core, nextStatus, nextPhase
 const runAi = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'ai', expect: 'draft-sources', core: coreExplore, nextStatus: 'draft-ai', nextPhase: 'locate', selfPhase: 'ai' }, rs);
 const runLocate = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'locate', expect: 'draft-ai', core: coreGeo, nextStatus: 'draft-locate', nextPhase: 'media', selfPhase: 'locate' }, rs);
 const runMedia = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'media', expect: 'draft-locate', core: coreMedia, nextStatus: 'draft-media', nextPhase: 'redact', selfPhase: 'media' }, rs);
-const runRedact = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'redact', expect: 'draft-media', core: coreRedact, nextStatus: 'draft', nextPhase: 'create', selfPhase: 'redact' }, rs);
+const runRedact = (send, step, ville, rs) => runPhase(send, step, ville, { route: 'redact', expect: 'draft-media', core: coreRedact, nextStatus: 'draft', nextPhase: 'create', selfPhase: 'redact', peutConclure: true }, rs);
 
 /* Article du projet numero i, ou rien.
    Le repli positionnel `articles[i]` a ete retire : la liste d'articles est
@@ -8437,7 +8276,7 @@ export default async (req, context) => {
          partage par toutes les branches : le `finally` s'en sert pour clore un
          run reste ouvert, ce qui est precisement le cas des echecs qu'on ne
          voyait pas. */
-      const runState = { id: null, startedAt: Date.now(), closed: false, lastError: null, definitif: false };
+      const runState = { id: null, startedAt: Date.now(), debutInvocation: Date.now(), closed: false, lastError: null, definitif: false };
 
       const send = (obj) => {
         // Toute erreur envoyee au client est aussi tracee serveur : plus aucun
@@ -8502,7 +8341,7 @@ export default async (req, context) => {
             'running-draft-media': ['draft-locate', 'media'],
             'running-draft': ['draft-media', 'redact'],
           };
-          const ageMin = already ? (Date.now() - new Date(already.created_at).getTime()) / 60000 : Infinity;
+          const ageMin = ageDuBrouillonMin(already);
           if (already && REPRISE_TRANSIT[already.status] && ageMin < 15) {
             const [etat] = REPRISE_TRANSIT[already.status];
             await updateInstance(already.ville, { status: etat });
@@ -8696,7 +8535,6 @@ export const _internals = {
   selectionnerLesProjets,
   verifierLAge,
   ageEnMois,
-  dateDeLaSourceVerifiee,
   repartirLaPlace,
   lotsParPage,
   affinerLesEmprises,
@@ -8705,11 +8543,12 @@ export const _internals = {
   traceDeVoie,
   contientPoint,
   surfaceM2,
-  citationRetrouvee,
-  pourCitation,
   sourcesDuProjet,
-  extraireLesFaits,
-  redigerArticle,
+  DUREES_DES_ETAPES,
+  sourceEnregistrable,
+  ecrireLArticle,
+  ARTICLE_SCHEMA,
+  coreRedact,
   INSEE_RE,
   findSiteLogo,
   attributHtml,

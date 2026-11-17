@@ -1,11 +1,14 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { _internals } from '../netlify/functions/demo-generate.mjs';
-import { promptArticle, retirerLesLiens, sourcesDesAnnotations, blocSources } from '../netlify/functions/lib/redaction.mjs';
+import { promptArticle, retirerLesLiens, blocSources } from '../netlify/functions/lib/redaction.mjs';
 import {
   normaliserUrl, estUnePageExplorable, FileExploration,
   empreinteGabarit, retirerGabaritConnu, rapprochement, regrouper, fondre,
 } from '../netlify/functions/lib/demo-exploration.mjs';
+import {
+  LIMITE_INVOCATION_MS, echeanceDeLInvocation, prochaineEtape, ecrituresEnSerie, ageDuBrouillonMin,
+} from '../netlify/functions/lib/demo-tranches.mjs';
 
 /**
  * Tunnel de démo : les gardes de demo-generate.
@@ -1333,22 +1336,6 @@ test.describe('0.78 - Démo : ce qui sort d\'un article rédigé', () => {
     expect(retirerLesLiens(article)).toBe(article);
   });
 
-  test('0.78.5 - Les sources sont dédoublonnées et débarrassées du suivi', () => {
-    const sources = sourcesDesAnnotations([
-      { type: 'url_citation', url: 'https://www.lyon.fr/a?utm_source=openai', title: 'Ville de Lyon' },
-      { type: 'url_citation', url: 'https://www.lyon.fr/a', title: 'Doublon' },
-      { type: 'autre', url: 'https://ignore.fr' },
-      null,
-      { type: 'url_citation', url: 'pas-une-url' },
-    ]);
-    expect(sources).toEqual([{ url: 'https://www.lyon.fr/a', title: 'Ville de Lyon' }]);
-  });
-
-  test('0.78.6 - Une annotation sans titre prend le nom du média', () => {
-    const [s] = sourcesDesAnnotations([{ type: 'url_citation', url: 'https://www.leprogres.fr/article' }]);
-    expect(s.title).toBe('leprogres.fr');
-  });
-
   test('0.78.7 - Sans source citée, aucun bloc n\'est ajouté', () => {
     expect(blocSources([])).toBe('');
     expect(blocSources(null)).toBe('');
@@ -1359,16 +1346,18 @@ test.describe('0.78 - Démo : ce qui sort d\'un article rédigé', () => {
       .toContain('- [Ville de Lyon](https://www.lyon.fr/a)');
   });
 
-  /* La démo publie sans relecture : la consigne doit interdire explicitement de
-     s'adresser au demandeur, faute de quoi la fiche affiche « Voici un texte
-     factuel : » ou « Je n'ai trouvé aucune information récente ». */
-  test('0.78.9 - La consigne stricte interdit le préambule et l\'attribution', () => {
-    const strict = promptArticle({ commune: 'Lyon', stricte: true });
-    expect(strict).toContain('Rends l\'article et rien d\'autre');
-    expect(strict).toContain('N\'attribue AUCUNE phrase');
-    expect(strict).toContain('RÈGLE ABSOLUE');
-    // L'admin, où un agent relit avant publication, n'a pas besoin de la règle stricte
-    expect(promptArticle({ commune: 'Lyon', stricte: false })).not.toContain('RÈGLE ABSOLUE');
+  /* La démo publie sans relecture : la consigne doit interdire de s'adresser
+     au demandeur, faute de quoi la fiche affiche « Voici un texte factuel : »,
+     et elle doit nommer les autres opérations de la carte, que les pages
+     listes et les procès-verbaux décrivent à côté du projet. */
+  test('0.78.9 - La consigne interdit le préambule et nomme les autres opérations', () => {
+    const consigne = promptArticle({ commune: 'Lyon', autres: [{ title: 'Place Bellecour' }], aujourdhui: '13 novembre 2026' });
+    expect(consigne).toContain('Rends l\'article et rien d\'autre');
+    expect(consigne).toContain('N\'attribue aucune phrase à sa source');
+    expect(consigne).toContain('- Place Bellecour');
+    expect(consigne).toContain('Nous sommes le 13 novembre 2026');
+    expect(consigne).not.toMatch(/[\u2013\u2014]/);
+    expect(promptArticle({ commune: 'Lyon' })).not.toContain('ont chacune leur fiche');
   });
 
 });
@@ -1777,5 +1766,234 @@ test.describe('0.86 - Démo : les emplacements faux relevés sur Mazamet', () =>
     expect(AVEC_NUMERO_RE.test('3 bis rue Voltaire')).toBe(true);
     expect(AVEC_NUMERO_RE.test('boulevard Soult')).toBe(false);
     expect(AVEC_NUMERO_RE.test('RD 118')).toBe(false);
+  });
+});
+
+/**
+ * La rédaction tient dans les invocations (non-régression Villeurbanne).
+ *
+ * Le 13/11/2026, la rédaction de Villeurbanne a été tuée neuf fois de suite
+ * par le mur de 60 s de la plateforme : un article à huit sources prenait une
+ * minute d'un seul tenant et n'était enregistré qu'à la fin de sa tranche.
+ * Chaque reprise recommençait les mêmes articles. La rédaction avance
+ * désormais par étapes bornées, enregistrées une à une.
+ */
+test.describe('0.98 - Démo : la rédaction avance par étapes enregistrées', () => {
+  const {
+    DUREES_DES_ETAPES, sourceEnregistrable, coreRedact,
+  } = _internals;
+
+  test('0.98.1 - Chaque étape tient avant l\'échéance d\'une invocation', () => {
+    const debut = 1_000_000;
+    const echeance = echeanceDeLInvocation(debut);
+    expect(echeance - debut).toBeLessThanOrEqual(LIMITE_INVOCATION_MS - 3000);
+    for (const [etape, duree] of Object.entries(DUREES_DES_ETAPES)) {
+      expect(duree, etape).toBeLessThan(echeance - debut);
+    }
+  });
+
+  test('0.98.2 - Une étape trop longue pour le temps restant ne part pas', () => {
+    const redac = { projets: { 0: { etape: 'ecriture' } }, finis: [] };
+    const durees = { sources: 10, ecriture: 30 };
+    expect(prochaineEtape(redac, 1, new Set(), 29, durees)).toBeNull();
+    expect(prochaineEtape(redac, 1, new Set(), 30, durees)).toEqual({ i: 0, type: 'ecriture', cle: '0:ecriture' });
+  });
+
+  test('0.98.3 - Un projet n\'a qu\'une étape en cours, le suivant prend la place libre', () => {
+    const redac = { projets: { 1: { etape: 'ecriture', essais: {} } }, finis: [0] };
+    const durees = { sources: 10, ecriture: 30 };
+    const enCours = new Set();
+    const premier = prochaineEtape(redac, 3, enCours, 60, durees);
+    expect(premier).toEqual({ i: 1, type: 'ecriture', cle: '1:ecriture' });
+    enCours.add(premier.cle);
+    expect(prochaineEtape(redac, 3, enCours, 60, durees)).toEqual({ i: 2, type: 'sources', cle: '2:sources' });
+  });
+
+  test('0.98.3b - Un nouveau projet n\'est entamé que sous le plafond des projets ouverts', () => {
+    const durees = { sources: 10, ecriture: 30 };
+    const redac = { projets: { 0: { etape: 'ecriture' } }, finis: [] };
+    const enCours = new Set(['0:ecriture', '1:sources']);
+    expect(prochaineEtape(redac, 4, enCours, 60, durees, 2)).toBeNull();
+    expect(prochaineEtape(redac, 4, enCours, 60, durees, 3)).toEqual({ i: 2, type: 'sources', cle: '2:sources' });
+  });
+
+  test('0.98.5 - Les enregistrements partent un à un et se regroupent', async () => {
+    let ecritures = 0;
+    let simultanees = 0;
+    let max = 0;
+    const serie = ecrituresEnSerie(async () => {
+      simultanees++; max = Math.max(max, simultanees);
+      await new Promise((r) => setTimeout(r, 30));
+      ecritures++; simultanees--;
+    });
+    // Six demandes avant que l'écriture parte : une seule écriture, qui emporte l'état le plus récent
+    for (let k = 0; k < 6; k++) serie.demander();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(ecritures).toBe(0);
+    // Trois demandes pendant qu'elle s'écrit : une seule de plus, après elle
+    for (let k = 0; k < 3; k++) serie.demander();
+    await serie.vider();
+    expect(max).toBe(1);
+    expect(ecritures).toBe(2);
+  });
+
+  test('0.98.6 - Un brouillon récent se juge à sa dernière écriture, pas à sa création', () => {
+    const maintenant = Date.parse('2026-11-13T16:10:00Z');
+    const instance = { created_at: '2026-11-13T15:47:44Z', payload: { _vuLe: Date.parse('2026-11-13T16:08:00Z') } };
+    expect(ageDuBrouillonMin(instance, maintenant)).toBeCloseTo(2, 5);
+    expect(ageDuBrouillonMin({ created_at: '2026-11-13T15:47:44Z', payload: null }, maintenant)).toBeGreaterThan(22);
+    expect(ageDuBrouillonMin(null, maintenant)).toBe(Infinity);
+  });
+
+  test('0.98.7 - Un enregistrement qui avance efface aussi le compteur des invocations perdues', () => {
+    const apres = oublierLesEchecs({ _attempts_redact: 1, _sansAvancee_redact: 2, _sansAvancee_media: 1 }, 'redact');
+    expect(apres._attempts_redact).toBeUndefined();
+    expect(apres._sansAvancee_redact).toBeUndefined();
+    expect(apres._sansAvancee_media).toBe(1);
+  });
+
+  test('0.98.8 - Le brouillon ne garde d\'une source que ce que le rédacteur lit', () => {
+    const enregistree = sourceEnregistrable({
+      id: 'S1', url: 'https://ville.fr/p', nature: 'page', titre: 'Le parc', publiee: '', lu: 'Le parc ouvrira en juin 2027.',
+      texte: 'texte complet bien plus long', pdfs: [{ url: 'https://ville.fr/a.pdf' }],
+    });
+    expect(Object.keys(enregistree).sort()).toEqual(['id', 'lu', 'nature', 'publiee', 'titre', 'url']);
+  });
+
+  test('0.98.9 - Sans temps devant elle, une tranche rend la main sans rien lancer', async () => {
+    const state = { located: [{ title: 'A' }, { title: 'B' }], commune: { nom: 'X' }, mairie: { pdfs: [] } };
+    const envoyes = [];
+    const out = await coreRedact((m) => envoyes.push(m), () => {}, state, { echeance: Date.now() - 1, sauver: () => {} });
+    expect(out.__continue).toBe(true);
+    expect(out.redac.finis).toEqual([]);
+    expect(envoyes.some((m) => m.type === 'article-item')).toBe(false);
+  });
+
+  test('0.98.10 - Après des invocations perdues, la rédaction conclut avec ce qu\'elle a', async () => {
+    const state = {
+      located: [{ title: 'A' }, { title: 'B' }, { title: 'C' }],
+      commune: { nom: 'X' },
+      articles: [{ index: 0, title: 'A', markdown: 'Texte \u2013 suite', etat: '' }],
+      redac: { tours: 3, projets: { 1: { etape: 'ecriture', essais: {} } }, finis: [0] },
+    };
+    const out = await coreRedact(() => {}, () => {}, state, { conclure: true });
+    expect(out.__continue).toBeUndefined();
+    expect(out.redac).toBeNull();
+    expect(out.articles.map((a) => a.index)).toEqual([0]);
+    expect(out.articles[0].markdown).toBe('Texte, suite');
+  });
+
+  test('0.98.11 - Un brouillon de la version précédente reprend à son curseur', async () => {
+    const state = {
+      located: [{ title: 'A' }, { title: 'B' }],
+      commune: { nom: 'X' },
+      articles: [{ index: 0, title: 'A', markdown: 'ok', etat: '' }],
+      redac: { curseur: 1, tours: 2 },
+    };
+    const out = await coreRedact(() => {}, () => {}, state, { echeance: Date.now() - 1 });
+    expect(out.redac.finis).toEqual([0]);
+    expect(out.redac.projets).toEqual({});
+    expect(out.redac.curseur).toBeUndefined();
+  });
+});
+
+/**
+ * Le rédacteur lit le texte des sources (banc d'essai du 13/11/2026).
+ *
+ * Un seul appel lit les pages du projet et écrit l'article, ou dit que les
+ * sources ne disent presque rien du projet. Le service d'IA est un faux
+ * `fetch` : aucun appel réel, aucun coût.
+ */
+test.describe('0.99 - Démo : un article s\'écrit d\'un seul appel, depuis le texte des sources', () => {
+  const { ecrireLArticle, sourcesDuProjet } = _internals;
+  const vraiFetch = globalThis.fetch;
+  test.afterEach(() => { globalThis.fetch = vraiFetch; });
+
+  // Faux service : rend `sortie` et garde le corps de chaque requête
+  function simulerOpenAI(sortie) {
+    const requetes = [];
+    globalThis.fetch = async (url, opts) => {
+      requetes.push({ url: String(url), corps: JSON.parse(opts.body) });
+      return new Response(JSON.stringify({
+        status: 'completed', model: 'gpt-5.4-mini', usage: { input_tokens: 10, output_tokens: 5 },
+        output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(sortie) }] }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    return requetes;
+  }
+  const sources = [
+    { id: 'S1', url: 'https://ville.fr/travaux', nature: 'page', titre: 'TRAVAUX EN COURS', publiee: '2026-09-01', lu: 'Le parc Follereau ouvrira en juin 2027. La rue Victor-Hugo est fermée.' },
+    { id: 'S2', url: 'https://ville.fr/pv.pdf', nature: 'pdf', titre: 'pv.pdf', publiee: '', lu: 'Le conseil approuve 2 M€ pour le parc Follereau.' },
+  ];
+  const projet = { title: 'Parc Follereau', place: '', description: 'Un nouveau parc.' };
+  const commune = { nom: 'Saint-Étienne' };
+
+  test('0.99.1 - L\'appel lit le texte des sources avec gpt-5.4-mini et nomme les autres opérations', async () => {
+    const requetes = simulerOpenAI({ assez_de_matiere: true, etat_aujourdhui: 'En travaux.', markdown: 'Le parc ouvrira en juin 2027.', description: 'Un parc.', sources_utilisees: [{ source: 'S1', titre: 'Travaux en cours' }] });
+    await ecrireLArticle(commune, projet, sources, [{ title: 'Rue Victor-Hugo' }], 40000);
+    expect(requetes).toHaveLength(1);
+    const { corps } = requetes[0];
+    expect(corps.model).toBe('gpt-5.4-mini');
+    expect(corps.reasoning).toEqual({ effort: 'low' });
+    expect(corps.temperature).toBeUndefined();
+    expect(corps.input[0].content).toContain('- Rue Victor-Hugo');
+    expect(corps.input[1].content).toContain('Le conseil approuve 2 M€ pour le parc Follereau.');
+    expect(corps.input[1].content).toContain('=== S1 : page « TRAVAUX EN COURS », https://ville.fr/travaux, publiée en ligne le 1 septembre 2026');
+  });
+
+  test('0.99.2 - Les sources sous l\'article sont celles qu\'il emploie, sans identifiant dans le texte', async () => {
+    simulerOpenAI({
+      assez_de_matiere: true, etat_aujourdhui: 'En travaux.',
+      markdown: 'Le parc ouvrira en juin 2027 (S1). Le conseil a voté 2 M€ (S1, S2).',
+      description: 'Un parc (S1).',
+      sources_utilisees: [{ source: 'S1', titre: 'Travaux en cours' }, { source: 'S2', titre: 'Procès-verbal du conseil' }, { source: 'S9', titre: 'Inconnue' }],
+    });
+    const { markdown, description } = await ecrireLArticle(commune, projet, sources, [], 40000);
+    expect(markdown).toContain('Le parc ouvrira en juin 2027. Le conseil a voté 2 M€.');
+    expect(markdown).not.toMatch(/\bS\d\b/);
+    expect(markdown).toContain('## Le document officiel est en ligne\n\n- [Procès-verbal du conseil](https://ville.fr/pv.pdf)');
+    expect(markdown).toContain('## Sources\n\n- [Travaux en cours](https://ville.fr/travaux)');
+    expect(markdown).not.toContain('Inconnue');
+    expect(description).toBe('Un parc.');
+  });
+
+  test('0.99.3 - Des sources qui ne disent presque rien du projet ne donnent pas d\'article', async () => {
+    simulerOpenAI({ assez_de_matiere: false, etat_aujourdhui: '', markdown: '', description: '', sources_utilisees: [] });
+    const err = await ecrireLArticle(commune, projet, sources, [], 40000).catch((e) => e);
+    expect(err?.constructor?.name).toBe('SansArticle');
+  });
+
+  test('0.99.4 - Sans source lisible, aucun appel ne part', async () => {
+    const requetes = simulerOpenAI({});
+    const err = await ecrireLArticle(commune, projet, [{ ...sources[0], lu: '' }], [], 40000).catch((e) => e);
+    expect(err?.constructor?.name).toBe('SansArticle');
+    expect(requetes).toHaveLength(0);
+  });
+
+  test('0.99.5 - Une image écrite en clair dans la page n\'entre pas dans le texte lu', () => {
+    const image = `data:image/png;base64,${'iVBORw0KGgoAAAANSUhEUg'.repeat(400)}`;
+    const texte = stripHtml(`<p>La chapelle a été restaurée en 2023.</p>&lt;img src="${image}"&gt;<p>Elle est ouverte.</p>`);
+    expect(texte).toContain('La chapelle a été restaurée en 2023.');
+    expect(texte).toContain('Elle est ouverte.');
+    expect(texte).not.toContain('base64');
+    expect(texte.length).toBeLessThan(120);
+  });
+
+  test('0.99.6 - Une même page sous deux adresses n\'est lue qu\'une fois', async () => {
+    const page = '<html><head><title>Chapelle</title></head><body><main><h1>Chapelle Saint-Maxime</h1><p>La restauration de la chapelle Saint-Maxime est achevée depuis mars 2023.</p></main></body></html>';
+    globalThis.fetch = async (url) => {
+      const r = new Response(page, { status: 200, headers: { 'content-type': 'text/html' } });
+      // L'adresse finale est revalidée après une redirection : la réponse simulée la porte
+      Object.defineProperty(r, 'url', { value: String(url) });
+      return r;
+    };
+    const lues = await sourcesDuProjet({
+      title: 'Chapelle Saint-Maxime',
+      source_url: 'https://chapelle-essai.fr/chapelle?page=1',
+      sources: [{ url: 'https://chapelle-essai.fr/chapelle?page=2' }],
+    }, []);
+    expect(lues).toHaveLength(1);
+    expect(lues[0].id).toBe('S1');
+    expect(lues[0].lu).toContain('achevée depuis mars 2023');
   });
 });
