@@ -336,9 +336,12 @@ Suivi : `select followup_status, followup_reason, count(*) from demo_leads group
   ferait perdre tous les projets au-delà du budget. Filet anti-boucle : 14
   tranches maximum, après quoi on finalise avec ce qu'on a
 - **La rédaction avance par étapes enregistrées** : un article se fait en
-  quatre étapes (lire ses sources, extraire les faits par lots de 15 000
-  signes, vérifier leur rattachement, écrire), et chacune est enregistrée dans
-  le brouillon dès qu'elle est finie. Une étape ne part que si sa durée
+  deux étapes (lire ses sources, puis un seul appel de gpt-5.4-mini qui lit
+  leur texte jusqu'à 90 000 signes et écrit l'article, ou dit que les sources
+  ne disent presque rien du projet, la fiche gardant alors sa description),
+  et chacune est enregistrée dans le brouillon dès qu'elle est finie. Le banc
+  d'essai du 13/11/2026 qui a fondé ce choix (48 projets, notes à l'aveugle)
+  est décrit en tête de la rédaction dans `demo-generate.mjs`. Une étape ne part que si sa durée
   maximale (`DUREES_DES_ETAPES`) tient avant l'échéance de l'invocation, posée
   5 s avant le mur de 60 s de la plateforme (`lib/demo-tranches.mjs`). Le
   13/11/2026 à Villeurbanne, un article à huit sources prenait une minute d'un
@@ -422,7 +425,7 @@ Suivi : `select followup_status, followup_reason, count(*) from demo_leads group
 | `lecture_page` | **un par page ouverte**, le gros poste | ~2 500 entrée / 300 sortie |
 | `rapprochement_doutes` | seulement s'il reste des paires ambiguës, titres seuls | ~250 tokens |
 | `avis_marches` | une fois, les avis BOAMP en une passe | ~8 000 tokens |
-| `article` | **un par fiche**, avec recherche web restreinte aux domaines attestés | ~15 000 entrée / 700 sortie |
+| `article_projet` | **un par fiche**, gpt-5.4-mini à raisonnement bas, sur le texte des sources du projet, sans recherche web | ~10 000 à 25 000 entrée / 1 500 sortie, 0,007 $ en moyenne |
 | `choix_image` | un par projet, images en `detail: 'low'` | ~950 tokens |
 | `logo_commune` | une fois, jusqu'à 4 candidats logo et 3 icônes du site en `detail: 'low'` | ~400 tokens |
 | `lieux_projets` | une fois, seulement s'il reste des projets à situer | ~1 000 tokens |
