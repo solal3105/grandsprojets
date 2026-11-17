@@ -26,6 +26,14 @@
    Le rôle d'un compte existant n'est jamais changé ici : un profil porte un
    seul rôle pour tous ses espaces, et le changer est le geste explicite du
    bouton « Promouvoir » de la console.
+
+   Le lien du message n'ouvre jamais la session à lui seul (`lienDeConnexion`).
+   Le 17 novembre 2026, on a vu que l'antivirus de messagerie de Grenoble
+   Alpes Métropole ouvre chaque lien reçu quelques secondes après l'arrivée du
+   mail : un lien de Supabase, à usage unique, était consommé par l'antivirus,
+   et l'agent tombait ensuite sur « lien expiré ». Le lien mène donc à notre
+   page de connexion avec le jeton, et c'est le bouton « Me connecter » de
+   cette page qui ouvre la session. Un antivirus ouvre la page sans cliquer.
    ============================================================================ */
 
 export const ROLES = ['admin', 'invited'];
@@ -71,9 +79,27 @@ export function adresseDeRetour(origine, domainesAutorises) {
   return principal;
 }
 
+/** Types de lien que la page de connexion sait ouvrir (verifyOtp). */
+export const TYPES_DE_LIEN = ['invite', 'magiclink'];
+
+/**
+ * Le lien envoyé par e-mail : la page de connexion `retour`, avec le jeton
+ * haché que Supabase fabrique (generateLink, `hashed_token`) et son type.
+ * La page ne l'échange contre une session qu'au clic sur « Me connecter ».
+ */
+export function lienDeConnexion(retour, { jeton, type }) {
+  if (!jeton || !TYPES_DE_LIEN.includes(type)) throw new Error('jeton ou type de lien absent');
+  const url = new URL(retour);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('token_hash', jeton);
+  url.searchParams.set('type', type);
+  return url.toString();
+}
+
 /**
  * Le message d'invitation ou de relance, en texte et en HTML.
- * `lien` est le lien d'activation à usage unique fabriqué par Supabase Auth.
+ * `lien` mène à la page de connexion (`lienDeConnexion`).
  */
 export function composerMessage({ type, espace, role, lien, connexion }) {
   const libelle = ROLE_LIBELLE[role] || 'contributeur';
@@ -88,9 +114,9 @@ export function composerMessage({ type, espace, role, lien, connexion }) {
     '',
     intro,
     '',
-    `Ouvrez ce lien pour activer votre accès : ${lien}`,
+    `Ouvrez ce lien, puis cliquez sur « Me connecter » pour activer votre accès : ${lien}`,
     '',
-    "Ce lien est personnel et ne sert qu'une fois. Par la suite, vous vous connecterez avec votre adresse e-mail sur "
+    "Ce lien est personnel et vaut pour une connexion. Par la suite, vous vous connecterez avec votre adresse e-mail sur "
       + `${connexion}, sans mot de passe : un lien de connexion vous sera envoyé à chaque fois.`,
     '',
     "Si vous ne vous attendiez pas à ce message, vous pouvez l'ignorer.",
@@ -104,8 +130,8 @@ export function composerMessage({ type, espace, role, lien, connexion }) {
     '<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:28px 32px;">',
     p('Bonjour,'),
     p(echapper(intro)),
-    `<p style="margin:0 0 20px;"><a href="${echapper(lien)}" style="display:inline-block;padding:12px 22px;background:#FF0037;color:#ffffff;font-family:Inter,Arial,sans-serif;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">Activer mon accès</a></p>`,
-    p(echapper("Ce lien est personnel et ne sert qu'une fois. Par la suite, vous vous connecterez avec votre adresse e-mail sur ")
+    `<p style="margin:0 0 20px;"><a href="${echapper(lien)}" style="display:inline-block;padding:12px 22px;background:#FF0037;color:#ffffff;font-family:Inter,Arial,sans-serif;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">Ouvrir la page de connexion</a></p>`,
+    p(echapper("Le bouton ouvre la page de connexion d'Open Projets : cliquez-y sur « Me connecter ». Ce lien est personnel et vaut pour une connexion. Par la suite, vous vous connecterez avec votre adresse e-mail sur ")
       + `<a href="${echapper(connexion)}" style="color:#FF0037;">${echapper(connexion.replace(/^https?:\/\//, ''))}</a>`
       + echapper(', sans mot de passe : un lien de connexion vous sera envoyé à chaque fois.')),
     p(echapper("Si vous ne vous attendiez pas à ce message, vous pouvez l'ignorer.")),
@@ -121,8 +147,8 @@ export function composerMessage({ type, espace, role, lien, connexion }) {
  *
  * annuaire : {
  *   trouverCompte(email) -> { id, confirme, aDejaUtiliseSonCompte, profil: { role, ville } } | null
- *   lienInvitation(email, retour) -> { id, lien }   (crée le compte)
- *   lienConnexion(email, retour, compte) -> { lien } (compte existant, jamais ouvert)
+ *   lienInvitation(email) -> { id, jeton, type }   (crée le compte)
+ *   lienConnexion(email, compte) -> { jeton, type } (compte existant, jamais ouvert)
  *   enregistrerProfil(id, { role, ville })
  *   supprimerCompte(id)
  *   nomEspace(ville) -> string | null
@@ -155,13 +181,14 @@ export async function inviter({ appelant, email, ville, role, origine }, { annua
   if (!existant) {
     let compte;
     try {
-      compte = await annuaire.lienInvitation(adresse, retour);
+      compte = await annuaire.lienInvitation(adresse);
     } catch (e) {
       throw new RefusInvitation(502, "Le lien d'invitation n'a pas pu être créé. Aucun compte n'a été ouvert.", e.message);
     }
     try {
       await annuaire.enregistrerProfil(compte.id, { role, ville: [ville] });
-      const message = composerMessage({ type: 'invitation', espace, role, lien: compte.lien, connexion });
+      const lien = lienDeConnexion(retour, compte);
+      const message = composerMessage({ type: 'invitation', espace, role, lien, connexion });
       const envoi = await facteur({ a: adresse, ...message });
       return { statut: 'invite', email: adresse, role, envoi: { id: envoi?.id || null } };
     } catch (e) {
@@ -190,7 +217,7 @@ export async function inviter({ appelant, email, ville, role, origine }, { annua
   // Compte jamais ouvert : l'invitation précédente n'a pas servi, on en renvoie une.
   let lien;
   try {
-    ({ lien } = await annuaire.lienConnexion(adresse, retour, existant));
+    lien = lienDeConnexion(retour, await annuaire.lienConnexion(adresse, existant));
   } catch (e) {
     throw new RefusInvitation(502, "Le lien de connexion n'a pas pu être créé.", e.message);
   }

@@ -8,9 +8,10 @@
 // Toute la logique est dans inviter.mjs, testée sans réseau par
 // tests/unauth.invitation.spec.js. Ce fichier ne fait que brancher les vrais
 // services : Supabase Auth (comptes et liens), la table profiles, Resend
-// (l'e-mail). Le lien d'activation est fabriqué par Supabase (generateLink,
-// qui n'envoie rien) et envoyé par nous : l'envoi ne dépend donc ni de
-// l'ouverture des inscriptions du projet, ni de son serveur d'e-mails.
+// (l'e-mail). Le jeton est fabriqué par Supabase (generateLink, qui n'envoie
+// rien) et envoyé par nous dans un lien vers notre page de connexion : l'envoi
+// ne dépend ni de l'ouverture des inscriptions du projet, ni de son serveur
+// d'e-mails, et un antivirus qui ouvre le lien ne le consomme pas.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { inviter, RefusInvitation } from './inviter.mjs';
 
@@ -47,18 +48,18 @@ const annuaire = {
       profil: { role: c.role, ville: c.ville },
     };
   },
-  async lienInvitation(email: string, retour: string) {
-    const { data, error } = await admin.auth.admin.generateLink({ type: 'invite', email, options: { redirectTo: retour } });
-    if (error || !data?.user?.id || !data?.properties?.action_link) throw new Error(error?.message || 'lien absent');
-    return { id: data.user.id, lien: data.properties.action_link };
+  async lienInvitation(email: string) {
+    const { data, error } = await admin.auth.admin.generateLink({ type: 'invite', email });
+    if (error || !data?.user?.id || !data?.properties?.hashed_token) throw new Error(error?.message || 'jeton absent');
+    return { id: data.user.id, jeton: data.properties.hashed_token, type: 'invite' };
   },
-  async lienConnexion(email: string, retour: string, compte: { confirme: boolean }) {
+  async lienConnexion(email: string, compte: { confirme: boolean }) {
     // Adresse jamais confirmée : une nouvelle invitation (Supabase la permet tant que le
     // compte n'est pas confirmé). Adresse confirmée mais jamais utilisée : un lien de connexion.
     const type = compte.confirme ? 'magiclink' : 'invite';
-    const { data, error } = await admin.auth.admin.generateLink({ type, email, options: { redirectTo: retour } });
-    if (error || !data?.properties?.action_link) throw new Error(error?.message || 'lien absent');
-    return { lien: data.properties.action_link };
+    const { data, error } = await admin.auth.admin.generateLink({ type, email });
+    if (error || !data?.properties?.hashed_token) throw new Error(error?.message || 'jeton absent');
+    return { jeton: data.properties.hashed_token, type };
   },
   async enregistrerProfil(id: string, profil: { role: string; ville: string[] }) {
     // Le profil est normalement créé par le déclencheur on_auth_user_created : upsert au cas où.
