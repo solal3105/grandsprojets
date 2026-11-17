@@ -1997,3 +1997,158 @@ test.describe('0.99 - Démo : un article s\'écrit d\'un seul appel, depuis le t
     expect(lues[0].lu).toContain('achevée depuis mars 2023');
   });
 });
+
+/**
+ * La fin de la lecture et la création avancent par étapes enregistrées.
+ *
+ * Le 17/11/2026 à Montbrison, la dernière tranche de lecture, les avis de
+ * marchés, le rapprochement et la sélection partaient dans la même
+ * invocation : le tout dépassait les 60 s, la plateforme coupait, et chaque
+ * reprise refaisait le même travail pour se faire couper au même endroit.
+ * Le service d'IA et la base sont un faux `fetch` : aucun appel réel, aucun
+ * coût.
+ */
+test.describe('0.100 - Démo : l\'analyse et la création avancent par étapes enregistrées', () => {
+  const {
+    DUREES_DE_L_ANALYSE, etapeDeLAnalyse, coreAi, coreExplore,
+    DUREES_DE_LA_CREATION, etapeDeLaCreation, preparerLaCreation, EcheanceAtteinte, postOpenAI,
+  } = _internals;
+  const vraiFetch = globalThis.fetch;
+  test.afterEach(() => { globalThis.fetch = vraiFetch; });
+
+  const reponseIA = (sortie) => new Response(JSON.stringify({
+    status: 'completed', model: 'gpt-4.1', usage: { input_tokens: 10, output_tokens: 5 },
+    output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify(sortie) }] }],
+  }), { status: 200, headers: { 'content-type': 'application/json' } });
+
+  const verdict = (index) => ({
+    index, meme_operation_que: -1, derniere_etape: 'Travaux en cours en octobre 2026', date_iso: '2026-10',
+    etat: 'en_travaux', achevement_constate: false, suite_annoncee: false, operation_d_ensemble: false,
+    ampleur: 'notable', precision: 'Chantier en cours.', verdict: 'garder',
+  });
+
+  /* Faux service : l'IA répond selon le schéma demandé, la base accepte tout.
+     Chaque appel à l'IA est compté par schéma. */
+  function simuler() {
+    const appels = {};
+    globalThis.fetch = async (url, opts = {}) => {
+      if (String(url).includes('openai')) {
+        const corps = JSON.parse(opts.body);
+        const nom = corps.text.format.name;
+        appels[nom] = (appels[nom] || 0) + 1;
+        if (nom === 'rapprochement_operations') return reponseIA({ operations: [{ membres: [0, 1], principal: 0, titre: 'Parc Follereau' }, { membres: [2], principal: 2, titre: 'Gymnase' }], ecartes: [] });
+        if (nom === 'selection_projets') return reponseIA({ operations: [verdict(0), verdict(1)] });
+        throw new Error(`schéma inattendu ${nom}`);
+      }
+      return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    return appels;
+  }
+
+  // Un brouillon dont la lecture est finie, tel que la base le garde
+  const brut = (title, url) => ({
+    title, description: `${title}, en travaux.`, source_url: url, confidence: 'haute', category_slug: 'urbanisme',
+    evidence_quote: `${title} est en travaux.`, page_publiee: '2026-10-01', page_modifiee: '',
+  });
+  const brouillon = () => ({
+    commune: { nom: 'Montbrison', code: '42147' },
+    mairie: { host: 'ville-montbrison.fr', urls: ['https://ville-montbrison.fr/parc', 'https://ville-montbrison.fr/gymnase'], pdfs: [], pages: [] },
+    news: [], boamp: [], stats: {},
+    pressePassee: true,
+    explo: {
+      lectureFinie: true,
+      bruts: [brut('Parc Follereau', 'https://ville-montbrison.fr/parc'), brut('Nouveau parc Follereau', 'https://ville-montbrison.fr/parc'), brut('Gymnase', 'https://ville-montbrison.fr/gymnase')],
+    },
+  });
+
+  test('0.100.1 - Chaque étape de l\'analyse et de la création tient avant l\'échéance d\'une invocation', () => {
+    const debut = 1_000_000;
+    const echeance = echeanceDeLInvocation(debut);
+    for (const [etape, duree] of Object.entries({ ...DUREES_DE_L_ANALYSE, ...DUREES_DE_LA_CREATION })) {
+      expect(duree, etape).toBeLessThan(echeance - debut);
+    }
+  });
+
+  test('0.100.2 - Une étape trop longue pour le temps restant attend l\'invocation suivante, sauf si rien n\'a encore été fait', () => {
+    const durees = { avis: 30, rapprochement: 45 };
+    expect(etapeDeLAnalyse({ etape: 'rapprochement' }, 44, false, durees)).toBeNull();
+    expect(etapeDeLAnalyse({ etape: 'rapprochement' }, 45, false, durees)).toBe('rapprochement');
+    expect(etapeDeLAnalyse({ etape: 'rapprochement' }, 10, true, durees)).toBe('rapprochement');
+    expect(etapeDeLaCreation({ etape: 'logo' }, 19, false, { logo: 20 })).toBeNull();
+    expect(etapeDeLaCreation({ etape: 'logo' }, 19, true, { logo: 20 })).toBe('logo');
+    expect(etapeDeLaCreation({ etape: 'publication' }, 1e9, true)).toBeNull();
+  });
+
+  test('0.100.3 - Une analyse plus longue qu\'une invocation aboutit en plusieurs, sans refaire une étape', async () => {
+    const appels = simuler();
+    // Une invocation ne laisse ici le temps que d'une étape : il en faut trois
+    const invocation = () => ({ echeance: Date.now() + 40000, sauver: () => { enregistrements++; } });
+    let enregistrements = 0;
+    let state = brouillon();
+    let invocations = 0;
+    let fini = false;
+    while (!fini && invocations < 6) {
+      invocations++;
+      // Entre deux invocations, l'état ne survit que par ce qui est enregistré
+      state = JSON.parse(JSON.stringify(state));
+      const out = await coreExplore(() => {}, () => {}, state, invocation());
+      fini = !out.__continue;
+      state = out;
+    }
+    expect(invocations).toBe(3);
+    expect(enregistrements).toBe(2);
+    expect(appels).toEqual({ rapprochement_operations: 1, selection_projets: 1 });
+    expect(state.projects.map((p) => p.title)).toEqual(['Parc Follereau', 'Gymnase']);
+    expect(state.explo).toBeNull();
+    expect(state.analyse).toBeNull();
+  });
+
+  test('0.100.4 - Une étape coupée par son échéance n\'est pas enregistrée et repart entière', async () => {
+    // L'IA ne répond jamais : seule l'échéance de l'étape arrête l'appel
+    globalThis.fetch = (url, opts = {}) => new Promise((_, refuser) => {
+      opts.signal?.addEventListener('abort', () => refuser(new Error('aborted')));
+    });
+    const state = brouillon();
+    state.analyse = { etape: 'rapprochement', avis: [] };
+    const err = await coreAi(() => {}, () => {}, state, { echeance: Date.now() + 300 }).catch((e) => e);
+    expect(err).toBeInstanceOf(EcheanceAtteinte);
+    expect(state.analyse.etape).toBe('rapprochement');
+    expect(state.analyse.operations).toBeUndefined();
+    expect(state.explo.bruts).toHaveLength(3);
+  });
+
+  test('0.100.5 - Un appel à l\'IA ne part ni n\'attend au-delà de son échéance', async () => {
+    let essais = 0;
+    globalThis.fetch = async () => { essais++; return new Response('', { status: 503 }); };
+    const t0 = Date.now();
+    const err = await postOpenAI({}, 120000, 5, Date.now() + 1500).catch((e) => e);
+    expect(err).toBeInstanceOf(EcheanceAtteinte);
+    expect(Date.now() - t0).toBeLessThan(1600);
+    expect(essais).toBeLessThan(5);
+  });
+
+  test('0.100.6 - La création prépare illustrations, logo et réseau par étapes enregistrées, puis publie', async () => {
+    let enregistrements = 0;
+    globalThis.fetch = async (url, opts = {}) => {
+      if (String(url).includes('/rest/v1/demo_instances') && opts.method === 'PATCH') enregistrements++;
+      return new Response('{"elements":[]}', { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    const payload = {
+      commune: { nom: 'Montbrison', code: '42147' },
+      mairie: {},
+      located: Array.from({ length: 7 }, (_, i) => ({ title: `Projet ${i + 1}` })),
+    };
+    // Le temps d'un lot d'illustrations seulement : la préparation rend la main
+    const premiere = await preparerLaCreation(() => {}, () => {}, 'essai-montbrison', payload, Date.now() + DUREES_DE_LA_CREATION.illustrations - 1000, () => {});
+    expect(premiere).toBe(false);
+    expect(payload.creation.etape).toBe('illustrations');
+    expect(payload.creation.couvertures).toHaveLength(3);
+    expect(enregistrements).toBe(1);
+    // L'invocation suivante reprend au quatrième projet et va jusqu'à la publication
+    const suivante = await preparerLaCreation(() => {}, () => {}, 'essai-montbrison', payload, Date.now() + 60000, () => {});
+    expect(suivante).toBe(true);
+    expect(payload.creation.couvertures).toHaveLength(7);
+    expect(payload.creation.etape).toBe('publication');
+    expect(payload.creation.reseau).toBeNull();
+  });
+});

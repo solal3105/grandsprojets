@@ -1673,16 +1673,38 @@ function attenteConseillee(headers) {
   return null;
 }
 
-async function postOpenAI(body, timeoutMs = 120000, tries = 5) {
+/* Un appel qui n'a plus le temps de finir avant l'échéance de son étape.
+   Ce n'est pas une panne de l'IA : l'étape n'est pas enregistrée et repart,
+   entière, au début d'une invocation suivante. Un appelant qui sait se passer
+   d'une réponse (le rapprochement garde alors chaque description, la
+   sélection garde chaque opération) ne doit pas le faire pour cette raison-là,
+   sinon une étape coupée dégraderait la carte au lieu d'être refaite. */
+class EcheanceAtteinte extends Error {
+  constructor() {
+    super("échéance de l'étape atteinte");
+    this.echeanceAtteinte = true;
+  }
+}
+
+/* `echeance` : heure à laquelle l'appel doit avoir rendu sa réponse, essais
+   compris. Chaque essai n'a que le temps qui reste, et aucun ne part ni
+   n'attend au-delà. */
+async function postOpenAI(body, timeoutMs = 120000, tries = 5, echeance = Infinity) {
   let lastErr;
   let derniereReponse = null;
+  const reste = () => echeance - Date.now();
+  const attendre = async (ms) => {
+    if (ms >= reste()) throw new EcheanceAtteinte();
+    await sleep(ms);
+  };
   for (let i = 0; i < tries; i++) {
+    if (reste() <= 0) throw new EcheanceAtteinte();
     try {
       const r = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
         method: 'POST',
         headers: { Authorization: `Bearer ${openaiKey()}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      }, timeoutMs);
+      }, Math.min(timeoutMs, reste()));
       /* Cadence depassee (429) ou panne passagere (5xx) : la reponse ARRIVE,
          donc l'ancien code la rendait telle quelle et l'appelant levait
          aussitot. Une lecture de page etait alors definitivement perdue, jamais
@@ -1699,18 +1721,19 @@ async function postOpenAI(body, timeoutMs = 120000, tries = 5) {
         if (i === tries - 1) break;
         const attente = attenteConseillee(r.headers) ?? Math.min(1000 * 2 ** i, 8000);
         console.warn(`[demo-generate] OpenAI ${r.status}, nouvelle tentative ${i + 1}/${tries} dans ${Math.round(attente / 1000)} s`);
-        await sleep(attente + Math.floor(Math.random() * 400));
+        await attendre(attente + Math.floor(Math.random() * 400));
         continue;
       }
       return r;
     } catch (e) {
+      if (e instanceof EcheanceAtteinte || reste() <= 0) throw new EcheanceAtteinte();
       lastErr = e;
       // e.cause.code precise la nature (ECONNRESET socket, ENOTFOUND dns...)
       console.warn(`[demo-generate] OpenAI fetch échec (${e?.message}${e?.cause?.code ? '/' + e.cause.code : ''}), retry ${i + 1}/${tries}`);
       // Backoff exponentiel plafonne : sur UND_ERR_CONNECT_TIMEOUT en rafale
       // (plusieurs appels concurrents), un recul de 500 ms retombait dans la
       // meme fenetre de congestion et les 3 tentatives partaient ensemble.
-      await sleep(Math.min(1000 * 2 ** i, 8000) + Math.floor(Math.random() * 400));
+      await attendre(Math.min(1000 * 2 ** i, 8000) + Math.floor(Math.random() * 400));
     }
   }
   // Toutes les tentatives epuisees sur un refus qui repond : on rend la derniere
@@ -1824,7 +1847,7 @@ class ReponseTronquee extends Error {
 // Température basse par défaut : taches de fidélité (extraction, jugement)
 /* `temperature` à null pour un modèle à raisonnement, qui la refuse ;
    `reglages` porte alors son effort de raisonnement. */
-async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs = 120000, temperature = 0.2, model = OPENAI_MODEL, tries = 5, reglages = {}) {
+async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs = 120000, temperature = 0.2, model = OPENAI_MODEL, tries = 5, reglages = {}, echeance = Infinity) {
   const r = await postOpenAI({
     model,
     input,
@@ -1832,7 +1855,7 @@ async function openAIStructured(input, schemaName, schema, maxTokens, timeoutMs 
     max_output_tokens: maxTokens,
     ...(temperature === null ? {} : { temperature }),
     ...reglages,
-  }, timeoutMs, tries);
+  }, timeoutMs, tries, echeance);
   if (!r.ok) {
     // Le corps de la reponse dit POURQUOI (image illisible, format refuse) :
     // sans lui, un refus de la vision ressemblait a une panne.
@@ -2244,7 +2267,7 @@ async function chercherLaPresse(commune, epciNom, mairieHost) {
   return articles;
 }
 
-async function moissonnerLaPresse(send, step, state) {
+async function moissonnerLaPresse(send, step, state, echeanceLecture = Infinity) {
   const { commune, mairie } = state;
   step('presse', 'start', 'Lecture de la presse locale', 'Recherche des articles qui documentent des opérations');
   let articles = [];
@@ -2291,7 +2314,7 @@ async function moissonnerLaPresse(send, step, state) {
     } catch (e) {
       console.warn(`[demo-generate] presse : lecture perdue ${a.url} :: ${e?.message}`);
     }
-  });
+  }, echeanceLecture);
   console.log(`[demo-generate] presse : ${lues} article(s) lu(s), ${recolte.length} projet(s) retenus`);
   step('presse', 'done', 'Presse locale dépouillée', `${lues} article(s) lu(s), ${recolte.length} opération(s) documentée(s)`);
   return recolte;
@@ -4611,7 +4634,7 @@ const ILLUS_JUGE_MODEL = process.env.DEMO_ILLUS_JUGE_MODEL || 'gpt-4.1';
    il classait « projet » un tableau de financement, une légende de carte ou
    des mains posées sur un plan, du seul fait qu'ils venaient de la page du
    projet. */
-async function jugerLesImages(project, communeNom, images) {
+async function jugerLesImages(project, communeNom, images, echeance = Infinity) {
   const content = [{
     type: 'input_text',
     text: `Projet à ${communeNom} : « ${project.title} ». ${project.description || ''}${project.place ? ` Lieu : ${project.place}.` : ''}
@@ -4631,7 +4654,7 @@ Dans « meilleure », donne l'index de l'image « projet » qui ferait le mieux 
     content.push({ type: 'input_text', text: `Image ${i}, ${c.provenance}${fichier ? `, fichier « ${fichier.slice(0, 90)} »` : ''}${c.legende ? `, légende : « ${c.legende} »` : ''}` });
     content.push({ type: 'input_image', image_url: `data:${c.ct};base64,${Buffer.from(c.octets).toString('base64')}`, detail: 'low' });
   });
-  const out = await openAIStructured([{ role: 'user', content }], 'jugement_images', ILLUS_JUGEMENT_SCHEMA, 120 + 60 * images.length, 30000, 0, ILLUS_JUGE_MODEL);
+  const out = await openAIStructured([{ role: 'user', content }], 'jugement_images', ILLUS_JUGEMENT_SCHEMA, 120 + 60 * images.length, 30000, 0, ILLUS_JUGE_MODEL, 5, {}, echeance);
   const natures = images.map((_, i) => out.images?.find((x) => x.index === i)?.nature || 'autre');
   const montre = images.map((_, i) => out.images?.find((x) => x.index === i)?.montre || '');
   return { natures, montre, meilleure: Number.isInteger(out.meilleure) ? out.meilleure : -1 };
@@ -5289,7 +5312,10 @@ const PRIORITE = { forte: 3, moyenne: 1, nulle: 0 };
 // Priorite d'une candidate dont l'intitule annonce une operation, des le tri
 const PRIORITE_OPERATION = 2;
 
-async function coreExplore(send, step, state) {
+async function coreExplore(send, step, state, ctx = {}) {
+  /* La lecture est finie et enregistrée : l'invocation reprend à l'étape de
+     l'analyse où la précédente s'est arrêtée, sans relire une page. */
+  if (state.explo?.lectureFinie) return coreAi(send, step, state, ctx);
   const { commune, mairie } = state;
   const explo = state.explo || (state.explo = {
     file: new FileExploration({ hote: mairie.host }).serialiser(),
@@ -5746,9 +5772,15 @@ async function coreExplore(send, step, state) {
     `${explo.pagesLues} page(s) lue(s) une par une, ${explo.bruts.length} projet(s) repéré(s)`);
   state.stats.pages_lues = explo.pagesLues;
   state.stats.motif_arret = motif;
-  // Le site a livre ce qu'il avait : on enchaine sur le rapprochement, qui a
-  // besoin de la liste complete pour fondre ce qui doit l'etre.
-  return coreAi(send, step, state);
+  /* Le site a livre ce qu'il avait. La derniere tranche de lecture est
+     enregistree AVANT l'analyse : le 17/11/2026 a Montbrison, elle partait
+     dans la meme invocation que les avis de marches et le rapprochement, le
+     tout depassait les 60 s, et chaque reprise relisait les memes trente
+     pages pour se faire couper au meme endroit. */
+  explo.lectureFinie = true;
+  ctx.sauver?.();
+  // Cette invocation a deja lu : l'analyse n'y part que si le temps restant le permet
+  return coreAi(send, step, state, { ...ctx, dejaOccupee: true });
 }
 
 /* Depouillement des AVIS DE MARCHES.
@@ -5776,7 +5808,7 @@ const AVIS_SCHEMA = {
   required: ['projets'],
 };
 
-async function depouillerLesAvis(commune, boamp) {
+async function depouillerLesAvis(commune, boamp, echeance = Infinity) {
   if (!boamp.length) return [];
   const system = `Tu depouilles des avis de marches publics de travaux passes par ou pour la commune de ${commune.nom}. Pour chaque avis qui correspond a un amenagement PHYSIQUE et LOCALISABLE du territoire, rends un projet.
 
@@ -5794,7 +5826,7 @@ La citation doit etre recopiee mot pour mot depuis l'objet ou la description de 
   try {
     const out = await openAIStructured(
       [{ role: 'system', content: system }, { role: 'user', content: `AVIS :\n\n${user}` }],
-      'avis_marches', AVIS_SCHEMA, 8000, 90000, 0.2
+      'avis_marches', AVIS_SCHEMA, 8000, 90000, 0.2, OPENAI_MODEL, 5, {}, echeance
     );
     const parLien = new Map(boamp.map((b) => [b.link, b]));
     return (out.projets || []).map((p) => ({
@@ -5804,6 +5836,7 @@ La citation doit etre recopiee mot pour mot depuis l'objet ou la description de 
       sources: [{ url: p.source_url, type: 'marche' }],
     }));
   } catch (e) {
+    if (e instanceof EcheanceAtteinte) throw e;
     console.warn(`[demo-generate] depouillement des avis impossible :: ${e?.message}`);
     return [];
   }
@@ -5926,7 +5959,7 @@ function lotsParPage(projets, taille) {
    reste rangée, et une description oubliée devient une opération à elle seule.
    Dans les trois cas, le biais est de garder : une fiche de trop se voit, une
    fiche perdue ne se voit pas. */
-async function jugerLeRapprochement(commune, projets) {
+async function jugerLeRapprochement(commune, projets, echeance = Infinity) {
   const liste = projets.map((p, i) => ({
     index: i,
     titre: p.title || '',
@@ -5941,9 +5974,10 @@ async function jugerLeRapprochement(commune, projets) {
   try {
     out = await openAIStructured(
       [{ role: 'system', content: consigneRapprochement(commune.nom) }, { role: 'user', content: JSON.stringify(liste) }],
-      'rapprochement_operations', RAPPROCHEMENT_SCHEMA, 600 + 60 * projets.length, 150000, 0, RAPPROCHEMENT_MODEL, 3
+      'rapprochement_operations', RAPPROCHEMENT_SCHEMA, 600 + 60 * projets.length, 150000, 0, RAPPROCHEMENT_MODEL, 3, {}, echeance
     );
   } catch (e) {
+    if (e instanceof EcheanceAtteinte) throw e;
     /* Sans jugement, chaque description garde sa fiche : des doublons se
        voient sur la carte, une opération effacée ne se voit pas. */
     console.warn(`[demo-generate] rapprochement indisponible, ${projets.length} description(s) gardees telles quelles :: ${e?.message}`);
@@ -6006,18 +6040,18 @@ async function jugerLeRapprochement(commune, projets) {
  * dans deux lots différents se retrouve ainsi au second tour.
  * @returns {Promise<{projets: Array<Object>, ecartes: Array<Object>}>}
  */
-async function rapprocherLesDescriptions(commune, projets) {
+async function rapprocherLesDescriptions(commune, projets, echeance = Infinity) {
   if (!projets.length) return { projets: [], ecartes: [] };
-  if (projets.length <= RAPPROCHEMENT_LOT_MAX) return jugerLeRapprochement(commune, projets);
+  if (projets.length <= RAPPROCHEMENT_LOT_MAX) return jugerLeRapprochement(commune, projets, echeance);
   const lots = lotsParPage(projets, RAPPROCHEMENT_LOT_MAX);
-  const resultats = await inChunks(lots, 2, (lot) => jugerLeRapprochement(commune, lot));
+  const resultats = await inChunks(lots, 2, (lot) => jugerLeRapprochement(commune, lot, echeance));
   const operations = resultats.flatMap((r) => r.projets);
   const ecartes = resultats.flatMap((r) => r.ecartes);
   /* Le second tour ne porte que sur des opérations déjà fondues. S'il n'en
      réduit pas le nombre en dessous de la liste de départ, on s'arrête là :
      redécouper la même liste tournerait en rond. */
   if (operations.length >= projets.length) return { projets: operations, ecartes };
-  const second = await rapprocherLesDescriptions(commune, operations);
+  const second = await rapprocherLesDescriptions(commune, operations, echeance);
   return { projets: second.projets, ecartes: [...ecartes, ...second.ecartes] };
 }
 
@@ -6200,7 +6234,7 @@ function verifierLAge(sel) {
  * @param {Array<{url: string, label: string, page: string}>} pdfs - documents retenus par la lecture, avec leur page
  * @returns {Promise<{gardees: Array<Object>, ecartees: Array<Object>}>}
  */
-async function selectionnerLesProjets(commune, operations, pdfs = []) {
+async function selectionnerLesProjets(commune, operations, pdfs = [], echeance = Infinity) {
   if (!operations.length) return { gardees: [], ecartees: [] };
   const aujourdhui = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
   const dateDe = (iso) => (iso ? dateLisible(iso) : '');
@@ -6226,7 +6260,7 @@ async function selectionnerLesProjets(commune, operations, pdfs = []) {
   });
   const juger = (indices) => openAIStructured(
     [{ role: 'system', content: consigneSelection(commune, aujourdhui) }, { role: 'user', content: JSON.stringify(indices.map((i) => fiche(operations[i], i))) }],
-    'selection_projets', SELECTION_SCHEMA, 800 + 150 * indices.length, 150000, 0, SELECTION_MODEL, 3
+    'selection_projets', SELECTION_SCHEMA, 800 + 150 * indices.length, 150000, 0, SELECTION_MODEL, 3, {}, echeance
   );
   const verdicts = new Map();
   const ranger = (out, attendus) => {
@@ -6243,6 +6277,7 @@ async function selectionnerLesProjets(commune, operations, pdfs = []) {
     const oubliees = tous.filter((i) => !verdicts.has(i));
     if (oubliees.length) ranger(await juger(oubliees), new Set(oubliees));
   } catch (e) {
+    if (e instanceof EcheanceAtteinte) throw e;
     // Sans jugement, ce qui n'en a pas reçu est gardé : une fiche de trop se voit, une fiche perdue ne se voit pas
     console.warn(`[demo-generate] selection incomplete, ${operations.length - verdicts.size} operation(s) gardees sans verdict :: ${e?.message}`);
   }
@@ -6301,173 +6336,248 @@ async function selectionnerLesProjets(commune, operations, pdfs = []) {
   return { gardees, ecartees };
 }
 
-async function coreAi(send, step, state) {
-  const { commune, mairie, news, boamp } = state;
+/* L'ANALYSE qui suit la lecture, decoupee en ETAPES enregistrees chacune des
+   qu'elle est finie, sur le modele de la redaction : la presse, les avis de
+   marches (avec la datation des pages), le rapprochement des descriptions en
+   operations, puis la selection de ce qui va sur la carte. Une etape ne part
+   que si sa duree maximale tient avant l'echeance de l'invocation, et ses
+   appels a l'IA sont bornes par cette duree : elle n'est donc jamais coupee
+   par le mur des 60 s. Une etape qui n'a pas pu finir dans sa duree n'est pas
+   enregistree et repart entiere au debut d'une invocation suivante ; une etape
+   finie n'est jamais refaite.
 
+   Les durees viennent de la generation de Montbrison du 17/11/2026 (141
+   descriptions, 59 operations) : le rapprochement, en trois appels, a pris
+   20 s. */
+const DUREES_DE_L_ANALYSE = {
+  // Recherche web (4 a 5 s), puis les articles par quatre, lus chacun en 6 s et depouilles
+  presse: 40000,
+  // Un appel sur la liste compacte des avis, la datation des pages bornee a 10 s a cote
+  avis: 30000,
+  // Les lots de descriptions deux par deux, puis un second tour sur les operations
+  rapprochement: 45000,
+  // Un appel sur toutes les operations, et un second sur celles qu'il aurait oubliees
+  selection: 45000,
+};
+// Les articles de presse ne commencent plus a etre lus passe ce delai dans l'etape
+const PRESSE_LECTURE_MAX_MS = 20000;
+const ETAPES_DE_L_ANALYSE = ['presse', 'avis', 'rapprochement', 'selection'];
+
+/**
+ * L'etape de l'analyse a lancer maintenant, ou null s'il faut une autre
+ * invocation. Une etape part si sa duree tient dans le temps qui reste, ou si
+ * l'invocation n'a encore rien fait : elle a alors tout son temps devant elle,
+ * et attendre la suivante ne lui en donnerait pas davantage.
+ */
+function etapeDeLAnalyse(analyse, resteMs, rienFait, durees = DUREES_DE_L_ANALYSE) {
+  const etape = analyse.etape;
+  if (!ETAPES_DE_L_ANALYSE.includes(etape)) return null;
+  return durees[etape] <= resteMs || rienFait ? etape : null;
+}
+
+async function coreAi(send, step, state, ctx = {}) {
+  /* Brouillon d'une version precedente : la presse y etait deja passee si
+     `pressePassee` est pose. */
+  const analyse = state.analyse || (state.analyse = { etape: state.pressePassee ? 'avis' : 'presse' });
+  const echeance = ctx.echeance ?? Infinity;
+  let rienFait = !ctx.dejaOccupee;
+  for (;;) {
+    const etape = etapeDeLAnalyse(analyse, echeance - Date.now(), rienFait);
+    if (!etape) break;
+    const fin = Math.min(echeance, Date.now() + DUREES_DE_L_ANALYSE[etape]);
+    const t0 = Date.now();
+    const resultat = await ETAPES_ANALYSE[etape](send, step, state, fin);
+    console.log(`[demo-generate] analyse : etape ${etape} finie en ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+    rienFait = false;
+    if (etape === 'selection') {
+      delete state.__continue;
+      return resultat;
+    }
+    ctx.sauver?.();
+  }
+  state.__continue = true;
+  return state;
+}
+
+const ETAPES_ANALYSE = {
   /* ÉTAGE PRESSE : seulement quand la commune et son intercommunalité n'ont
-     pas déjà rempli le budget de matière. Il prend sa PROPRE invocation
-     (passage de relais) pour ne pas alourdir celle qui porte déjà les avis et
-     le rapprochement ; au retour, coreExplore repasse sans rien relire. */
-  if (!state.pressePassee) {
+     pas déjà rempli le budget de matière. */
+  async presse(send, step, state, fin) {
     state.pressePassee = true;
     const deja = (state.explo?.bruts || []).length;
     if (process.env.DEMO_PRESSE !== '0' && !(EXPLO_BRUTS_MAX > 0 && deja >= EXPLO_BRUTS_MAX)) {
-      state.presseProjets = await moissonnerLaPresse(send, step, state);
+      state.presseProjets = await moissonnerLaPresse(send, step, state, Math.min(fin, Date.now() + PRESSE_LECTURE_MAX_MS));
       state.presseUrls = [...new Set(state.presseProjets.map((p) => p.source_url))];
-      state.__continue = true;
-      return state;
     }
-  }
-
-  step('ai2', 'start', 'Rapprochement et vérification', 'Un même chantier décrit par plusieurs pages ne fait qu\'une fiche');
+    state.analyse.etape = 'avis';
+  },
 
   /* Les avis de marches, en un appel : liste compacte, aucun risque de volume.
      Pendant ce temps, les pages encore sans date sont datees pour la selection. */
-  const [avis] = await Promise.all([
-    depouillerLesAvis(commune, boamp),
-    daterLesPages([...(state.explo?.bruts || []), ...(state.presseProjets || [])]),
-  ]);
-  if (avis.length) console.log(`[demo-generate] avis de marches depouilles : ${avis.length} projet(s)`);
+  async avis(send, step, state, fin) {
+    step('ai2', 'start', 'Rapprochement et vérification', 'Un même chantier décrit par plusieurs pages ne fait qu\'une fiche');
+    const [avis] = await Promise.all([
+      depouillerLesAvis(state.commune, state.boamp, fin),
+      daterLesPages([...(state.explo?.bruts || []), ...(state.presseProjets || [])]),
+    ]);
+    if (avis.length) console.log(`[demo-generate] avis de marches depouilles : ${avis.length} projet(s)`);
+    state.analyse.avis = avis;
+    state.analyse.etape = 'rapprochement';
+  },
 
-  const bruts = [...(state.explo?.bruts || []), ...avis, ...(state.presseProjets || [])];
-  const beforeFilter = bruts.length;
+  async rapprochement(send, step, state, fin) {
+    const { commune, mairie, news, boamp } = state;
+    const bruts = [...(state.explo?.bruts || []), ...state.analyse.avis, ...(state.presseProjets || [])];
 
-  const allowedUrls = new Set([
-    ...mairie.urls,
-    ...news.flatMap((n) => [n.link, n.sourceUrl].filter(Boolean)),
-    ...boamp.map((b) => b.link),
-    ...(state.presseUrls || []),
-  ].map(normaliserUrl));
-  const allowedHosts = new Set([...allowedUrls].map(hostOf).filter(Boolean));
+    const allowedUrls = new Set([
+      ...mairie.urls,
+      ...news.flatMap((n) => [n.link, n.sourceUrl].filter(Boolean)),
+      ...boamp.map((b) => b.link),
+      ...(state.presseUrls || []),
+    ].map(normaliserUrl));
+    const allowedHosts = new Set([...allowedUrls].map(hostOf).filter(Boolean));
 
-  const retenus = bruts.filter((p) =>
-    p.confidence !== 'basse'
-    && (allowedUrls.has(normaliserUrl(p.source_url)) || allowedHosts.has(hostOf(p.source_url)))
-  );
+    const retenus = bruts.filter((p) =>
+      p.confidence !== 'basse'
+      && (allowedUrls.has(normaliserUrl(p.source_url)) || allowedHosts.has(hostOf(p.source_url)))
+    );
 
-  /* RAPPROCHEMENT ET VÉRIFICATION : l'IA regroupe les descriptions par
-     opération réelle et écarte ce qui n'en est pas une (voir
-     rapprocherLesDescriptions). Elle juge aussi les interventions de
-     concessionnaire de réseau, que des expressions régulières sur des noms de
-     marques écartaient ici auparavant. */
-  const { projets: operations, ecartes: nonRetenus } = await rapprocherLesDescriptions(commune, retenus);
-  let projects = operations;
-  const fusionnes = retenus.length - nonRetenus.length - projects.length;
-  const parRaison = {};
-  for (const e of nonRetenus) parRaison[e.raison] = (parRaison[e.raison] || 0) + 1;
-  console.log(`[demo-generate] rapprochement : ${retenus.length} descriptions -> ${projects.length} operations (${fusionnes} fondue(s), ${nonRetenus.length} ecartee(s) : ${Object.entries(parRaison).map(([r, k]) => `${k} ${RAISONS_D_ECART[r] || r}`).join(', ') || 'aucune'})`);
-  if (nonRetenus.length) {
-    console.log(`[demo-generate] descriptions ecartees : ${nonRetenus.map((e) => `${e.projet.title} (${e.precision || RAISONS_D_ECART[e.raison]})`).join(' | ')}`);
-  }
+    /* RAPPROCHEMENT ET VÉRIFICATION : l'IA regroupe les descriptions par
+       opération réelle et écarte ce qui n'en est pas une (voir
+       rapprocherLesDescriptions). Elle juge aussi les interventions de
+       concessionnaire de réseau, que des expressions régulières sur des noms de
+       marques écartaient ici auparavant. */
+    const { projets: operations, ecartes: nonRetenus } = await rapprocherLesDescriptions(commune, retenus, fin);
+    const fusionnes = retenus.length - nonRetenus.length - operations.length;
+    const parRaison = {};
+    for (const e of nonRetenus) parRaison[e.raison] = (parRaison[e.raison] || 0) + 1;
+    console.log(`[demo-generate] rapprochement : ${retenus.length} descriptions -> ${operations.length} operations (${fusionnes} fondue(s), ${nonRetenus.length} ecartee(s) : ${Object.entries(parRaison).map(([r, k]) => `${k} ${RAISONS_D_ECART[r] || r}`).join(', ') || 'aucune'})`);
+    if (nonRetenus.length) {
+      console.log(`[demo-generate] descriptions ecartees : ${nonRetenus.map((e) => `${e.projet.title} (${e.precision || RAISONS_D_ECART[e.raison]})`).join(' | ')}`);
+    }
+    Object.assign(state.analyse, { operations, fusionnes, candidates: bruts.length, etape: 'selection' });
+    /* Les projets bruts sont fondus dans les operations : leur copie ne serait
+       plus que relue et reecrite a chaque enregistrement. */
+    delete state.analyse.avis;
+    if (state.explo) state.explo.bruts = [];
+    state.presseProjets = [];
+  },
 
-  /* SELECTION : ce qu'un habitant appellerait un projet de sa commune, actuel
-     et significatif (voir selectionnerLesProjets). Elle passe avant
-     l'arbitrage des marches, pour que la reserve d'avis qui peut regarnir une
-     carte courte ne contienne que des operations retenues. */
-  const { gardees, ecartees: horsCarte } = await selectionnerLesProjets(commune, projects, mairie.pdfs || []);
-  projects = gardees;
-  console.log(`[demo-generate] selection : ${gardees.length} operation(s) gardee(s), ${horsCarte.length} ecartee(s)`);
-  for (const p of horsCarte) console.log(`[demo-selection] ecartee (${VERDICTS[p.selection.verdict]}, ${p.selection.ampleur || '?'}) ${p.title} :: ${p.selection.derniere_etape} :: ${p.selection.precision}${p.selection.corrige ? ` :: corrigé : ${p.selection.corrige}` : ''}`);
-  for (const p of gardees) console.log(`[demo-selection] gardee (${p.selection.etat || '?'}, ${p.selection.ampleur || '?'}) ${p.title} :: ${p.selection.derniere_etape}${p.selection.corrige ? ` :: corrigé : ${p.selection.corrige}` : ''}`);
-  state.stats.selection = {
-    gardees: gardees.length,
-    ecartees: horsCarte.map((p) => ({ titre: p.title, verdict: p.selection.verdict, ampleur: p.selection.ampleur, derniere_etape: p.selection.derniere_etape, precision: p.selection.precision, ...(p.selection.corrige ? { corrige: p.selection.corrige } : {}) })),
-  };
-  for (const p of [...gardees, ...horsCarte]) delete p.descriptions_lues;
+  async selection(send, step, state, fin) {
+    const { commune, mairie } = state;
+    const { fusionnes, candidates: beforeFilter } = state.analyse;
+    let projects = state.analyse.operations;
 
-  /* La matiere de l'article : l'extrait de la page qui presente le mieux
-     l'operation, suivi des citations relevees mot pour mot sur ses autres
-     pages. Chaque page de l'operation a ainsi sa phrase dans la matiere,
-     au lieu de la seule page porteuse. */
-  for (const p of projects) {
-    const principal = (p.page_excerpt || [p.description, p.evidence_quote].filter(Boolean).join('\n\n'))
-      .slice(0, SOURCE_EXCERPT_CHARS);
-    const autres = (p.citations || [])
-      .map((c) => c.citation)
-      .filter((c) => c && !principal.includes(c));
-    p.source_excerpt = [principal, ...autres.map((c) => `« ${c} »`)].join('\n\n');
-    delete p.page_excerpt;
-  }
+    /* SELECTION : ce qu'un habitant appellerait un projet de sa commune, actuel
+       et significatif (voir selectionnerLesProjets). Elle passe avant
+       l'arbitrage des marches, pour que la reserve d'avis qui peut regarnir une
+       carte courte ne contienne que des operations retenues. */
+    const { gardees, ecartees: horsCarte } = await selectionnerLesProjets(commune, projects, mairie.pdfs || [], fin);
+    projects = gardees;
+    console.log(`[demo-generate] selection : ${gardees.length} operation(s) gardee(s), ${horsCarte.length} ecartee(s)`);
+    for (const p of horsCarte) console.log(`[demo-selection] ecartee (${VERDICTS[p.selection.verdict]}, ${p.selection.ampleur || '?'}) ${p.title} :: ${p.selection.derniere_etape} :: ${p.selection.precision}${p.selection.corrige ? ` :: corrigé : ${p.selection.corrige}` : ''}`);
+    for (const p of gardees) console.log(`[demo-selection] gardee (${p.selection.etat || '?'}, ${p.selection.ampleur || '?'}) ${p.title} :: ${p.selection.derniere_etape}${p.selection.corrige ? ` :: corrigé : ${p.selection.corrige}` : ''}`);
+    state.stats.selection = {
+      gardees: gardees.length,
+      ecartees: horsCarte.map((p) => ({ titre: p.title, verdict: p.selection.verdict, ampleur: p.selection.ampleur, derniere_etape: p.selection.derniere_etape, precision: p.selection.precision, ...(p.selection.corrige ? { corrige: p.selection.corrige } : {}) })),
+    };
+    for (const p of [...gardees, ...horsCarte]) delete p.descriptions_lues;
 
-  if (fusionnes) {
-    send({ type: 'rejected', kind: 'doublon', count: fusionnes });
-  }
+    /* La matiere de l'article : l'extrait de la page qui presente le mieux
+       l'operation, suivi des citations relevees mot pour mot sur ses autres
+       pages. Chaque page de l'operation a ainsi sa phrase dans la matiere,
+       au lieu de la seule page porteuse. */
+    for (const p of projects) {
+      const principal = (p.page_excerpt || [p.description, p.evidence_quote].filter(Boolean).join('\n\n'))
+        .slice(0, SOURCE_EXCERPT_CHARS);
+      const autres = (p.citations || [])
+        .map((c) => c.citation)
+        .filter((c) => c && !principal.includes(c));
+      p.source_excerpt = [principal, ...autres.map((c) => `« ${c} »`)].join('\n\n');
+      delete p.page_excerpt;
+    }
 
-  /* Seul le vide arrete la generation. Un ou deux projets attestes suffisent a
-     monter une carte, et la brievete sera annoncee apres le geocodage. */
-  if (!projects.length) {
-    send({ type: 'error', kind: 'sans-projet', message: messageSansProjet(commune.nom) });
-    return null;
-  }
+    if (fusionnes) {
+      send({ type: 'rejected', kind: 'doublon', count: fusionnes });
+    }
 
-  const { retenus: gardes, ecartes } = arbitrerMarches(projects);
-  projects = gardes;
-  state.marchesReserve = ecartes;
-  if (ecartes.length) {
-    const propres = projects.filter((p) => p.origine !== 'marche').length;
-    const raison = propres >= MARCHES_CIBLE ? 'abondance' : 'plafond';
-    console.log(`[demo-generate] marches publics ecartes : ${ecartes.length} (motif ${raison}, ${propres} projet(s) documente(s) par la commune)`);
-    send({ type: 'rejected', kind: 'marche', count: ecartes.length, raison, titles: ecartes.map((p) => p.title).slice(0, 12) });
-  }
+    /* Seul le vide arrete la generation. Un ou deux projets attestes suffisent a
+       monter une carte, et la brievete sera annoncee apres le geocodage. */
+    if (!projects.length) {
+      send({ type: 'error', kind: 'sans-projet', message: messageSansProjet(commune.nom) });
+      return null;
+    }
 
-  step('ai2', 'done', 'Projets vérifiés', `${projects.length} projets attestés par les sources`);
-  /* La CITATION voyage avec chaque projet attesté. L'écran en fait la matière
-     de sa pièce de papier : c'est la phrase relevée dans la source qui prouve
-     que le projet existe, et c'est elle qui distingue un recensement d'une
-     liste produite par une IA. */
-  send({
-    type: 'projects',
-    items: projects.map((p) => ({
-      title: p.title,
-      category_slug: p.category_slug,
-      quote: String(p.evidence_quote || '').slice(0, 180),
-      media: hostOf(p.source_url) || '',
-    })),
-  });
+    const { retenus: gardes, ecartes } = arbitrerMarches(projects);
+    projects = gardes;
+    state.marchesReserve = ecartes;
+    if (ecartes.length) {
+      const propres = projects.filter((p) => p.origine !== 'marche').length;
+      const raison = propres >= MARCHES_CIBLE ? 'abondance' : 'plafond';
+      console.log(`[demo-generate] marches publics ecartes : ${ecartes.length} (motif ${raison}, ${propres} projet(s) documente(s) par la commune)`);
+      send({ type: 'rejected', kind: 'marche', count: ecartes.length, raison, titles: ecartes.map((p) => p.title).slice(0, 12) });
+    }
 
-  state.projects = projects;
-  state.stats.pages_lues = state.stats.pages_lues || 0;
-  state.stats.candidates = beforeFilter;
-  state.stats.marches_ecartes = ecartes.length;
+    step('ai2', 'done', 'Projets vérifiés', `${projects.length} projets attestés par les sources`);
+    /* La CITATION voyage avec chaque projet attesté. L'écran en fait la matière
+       de sa pièce de papier : c'est la phrase relevée dans la source qui prouve
+       que le projet existe, et c'est elle qui distingue un recensement d'une
+       liste produite par une IA. */
+    send({
+      type: 'projects',
+      items: projects.map((p) => ({
+        title: p.title,
+        category_slug: p.category_slug,
+        quote: String(p.evidence_quote || '').slice(0, 180),
+        media: hostOf(p.source_url) || '',
+      })),
+    });
 
-  // Le paquet de sources ne sert plus : on allège le brouillon. On garde
-  // toutefois un index reduit des pages (titre, images, debut de texte) : la
-  // phase illustrations, qui tourne plus tard, en a besoin pour rattacher une
-  // photo de la mairie au bon projet.
-  /* Index reduit des pages, pour la seule phase des illustrations : elle a
-     besoin de rattacher une photo de la mairie au bon projet, rien de plus.
+    state.projects = projects;
+    state.stats.pages_lues = state.stats.pages_lues || 0;
+    state.stats.candidates = beforeFilter;
+    state.stats.marches_ecartes = ecartes.length;
 
-     Ce resserrement compte plus qu'il n'y parait. Le brouillon est relu ET
-     reecrit a chaque tranche, et la localisation en compte jusqu'a quatorze :
-     tout ce qu'on y laisse dormir se paie autant de fois. Depuis que la
-     collecte peut rapporter soixante-dix pages au lieu de trente, un index
-     genereux couterait plusieurs centaines de kilo-octets par tranche.
-     Ne sont donc gardees que les pages qui portent VRAIMENT une image. Le texte
-     des blocs, lui, n'est PAS raccourci : c'est exactement ce qui sert a
-     reconnaitre lequel parle du projet, et l'amputer ferait retomber le
-     rattachement sur la page entiere, c'est-a-dire sur la photo du voisin. */
-  state.mairie.pages = mairie.pages
-    .filter((p) => p.images?.length || p.blocs?.some((b) => b.images?.length))
-    .map((p) => ({
-      url: p.url,
-      title: p.title,
-      images: (p.images || []).slice(0, 8),
-      blocs: (p.blocs || []).filter((b) => b.images?.length).slice(0, 25),
-      text: (p.text || '').slice(0, 1500),
-    }));
-  state.news = [];
-  state.boamp = [];
-  /* L'exploration est finie : son etat - la file, ses centaines d'adresses, les
-     echantillons de gabarit, les projets bruts deja fondus - n'a plus aucun
-     lecteur, et le brouillon est relu jusqu'a quatorze fois par la phase de
-     localisation. Tout ce qui reste ici se paierait a chaque tranche. */
-  state.explo = null;
-  state.mairie.candidates = [];
-  state.mairie.accueilTexte = '';
-  state.mairie.navigation = [];
-  if (state.epci) state.epci = { nom: state.epci.nom, host: state.epci.host };
-  return state;
-}
+    // Le paquet de sources ne sert plus : on allège le brouillon. On garde
+    // toutefois un index reduit des pages (titre, images, debut de texte) : la
+    // phase illustrations, qui tourne plus tard, en a besoin pour rattacher une
+    // photo de la mairie au bon projet.
+    /* Index reduit des pages, pour la seule phase des illustrations : elle a
+       besoin de rattacher une photo de la mairie au bon projet, rien de plus.
+
+       Ce resserrement compte plus qu'il n'y parait. Le brouillon est relu ET
+       reecrit a chaque tranche, et la localisation en compte jusqu'a quatorze :
+       tout ce qu'on y laisse dormir se paie autant de fois. Depuis que la
+       collecte peut rapporter soixante-dix pages au lieu de trente, un index
+       genereux couterait plusieurs centaines de kilo-octets par tranche.
+       Ne sont donc gardees que les pages qui portent VRAIMENT une image. Le texte
+       des blocs, lui, n'est PAS raccourci : c'est exactement ce qui sert a
+       reconnaitre lequel parle du projet, et l'amputer ferait retomber le
+       rattachement sur la page entiere, c'est-a-dire sur la photo du voisin. */
+    state.mairie.pages = mairie.pages
+      .filter((p) => p.images?.length || p.blocs?.some((b) => b.images?.length))
+      .map((p) => ({
+        url: p.url,
+        title: p.title,
+        images: (p.images || []).slice(0, 8),
+        blocs: (p.blocs || []).filter((b) => b.images?.length).slice(0, 25),
+        text: (p.text || '').slice(0, 1500),
+      }));
+    state.news = [];
+    state.boamp = [];
+    /* L'exploration est finie : son etat - la file, ses centaines d'adresses, les
+       echantillons de gabarit, les projets bruts deja fondus - n'a plus aucun
+       lecteur, et le brouillon est relu jusqu'a quatorze fois par la phase de
+       localisation. Tout ce qui reste ici se paierait a chaque tranche. */
+    state.explo = null;
+    state.analyse = null;
+    state.mairie.candidates = [];
+    state.mairie.accueilTexte = '';
+    state.mairie.navigation = [];
+    if (state.epci) state.epci = { nom: state.epci.nom, host: state.epci.host };
+    return state;
+  },
+};
 
 /* Trois methodes, toutes precises. Le niveau « quartier identifie » a ete
    retire avec l'etage IRIS : une emprise de secteur statistique n'est pas la
@@ -7162,7 +7272,7 @@ function vueAerienneDe(projet, disponible, used) {
   return { url, credit: IGN_CREDIT, source: 'aerien' };
 }
 
-async function coreMedia(send, step, state) {
+async function coreMedia(send, step, state, ctx = {}) {
   const located = state.located;
   const indexMairie = state.mairie?.pages || [];
   const media = state.media || (state.media = { curseur: 0, illustrated: 0, aeriennes: 0, used: [], tours: 0, pages: {}, gabarit: null, entonnoir: [] });
@@ -7251,20 +7361,33 @@ async function coreMedia(send, step, state) {
   const chezLesAutres = (i) => new Set([...proprietaires].filter(([, qui]) => [...qui].some((j) => j !== i)).map(([cle]) => cle));
 
   const used = new Set(media.used);
+  /* Le juge des images est borne par l'echeance de l'invocation : un lot qu'il
+     n'a pas pu juger a temps n'est pas rattache a moitie, il repart entier a
+     la tranche suivante, au lieu de se faire couper par le mur avec tout ce
+     que la tranche avait deja trouve. */
+  const echeance = ctx.echeance ?? Infinity;
   while (media.curseur < located.length && Date.now() - t0 < PHASE_BUDGET_MS) {
+    const debutDuLot = media.curseur;
     const lot = [];
     for (let k = 0; k < 4 && media.curseur < located.length; k++) lot.push(media.curseur++);
+    let horsDelai = false;
     const choix = await inChunks(lot, 4, async (i) => {
       const p = located[i];
       const { retenues, journal } = await imagesDuProjet(p, state.commune.nom, media, indexMairie, chezLesAutres(i));
       let jugement = { natures: [], montre: [], meilleure: -1 };
       if (retenues.length) {
-        try { jugement = await jugerLesImages(p, state.commune.nom, retenues); } catch (e) {
-          console.warn(`[demo-media] juge indisponible pour "${p.title}" : ${e?.message}`);
+        try { jugement = await jugerLesImages(p, state.commune.nom, retenues, echeance); } catch (e) {
+          if (e instanceof EcheanceAtteinte) horsDelai = true;
+          else console.warn(`[demo-media] juge indisponible pour "${p.title}" : ${e?.message}`);
         }
       }
       return { i, retenues, journal, jugement };
     });
+    if (horsDelai) {
+      console.warn(`[demo-media] lot de ${lot.length} projet(s) repris a la tranche suivante : echeance de l'invocation atteinte`);
+      media.curseur = debutDuLot;
+      break;
+    }
 
     // Le rattachement est séquentiel : `used` interdit la même photo sur deux
     // fiches, et cette décision ne peut pas se prendre en parallèle.
@@ -7925,6 +8048,183 @@ async function lireRejeu(ville) {
   };
 }
 
+/* ─── Phase CREATE : préparation, en étapes enregistrées ───
+
+   La création téléchargeait les illustrations trois par trois (8 s chacune au
+   plus), puis jusqu'à six candidats de logo (15 s chacun au plus) et le réseau
+   de transport (15 s), d'un seul tenant : 53 s à Epagny Metz-Tessy le
+   17/11/2026 pour treize fiches, et bien au-delà des 60 s pour une commune qui
+   en a vingt-cinq dont le serveur répond lentement. Une invocation coupée
+   recommençait tout. Ces téléchargements sont désormais des étapes
+   enregistrées dans le brouillon dès qu'elles sont finies : une étape ne part
+   que si sa durée maximale tient avant l'échéance (ou si l'invocation n'a
+   encore rien fait), et une reprise repart de la première qui manque. La
+   publication, qui ne parle qu'à notre base et à notre stockage, vient en
+   dernier, dans une invocation qui a le temps de la mener d'un bout à l'autre. */
+const DUREES_DE_LA_CREATION = {
+  // Trois illustrations téléchargées ensemble (8 s au plus) puis déposées
+  illustrations: 12000,
+  // Un candidat de logo (15 s au plus) puis son dépôt
+  logo: 20000,
+  // La requête du réseau (15 s au plus) puis son dépôt
+  reseau: 20000,
+  // Les fichiers des fiches cinq par cinq et les écritures en base
+  publication: 25000,
+};
+const ILLUSTRATIONS_PAR_LOT = 3;
+
+// Une illustration téléchargée et déposée dans notre stockage, ou null
+async function installerLIllustration(send, ville, p, slug) {
+  if (!p.coverSrc) return null;
+  try {
+    const img = await fetchCapped(p.coverSrc, { headers: UA }, FETCH_TIMEOUT_MS, COVER_MAX_BYTES, true);
+    if (!img) return null;
+    // fetchCapped TRONQUE au plafond au lieu d'abandonner : un PNG de 6,9 Mo
+    // ressortait amputé de son dernier tiers, sans marqueur de fin, et
+    // s'affichait à moitié vide. Mieux vaut aucune illustration qu'une image
+    // coupée en deux sur la fiche.
+    const declared = Number(img.headers.get('content-length') || 0);
+    if (img.data.byteLength >= COVER_MAX_BYTES || (declared && declared > COVER_MAX_BYTES)) {
+      console.warn(`[demo-generate] cover ignorée (trop lourde, ${declared || img.data.byteLength} octets) : ${p.title}`);
+      return null;
+    }
+    /* Trou de couverture LOCAL dans la prise de vue aérienne. La sonde de la
+       phase illustrations vérifie la commune, pas chaque parcelle : il reste
+       des zones blanches ponctuelles, et le service les rend avec un code 200
+       comme s'il n'y avait rien d'anormal. Une image uniforme se compresse en
+       quelques kilo-octets là où une vraie vue en pèse cent à deux cents. */
+    if (estVueAerienne(p.coverSrc) && img.data.byteLength < AERIEN_OCTETS_MIN) {
+      console.warn(`[demo-generate] vue aérienne vide (${img.data.byteLength} octets) : ${p.title}`);
+      return null;
+    }
+    const ct = img.headers.get('content-type') || 'image/jpeg';
+    // L'extension suit le type réel : tout était nommé .jpg, y compris des PNG
+    const ext = /png/.test(ct) ? 'png' : /webp/.test(ct) ? 'webp' : /gif/.test(ct) ? 'gif' : 'jpg';
+    const url = await uploadToStorage(`demo/${ville}/${slug}-cover.${ext}`, img.data, ct);
+    send({ type: 'cover-item', title: p.title });
+    return url;
+  } catch { return null; }
+
+}
+
+function candidatsDuLogo(mairie) {
+  // L'icône du site ferme la cascade : elle n'est installée que si aucun logo
+  // n'a pu l'être
+  return [mairie.logoUrl, ...(mairie.logoCandidats || []), mairie.iconeUrl]
+    .filter((u, i, tous) => u && tous.indexOf(u) === i)
+    .slice(0, 6);
+}
+
+/* Un candidat de logo, téléchargé et déposé, ou null.
+
+   Le logo est tenté sur TOUS les candidats retenus, pas seulement le
+   meilleur. Une seule tentative, sans repli et sans trace, faisait perdre le
+   logo sur un simple délai dépassé ou un refus passager du serveur de la
+   mairie, alors que trois autres adresses attendaient. Relevé en base : 7
+   espaces sur 27 sans logo, dont deux communes dont le logo se télécharge
+   parfaitement quand on rejoue la séquence. */
+async function installerLeLogo(ville, mairie, candidat, createItem) {
+  try {
+    // Délai propre, plus large que celui du moissonnage : c'est un fichier
+    // unique et petit, pas une page de site à parcourir.
+    const img = await fetchCapped(candidat, { headers: UA }, 15000, 4500000, true);
+    if (!img) { console.warn(`[demo-generate] logo injoignable : ${candidat}`); return null; }
+    /* Le type est lu dans les OCTETS, pas dans l'en-tête déclaré. Un serveur
+       qui rend une page d'erreur en annonçant `image/png`, ou une image en
+       annonçant `text/plain`, trompait le contrôle dans un sens comme dans
+       l'autre. La signature binaire, elle, ne ment pas. */
+    const vrai = typeImageReel(img.data);
+    if (!vrai) {
+      console.warn(`[demo-generate] logo rejeté (contenu non reconnu comme image) : ${candidat}`);
+      return null;
+    }
+    const url = await uploadToStorage(`branding/${ville}/logo.${vrai.ext}`, img.data, vrai.ct);
+    /* Un logo SVG porte ses couleurs en clair : quand ni le site ni le juge
+       visuel (qui ne lit pas les SVG) n'ont donné la couleur de la commune,
+       elle se lit dans le fichier lui-même. */
+    if (!mairie.themeColor && vrai.ext === 'svg') {
+      const couleur = couleurDepuisSvg(new TextDecoder('utf-8', { fatal: false }).decode(img.data));
+      if (couleur) mairie.themeColor = couleur;
+    }
+    createItem(candidat === mairie.iconeUrl ? 'Icône du site installée, faute de logo' : 'Logo de la mairie installé');
+    return url;
+  } catch (e) {
+    console.warn(`[demo-generate] logo échec sur ${candidat} :: ${e?.message}`);
+    return null;
+  }
+}
+
+/* Réseau de transport LOURD (métro, tram, funiculaire) : couche de données
+   NATIVE de l'espace, construite depuis OpenStreetMap, couleur officielle
+   portée par chaque tracé, affichée par défaut. Une seule ligne suffit :
+   le tram d'une ville moyenne est précisément ce qu'on veut montrer. Un
+   seul tour de service et un échec silencieux : le réseau est un bonus, il
+   ne retarde ni ne fait échouer la création. « Refaire le recensement » le
+   reconstruit, comme le reste de l'espace. Rend le fichier déposé et son
+   nombre de lignes, ou null. */
+async function installerLeReseau(ville, commune) {
+  try {
+    const data = await chargerReseau(zoneParInsee(commune.code), { timeoutMs: 15000, tours: 1 });
+    const reseau = reseauEnGeojson(data);
+    if (reseau.features.length < 1) return null;
+    const url = await uploadToStorage(`layer/${ville}/transports.geojson`, JSON.stringify(reseau), 'application/json');
+    return { url, lignes: reseau.features.length };
+  } catch (e) {
+    console.warn(`[demo-generate] réseau de transport indisponible pour ${ville} :: ${e?.message}`);
+    return null;
+  }
+}
+
+/**
+ * L'étape de préparation à lancer maintenant, ou null s'il faut une autre
+ * invocation (ou si la préparation est finie : `creation.etape` vaut alors
+ * 'publication').
+ */
+function etapeDeLaCreation(creation, resteMs, rienFait, durees = DUREES_DE_LA_CREATION) {
+  if (creation.etape === 'publication') return null;
+  return durees[creation.etape] <= resteMs || rienFait ? creation.etape : null;
+}
+
+/* Mène la préparation aussi loin que l'invocation le permet, en enregistrant
+   le brouillon après chaque étape. Rend true quand la publication peut partir
+   dans cette invocation. */
+async function preparerLaCreation(send, step, ville, payload, echeance, createItem) {
+  const { located, mairie, commune } = payload;
+  const creation = payload.creation
+    || (payload.creation = { etape: 'illustrations', couvertures: [], logoEssais: 0, logoUrl: null, reseau: null });
+  const slugs = located.map((p, i) => `${slugify(p.title)}-${i + 1}`);
+  const candidats = candidatsDuLogo(mairie);
+  let rienFait = true;
+  for (;;) {
+    const etape = etapeDeLaCreation(creation, echeance - Date.now(), rienFait);
+    if (!etape) break;
+    if (etape === 'illustrations') {
+      const debut = creation.couvertures.length;
+      const lot = located.slice(debut, debut + ILLUSTRATIONS_PAR_LOT);
+      if (debut === 0) step('covers', 'start', 'Installation des illustrations');
+      creation.couvertures.push(...await Promise.all(lot.map((p, k) => installerLIllustration(send, ville, p, slugs[debut + k]))));
+      if (creation.couvertures.length >= located.length) creation.etape = 'logo';
+    } else if (etape === 'logo') {
+      if (creation.logoEssais < candidats.length) {
+        creation.logoUrl = await installerLeLogo(ville, mairie, candidats[creation.logoEssais], createItem);
+        creation.logoEssais++;
+      }
+      if (creation.logoUrl || creation.logoEssais >= candidats.length) {
+        // Silencieux jusqu'ici : l'espace prenait le logo Open Projets et personne
+        // ne savait que la commune en avait un.
+        if (!creation.logoUrl) console.warn(`[demo-generate] AUCUN logo installé pour ${ville} (${candidats.length} candidat(s) essayé(s))`);
+        creation.etape = 'reseau';
+      }
+    } else if (etape === 'reseau') {
+      creation.reseau = await installerLeReseau(ville, commune);
+      creation.etape = 'publication';
+    }
+    rienFait = false;
+    await updateInstance(ville, { payload });
+  }
+  return creation.etape === 'publication' && (rienFait || DUREES_DE_LA_CREATION.publication <= echeance - Date.now());
+}
+
 /* ─── Phase CREATE : matérialisation du brouillon (invocation courte) ─── */
 
 async function runCreate(send, step, ville, runState) {
@@ -7952,6 +8252,14 @@ async function runCreate(send, step, ville, runState) {
 
   step('create', 'start', `Ouverture de l'espace de ${commune.nom}`);
 
+  const echeance = echeanceDeLInvocation(runState?.debutInvocation ?? t0);
+  if (!await preparerLaCreation(send, step, ville, instance.payload, echeance, createItem)) {
+    // Préparation enregistrée jusqu'où le temps l'a permis : la suite dans une autre invocation
+    send({ type: 'phase', next: 'create', ville });
+    return;
+  }
+  const { creation } = instance.payload;
+
   // Rejouabilité : une reprise après échec partiel repart d'une base propre
   // (les anciens dossiers d'abord, ils référencent les fiches par FK)
   const previous = await (async () => {
@@ -7967,41 +8275,8 @@ async function runCreate(send, step, ville, runState) {
   }
   await deleteWhere('category_icons', { ville: `eq.${ville}` });
 
-  // Illustrations re-hébergées en parallèle (URL stables, pas de hotlink).
-  // Slugs déterministes : une reprise réécrit les mêmes fichiers (upsert)
-  step('covers', 'start', 'Installation des illustrations');
   const slugs = located.map((p, i) => `${slugify(p.title)}-${i + 1}`);
-  const coverUrls = await inChunks(located.map((p, i) => ({ p, i })), 3, async ({ p, i }) => {
-    if (!p.coverSrc) return null;
-    try {
-      const img = await fetchCapped(p.coverSrc, { headers: UA }, FETCH_TIMEOUT_MS, COVER_MAX_BYTES, true);
-      if (!img) return null;
-      // fetchCapped TRONQUE au plafond au lieu d'abandonner : un PNG de 6,9 Mo
-      // ressortait amputé de son dernier tiers, sans marqueur de fin, et
-      // s'affichait à moitié vide. Mieux vaut aucune illustration qu'une image
-      // coupée en deux sur la fiche.
-      const declared = Number(img.headers.get('content-length') || 0);
-      if (img.data.byteLength >= COVER_MAX_BYTES || (declared && declared > COVER_MAX_BYTES)) {
-        console.warn(`[demo-generate] cover ignorée (trop lourde, ${declared || img.data.byteLength} octets) : ${p.title}`);
-        return null;
-      }
-      /* Trou de couverture LOCAL dans la prise de vue aérienne. La sonde de la
-         phase illustrations vérifie la commune, pas chaque parcelle : il reste
-         des zones blanches ponctuelles, et le service les rend avec un code 200
-         comme s'il n'y avait rien d'anormal. Une image uniforme se compresse en
-         quelques kilo-octets là où une vraie vue en pèse cent à deux cents. */
-      if (estVueAerienne(p.coverSrc) && img.data.byteLength < AERIEN_OCTETS_MIN) {
-        console.warn(`[demo-generate] vue aérienne vide (${img.data.byteLength} octets) : ${p.title}`);
-        return null;
-      }
-      const ct = img.headers.get('content-type') || 'image/jpeg';
-      // L'extension suit le type réel : tout était nommé .jpg, y compris des PNG
-      const ext = /png/.test(ct) ? 'png' : /webp/.test(ct) ? 'webp' : /gif/.test(ct) ? 'gif' : 'jpg';
-      const url = await uploadToStorage(`demo/${ville}/${slugs[i]}-cover.${ext}`, img.data, ct);
-      send({ type: 'cover-item', title: p.title });
-      return url;
-    } catch { return null; }
-  });
+  const coverUrls = creation.couvertures;
   step('covers', 'done', 'Illustrations installées', `${coverUrls.filter(Boolean).length}/${located.length}`);
 
   step('publish', 'start', 'Publication des fiches');
@@ -8092,46 +8367,7 @@ async function runCreate(send, step, ville, runState) {
      mairie, alors que trois autres adresses attendaient. Relevé en base : 7
      espaces sur 27 sans logo, dont deux communes dont le logo se télécharge
      parfaitement quand on rejoue la séquence. */
-  let logoUrl = null;
-  // L'icône du site ferme la cascade : elle n'est installée que si aucun logo
-  // n'a pu l'être
-  const candidatsLogo = [mairie.logoUrl, ...(mairie.logoCandidats || []), mairie.iconeUrl]
-    .filter((u, i, tous) => u && tous.indexOf(u) === i)
-    .slice(0, 6);
-  for (const candidat of candidatsLogo) {
-    try {
-      // Délai propre, plus large que celui du moissonnage : c'est un fichier
-      // unique et petit, pas une page de site à parcourir.
-      const img = await fetchCapped(candidat, { headers: UA }, 15000, 4500000, true);
-      if (!img) { console.warn(`[demo-generate] logo injoignable : ${candidat}`); continue; }
-      /* Le type est lu dans les OCTETS, pas dans l'en-tête déclaré. Un serveur
-         qui rend une page d'erreur en annonçant `image/png`, ou une image en
-         annonçant `text/plain`, trompait le contrôle dans un sens comme dans
-         l'autre. La signature binaire, elle, ne ment pas. */
-      const vrai = typeImageReel(img.data);
-      if (!vrai) {
-        console.warn(`[demo-generate] logo rejeté (contenu non reconnu comme image) : ${candidat}`);
-        continue;
-      }
-      logoUrl = await uploadToStorage(`branding/${ville}/logo.${vrai.ext}`, img.data, vrai.ct);
-      /* Un logo SVG porte ses couleurs en clair : quand ni le site ni le juge
-         visuel (qui ne lit pas les SVG) n'ont donné la couleur de la commune,
-         elle se lit dans le fichier lui-même. */
-      if (!mairie.themeColor && vrai.ext === 'svg') {
-        const couleur = couleurDepuisSvg(new TextDecoder('utf-8', { fatal: false }).decode(img.data));
-        if (couleur) mairie.themeColor = couleur;
-      }
-      createItem(candidat === mairie.iconeUrl ? 'Icône du site installée, faute de logo' : 'Logo de la mairie installé');
-      break;
-    } catch (e) {
-      console.warn(`[demo-generate] logo échec sur ${candidat} :: ${e?.message}`);
-    }
-  }
-  if (!logoUrl) {
-    // Silencieux jusqu'ici : l'espace prenait le logo Open Projets et personne
-    // ne savait que la commune en avait un.
-    console.warn(`[demo-generate] AUCUN logo installé pour ${ville} (${candidatsLogo.length} candidat(s) essayé(s))`);
-  }
+  const logoUrl = creation.logoUrl;
 
   await insertRows('city_branding', [{
     ville,
@@ -8180,30 +8416,19 @@ async function runCreate(send, step, ville, runState) {
      seul tour de service et un échec silencieux : le réseau est un bonus, il
      ne retarde ni ne fait échouer la création. « Refaire le recensement » le
      reconstruit, comme le reste de l'espace. */
-  try {
-    const data = await chargerReseau(zoneParInsee(commune.code), { timeoutMs: 15000, tours: 1 });
-    const reseau = reseauEnGeojson(data);
-    if (reseau.features.length >= 1) {
-      const reseauUrl = await uploadToStorage(
-        `layer/${ville}/transports.geojson`,
-        JSON.stringify(reseau),
-        'application/json'
-      );
-      await deleteWhere('layers', { ville: `eq.${ville}`, name: `eq.${NOM_COUCHE_TRANSPORTS}` });
-      await insertRows('layers', [{
-        ville,
-        name: NOM_COUCHE_TRANSPORTS,
-        url: reseauUrl,
-        style: STYLE_COUCHE_TRANSPORTS,
-        is_default: true,
-        icon: null,
-        icon_color: null,
-      }]);
-      await insertRows('category_icons', [{ ville, ...CATEGORIE_TRANSPORTS, display_order: usedSlugs.length + 1 }]);
-      createItem(`Réseau de transport ajouté (${reseau.features.length} lignes)`);
-    }
-  } catch (e) {
-    console.warn(`[demo-generate] réseau de transport indisponible pour ${ville} :: ${e?.message}`);
+  if (creation.reseau) {
+    await deleteWhere('layers', { ville: `eq.${ville}`, name: `eq.${NOM_COUCHE_TRANSPORTS}` });
+    await insertRows('layers', [{
+      ville,
+      name: NOM_COUCHE_TRANSPORTS,
+      url: creation.reseau.url,
+      style: STYLE_COUCHE_TRANSPORTS,
+      is_default: true,
+      icon: null,
+      icon_color: null,
+    }]);
+    await insertRows('category_icons', [{ ville, ...CATEGORIE_TRANSPORTS, display_order: usedSlugs.length + 1 }]);
+    createItem(`Réseau de transport ajouté (${creation.reseau.lignes} lignes)`);
   }
 
   await updateInstance(ville, {
@@ -8513,6 +8738,14 @@ export const config = { path: '/api/demo-generate' };
  * génération complète, donc jamais vérifiés. Rien d'autre ne les importe.
  */
 export const _internals = {
+  DUREES_DE_L_ANALYSE,
+  etapeDeLAnalyse,
+  coreExplore,
+  DUREES_DE_LA_CREATION,
+  etapeDeLaCreation,
+  preparerLaCreation,
+  EcheanceAtteinte,
+  postOpenAI,
   extractImageUrls,
   imagesDuHtml,
   dimensionsImage,
