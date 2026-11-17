@@ -6,6 +6,9 @@ import {
   normaliserUrl, estUnePageExplorable, FileExploration,
   empreinteGabarit, retirerGabaritConnu, rapprochement, regrouper, fondre,
 } from '../netlify/functions/lib/demo-exploration.mjs';
+import {
+  LIMITE_INVOCATION_MS, echeanceDeLInvocation, prochaineEtape, ecrituresEnSerie, ageDuBrouillonMin,
+} from '../netlify/functions/lib/demo-tranches.mjs';
 
 /**
  * Tunnel de démo : les gardes de demo-generate.
@@ -1777,5 +1780,174 @@ test.describe('0.86 - Démo : les emplacements faux relevés sur Mazamet', () =>
     expect(AVEC_NUMERO_RE.test('3 bis rue Voltaire')).toBe(true);
     expect(AVEC_NUMERO_RE.test('boulevard Soult')).toBe(false);
     expect(AVEC_NUMERO_RE.test('RD 118')).toBe(false);
+  });
+});
+
+/**
+ * La rédaction tient dans les invocations (non-régression Villeurbanne).
+ *
+ * Le 13/11/2026, la rédaction de Villeurbanne a été tuée neuf fois de suite
+ * par le mur de 60 s de la plateforme : un article à huit sources prenait une
+ * minute d'un seul tenant et n'était enregistré qu'à la fin de sa tranche.
+ * Chaque reprise recommençait les mêmes articles. La rédaction avance
+ * désormais par étapes bornées, enregistrées une à une.
+ */
+test.describe('0.98 - Démo : la rédaction avance par étapes enregistrées', () => {
+  const {
+    lotsDeSources, FAITS_LOT_CHARS, DUREES_DES_ETAPES, releverLesFaits, retenirLesFaits,
+    sourceEnregistrable, sourcesRelues, coreRedact, pourCitation,
+  } = _internals;
+
+  test('0.98.1 - Chaque étape tient avant l\'échéance d\'une invocation', () => {
+    const debut = 1_000_000;
+    const echeance = echeanceDeLInvocation(debut);
+    expect(echeance - debut).toBeLessThanOrEqual(LIMITE_INVOCATION_MS - 3000);
+    for (const [etape, duree] of Object.entries(DUREES_DES_ETAPES)) {
+      expect(duree, etape).toBeLessThan(echeance - debut);
+    }
+  });
+
+  test('0.98.2 - Une étape trop longue pour le temps restant ne part pas', () => {
+    const redac = { projets: { 0: { etape: 'ecriture' } }, finis: [] };
+    const durees = { sources: 10, extraction: 20, rattachement: 15, ecriture: 30 };
+    expect(prochaineEtape(redac, 1, new Set(), 29, durees)).toBeNull();
+    expect(prochaineEtape(redac, 1, new Set(), 30, durees)).toEqual({ i: 0, type: 'ecriture', cle: '0:ecriture' });
+  });
+
+  test('0.98.3 - Les lots d\'un même projet partent ensemble, le reste attend son tour', () => {
+    const redac = { projets: { 1: { etape: 'extraction', sorties: [null, {}, null] } }, finis: [0] };
+    const durees = { sources: 10, extraction: 20, rattachement: 15, ecriture: 30 };
+    const enCours = new Set();
+    const premier = prochaineEtape(redac, 3, enCours, 60, durees);
+    expect(premier).toEqual({ i: 1, type: 'extraction', k: 0, cle: '1:lot:0' });
+    enCours.add(premier.cle);
+    expect(prochaineEtape(redac, 3, enCours, 60, durees)).toMatchObject({ i: 1, k: 2 });
+    enCours.add('1:lot:2');
+    // Plus de lot libre : le projet suivant commence par ses sources
+    expect(prochaineEtape(redac, 3, enCours, 60, durees)).toEqual({ i: 2, type: 'sources', cle: '2:sources' });
+  });
+
+  test('0.98.3b - Un nouveau projet n\'est entamé que sous le plafond des projets ouverts', () => {
+    const durees = { sources: 10, extraction: 20, rattachement: 15, ecriture: 30 };
+    const redac = { projets: { 0: { etape: 'ecriture' } }, finis: [] };
+    const enCours = new Set(['0:ecriture', '1:sources']);
+    expect(prochaineEtape(redac, 4, enCours, 60, durees, 2)).toBeNull();
+    expect(prochaineEtape(redac, 4, enCours, 60, durees, 3)).toEqual({ i: 2, type: 'sources', cle: '2:sources' });
+  });
+
+  test('0.98.4 - Une source plus longue qu\'un lot est coupée, sans rien perdre', () => {
+    const phrase = 'La rue est réaménagée. ';
+    const longue = { id: 'S1', lu: phrase.repeat(Math.ceil((FAITS_LOT_CHARS * 2.5) / phrase.length)) };
+    const courte = { id: 'S2', lu: 'Livraison en 2027.' };
+    const lots = lotsDeSources([longue, courte]);
+    for (const lot of lots) {
+      const taille = lot.reduce((t, m) => t + m.fin - m.debut, 0);
+      expect(taille).toBeLessThanOrEqual(FAITS_LOT_CHARS);
+    }
+    const morceaux = lots.flat().filter((m) => m.id === 'S1');
+    expect(morceaux.length).toBeGreaterThanOrEqual(3);
+    expect(morceaux.map((m) => longue.lu.slice(m.debut, m.fin)).join('')).toBe(longue.lu);
+    // Coupé à la fin d'une phrase
+    expect(longue.lu.slice(0, morceaux[0].fin).endsWith('.')).toBe(true);
+  });
+
+  test('0.98.5 - Les enregistrements partent un à un et se regroupent', async () => {
+    let ecritures = 0;
+    let simultanees = 0;
+    let max = 0;
+    const serie = ecrituresEnSerie(async () => {
+      simultanees++; max = Math.max(max, simultanees);
+      await new Promise((r) => setTimeout(r, 30));
+      ecritures++; simultanees--;
+    });
+    // Six demandes avant que l'écriture parte : une seule écriture, qui emporte l'état le plus récent
+    for (let k = 0; k < 6; k++) serie.demander();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(ecritures).toBe(0);
+    // Trois demandes pendant qu'elle s'écrit : une seule de plus, après elle
+    for (let k = 0; k < 3; k++) serie.demander();
+    await serie.vider();
+    expect(max).toBe(1);
+    expect(ecritures).toBe(2);
+  });
+
+  test('0.98.6 - Un brouillon récent se juge à sa dernière écriture, pas à sa création', () => {
+    const maintenant = Date.parse('2026-11-13T16:10:00Z');
+    const instance = { created_at: '2026-11-13T15:47:44Z', payload: { _vuLe: Date.parse('2026-11-13T16:08:00Z') } };
+    expect(ageDuBrouillonMin(instance, maintenant)).toBeCloseTo(2, 5);
+    expect(ageDuBrouillonMin({ created_at: '2026-11-13T15:47:44Z', payload: null }, maintenant)).toBeGreaterThan(22);
+    expect(ageDuBrouillonMin(null, maintenant)).toBe(Infinity);
+  });
+
+  test('0.98.7 - Un enregistrement qui avance efface aussi le compteur des invocations perdues', () => {
+    const apres = oublierLesEchecs({ _attempts_redact: 1, _sansAvancee_redact: 2, _sansAvancee_media: 1 }, 'redact');
+    expect(apres._attempts_redact).toBeUndefined();
+    expect(apres._sansAvancee_redact).toBeUndefined();
+    expect(apres._sansAvancee_media).toBe(1);
+  });
+
+  test('0.98.8 - Les faits se contrôlent sur la source telle que le brouillon la garde', () => {
+    const enregistree = sourceEnregistrable({
+      id: 'S1', url: 'https://ville.fr/p', nature: 'page', titre: 'Le parc', publiee: '', lu: 'Le parc ouvrira en juin 2027. Il coûte 2 M€.',
+      texte: 'texte complet bien plus long', normalisee: 'x', pdfs: [{ url: 'https://ville.fr/a.pdf' }],
+    });
+    expect(Object.keys(enregistree).sort()).toEqual(['id', 'lu', 'nature', 'publiee', 'titre', 'url']);
+    const parId = sourcesRelues([enregistree, { id: 'S2', url: 'https://ville.fr/b.pdf', nature: 'pdf', titre: '', publiee: '', lu: 'Budget 2026.' }]);
+    expect(parId.get('S1').normalisee).toBe(pourCitation(enregistree.lu));
+    const sorties = [{
+      faits: [
+        { citation: 'Le parc ouvrira en juin 2027.', source: 'S1', objet: 'parc', operation: 'P', rubrique: 'calendrier' },
+        { citation: 'Il coûtera 3 M€.', source: 'S1', objet: 'parc', operation: 'P', rubrique: 'acteurs' },
+        { citation: 'Il coûte 2 M€.', source: 'S1', objet: 'parc', operation: 'P', rubrique: 'acteurs' },
+      ],
+      documents: ['S2'],
+      sources: [],
+    }];
+    const { gardes, rejetes, documents } = releverLesFaits(sorties, parId, []);
+    expect(gardes.map((f) => f.id)).toEqual(['F1', 'F2']);
+    expect(rejetes.map((r) => r.motif)).toEqual(['citation introuvable']);
+    // Le second regard refuse le premier fait : les autres sont renumérotés
+    gardes[0].motif = 'rattachement refusé : aucune opération de la carte';
+    const retenus = retenirLesFaits(gardes, rejetes, documents, parId);
+    expect(retenus.faits.map((f) => [f.id, f.citation])).toEqual([['F1', 'Il coûte 2 M€.']]);
+    expect(retenus.rejetes).toHaveLength(2);
+    // Le budget n'est pas présenté comme le dossier du projet : aucun fait n'en vient
+    expect(retenus.documents).toEqual([]);
+  });
+
+  test('0.98.9 - Sans temps devant elle, une tranche rend la main sans rien lancer', async () => {
+    const state = { located: [{ title: 'A' }, { title: 'B' }], commune: { nom: 'X' }, mairie: { pdfs: [] } };
+    const envoyes = [];
+    const out = await coreRedact((m) => envoyes.push(m), () => {}, state, { echeance: Date.now() - 1, sauver: () => {} });
+    expect(out.__continue).toBe(true);
+    expect(out.redac.finis).toEqual([]);
+    expect(envoyes.some((m) => m.type === 'article-item')).toBe(false);
+  });
+
+  test('0.98.10 - Après des invocations perdues, la rédaction conclut avec ce qu\'elle a', async () => {
+    const state = {
+      located: [{ title: 'A' }, { title: 'B' }, { title: 'C' }],
+      commune: { nom: 'X' },
+      articles: [{ index: 0, title: 'A', markdown: 'Texte \u2013 suite', etat: '' }],
+      redac: { tours: 3, projets: { 1: { etape: 'ecriture', essais: {} } }, finis: [0] },
+    };
+    const out = await coreRedact(() => {}, () => {}, state, { conclure: true });
+    expect(out.__continue).toBeUndefined();
+    expect(out.redac).toBeNull();
+    expect(out.articles.map((a) => a.index)).toEqual([0]);
+    expect(out.articles[0].markdown).toBe('Texte, suite');
+  });
+
+  test('0.98.11 - Un brouillon de la version précédente reprend à son curseur', async () => {
+    const state = {
+      located: [{ title: 'A' }, { title: 'B' }],
+      commune: { nom: 'X' },
+      articles: [{ index: 0, title: 'A', markdown: 'ok', etat: '' }],
+      redac: { curseur: 1, tours: 2 },
+    };
+    const out = await coreRedact(() => {}, () => {}, state, { echeance: Date.now() - 1 });
+    expect(out.redac.finis).toEqual([0]);
+    expect(out.redac.projets).toEqual({});
+    expect(out.redac.curseur).toBeUndefined();
   });
 });
