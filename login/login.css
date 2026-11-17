@@ -212,6 +212,14 @@ html[data-theme='dark'] .lg-head__logo img.lg-logo--dark { display: block; }
 }
 
 /* ── Formulaire ── */
+.lg-form[hidden] { display: none; }
+.lg-confirm__text {
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-align: center;
+}
 .lg-field { margin-bottom: 16px; }
 .lg-label {
   display: block;

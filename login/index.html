@@ -79,6 +79,17 @@
           </button>
         </form>
 
+        <!-- Arrivée par le lien d'un e-mail : la session ne s'ouvre qu'au clic.
+             Un antivirus de messagerie visite le lien sans cliquer, il ne le consomme donc pas. -->
+        <div id="link-confirm" class="lg-form" hidden>
+          <p class="lg-confirm__text">Votre lien est prêt. Cliquez sur le bouton pour ouvrir votre session.</p>
+          <button id="confirm-btn" class="lg-submit" type="button">
+            <span class="lg-submit__icon"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i></span>
+            <span class="lg-submit__spinner"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i></span>
+            <span>Me connecter</span>
+          </button>
+        </div>
+
         <div id="status" class="lg-status" role="alert" aria-live="polite"></div>
       </div>
 
@@ -189,55 +200,34 @@
         magicBtn.disabled = true;
         githubBtn.disabled = true;
 
-        const redirectUrl = window.location.origin + '/login/';
-        let error = null;
+        // Le lien part de notre fonction, plus de Supabase : il mène à cette page,
+        // qui n'ouvre la session qu'au clic (voir netlify/functions/lib/lien-connexion.mjs).
+        let issue = 'echec';
+        try {
+          const r = await fetch('/api/lien-connexion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          issue = (await r.json().catch(() => ({}))).issue || 'echec';
+        } catch (_) { issue = 'echec'; }
 
-        if (typeof auth.signInWithMagicLink === 'function') {
-          ({ error } = await auth.signInWithMagicLink(email, redirectUrl));
-        } else {
-          const client = auth.getClient && auth.getClient();
-          if (client && client.auth && typeof client.auth.signInWithOtp === 'function') {
-            ({ error } = await client.auth.signInWithOtp({
-              email,
-              options: {
-                emailRedirectTo: redirectUrl,
-                shouldCreateUser: false
-              }
-            }));
-          } else {
-            error = new Error('Méthode de magic link indisponible.');
-          }
-        }
-
-        if (error) {
-          console.error('Magic link error:', error);
-
-          const errorMsg = error.message || '';
-
-          // Un motif classé, jamais le message brut : Supabase y recopie parfois
-          // l'adresse saisie, qui n'a rien à faire dans un outil de mesure.
-          const reason = /not found|Signups not allowed/i.test(errorMsg) ? 'compte_inconnu'
-            : /after \d+ seconds|rate limit|too many/i.test(errorMsg) ? 'trop_de_tentatives'
-              : 'erreur_technique';
-          window.OPAnalytics?.capture('login_link_failed', { reason });
-
-          if (errorMsg.includes('User not found') || errorMsg.includes('not found') || errorMsg.includes('Signups not allowed')) {
-            setStatus("Cet email n'est pas enregistré. Contactez l'administrateur de votre organisation pour obtenir un accès.", 'error');
-          } else if (errorMsg.includes('can only request this after') || errorMsg.includes('seconds')) {
-            const match = errorMsg.match(/after (\d+) seconds/);
-            const seconds = match ? parseInt(match[1], 10) : 60;
-            setStatus(`Veuillez patienter ${seconds} secondes avant de demander un nouveau lien.`, 'error');
-            rateLimitDelay = (seconds + 1) * 1000;
-          } else if (errorMsg.includes('rate limit') || errorMsg.includes('too many')) {
-            setStatus('Trop de tentatives. Veuillez patienter quelques instants avant de réessayer.', 'error');
-            rateLimitDelay = 60000;
-          } else {
-            setStatus("Échec de l'envoi du lien. Réessayez plus tard.", 'error');
-          }
-        } else {
+        if (issue === 'envoye') {
           window.OPAnalytics?.capture('login_link_sent');
-          setStatus('Email envoyé ! Vérifiez votre boîte de réception.', 'success');
-          rateLimitDelay = 60000;
+          setStatus("E-mail envoyé. Ouvrez le lien qu'il contient, puis cliquez sur « Me connecter ».", 'success');
+          rateLimitDelay = 30000;
+        } else {
+          const reason = { inconnu: 'compte_inconnu', plafond: 'trop_de_tentatives' }[issue] || 'erreur_technique';
+          window.OPAnalytics?.capture('login_link_failed', { reason });
+          if (issue === 'inconnu') {
+            setStatus("Aucun compte ne porte cette adresse. Vérifiez-la, ou demandez une invitation à l'administrateur de votre structure.", 'error');
+          } else if (issue === 'plafond') {
+            setStatus("Trop de liens demandés pour aujourd'hui. Utilisez le dernier reçu, ou réessayez demain.", 'error');
+          } else if (issue === 'invalide') {
+            setStatus('Veuillez saisir un email valide.', 'error');
+          } else {
+            setStatus("Le lien n'a pas pu partir. Réessayez dans quelques minutes.", 'error');
+          }
         }
       } catch (e) {
         console.error(e);
@@ -276,6 +266,41 @@
       redirection = true;
       window.location.replace(await destinationApresConnexion(_session.user));
     });
+
+    /* Lien reçu par e-mail : ?token_hash=…&type=…. On montre le bouton, et
+       seul le clic échange le jeton contre une session (verifyOtp). */
+    (function handleEmailLink(){
+      const params = new URLSearchParams(window.location.search);
+      const jeton = params.get('token_hash');
+      const type = params.get('type');
+      if (!jeton || !['invite', 'magiclink'].includes(type)) return;
+      const confirmBox = document.getElementById('link-confirm');
+      const confirmBtn = document.getElementById('confirm-btn');
+      emailForm.hidden = true;
+      confirmBox.hidden = false;
+      confirmBtn.addEventListener('click', async () => {
+        confirmBtn.disabled = true;
+        confirmBtn.classList.add('is-loading');
+        setStatus('Ouverture de votre session…');
+        let error = null;
+        try {
+          ({ error } = await auth.getClient().auth.verifyOtp({ token_hash: jeton, type }));
+        } catch (e) { error = e; }
+        // Le jeton a servi ou ne servira plus : il quitte l'adresse.
+        history.replaceState(null, '', window.location.pathname);
+        if (!error) {
+          window.OPAnalytics?.capture('login_link_confirmed');
+          return; // onAuthStateChange emmène la personne à sa carte
+        }
+        console.error('verifyOtp:', error);
+        window.OPAnalytics?.capture('login_link_failed', { reason: 'lien_perime' });
+        confirmBox.hidden = true;
+        emailForm.hidden = false;
+        confirmBtn.classList.remove('is-loading');
+        setStatus('Ce lien a déjà servi ou a expiré. Saisissez votre adresse pour en recevoir un nouveau.', 'error');
+        emailInput?.focus();
+      });
+    })();
 
     (function handleHashError(){
       try {

@@ -345,27 +345,6 @@
     },
 
     /**
-     * Connexion via Magic Link (email)
-     */
-    signInWithMagicLink: async function(email, redirectTo) {
-      try {
-        if (!email || typeof email !== 'string') {
-          throw new Error('Email invalide');
-        }
-        return await client.auth.signInWithOtp({
-          email,
-          options: { 
-            emailRedirectTo: redirectTo || (win.location.origin + '/login/'),
-            shouldCreateUser: false
-          }
-        });
-      } catch (e) {
-        console.debug('[Auth] signInWithMagicLink error:', e);
-        return { error: e };
-      }
-    },
-
-    /**
      * Déconnexion
      */
     signOut: async function() {

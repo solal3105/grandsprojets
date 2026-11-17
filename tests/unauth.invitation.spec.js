@@ -1,6 +1,6 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
-import { inviter, composerMessage, adresseDeRetour, villesDuProfil, RefusInvitation } from '../supabase/functions/invite-user/inviter.mjs';
+import { inviter, composerMessage, adresseDeRetour, villesDuProfil, lienDeConnexion, RefusInvitation } from '../supabase/functions/invite-user/inviter.mjs';
 
 /**
  * Invitation d'un utilisateur depuis la console (fonction Supabase invite-user).
@@ -28,15 +28,15 @@ function annuaireFactice(comptes = {}, pannes = {}) {
   const profils = {};
   const annuaire = {
     async trouverCompte(email) { gestes.push(['trouver', email]); return comptes[email] || null; },
-    async lienInvitation(email, retour) {
-      gestes.push(['lienInvitation', email, retour]);
+    async lienInvitation(email) {
+      gestes.push(['lienInvitation', email]);
       if (pannes.lienInvitation) throw new Error(pannes.lienInvitation);
-      return { id: 'nouveau', lien: 'https://auth.exemple/verify?token=t1' };
+      return { id: 'nouveau', jeton: 'h1', type: 'invite' };
     },
-    async lienConnexion(email, retour, compte) {
-      gestes.push(['lienConnexion', email, retour, compte.confirme]);
+    async lienConnexion(email, compte) {
+      gestes.push(['lienConnexion', email, compte.confirme]);
       if (pannes.lienConnexion) throw new Error(pannes.lienConnexion);
-      return { lien: 'https://auth.exemple/verify?token=t2' };
+      return { jeton: 'h2', type: compte.confirme ? 'magiclink' : 'invite' };
     },
     async enregistrerProfil(id, profil) {
       gestes.push(['profil', id, profil]);
@@ -69,12 +69,12 @@ test.describe('0.92 - Invitation des utilisateurs', () => {
 
     expect(r).toEqual({ statut: 'invite', email: 'agent@metropole.fr', role: 'admin', envoi: { id: 'resend-1' } });
     expect(profils.nouveau).toEqual({ role: 'admin', ville: ['grenoble'] });
-    expect(gestes).toContainEqual(['lienInvitation', 'agent@metropole.fr', 'https://openprojets.com/login/']);
+    expect(gestes).toContainEqual(['lienInvitation', 'agent@metropole.fr']);
     expect(envois).toHaveLength(1);
     expect(envois[0].a).toBe('agent@metropole.fr');
     expect(envois[0].objet).toBe('Invitation à rejoindre Grenoble Alpes Métropole sur Open Projets');
-    expect(envois[0].texte).toContain('https://auth.exemple/verify?token=t1');
-    expect(envois[0].html).toContain('href="https://auth.exemple/verify?token=t1"');
+    expect(envois[0].texte).toContain('https://openprojets.com/login/?token_hash=h1&type=invite');
+    expect(envois[0].html).toContain('href="https://openprojets.com/login/?token_hash=h1&amp;type=invite"');
     expect(envois[0].texte).toContain('accès administrateur');
   });
 
@@ -88,7 +88,7 @@ test.describe('0.92 - Invitation des utilisateurs', () => {
     expect(r.role).toBe('invited');
     expect(r.roleDemande).toBe('admin');
     expect(gestes.find((g) => g[0] === 'lienInvitation')).toBeUndefined();
-    expect(gestes).toContainEqual(['lienConnexion', 'agent@metropole.fr', 'https://openprojets.com/login/', false]);
+    expect(gestes).toContainEqual(['lienConnexion', 'agent@metropole.fr', false]);
     expect(gestes.find((g) => g[0] === 'profil')).toBeUndefined();
     expect(envois[0].objet).toBe('Votre accès à Grenoble Alpes Métropole sur Open Projets');
     expect(envois[0].texte).toContain('accès contributeur');
@@ -190,6 +190,8 @@ test.describe('0.92 - Invitation des utilisateurs', () => {
     expect(m.texte + m.html + m.objet).not.toMatch(/[\u2013\u2014\u2015]/);
     expect(m.html).toContain('A &amp; B');
     expect(m.html).toContain('href="https://x/?a=1&amp;b=&quot;2&quot;"');
+    // Le lien d'un message ne va jamais chez Supabase : il mène à notre page de connexion
+    expect(lienDeConnexion('https://openprojets.com/login/', { jeton: 'h', type: 'invite' })).toBe('https://openprojets.com/login/?token_hash=h&type=invite');
     expect(villesDuProfil('{grenoble,lyon}')).toEqual(['grenoble', 'lyon']);
     expect(villesDuProfil(['lyon'])).toEqual(['lyon']);
     expect(villesDuProfil(null)).toEqual([]);
