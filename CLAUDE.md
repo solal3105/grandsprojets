@@ -88,6 +88,9 @@ La carte publique utilise un **système de modules enregistrables** piloté par 
 - **Jamais** de couleur hexadécimale ou `rgba()` inline dans `style=` - si une couleur manque dans le config, l'y ajouter
 - La `box-shadow` de référence pour les cards est dans le config ou une classe utilitaire - ne pas la copier en inline
 
+**Flux produits (ChatGPT)**
+- `/flux-produits.jsonl` et `/flux-produits.csv` sont écrits au build par `scripts/flux-produits.mjs` depuis `src/v2/data/flux-produits.mjs` : textes de `modules.js`, prix plancher de la grille (`tarification.mjs`, `tarification-chantiers.mjs`), schéma « Product feed » d'OpenAI. Un module ou un prix qui change suit au prochain build, rien ne se recopie à la main (test `unauth.flux-produits.spec.js`)
+
 **Supabase**
 - Toute requête Supabase passe par `src/lib/supabase.js` (instance unique) - ne jamais instancier `createClient` dans une vue
 

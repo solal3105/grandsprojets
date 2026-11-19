@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/prerender.mjs",
-    "build:coverage": "vite build --sourcemap && node scripts/prerender.mjs",
+    "build": "vite build && node scripts/flux-produits.mjs && node scripts/prerender.mjs",
+    "build:coverage": "vite build --sourcemap && node scripts/flux-produits.mjs && node scripts/prerender.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

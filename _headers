@@ -32,6 +32,15 @@
 /img/cover/*
   Cache-Control: public, max-age=2592000
 
+# Le flux produits lu par ChatGPT : relu à chaque passage de la plateforme
+# d'OpenAI, il suit le dernier déploiement (cache d'une heure au plus)
+/flux-produits.jsonl
+  Content-Type: application/jsonl; charset=utf-8
+  Cache-Control: public, max-age=3600
+/flux-produits.csv
+  Content-Type: text/csv; charset=utf-8
+  Cache-Control: public, max-age=3600
+
 # Pages du site hors des moteurs : le document d'estimation (personnel), les
 # guides imprimables et la page des clients Hélios. Le routeur pose aussi la
 # balise robots, mais l'en-tête ne dépend pas du JavaScript.
