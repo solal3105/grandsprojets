@@ -14,6 +14,9 @@
 /img/*                        /home/img/:splat                        200
 /audio/*                      /home/audio/:splat                      200
 /ressources/manifest.json     /home/ressources/manifest.json          200
+# Le flux produits lu par ChatGPT (home-src/scripts/flux-produits.mjs)
+/flux-produits.jsonl          /home/flux-produits.jsonl               200
+/flux-produits.csv            /home/flux-produits.csv                 200
 # Les pages prérendues (home-src/scripts/prerender.mjs), une par adresse.
 # Une page absente de cette liste est servie par le fallback SPA en fin de
 # fichier : elle existe, mais les robots n'en lisent pas le contenu.
