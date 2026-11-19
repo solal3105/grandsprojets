@@ -118,4 +118,17 @@ test.describe('0.99 - Le flux produits pour ChatGPT', () => {
     expect(r2.status()).toBe(200);
     expect(await r2.text()).toBe(csv);
   });
+  /* Non-régression du 19/11/2026 : « Disallow: /*.json » écartait aussi le
+   * .jsonl, et un lecteur qui respecte robots.txt ne le lisait pas. Règle de
+   * Google : la règle la plus longue qui correspond l'emporte, Allow à égalité. */
+  test('0.99.7 - robots.txt laisse lire les deux fichiers', () => {
+    const regles = readFileSync('robots.txt', 'utf8').split('\n')
+      .map((l) => l.match(/^(Allow|Disallow):\s*(\S+)/)).filter(Boolean)
+      .map(([, type, motif]) => ({ type, motif, re: new RegExp('^' + motif.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\\\$$/, '$')) }));
+    for (const chemin of ['/flux-produits.jsonl', '/flux-produits.csv']) {
+      const gagnante = regles.filter((r) => r.re.test(chemin))
+        .sort((a, b) => b.motif.length - a.motif.length || (a.type === 'Allow' ? -1 : 1))[0];
+      expect(gagnante?.type ?? 'Allow', chemin).toBe('Allow');
+    }
+  });
 });
