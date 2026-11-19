@@ -5,6 +5,8 @@ Allow: /ville/
 Allow: /cartes/
 Allow: /img/
 Allow: /styles/
+# Le flux produits lu par ChatGPT : sans cette ligne, « /*.json » l'écarte aussi
+Allow: /flux-produits.jsonl
 
 Disallow: /node_modules/
 Disallow: /tmp/
