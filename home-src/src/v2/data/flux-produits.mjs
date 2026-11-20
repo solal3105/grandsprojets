@@ -37,9 +37,9 @@ const PRODUITS_MODULES = [
 export const OPENARRETE = {
   item_id: 'openarrete',
   title: "OpenArrêté, générateur gratuit d'arrêtés de voirie",
-  description: "Créez en ligne vos arrêtés de circulation et actes de voirie, gratuitement et sans compte. Arrêtés de circulation, permissions de voirie et permis de stationnement sont rédigés pour vous, avec leurs visas, leurs considérants, leurs articles et leur signalisation. Téléchargez le dossier complet en PDF, Word et ODT : l'avis à afficher, la version à publier et les courriers d'envoi. Sans compte, sans filigrane, gratuit à vie. Offert par Open Projets Chantiers.",
-  url: 'https://openprojets-chantiers.com/arrete/',
-  image_url: 'https://openprojets-chantiers.com/og-openarrete.png',
+  description: "Créez en ligne vos arrêtés de circulation et actes de voirie, gratuitement et sans compte. Arrêtés de circulation, permissions de voirie et permis de stationnement sont rédigés pour vous, avec leurs visas, leurs considérants, leurs articles et leur signalisation. Téléchargez le dossier complet en PDF, Word et ODT : l'avis à afficher, la version à publier et les courriers d'envoi. Sans compte, sans filigrane, gratuit à vie. Offert par Open Projets Chantiers, l'outil s'ouvre sur https://openprojets-chantiers.com/arrete/.",
+  url: `${SITE}/chantiers`,
+  image_url: `${SITE}/img/og/openarrete.jpg`,
   brand: 'OpenArrêté',
   prixAnnuel: 0,
 }
@@ -85,8 +85,13 @@ const ligne = ({ item_id, title, description, url, image_url, brand, prixAnnuel 
 })
 
 /* Les lignes du flux. `modules` : le tableau de data/modules.js, passé par
- * l'appelant (il importe des icônes Vue que seul Vite sait résoudre). */
-export function construireFlux(modules, { chantiersUrl }) {
+ * l'appelant (il importe des icônes Vue que seul Vite sait résoudre).
+ *
+ * Toutes les adresses (page et image) restent sur openprojets.com : le Hub
+ * de ChatGPT refuse une ligne dont le domaine n'est pas celui vérifié pour le
+ * profil (20/11/2026). Chantiers et OpenArrêté renvoient donc à la page
+ * /chantiers, qui mène à leur site par ses boutons. */
+export function construireFlux(modules) {
   const parCle = Object.fromEntries(modules.map((m) => [m.key, m]))
   const lignes = PRODUITS_MODULES.map(({ cle, titre }) => {
     const m = parCle[cle]
@@ -96,7 +101,7 @@ export function construireFlux(modules, { chantiersUrl }) {
       item_id: `module-${cle}`,
       title: titre,
       description: `${m.problem} ${m.produces} ${phrasePrix(cle, prixAnnuel)}`,
-      url: cle === 'chantiers' ? chantiersUrl : `${SITE}/${cle}`,
+      url: `${SITE}/${cle}`,
       image_url: `${SITE}/img/og/${cle}.jpg`,
       brand: MARQUE,
       prixAnnuel,

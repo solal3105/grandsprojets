@@ -131,4 +131,12 @@ test.describe('0.99 - Le flux produits pour ChatGPT', () => {
       expect(gagnante?.type ?? 'Allow', chemin).toBe('Allow');
     }
   });
+  /* Non-régression du 20/11/2026 : le Hub de ChatGPT refuse une ligne dont
+   * l'adresse n'est pas sur le domaine vérifié du profil (openprojets.com).
+   * Chantiers et OpenArrêté pointaient sur openprojets-chantiers.com. */
+  test('0.99.8 - pages et images restent sur openprojets.com', () => {
+    for (const p of produits) {
+      for (const adresse of [p.url, p.image_url, p.seller_url]) expect(new URL(adresse).hostname, `${p.item_id} ${adresse}`).toBe('openprojets.com');
+    }
+  });
 });

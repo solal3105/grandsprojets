@@ -21,9 +21,9 @@ const HOME_DIR = resolve(ROOT, '../home')
 
 const vite = await createServer({ root: ROOT, configFile: join(ROOT, 'vite.config.js'), server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
 try {
-  const { modules, CHANTIERS_URL } = await vite.ssrLoadModule('/src/v2/data/modules.js')
+  const { modules } = await vite.ssrLoadModule('/src/v2/data/modules.js')
   const { construireFlux, versJsonl, versCsv } = await vite.ssrLoadModule('/src/v2/data/flux-produits.mjs')
-  const lignes = construireFlux(modules, { chantiersUrl: CHANTIERS_URL })
+  const lignes = construireFlux(modules)
   await writeFile(join(HOME_DIR, 'flux-produits.jsonl'), versJsonl(lignes))
   await writeFile(join(HOME_DIR, 'flux-produits.csv'), versCsv(lignes))
   console.log(`[flux-produits] ${lignes.length} produit(s) écrits dans /home`)
