@@ -161,9 +161,9 @@
     const row = _getModuleRow();
     win.NavPanel.registerModule('participer', {
       label: row.label || 'Signalement',
-      // Les signalements se superposent aux projets affichés : c'est le
-      // positionnement du module (signalement contextualisé au territoire)
-      clearLayers: false,
+      // L'onglet n'affiche que les signalements : les projets et les travaux
+      // sont retirés de la carte à l'entrée, comme dans l'onglet Travaux
+      clearLayers: true,
       renderL2: renderL2,
       renderL3: renderL3,
       onBack: onBack,
