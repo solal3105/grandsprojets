@@ -18,4 +18,4 @@ Le Syndicat mixte du lac d'Annecy (SILA) gère la voie verte et conduit les trav
 - [SILA, fiche travaux de la deuxième tranche (2025-2026)](https://www.sila.fr/wp-content/uploads/2025/09/Fiche-travaux-delestage-VV-2025.pdf)
 - [AF3V, élargissement de la voie verte du lac d'Annecy](https://www.af3v.org/haute-savoie-travaux-delargissement-de-la-voie-verte-du-lac-dannecy/)
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : perspective du projet, SILA (Syndicat mixte du lac d’Annecy).*

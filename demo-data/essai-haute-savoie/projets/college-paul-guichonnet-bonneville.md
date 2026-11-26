@@ -11,8 +11,8 @@ L'ouverture est prévue en septembre 2028. L'opération coûte 36 millions d'eur
 ## Sources
 
 - [Département de la Haute-Savoie, fiche du projet, juin 2025](https://hautesavoie.fr/wp-content/uploads/2025/06/Fiche_A4_Bonneville_JPO-BD.pdf)
-- [Département de la Haute-Savoie, budget 2026 voté le 8 décembre 2025](https://hautesavoie.fr/wp-content/uploads/2025/12/CP_seance-publique_081225.pdf)
+- [Département de la Haute-Savoie, budget 2026 voté le 8 décembre 2025](https://web.archive.org/web/20260209025920/https://hautesavoie.fr/wp-content/uploads/2025/12/CP_seance-publique_081225.pdf)
 
 *Le périmètre affiché est celui de l'actuel site de l'INSPE (BD TOPO de l'IGN).*
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : perspective du projet, Département de la Haute-Savoie.*

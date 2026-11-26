@@ -11,8 +11,8 @@ Quatre nouveaux tramways, de 200 places dont 160 assises, circulent depuis 2022 
 ## Sources
 
 - [Département de la Haute-Savoie, dossier de presse de l'inauguration, juin 2026](https://hautesavoie.fr/wp-content/uploads/2026/06/DP_inauguration-TMB_270626.pdf)
-- [Département de la Haute-Savoie, reprise de l'exploitation, 18 mai 2026](https://hautesavoie.fr/wp-content/uploads/2026/05/CP_reprise-TMB_180526.pdf)
+- [Département de la Haute-Savoie, reprise de l'exploitation, 18 mai 2026](https://web.archive.org/web/20260607143143/https://hautesavoie.fr/wp-content/uploads/2026/05/CP_reprise-TMB_180526.pdf)
 
 *Le tracé est celui de la ligne dans la BD TOPO de l'IGN.*
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : photographie du Département de la Haute-Savoie.*

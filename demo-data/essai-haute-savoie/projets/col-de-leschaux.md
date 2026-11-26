@@ -10,6 +10,6 @@ Commencés en septembre 2025 sous la maîtrise d'ouvrage de la commune de Lescha
 
 ## Sources
 
-- [Département de la Haute-Savoie, inauguration du 16 juillet 2026](https://hautesavoie.fr/wp-content/uploads/2026/07/CP_inauguration-col-de-leschaux_160726-1.pdf)
+- [Département de la Haute-Savoie, inauguration du 16 juillet 2026](https://hautesavoie.fr/col-de-leschaux-les-travaux-damenagement-ont-ete-inaugures/)
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : photographie du Département de la Haute-Savoie.*

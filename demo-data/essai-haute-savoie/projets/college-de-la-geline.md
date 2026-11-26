@@ -12,4 +12,4 @@ Le collège a coûté 36 millions d'euros, financés à 100 % par le Départemen
 
 - [Département de la Haute-Savoie, fiche du collège, juin 2025](https://hautesavoie.fr/wp-content/uploads/2025/06/fiche-A4-Vetraz-Monthoux-HD.pdf)
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : perspective du projet, Département de la Haute-Savoie.*

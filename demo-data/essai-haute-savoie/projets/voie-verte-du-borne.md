@@ -10,7 +10,7 @@ Le chantier a été visité le 27 août 2025 ; la route a été coupée pendant 
 
 ## Sources
 
-- [Département de la Haute-Savoie, visite de chantier du 27 août 2025](https://hautesavoie.fr/wp-content/uploads/2025/08/CP_visite-chantier-rd12-bonneville-st-pierre_270825.pdf)
+- [Département de la Haute-Savoie, visite de chantier du 27 août 2025](https://web.archive.org/web/20250906230321/https://hautesavoie.fr/wp-content/uploads/2025/08/CP_visite-chantier-rd12-bonneville-st-pierre_270825.pdf)
 
 *Le tracé suit le cours du Borne entre l'avenue des Digues et sa confluence avec l'Arve (BD TOPO de l'IGN).*
 

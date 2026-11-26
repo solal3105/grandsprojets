@@ -22,4 +22,4 @@ Cette dernière phase coûte 1,9 million d'euros, financés à 100 % par le Dép
 
 *Le communiqué ne situe pas le chantier au mètre près : le tracé montre la RD 909 A le long du lac dans la commune de Talloires-Montmin.*
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : photographie du Département de la Haute-Savoie.*

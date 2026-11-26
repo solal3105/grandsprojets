@@ -10,6 +10,6 @@ Le chantier a été lancé en janvier 2023 et l'ouvrage inauguré le 4 mai 2024.
 
 ## Sources
 
-- [Département de la Haute-Savoie, inauguration du 4 mai 2024](https://hautesavoie.fr/wp-content/uploads/2024/05/CP_inauguration_passerelle_fier_seyssel_040524.pdf)
+- [Département de la Haute-Savoie, inauguration du 4 mai 2024](https://web.archive.org/web/20240530063439/https://hautesavoie.fr/wp-content/uploads/2024/05/CP_inauguration_passerelle_fier_seyssel_040524.pdf)
 
 *Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*

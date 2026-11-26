@@ -12,4 +12,4 @@ La livraison est annoncée courant 2026. Les travaux ont coûté 6,6 millions d'
 
 - [Département de la Haute-Savoie, fiche du collège, mai 2026](https://hautesavoie.fr/wp-content/uploads/2026/05/Fiche_A4_CollegeJaquesPrevert_2026.pdf)
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : perspective du projet, Département de la Haute-Savoie.*

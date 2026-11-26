@@ -12,8 +12,8 @@ Pendant le chantier, le pont de l'Oratoire est fermé dans les deux sens, ainsi 
 
 ## Sources
 
-- [Département de la Haute-Savoie, communiqué du 4 novembre 2024](https://hautesavoie.fr/wp-content/uploads/2024/11/CP_visite-chantier_rd-1508_sillingy_041124.pdf)
+- [Département de la Haute-Savoie, communiqué du 4 novembre 2024](https://web.archive.org/web/20241203235955/https://hautesavoie.fr/wp-content/uploads/2024/11/CP_visite-chantier_rd-1508_sillingy_041124.pdf)
 
 *Le tracé montre la RD 1508 entre le giratoire de la RD 17 et l'échangeur de Gillon (BD TOPO de l'IGN).*
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : Département de la Haute-Savoie.*

@@ -10,7 +10,7 @@ La convention avec le Département a été signée le 18 décembre 2025. Les tra
 
 ## Sources
 
-- [Département de la Haute-Savoie, convention du 18 décembre 2025](https://hautesavoie.fr/wp-content/uploads/2025/12/CP_convention-voie-verte-Bonne_181225.pdf)
+- [Département de la Haute-Savoie, convention du 18 décembre 2025](https://web.archive.org/web/20260209030852/https://hautesavoie.fr/wp-content/uploads/2025/12/CP_convention-voie-verte-Bonne_181225.pdf)
 
 *Le tracé montre l'avenue du Fer à Cheval ; le communiqué ne donne pas la longueur exacte de la voie verte.*
 

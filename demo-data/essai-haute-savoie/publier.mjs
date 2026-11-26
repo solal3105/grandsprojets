@@ -64,4 +64,7 @@ for (const table of ['category_icons', 'contribution_uploads', 'city_travaux', '
   await appel('POST', table, donnees[table]);
   console.log('écrit', table, donnees[table].length);
 }
+// Un déclencheur de la base remet « approved » à false à l'insertion des chantiers : on les valide ensuite.
+await appel('PATCH', `city_travaux?ville=eq.${VILLE}`, { approved: true });
+console.log('chantiers validés');
 console.log('terminé');

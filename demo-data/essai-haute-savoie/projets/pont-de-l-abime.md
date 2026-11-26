@@ -15,6 +15,6 @@ La réouverture est prévue à l'été 2027. D'ici là, le pont reste fermé aux
 ## Sources
 
 - [Département de la Haute-Savoie, « Pont de l'Abîme : un chantier exceptionnel », juin 2026](https://hautesavoie.fr/pont-de-labime-un-chantier-exceptionnel-pour-preserver-un-patrimoine-emblematique/)
-- [Département de la Haute-Savoie, communiqué de juillet 2024](https://hautesavoie.fr/wp-content/uploads/2024/07/CP_pont-abime_rd-31-Cusy_0724.pdf)
+- [Département de la Haute-Savoie, communiqué de juillet 2024](https://web.archive.org/web/20240902222446/https://hautesavoie.fr/wp-content/uploads/2024/07/CP_pont-abime_rd-31-Cusy_0724.pdf)
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : photographie du Département de la Haute-Savoie.*

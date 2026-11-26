@@ -14,6 +14,6 @@ Le chantier a commencé en mai 2026 et s'est achevé fin juillet. Il est financ�
 
 ## Sources
 
-- [Département de la Haute-Savoie, communiqué du 7 juillet 2026](https://hautesavoie.fr/wp-content/uploads/2026/07/CP_visite-chantier-rd-46_070726.pdf)
+- [Département de la Haute-Savoie, communiqué du 7 juillet 2026](https://web.archive.org/web/20260712205433/https://hautesavoie.fr/wp-content/uploads/2026/07/CP_visite-chantier-rd-46_070726.pdf)
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : photographie du Département de la Haute-Savoie.*

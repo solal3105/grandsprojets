@@ -15,6 +15,6 @@ Le dossier de presse de l'inauguration chiffre l'opération à 57,4 millions d'e
 ## Sources
 
 - [Département de la Haute-Savoie, dossier de presse de l'inauguration, août 2026](https://hautesavoie.fr/wp-content/uploads/2026/08/DP_inauguration-college-gaspard-monge_260826.pdf)
-- [Département de la Haute-Savoie, visite de chantier du 27 novembre 2025](https://hautesavoie.fr/wp-content/uploads/2025/11/CP_visite-chantier-et-classe-temoin-college-saint-jeoire_271125.pdf)
+- [Département de la Haute-Savoie, visite de chantier du 27 novembre 2025](https://web.archive.org/web/20251208012001/https://hautesavoie.fr/wp-content/uploads/2025/11/CP_visite-chantier-et-classe-temoin-college-saint-jeoire_271125.pdf)
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : photographie du Département de la Haute-Savoie.*

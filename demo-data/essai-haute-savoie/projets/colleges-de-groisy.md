@@ -17,4 +17,4 @@ L'opération coûte 89,3 millions d'euros TTC, financés par le Département ave
 - [Département de la Haute-Savoie, fiche du projet, février 2026](https://hautesavoie.fr/wp-content/uploads/2026/02/20260216_colleges_Groisy.pdf)
 - [Mesinfos, « Pourquoi le Département investit 90 millions d'euros à Groisy »](https://mesinfos.fr/74570-groisy/pourquoi-le-departement-de-la-haute-savoie-investit-90-millions-d-euros-a-groisy-240800.html)
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : perspective du projet, Département de la Haute-Savoie.*

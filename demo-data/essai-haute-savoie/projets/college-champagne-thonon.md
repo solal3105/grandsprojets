@@ -16,4 +16,4 @@ L'opération coûte 44,5 millions d'euros, financés par le Département. La ma�
 
 - [Département de la Haute-Savoie, plaquette de la première pierre, mai 2026](https://hautesavoie.fr/wp-content/uploads/2026/05/Plaquette-1e-pierre-college-Champagne-Thonon.pdf)
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : perspective du projet, Département de la Haute-Savoie.*

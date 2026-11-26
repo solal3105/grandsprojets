@@ -14,7 +14,7 @@ Lancés en avril 2025 sous la maîtrise d'ouvrage du Département, les travaux o
 
 ## Sources
 
-- [Département de la Haute-Savoie, inauguration du 14 décembre 2025](https://hautesavoie.fr/wp-content/uploads/2025/12/CP_inauguration-tunnel-mont-sion_141225.pdf)
-- [Département de la Haute-Savoie, pose de la première pierre, 14 mai 2025](https://hautesavoie.fr/wp-content/uploads/2025/05/CP_1ere-pierre-RD-1201-_140525.pdf)
+- [Département de la Haute-Savoie, inauguration du 14 décembre 2025](https://web.archive.org/web/20260209014631/https://hautesavoie.fr/wp-content/uploads/2025/12/CP_inauguration-tunnel-mont-sion_141225.pdf)
+- [Département de la Haute-Savoie, pose de la première pierre, 14 mai 2025](https://web.archive.org/web/20250616220729/https://hautesavoie.fr/wp-content/uploads/2025/05/CP_1ere-pierre-RD-1201-_140525.pdf)
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : photographie du Département de la Haute-Savoie.*

@@ -14,8 +14,8 @@ Les travaux ont commencé fin novembre 2024 et le tronçon a été inauguré le 
 
 ## Sources
 
-- [Département de la Haute-Savoie, inauguration du 31 mai 2025](https://hautesavoie.fr/wp-content/uploads/2025/05/CP_inauguration-veloroute-et-totem_310525.pdf)
-- [Département de la Haute-Savoie, visite de chantier de novembre 2024](https://hautesavoie.fr/wp-content/uploads/2024/12/CP_visite-chantier-velo-route-leman_301124.pdf)
+- [Département de la Haute-Savoie, inauguration du 31 mai 2025](https://web.archive.org/web/20250616215605/https://hautesavoie.fr/wp-content/uploads/2025/05/CP_inauguration-veloroute-et-totem_310525.pdf)
+- [Département de la Haute-Savoie, visite de chantier de novembre 2024](https://web.archive.org/web/20250124131044/https://hautesavoie.fr/wp-content/uploads/2024/12/CP_visite-chantier-velo-route-leman_301124.pdf)
 - [Avis de marché, passage inférieur sous la RD 339 à Passy](https://www.marchesonline.com/appels-offres/avis/veloroute-leman-mont-blanc-travaux-passage-inferi/ao-9630774-1)
 
 *Le tracé montre l'avenue des Paccots, que longe la voie verte.*

@@ -10,8 +10,8 @@ Le projet a été engagé en septembre 2025 et la livraison est prévue en déce
 
 ## Sources
 
-- [Département de la Haute-Savoie, visite de chantier du 28 juillet 2026](https://hautesavoie.fr/wp-content/uploads/2026/07/CP_visite-chantier-cerd-filliere_280726.pdf)
+- [Département de la Haute-Savoie, visite de chantier du 28 juillet 2026](https://hautesavoie.fr/visite-de-chantier-du-centre-dexploitation-des-routes-departementales-de-filliere/)
 
 *Le point marque la zone artisanale de Mercier ; le communiqué ne donne pas l'adresse exacte de la parcelle.*
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : photographie du Département de la Haute-Savoie.*

@@ -14,7 +14,7 @@ Le dépliant du Département estime le coût des travaux à 7 millions d'euros, 
 
 ## Sources
 
-- [Département de la Haute-Savoie, dépliant « Les ponts de la Caille », juin 2025](https://hautesavoie.fr/wp-content/uploads/2025/06/DP_pont-de-la-caille_250625.pdf)
+- [Département de la Haute-Savoie, dépliant « Les ponts de la Caille », juin 2025](https://web.archive.org/web/20251028015458/https://hautesavoie.fr/wp-content/uploads/2025/06/DP_pont-de-la-caille_250625.pdf)
 - [Département de la Haute-Savoie, fiche « Ouvrages d'art », juin 2025](https://hautesavoie.fr/wp-content/uploads/2025/06/Fiche-A4-ouvrages-dart-BD.pdf)
 
-*Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
+*Illustration : photographie du Département de la Haute-Savoie.*

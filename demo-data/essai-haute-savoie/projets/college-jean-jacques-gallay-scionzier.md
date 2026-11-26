@@ -10,6 +10,6 @@ La livraison est annoncée pour fin 2026 ou début 2027. L'opération coûte 21,
 
 ## Sources
 
-- [Département de la Haute-Savoie, visite des collèges avec le recteur, 24 novembre 2025](https://hautesavoie.fr/wp-content/uploads/2025/11/CP_visite-colleges-recteur_241125.pdf)
+- [Département de la Haute-Savoie, visite des collèges avec le recteur, 24 novembre 2025](https://web.archive.org/web/20251208010508/https://hautesavoie.fr/wp-content/uploads/2025/11/CP_visite-colleges-recteur_241125.pdf)
 
 *Illustration : photographie aérienne de l’IGN (BD ORTHO), avec le tracé du projet.*
