@@ -1,6 +1,6 @@
 // Dépose les fichiers de l'espace de démonstration essai-haute-savoie dans le stockage.
 // Lancement depuis la racine du dépôt : npx netlify dev:exec node demo-data/essai-haute-savoie/publier.mjs
-// Les lignes de la base sont écrites à part ; ce script ne fait que les fichiers.
+// Il dépose les fichiers, puis écrit les lignes de donnees.json (l'espace est d'abord vidé de ses anciennes lignes).
 import { readdir, readFile, access } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,4 +38,30 @@ for (const f of await readdir(join(ICI, 'travaux'))) {
 }
 await deposer('uploads', `layer/${VILLE}/departement.geojson`, join(ICI, 'couches', 'departement.geojson'));
 if (await existe(join(ICI, 'logo.png'))) await deposer('uploads', `branding/${VILLE}/logo.png`, join(ICI, 'logo.png'));
+
+// Lignes de la base, par l'API de données avec la clé de service.
+const REST = 'https://wqqsuybmyqemhojsamgq.supabase.co/rest/v1';
+const entetes = { Authorization: `Bearer ${key}`, apikey: key, 'Content-Type': 'application/json', Prefer: 'return=minimal' };
+async function appel(methode, chemin, corps, prefer) {
+  const res = await fetch(`${REST}/${chemin}`, {
+    method: methode,
+    headers: prefer ? { ...entetes, Prefer: `${prefer},return=minimal` } : entetes,
+    body: corps ? JSON.stringify(corps) : undefined,
+  });
+  if (!res.ok) throw new Error(`${methode} ${chemin} : ${res.status} ${await res.text()}`);
+}
+const donnees = JSON.parse(await readFile(join(ICI, 'donnees.json'), 'utf8'));
+if (await existe(join(ICI, 'logo.png'))) {
+  donnees.city_branding[0].logo_url = `${BASE}/public/uploads/branding/${VILLE}/logo.png`;
+}
+await appel('POST', 'city_branding?on_conflict=ville', donnees.city_branding, 'resolution=merge-duplicates');
+await appel('POST', 'city_modules?on_conflict=ville,module_key', donnees.city_modules, 'resolution=merge-duplicates');
+await appel('POST', 'participer_settings?on_conflict=ville', donnees.participer_settings, 'resolution=ignore-duplicates');
+for (const table of ['participer_signalements', 'participer_categories', 'participer_statuts', 'city_travaux', 'contribution_uploads', 'category_icons']) {
+  await appel('DELETE', `${table}?ville=eq.${VILLE}`);
+}
+for (const table of ['category_icons', 'contribution_uploads', 'city_travaux', 'participer_statuts', 'participer_categories', 'participer_signalements']) {
+  await appel('POST', table, donnees[table]);
+  console.log('écrit', table, donnees[table].length);
+}
 console.log('terminé');
